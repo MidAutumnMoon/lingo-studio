@@ -396,6 +396,7 @@ vi.mock('../Tabs/components/Topics', () => ({
     dataEnabled,
     historyRecordsActive,
     manageAssistantsActive,
+    onManageAssistants,
     onNewTopic,
     onOpenHistoryRecords,
     revealRequest,
@@ -407,6 +408,7 @@ vi.mock('../Tabs/components/Topics', () => ({
     dataEnabled?: boolean
     historyRecordsActive?: boolean
     manageAssistantsActive?: boolean
+    onManageAssistants?: () => void | Promise<void>
     onNewTopic?: (payload?: { assistantId?: string | null }) => void | Promise<void>
     onOpenHistoryRecords?: () => void
     revealRequest?: unknown
@@ -423,6 +425,12 @@ vi.mock('../Tabs/components/Topics', () => ({
         data-manage-assistants-active={String(Boolean(manageAssistantsActive))}
         data-reveal-request={JSON.stringify(revealRequest ?? null)}
         data-testid="topic-pane">
+        {onManageAssistants && (
+          // The list's options menu is the way into the assistant library.
+          <button type="button" onClick={() => void onManageAssistants()}>
+            Manage assistants
+          </button>
+        )}
         {onOpenHistoryRecords && (
           <button type="button" onClick={onOpenHistoryRecords}>
             Open history records
@@ -517,7 +525,6 @@ vi.mock('@renderer/components/history/HistoryRecordsView', () => ({
 vi.mock('@renderer/services/EventService', () => ({
   EVENT_NAMES: {
     FOCUS_CHAT_COMPOSER: 'FOCUS_CHAT_COMPOSER',
-    OPEN_ASSISTANTS_LIBRARY: 'OPEN_ASSISTANTS_LIBRARY',
     GLOBAL_SEARCH_SELECT_TOPIC: 'GLOBAL_SEARCH_SELECT_TOPIC',
     GLOBAL_SEARCH_SELECT_TOPIC_MESSAGE: 'GLOBAL_SEARCH_SELECT_TOPIC_MESSAGE'
   },
@@ -741,12 +748,7 @@ describe('HomePage', () => {
     expect(screen.getByTestId('topic-pane')).toBeInTheDocument()
     // Detached windows have no history records surface and no assistant library.
     expect(screen.queryByRole('button', { name: 'Open history records' })).not.toBeInTheDocument()
-
-    act(() => {
-      eventHandler(EVENT_NAMES.OPEN_ASSISTANTS_LIBRARY)?.({ tabId: 'chat-tab' })
-    })
-
-    expect(screen.queryByTestId('resource-catalog-assistant')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Manage assistants' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Toggle sidebar' }))
     expect(screen.getByTestId('pane-open')).toHaveTextContent('true')
@@ -1002,21 +1004,12 @@ describe('HomePage', () => {
     expect(screen.queryByTestId('active-topic')?.textContent).not.toBe('topic-created')
   })
 
-  it('opens the assistant library in the tab that asked for it and ignores other tabs', () => {
+  it('opens the assistant library from the conversation list options', () => {
     render(<HomePage />)
-
-    const libraryHandler = eventHandler(EVENT_NAMES.OPEN_ASSISTANTS_LIBRARY)
-    expect(libraryHandler).toBeDefined()
-
-    act(() => {
-      libraryHandler?.({ tabId: 'other-chat-tab' })
-    })
 
     expect(screen.queryByTestId('resource-catalog-assistant')).not.toBeInTheDocument()
 
-    act(() => {
-      libraryHandler?.({ tabId: 'chat-tab' })
-    })
+    fireEvent.click(screen.getByRole('button', { name: 'Manage assistants' }))
 
     expect(screen.getByTestId('resource-catalog-assistant')).toBeInTheDocument()
     expect(screen.queryByTestId('active-topic')).not.toBeInTheDocument()
@@ -1029,9 +1022,7 @@ describe('HomePage', () => {
     render(<HomePage />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Open history records' }))
-    act(() => {
-      eventHandler(EVENT_NAMES.OPEN_ASSISTANTS_LIBRARY)?.({ tabId: 'chat-tab' })
-    })
+    fireEvent.click(screen.getByRole('button', { name: 'Manage assistants' }))
 
     expect(screen.queryByTestId('history-records-view')).not.toBeInTheDocument()
     expect(screen.getByTestId('resource-catalog-assistant')).toBeInTheDocument()
@@ -1043,9 +1034,7 @@ describe('HomePage', () => {
 
     render(<HomePage />)
 
-    act(() => {
-      eventHandler(EVENT_NAMES.OPEN_ASSISTANTS_LIBRARY)?.({ tabId: 'chat-tab' })
-    })
+    fireEvent.click(screen.getByRole('button', { name: 'Manage assistants' }))
 
     const shell = screen.getByTestId('home-chat-shell')
     expect(within(shell).getByTestId('pane-open')).toHaveTextContent('true')
@@ -1066,9 +1055,7 @@ describe('HomePage', () => {
 
     render(<HomePage />)
 
-    act(() => {
-      eventHandler(EVENT_NAMES.OPEN_ASSISTANTS_LIBRARY)?.({ tabId: 'chat-tab' })
-    })
+    fireEvent.click(screen.getByRole('button', { name: 'Manage assistants' }))
     fireEvent.click(screen.getByRole('button', { name: 'Go to chat with assistant 2' }))
 
     await waitFor(() => expect(homeMocks.createTopic).toHaveBeenCalledWith({ assistantId: 'assistant-2' }))
@@ -1101,9 +1088,7 @@ describe('HomePage', () => {
 
     expect(provider).toHaveAttribute('data-present', 'true')
 
-    act(() => {
-      eventHandler(EVENT_NAMES.OPEN_ASSISTANTS_LIBRARY)?.({ tabId: 'chat-tab' })
-    })
+    fireEvent.click(screen.getByRole('button', { name: 'Manage assistants' }))
 
     expect(screen.getByTestId('resource-catalog-assistant')).toBeInTheDocument()
     expect(screen.getByTestId('home-chat-shell')).toBeInTheDocument()

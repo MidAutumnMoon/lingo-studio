@@ -122,6 +122,8 @@ interface Props {
   clearActiveTopic: () => void
   onNewTopic?: (payload?: AddNewTopicPayload) => void | Promise<void>
   onOpenHistoryRecords?: () => void
+  /** Opens the assistant library surface (browse and manage every assistant). */
+  onManageAssistants?: () => void | Promise<void>
   revealRequest?: ResourceListRevealRequest
   setActiveTopic: (topic: Topic) => void
 }
@@ -147,6 +149,7 @@ export function Topics({
   clearActiveTopic,
   onNewTopic,
   onOpenHistoryRecords,
+  onManageAssistants,
   revealRequest,
   setActiveTopic
 }: Props) {
@@ -586,6 +589,8 @@ export function Topics({
               <TopicListOptionsMenu
                 historyRecordsActive={historyRecordsActive}
                 onOpenHistoryRecords={onOpenHistoryRecords}
+                manageAssistantsActive={manageAssistantsActive}
+                onManageAssistants={onManageAssistants}
               />
             }
           />

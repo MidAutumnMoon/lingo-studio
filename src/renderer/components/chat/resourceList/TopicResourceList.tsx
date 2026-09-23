@@ -16,7 +16,13 @@ export function TopicResourceList<T extends ResourceListItemBase>({ children, ..
 
   return (
     <Provider {...props} variant="topic">
-      <Frame data-ui="chat.topic-list" data-testid="resource-list-topic" presentation="left-panel">
+      {/* Fill the pane: the frame carries the pane's right edge, and a content-sized frame would
+          cut that edge off above the last row. */}
+      <Frame
+        className="h-full min-h-0"
+        data-ui="chat.topic-list"
+        data-testid="resource-list-topic"
+        presentation="left-panel">
         {children}
       </Frame>
     </Provider>

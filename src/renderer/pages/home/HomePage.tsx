@@ -209,7 +209,6 @@ const HomePage: FC = () => {
   const openAssistantsLibrary = useCallback(() => {
     openResource('assistant')
   }, [openResource])
-
   useEffect(() => {
     if (!isAssistantListResolved || !lastUsedAssistantId || assistantIdSet.has(lastUsedAssistantId)) return
     setLastUsedAssistantId(null)
@@ -225,18 +224,6 @@ const HomePage: FC = () => {
   // All non-dormant tabs mount at once (Activity keep-alive), so each chat tab runs its
   // own HomePage. `currentTabId` is *this* tab's id.
   const currentTabId = useCurrentTabId()
-
-  // The sidebar owns the assistant list, so opening the library from there arrives as an event
-  // targeted at the tab that asked for it.
-  useEffect(() => {
-    const unsubscribe = EventEmitter.on(EVENT_NAMES.OPEN_ASSISTANTS_LIBRARY, (payload) => {
-      const { tabId } = payload as { tabId?: string }
-      if (tabId && tabId !== currentTabId) return
-      openAssistantsLibrary()
-    })
-
-    return unsubscribe
-  }, [currentTabId, openAssistantsLibrary])
 
   // Label this tab with its assistant emoji + topic name so multiple chat tabs
   // are distinguishable in the tab bar (every tab labels itself — not gated on active).
@@ -489,6 +476,7 @@ const HomePage: FC = () => {
       onOpenHistoryRecords={isWindowFrame ? undefined : openHistoryRecords}
       revealRequest={topicRevealRequest}
       manageAssistantsActive={manageAssistantsActive}
+      onManageAssistants={conversationResourcesEnabled ? openAssistantsLibrary : undefined}
     />
   )
 

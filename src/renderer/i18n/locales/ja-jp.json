@@ -549,7 +549,6 @@
   "apiGateway.title": "API サーバー",
   "assistants.clear.menu_title": "トピックをクリア",
   "assistants.edit.title": "アシスタントを編集",
-  "assistants.explore_more": "もっと見る",
   "assistants.groups.delete": "グループ削除",
   "assistants.groups.deleteConfirm": "このグループを削除してもよろしいですか？",
   "assistants.groups.group_by": "グループで表示",

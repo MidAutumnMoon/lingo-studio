@@ -47,19 +47,16 @@ export interface SidebarSectionAction {
   onClick: () => void
 }
 
-export interface SidebarSectionLink {
-  label: string
-  icon?: ReactNode
-  onClick: () => void
-}
-
+/**
+ * A labelled region of resolved rows below the primary navigation — the sidebar's second list, and
+ * its only scrolling one: it grows with the user's resources, while the pinned navigation above it
+ * stays put. Each group renders all of its rows (no folding); the region scrolls when they do not fit.
+ */
 export interface SidebarSection {
   key: string
   title: string
   action?: SidebarSectionAction
   groups: SidebarSectionGroup[]
-  /** Quiet row after the last group, for leaving the list (e.g. into the full library). */
-  footer?: SidebarSectionLink
   onEntriesReorder?: (event: { oldIndex: number; newIndex: number }) => void
   onContextMenuOpenChange?: (open: boolean) => void
 }

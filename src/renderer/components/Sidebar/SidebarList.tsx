@@ -14,7 +14,6 @@ import type {
   SidebarIconPresentation,
   SidebarSection,
   SidebarSectionAction,
-  SidebarSectionLink,
   SidebarVisibleLayout
 } from './types'
 
@@ -203,59 +202,43 @@ function SidebarSectionHeaderAction({ action }: { action: SidebarSectionAction }
   )
 }
 
-function SidebarSectionLinkRow({ link }: { link: SidebarSectionLink }) {
-  return (
-    <div className="px-2">
-      <MenuItem
-        variant="ghost"
-        icon={link.icon}
-        label={link.label}
-        aria-label={link.label}
-        onClick={link.onClick}
-        className="rounded-xl"
-      />
-    </div>
-  )
-}
-
 /**
- * The sidebar's secondary list: a divider, a section header, one or more groups of rows, and an
- * optional way out. A single unlabelled group is the flat case and keeps drag reordering; grouped
- * rows (assistant groups) do not reorder, because a drag would have to cross group boundaries that
- * the rows themselves cannot express.
+ * The sidebar's secondary list: a divider and section header that stay put, then the rows, which
+ * scroll. A single unlabelled group is the flat case and keeps drag reordering; grouped rows
+ * (assistant groups) do not reorder, because a drag would have to cross group boundaries that the
+ * rows themselves cannot express.
  */
 export function SidebarSectionList({ layout, section }: { layout: SidebarVisibleLayout; section: SidebarSection }) {
   const entries = section.groups.flatMap((group) => group.entries)
   const flatGroup = section.groups.length === 1 && !section.groups[0].label ? section.groups[0].key : undefined
+  const rows =
+    layout === 'icon' ? (
+      <IconList
+        entries={entries}
+        iconPresentation={SECTION_ICON_PRESENTATION}
+        onContextMenuOpenChange={section.onContextMenuOpenChange}
+      />
+    ) : (
+      section.groups.map((group) => (
+        <Fragment key={group.key}>
+          {group.label && (
+            <div className="truncate px-2.5 pt-1.5 pb-0.5 text-muted-foreground text-xs">{group.label}</div>
+          )}
+          <FullList
+            entries={group.entries}
+            iconPresentation={SECTION_ICON_PRESENTATION}
+            onReorder={group.key === flatGroup ? section.onEntriesReorder : undefined}
+            onContextMenuOpenChange={section.onContextMenuOpenChange}
+          />
+        </Fragment>
+      ))
+    )
 
   return (
-    <div className={cn('flex shrink-0 flex-col', layout === 'full' && 'pt-1 pb-1')}>
+    <div className={cn('flex min-h-0 flex-1 flex-col', layout === 'full' && 'pt-1')}>
       <div aria-hidden="true" className="mx-2 h-px shrink-0 bg-border-subtle" />
-      {layout === 'icon' ? (
-        <IconList
-          entries={entries}
-          iconPresentation={SECTION_ICON_PRESENTATION}
-          onContextMenuOpenChange={section.onContextMenuOpenChange}
-        />
-      ) : (
-        <>
-          <SidebarSectionHeader section={section} />
-          {section.groups.map((group) => (
-            <Fragment key={group.key}>
-              {group.label && (
-                <div className="truncate px-2.5 pt-1.5 pb-0.5 text-muted-foreground text-xs">{group.label}</div>
-              )}
-              <FullList
-                entries={group.entries}
-                iconPresentation={SECTION_ICON_PRESENTATION}
-                onReorder={group.key === flatGroup ? section.onEntriesReorder : undefined}
-                onContextMenuOpenChange={section.onContextMenuOpenChange}
-              />
-            </Fragment>
-          ))}
-          {section.footer && <SidebarSectionLinkRow link={section.footer} />}
-        </>
-      )}
+      {layout === 'full' && <SidebarSectionHeader section={section} />}
+      <div className="min-h-0 flex-1 overflow-y-auto pb-1 [&::-webkit-scrollbar]:hidden">{rows}</div>
     </div>
   )
 }

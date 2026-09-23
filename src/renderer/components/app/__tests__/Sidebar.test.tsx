@@ -170,16 +170,14 @@ describe('app Sidebar shortcuts', () => {
     await waitFor(() => expect(renderedShortcutLabels()).toEqual(['One', 'Two']))
   })
 
-  it('renders the assistant section and runs its add action and way out', () => {
+  it('renders the assistant section and runs its add action', () => {
     const addAssistant = vi.fn()
-    const openLibrary = vi.fn()
     const assistant = assistantSectionEntry('Assistant One')
     mocks.section = {
       key: 'assistants',
       title: 'assistants.title',
       action: { label: 'chat.add.assistant.title', icon: null, onClick: addAssistant },
-      groups: [{ key: 'flat', entries: [assistant] }],
-      footer: { label: 'assistants.explore_more', onClick: openLibrary }
+      groups: [{ key: 'flat', entries: [assistant] }]
     }
 
     render(<Sidebar />)
@@ -189,7 +187,5 @@ describe('app Sidebar shortcuts', () => {
     expect(assistant.onOpen).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: 'chat.add.assistant.title' }))
     expect(addAssistant).toHaveBeenCalledTimes(1)
-    fireEvent.click(screen.getByRole('button', { name: 'assistants.explore_more' }))
-    expect(openLibrary).toHaveBeenCalledTimes(1)
   })
 })

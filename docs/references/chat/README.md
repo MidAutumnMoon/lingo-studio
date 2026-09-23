@@ -38,10 +38,12 @@ The chat page has one layout. The app sidebar carries both the app entries and t
 list (`components/Sidebar` renders it from resolved rows; `hooks/useAssistantSidebarSection.tsx`
 owns the data, grouping, and entity menu, and `hooks/useAssistantNavigation.ts` opens an
 assistant's conversation — its latest topic, or a reusable placeholder — through the tab-URL
-channel). The single list pane is that assistant's history: time buckets with pinned first,
-two-line rows (`RESOURCE_LIST_ROW_LAYOUTS.history`), and a scoped `activeAssistantId`
-(`null` = conversations whose assistant is gone). The chat bar names the open conversation and
-the composer carries the assistant/model control.
+channel). That list is the sidebar's only scrolling region and shows every assistant; the pinned
+app entries above it stay put. The single list pane is that assistant's history: time buckets with
+pinned first, two-line rows (`RESOURCE_LIST_ROW_LAYOUTS.history`), and a scoped `activeAssistantId`
+(`null` = conversations whose assistant is gone). The chat bar names the open conversation and the
+composer carries the assistant/model control; the assistant library (browse and manage every
+assistant) opens from that list's options menu.
 
 The retired alternatives — a per-assistant grouping mode, a configurable list side, and a
 right-panel copy of the topic list — are gone, along with the preferences that selected them

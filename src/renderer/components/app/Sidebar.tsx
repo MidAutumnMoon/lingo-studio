@@ -7,18 +7,15 @@ import { useTranslation } from 'react-i18next'
 
 import { usePersistCache } from '@data/hooks/useCache'
 import { usePreference } from '@data/hooks/usePreference'
-import { useTabs } from '@renderer/hooks/tab'
 import { useAssistants, useAssistantsApi } from '@renderer/hooks/useAssistant'
 import { toCreateAssistantDtoFromCatalogPreset } from '@renderer/hooks/useAssistantCatalogPresets'
 import { useAssistantNavigation } from '@renderer/hooks/useAssistantNavigation'
 import { useAssistantSidebarSection } from '@renderer/hooks/useAssistantSidebarSection'
 import useAvatar from '@renderer/hooks/useAvatar'
 import { useSidebarShortcuts } from '@renderer/hooks/useSidebarShortcuts'
-import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { openSettingsTab } from '@renderer/services/mainWindowNavigation'
 import { toast } from '@renderer/services/toast'
 import { formatErrorMessageWithPrefix } from '@renderer/utils/error'
-import { getSidebarApp, tabBelongsToApp } from '@renderer/utils/sidebar'
 
 import { SidebarShellActions } from '../layout/ShellTabBarActions'
 import {
@@ -106,7 +103,6 @@ export default function Sidebar({
   const { assistants } = useAssistantsApi()
   const { addAssistant } = useAssistants()
   const { openAssistant } = useAssistantNavigation()
-  const { activeTab, openTab } = useTabs()
   const [assistantPickerOpen, setAssistantPickerOpen] = useState(false)
 
   const handleAssistantSelect = useCallback(
@@ -132,19 +128,8 @@ export default function Sidebar({
     [addAssistant, assistants, openAssistant, t]
   )
 
-  const openAssistantsLibrary = useCallback(() => {
-    const chatApp = getSidebarApp('assistants')!
-    if (activeTab && tabBelongsToApp(chatApp, activeTab.url)) {
-      void EventEmitter.emit(EVENT_NAMES.OPEN_ASSISTANTS_LIBRARY, { tabId: activeTab.id })
-      return
-    }
-    // The library is a surface of the chat page, so with no chat tab on screen, land there first.
-    openTab(chatApp.routePrefix)
-  }, [activeTab, openTab])
-
   const { section: assistantSection, editDialogHost: assistantEditDialogHost } = useAssistantSidebarSection({
-    onAddAssistant: () => setAssistantPickerOpen(true),
-    onOpenLibrary: openAssistantsLibrary
+    onAddAssistant: () => setAssistantPickerOpen(true)
   })
 
   const [hoverVisible, setHoverVisible] = useState(false)

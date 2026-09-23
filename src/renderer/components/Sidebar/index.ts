@@ -17,7 +17,6 @@ export type {
   SidebarSection,
   SidebarSectionAction,
   SidebarSectionGroup,
-  SidebarSectionLink,
   SidebarUser,
   SidebarVisibleLayout
 } from './types'

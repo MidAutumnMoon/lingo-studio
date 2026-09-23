@@ -14,7 +14,7 @@ import {
   SIDEBAR_MAX_WIDTH
 } from '../constants'
 import { Sidebar } from '../Sidebar'
-import type { ResolvedSidebarEntry } from '../types'
+import type { ResolvedSidebarEntry, SidebarSection } from '../types'
 
 type AppItem = {
   id: string
@@ -295,6 +295,37 @@ describe('Sidebar resize handle', () => {
     )
 
     expect(container.firstElementChild).toHaveStyle({ width: `${SIDEBAR_FULL_THRESHOLD}px` })
+    expect(getByText('Chat')).toBeInTheDocument()
+  })
+
+  it('scrolls the section and leaves the pinned app list in place', () => {
+    const section: SidebarSection = {
+      key: 'assistants',
+      title: 'Assistants',
+      groups: [
+        {
+          key: 'flat',
+          entries: Array.from({ length: 24 }, (_, index) => ({
+            key: `assistant:${index}`,
+            label: `Assistant ${index}`,
+            renderIcon: () => null,
+            isActive: false,
+            onOpen: () => {}
+          }))
+        }
+      ]
+    }
+
+    const { container, getByText } = render(
+      <Sidebar width={SIDEBAR_FULL_THRESHOLD} setWidth={vi.fn()} entries={entries} section={section} />
+    )
+
+    // Every assistant is rendered; the sidebar's own scroll region is the section, not the app list.
+    expect(screen.getAllByRole('button', { name: /^Assistant \d+$/ })).toHaveLength(24)
+    const scrollRegions = Array.from(container.querySelectorAll('.overflow-y-auto'))
+    expect(scrollRegions).toHaveLength(1)
+    expect(scrollRegions[0].textContent).toContain('Assistant 23')
+    expect(scrollRegions[0].textContent).not.toContain('Chat')
     expect(getByText('Chat')).toBeInTheDocument()
   })
 

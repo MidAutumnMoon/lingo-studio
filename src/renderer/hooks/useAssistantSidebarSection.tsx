@@ -54,13 +54,7 @@ type AssistantEntity = ReturnType<typeof useAssistantsApi>['assistants'][number]
  * Group *membership* is edited where groups live (the assistant library); this list only decides how
  * grouping reads, which is why a grouped list is not drag-reorderable.
  */
-export function useAssistantSidebarSection({
-  onAddAssistant,
-  onOpenLibrary
-}: {
-  onAddAssistant: () => void
-  onOpenLibrary: () => void
-}) {
+export function useAssistantSidebarSection({ onAddAssistant }: { onAddAssistant: () => void }) {
   const { t } = useTranslation()
   const [assistantSortType, setAssistantSortType] = usePreference('assistant.tab.sort_type')
   const [assistantIconType, setAssistantIconType] = usePreference('assistant.icon_type')
@@ -435,10 +429,9 @@ export function useAssistantSidebarSection({
       title: t('assistants.title'),
       action: { label: t('chat.add.assistant.title'), icon: <Plus size={14} />, onClick: onAddAssistant },
       groups,
-      footer: { label: t('assistants.explore_more'), icon: <span aria-hidden="true">…</span>, onClick: onOpenLibrary },
       onEntriesReorder: isGrouped ? undefined : handleReorder
     }),
-    [groups, handleReorder, isGrouped, onAddAssistant, onOpenLibrary, t]
+    [groups, handleReorder, isGrouped, onAddAssistant, t]
   )
 
   const editDialogHost = (

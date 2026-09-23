@@ -224,8 +224,15 @@ export function Sidebar({
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto py-1 [&::-webkit-scrollbar]:hidden">
-            <SidebarList layout="full" {...listProps} />
+          {/*
+            Content: the app list is pinned, and the section below it owns the sidebar's scroll
+            region — it is the only list that grows with the user's own resources. A sidebar
+            without a section keeps the whole band scrollable, as before.
+          */}
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className={cn('py-1 [&::-webkit-scrollbar]:hidden', section ? 'shrink-0' : 'flex-1 overflow-y-auto')}>
+              <SidebarList layout="full" {...listProps} />
+            </div>
             {section && <SidebarSectionList layout="full" section={section} />}
           </div>
 
@@ -312,9 +319,15 @@ export function Sidebar({
           </div>
         ))}
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto py-1 [&::-webkit-scrollbar]:hidden">
-        <SidebarList layout={layout} {...listProps} />
+      {/*
+        Content: the app list is pinned, and the section below it owns the sidebar's scroll region —
+        it is the only list that grows with the user's own resources. A sidebar without a section
+        keeps the whole band scrollable, as before.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className={cn('py-1 [&::-webkit-scrollbar]:hidden', section ? 'shrink-0' : 'flex-1 overflow-y-auto')}>
+          <SidebarList layout={layout} {...listProps} />
+        </div>
         {section && <SidebarSectionList layout={layout} section={section} />}
       </div>
 
