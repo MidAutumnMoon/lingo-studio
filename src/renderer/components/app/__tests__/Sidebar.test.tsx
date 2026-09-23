@@ -6,6 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createSidebarShortcutId, type SidebarShortcutItem } from '@shared/data/preference/preferenceTypes'
 
 import { createSidebarShortcutTarget } from '../../../utils/sidebar'
+import type * as SidebarModule from '../../Sidebar'
+import type { ResolvedSidebarEntry, SidebarProps, SidebarSection } from '../../Sidebar'
+import { SidebarSectionList } from '../../Sidebar/SidebarList'
 
 const mocks = vi.hoisted(() => ({
   activate: vi.fn(),
@@ -13,18 +16,23 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   reorder: vi.fn(),
   resolutions: [] as any[],
-  shortcuts: [] as any[]
+  shortcuts: [] as any[],
+  section: null as SidebarSection | null
 }))
 
 vi.mock('@data/hooks/useCache', () => ({ usePersistCache: () => [170, vi.fn()] }))
 vi.mock('@data/hooks/usePreference', () => ({ usePreference: () => ['User', vi.fn()] }))
 vi.mock('@renderer/hooks/tab', () => ({ useTabs: () => ({ activeTab: { url: '/app/chat' } }) }))
 vi.mock('@renderer/hooks/useAvatar', () => ({ default: () => null }))
+vi.mock('@renderer/hooks/useAssistantSidebarSection', () => ({
+  useAssistantSidebarSection: () => ({ section: mocks.section ?? undefined, editDialogHost: null })
+}))
 vi.mock('@renderer/hooks/useSidebarShortcuts', () => ({
   useSidebarShortcuts: () => ({ shortcuts: mocks.shortcuts, remove: mocks.remove, reorder: mocks.reorder })
 }))
 vi.mock('@renderer/services/mainWindowNavigation', () => ({ openSettingsTab: vi.fn() }))
 vi.mock('../sidebarShortcuts', () => ({
+  useSidebarActivationGateway: () => ({ openWorkspace: vi.fn() }),
   useSidebarNavigationSnapshot: () => ({ url: '/' }),
   useResolvedSidebarShortcuts: () => mocks.resolutions,
   useSidebarShortcutActivation: () => mocks.activate,
@@ -32,49 +40,49 @@ vi.mock('../sidebarShortcuts', () => ({
 }))
 vi.mock('../../layout/ShellTabBarActions', () => ({ SidebarShellActions: () => null }))
 vi.mock('../../UserPopup', () => ({ default: { show: vi.fn() } }))
-vi.mock('../../Sidebar', () => ({
-  getSidebarDisplayWidth: (width: number) => width,
-  getSidebarLayout: () => 'full',
-  normalizeSidebarWidth: (width: number) => width,
-  UserAvatar: () => <span />,
-  Sidebar: ({
-    entries,
-    onEntriesReorder
-  }: {
-    entries: Array<{
-      key: string
-      label: string
-      disabled?: boolean
-      onOpen: () => void
-      contextMenuItems: Array<{ id: string; label: string; enabled?: boolean; onSelect: () => void }>
-    }>
-    onEntriesReorder: (event: { oldIndex: number; newIndex: number }) => void
-  }) => (
-    <div>
-      <ol aria-label="shortcuts">
-        {entries.map((entry) => (
-          <li key={entry.key} aria-label={entry.label}>
-            <button
-              type="button"
-              aria-disabled={entry.disabled || undefined}
-              onClick={() => !entry.disabled && entry.onOpen()}>
-              {entry.label}
-            </button>
-            {entry.contextMenuItems.map((item) => (
-              <button key={item.id} type="button" disabled={item.enabled === false} onClick={item.onSelect}>
-                {item.label}
-              </button>
-            ))}
-          </li>
-        ))}
-      </ol>
-      <button type="button" onClick={() => onEntriesReorder({ oldIndex: 0, newIndex: 1 })}>
-        reorder
-      </button>
-    </div>
-  )
-}))
+// The picker is its own surface with its own suite; this one checks that the sidebar offers it.
+vi.mock('../AssistantConversationPickerDialog', () => ({ AssistantConversationPickerDialog: () => null }))
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
+// The presentation sidebar is replaced by a flat stand-in: this suite is about the entries and the
+// assistant section the app sidebar hands it. The section itself renders through the real list, so
+// its rows and controls are the production ones.
+vi.mock('../../Sidebar', async (importOriginal) => {
+  const actual = await importOriginal<typeof SidebarModule>()
+
+  function FlatSidebar({ entries, section, onEntriesReorder }: SidebarProps) {
+    return (
+      <div>
+        <ol aria-label="shortcuts">
+          {entries.map((entry) => (
+            <li key={entry.key} aria-label={entry.label}>
+              <button
+                type="button"
+                aria-disabled={entry.disabled || undefined}
+                onClick={() => !entry.disabled && entry.onOpen()}>
+                {entry.label}
+              </button>
+              {entry.contextMenuItems?.map((item, index) =>
+                item.type === 'item' ? (
+                  <button key={item.id} type="button" disabled={item.enabled === false} onClick={item.onSelect}>
+                    {item.label}
+                  </button>
+                ) : (
+                  <span key={`extra-${index}`} />
+                )
+              )}
+            </li>
+          ))}
+        </ol>
+        <button type="button" onClick={() => onEntriesReorder?.({ oldIndex: 0, newIndex: 1 })}>
+          reorder
+        </button>
+        {section && <SidebarSectionList layout="full" section={section} />}
+      </div>
+    )
+  }
+
+  return { ...actual, UserAvatar: () => <span />, Sidebar: FlatSidebar }
+})
 
 import Sidebar from '../Sidebar'
 
@@ -89,11 +97,16 @@ function renderedShortcutLabels(): Array<string | null> {
     .map((item) => item.getAttribute('aria-label'))
 }
 
+function assistantSectionEntry(label: string): ResolvedSidebarEntry {
+  return { key: `assistant:${label}`, label, renderIcon: () => null, isActive: false, onOpen: vi.fn() }
+}
+
 describe('app Sidebar shortcuts', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.shortcuts = []
     mocks.resolutions = []
+    mocks.section = null
     mocks.registryResolve.mockReturnValue({ activate: mocks.activate })
     mocks.reorder.mockResolvedValue(undefined)
   })
@@ -155,5 +168,28 @@ describe('app Sidebar shortcuts', () => {
 
     expect(renderedShortcutLabels()).toEqual(['Two', 'One'])
     await waitFor(() => expect(renderedShortcutLabels()).toEqual(['One', 'Two']))
+  })
+
+  it('renders the assistant section and runs its add action and way out', () => {
+    const addAssistant = vi.fn()
+    const openLibrary = vi.fn()
+    const assistant = assistantSectionEntry('Assistant One')
+    mocks.section = {
+      key: 'assistants',
+      title: 'assistants.title',
+      action: { label: 'chat.add.assistant.title', icon: null, onClick: addAssistant },
+      groups: [{ key: 'flat', entries: [assistant] }],
+      footer: { label: 'assistants.explore_more', onClick: openLibrary }
+    }
+
+    render(<Sidebar />)
+
+    expect(screen.getByText('assistants.title')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Assistant One' }))
+    expect(assistant.onOpen).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'chat.add.assistant.title' }))
+    expect(addAssistant).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'assistants.explore_more' }))
+    expect(openLibrary).toHaveBeenCalledTimes(1)
   })
 })

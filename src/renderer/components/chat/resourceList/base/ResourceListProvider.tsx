@@ -30,9 +30,10 @@ import {
   type ResourceListView,
   ResourceListViewContext,
   type ResourceListViewGroup,
-  type ResourceListViewSection
+  type ResourceListViewSection,
+  ResourceListRowLayoutContext
 } from './ResourceListContext'
-import { estimateResourceListDefaultRowSize } from './resourceListLayout'
+import { DEFAULT_RESOURCE_LIST_ROW_LAYOUT, type ResourceListRowLayout } from './resourceListLayout'
 import { ResourceListUiService } from './ResourceListUiService'
 
 const EMPTY_SORT_OPTIONS: ResourceListSortOption<ResourceListItemBase>[] = []
@@ -375,6 +376,8 @@ export type ResourceListProviderProps<T extends ResourceListItemBase> = {
   groupShowMoreLabel?: string
   groupCollapseLabel?: string
   estimateItemSize?: (index: number) => number
+  /** Row geometry for this list's items. Defaults to the compact single-line row. */
+  rowLayout?: ResourceListRowLayout
   onSelectItem?: (id: string) => void
   onRenameItem?: (id: string, name: string) => void
   onGroupHeaderSelectItem?: (id: string) => void
@@ -570,7 +573,8 @@ export function ResourceListProvider<T extends ResourceListItemBase>({
   groupEmptyLabel,
   groupShowMoreLabel,
   groupCollapseLabel,
-  estimateItemSize = estimateResourceListDefaultRowSize,
+  estimateItemSize: providedEstimateItemSize,
+  rowLayout = DEFAULT_RESOURCE_LIST_ROW_LAYOUT,
   onSelectItem,
   onRenameItem,
   onGroupHeaderSelectItem,
@@ -594,6 +598,14 @@ export function ResourceListProvider<T extends ResourceListItemBase>({
 
   const filterById = useMemo(() => new Map(filterOptions.map((option) => [option.id, option])), [filterOptions])
   const sortById = useMemo(() => new Map(sortOptions.map((option) => [option.id, option])), [sortOptions])
+  // A caller-supplied estimator means rows vary in height (measured virtualization); otherwise every
+  // row is exactly the declared layout size, which the virtualizer can use as a fixed-height hint.
+  const measuredItems = providedEstimateItemSize !== undefined
+  const rowSize = rowLayout.size
+  const estimateItemSize = useMemo(
+    () => providedEstimateItemSize ?? (() => rowSize),
+    [providedEstimateItemSize, rowSize]
+  )
   const isControlled = collapsedState !== undefined
   const effectiveCollapsedIds = normalizeCollapsedIds(collapsedState ?? state.collapsedGroups)
   const effectiveSelectedId = selectedIdProp !== undefined ? selectedIdProp : state.selectedId
@@ -941,6 +953,7 @@ export function ResourceListProvider<T extends ResourceListItemBase>({
       sortOptions,
       filterOptions,
       estimateItemSize,
+      measuredItems,
       defaultGroupVisibleCount,
       groupLoadStep,
       groupEmptyLabel,
@@ -983,6 +996,7 @@ export function ResourceListProvider<T extends ResourceListItemBase>({
       groupEmptyLabel,
       groupLoadStep,
       groupShowMoreLabel,
+      measuredItems,
       onEmptyGroupHeaderClick,
       revealRequest,
       sortOptions,
@@ -1028,22 +1042,24 @@ export function ResourceListProvider<T extends ResourceListItemBase>({
 
   return (
     <ResourceListUiStoreContext value={uiStore}>
-      <ResourceListActionsContext value={actions}>
-        <ResourceListItemAccessorsContext
-          value={itemAccessors as unknown as ResourceListItemAccessors<ResourceListItemBase>}>
-          <ResourceListMetaContext value={meta as unknown as ResourceListMeta<ResourceListItemBase>}>
-            <ResourceListSourceItemsContext value={items}>
-              <ResourceListViewContext value={view}>
-                <ResourceListControlsContext value={controlsState}>
-                  <ResourceListContext value={context as unknown as ResourceListContextValue<ResourceListItemBase>}>
-                    {children}
-                  </ResourceListContext>
-                </ResourceListControlsContext>
-              </ResourceListViewContext>
-            </ResourceListSourceItemsContext>
-          </ResourceListMetaContext>
-        </ResourceListItemAccessorsContext>
-      </ResourceListActionsContext>
+      <ResourceListRowLayoutContext value={rowLayout}>
+        <ResourceListActionsContext value={actions}>
+          <ResourceListItemAccessorsContext
+            value={itemAccessors as unknown as ResourceListItemAccessors<ResourceListItemBase>}>
+            <ResourceListMetaContext value={meta as unknown as ResourceListMeta<ResourceListItemBase>}>
+              <ResourceListSourceItemsContext value={items}>
+                <ResourceListViewContext value={view}>
+                  <ResourceListControlsContext value={controlsState}>
+                    <ResourceListContext value={context as unknown as ResourceListContextValue<ResourceListItemBase>}>
+                      {children}
+                    </ResourceListContext>
+                  </ResourceListControlsContext>
+                </ResourceListViewContext>
+              </ResourceListSourceItemsContext>
+            </ResourceListMetaContext>
+          </ResourceListItemAccessorsContext>
+        </ResourceListActionsContext>
+      </ResourceListRowLayoutContext>
     </ResourceListUiStoreContext>
   )
 }

@@ -2,6 +2,7 @@ import { createContext, type ReactNode, use, useCallback, useSyncExternalStore }
 
 import type { CommandContextMenuExtraItem } from '@renderer/components/command'
 
+import { DEFAULT_RESOURCE_LIST_ROW_LAYOUT, type ResourceListRowLayout } from './resourceListLayout'
 import type {
   ResourceListGroupStateSnapshot,
   ResourceListRowStateSnapshot,
@@ -153,6 +154,8 @@ export type ResourceListMeta<T extends ResourceListItemBase> = {
   sortOptions: ResourceListSortOption<T>[]
   filterOptions: ResourceListFilterOption<T>[]
   estimateItemSize: (index: number) => number
+  /** The caller brought its own estimator, so rows are measured instead of fixed at the layout size. */
+  measuredItems: boolean
   defaultGroupVisibleCount: number
   groupLoadStep: number
   groupEmptyLabel?: string
@@ -245,6 +248,11 @@ export const ResourceListMetaContext = createContext<ResourceListMeta<ResourceLi
 export const ResourceListSourceItemsContext = createContext<readonly ResourceListItemBase[] | null>(null)
 export const ResourceListUiStoreContext = createContext<ResourceListUiService | null>(null)
 export const ResourceListViewContext = createContext<ResourceListView<ResourceListItemBase> | null>(null)
+export const ResourceListRowLayoutContext = createContext<ResourceListRowLayout>(DEFAULT_RESOURCE_LIST_ROW_LAYOUT)
+
+export function useResourceListRowLayout(): ResourceListRowLayout {
+  return use(ResourceListRowLayoutContext)
+}
 
 export function useResourceList<T extends ResourceListItemBase = ResourceListItemBase>() {
   const context = use(ResourceListContext)

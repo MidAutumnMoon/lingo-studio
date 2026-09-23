@@ -4,19 +4,10 @@ import { useTranslation } from 'react-i18next'
 
 import { usePreference } from '@data/hooks/usePreference'
 import { ChatLayoutModeProvider } from '@renderer/components/chat/layout/ChatLayoutModeContext'
-import {
-  ResourcePaneCountButton,
-  type ResourcePaneCountButtonProps,
-  useRightPanelActions
-} from '@renderer/components/chat/panes/Shell'
+import { useRightPanelActions } from '@renderer/components/chat/panes/Shell'
 import ConversationCenterState from '@renderer/components/chat/shell/ConversationCenterState'
 import ConversationShell from '@renderer/components/chat/shell/ConversationShell'
-import { useConversationTopBarPortalLayout } from '@renderer/components/chat/shell/ConversationTopBarPortal'
 import type { ChatPanePosition } from '@renderer/components/chat/shell/paneLayout'
-import {
-  ChatConversationControls,
-  type ChatConversationControlsProps
-} from '@renderer/components/composer/variants/chat/ChatConversationControls'
 import type { ChatConversationControlsSnapshot } from '@renderer/components/composer/variants/ChatComposer'
 import PromptPopup from '@renderer/components/popups/PromptPopup'
 import { useClearTopicMessages } from '@renderer/hooks/chat/useClearTopicMessages'
@@ -26,7 +17,6 @@ import { useAssistant } from '@renderer/hooks/useAssistant'
 import { useProviders } from '@renderer/hooks/useProvider'
 import { useTopicMutations } from '@renderer/hooks/useTopic'
 import { topicBrowserRuntimeService } from '@renderer/services/AgentBrowserRuntimeService'
-import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { popup } from '@renderer/services/popup'
 import { toast } from '@renderer/services/toast'
 import type { ConversationCenterSlot, PaneManualToggleSignal } from '@renderer/types/conversationLayout'
@@ -40,21 +30,6 @@ import { TopicRightPane, useTopicBranchLiveStateSetter } from './components/Topi
 import type { AddNewTopicPayload } from './types'
 
 const CitationsPanel = React.lazy(() => import('@renderer/components/chat/citations/CitationsPanel'))
-
-const EMPTY_MODELS: ChatConversationControlsSnapshot['mentionedModels'] = []
-const NOOP_MODEL_SELECT: ChatConversationControlsSnapshot['onModelSelect'] = () => undefined
-const NOOP_MODELS_SELECT: ChatConversationControlsSnapshot['onMentionedModelsSelect'] = () => undefined
-const NOOP_MULTI_SELECT_MODE_CHANGE: ChatConversationControlsSnapshot['onMentionedModelMultiSelectModeChange'] = () =>
-  undefined
-const NOOP_MODEL_SELECTOR_RESTORE: ChatConversationControlsSnapshot['onMentionedModelSelectorRestore'] = () => undefined
-
-type ChatTopBarControlsProps = Omit<ChatConversationControlsProps, 'iconOnly' | 'side'>
-
-function ChatTopBarControls(props: ChatTopBarControlsProps) {
-  const { iconOnly } = useConversationTopBarPortalLayout()
-
-  return <ChatConversationControls {...props} side="bottom" iconOnly={iconOnly} />
-}
 
 interface Props {
   activeTopic?: Topic
@@ -74,7 +49,6 @@ interface Props {
   onPaneCollapse?: () => void
   onPaneAutoCollapseChange?: (collapsed: boolean) => void
   paneManualToggle?: PaneManualToggleSignal
-  resourcePaneCount?: ResourcePaneCountButtonProps
 }
 
 interface CitationPanelState {
@@ -87,7 +61,6 @@ const Chat: FC<Props> = (props) => {
   const clearTopicMessages = useClearTopicMessages()
   const { t } = useTranslation()
   const [messageStyle] = usePreference('chat.message.style')
-  const [topicDisplayMode] = usePreference('topic.tab.display_mode')
   const [citationPanelState, setCitationPanelState] = useState<CitationPanelState | null>(null)
   const [shouldMountCitationsPanel, setShouldMountCitationsPanel] = useState(false)
   const [branchLocateMessageId, setBranchLocateMessageId] = useState<string | undefined>()
@@ -197,18 +170,6 @@ const Chat: FC<Props> = (props) => {
     },
     [activeTopicId]
   )
-  const handleAssistantChange = useCallback(
-    async (nextAssistantId: string | null) => {
-      if (!activeTopic || !nextAssistantId || nextAssistantId === activeTopic.assistantId) return
-      await patchTopic(activeTopic.id, { assistantId: nextAssistantId })
-    },
-    [activeTopic, patchTopic]
-  )
-  const handleRestoreComposerFocus = useCallback(() => {
-    if (!activeTopicId) return
-    void EventEmitter.emit(EVENT_NAMES.FOCUS_CHAT_COMPOSER, { topicId: activeTopicId })
-  }, [activeTopicId])
-
   const handleBranchLiveStateChange = useCallback(
     (state: Parameters<typeof setTopicBranchLiveState>[1]) => {
       const topicId = state?.topicId ?? activeTopicId
@@ -257,51 +218,19 @@ const Chat: FC<Props> = (props) => {
       onPaneCollapse={props.onPaneCollapse}
       onPaneAutoCollapseChange={props.onPaneAutoCollapseChange}
       paneManualToggle={props.paneManualToggle}
+      // The bar names the conversation; the assistant + model control lives in the composer, where
+      // the same component already renders it (the assistant list lives in the sidebar now).
+      composerControlsInTopBar={false}
       topBar={
         showConversationChrome ? (
           <ChatNavbar
-            conversationControls={
-              activeTopic ? (
-                <ChatTopBarControls
-                  assistantId={assistantContext.assistant?.id ?? null}
-                  assistantName={
-                    assistantContext.assistant?.name ??
-                    (assistantContext.isLoading ? t('common.loading') : t('button.select_assistant'))
+            topicTitle={
+              activeTopic
+                ? {
+                    label: activeTopic.name.trim() || t('chat.conversation.new'),
+                    emoji: assistantContext.assistant?.emoji
                   }
-                  assistantEmoji={assistantContext.assistant?.emoji}
-                  model={assistantContext.model}
-                  modelPending={
-                    assistantContext.isLoading || assistantContext.isModelPending || !activeConversationControlsSnapshot
-                  }
-                  providers={providers}
-                  mentionedModels={activeConversationControlsSnapshot?.mentionedModels ?? EMPTY_MODELS}
-                  mentionedModelSelectorValue={
-                    activeConversationControlsSnapshot?.mentionedModelSelectorValue ??
-                    (assistantContext.model ? [assistantContext.model] : EMPTY_MODELS)
-                  }
-                  lockedMentionedModels={activeConversationControlsSnapshot?.lockedMentionedModels ?? EMPTY_MODELS}
-                  mentionedModelMultiSelectMode={
-                    activeConversationControlsSnapshot?.mentionedModelMultiSelectMode ?? false
-                  }
-                  selectModelLabel={assistantContext.isModelPending ? t('common.loading') : t('button.select_model')}
-                  useMentionedModelSelector
-                  shouldAutoSelectCreatedAssistant={false}
-                  assistantTriggerAction={topicDisplayMode === 'assistant' ? 'edit' : 'select'}
-                  onDialogCloseAutoFocus={handleRestoreComposerFocus}
-                  onAssistantChange={handleAssistantChange}
-                  onModelSelect={activeConversationControlsSnapshot?.onModelSelect ?? NOOP_MODEL_SELECT}
-                  onMentionedModelsSelect={
-                    activeConversationControlsSnapshot?.onMentionedModelsSelect ?? NOOP_MODELS_SELECT
-                  }
-                  onMentionedModelMultiSelectModeChange={
-                    activeConversationControlsSnapshot?.onMentionedModelMultiSelectModeChange ??
-                    NOOP_MULTI_SELECT_MODE_CHANGE
-                  }
-                  onMentionedModelSelectorRestore={
-                    activeConversationControlsSnapshot?.onMentionedModelSelectorRestore ?? NOOP_MODEL_SELECTOR_RESTORE
-                  }
-                />
-              ) : undefined
+                : undefined
             }
             showSidebarControls={props.showResourceListControls}
             sidebarOpen={props.sidebarOpen}
@@ -311,14 +240,9 @@ const Chat: FC<Props> = (props) => {
       }
       topRightTool={
         showConversation ? (
-          <>
-            {props.resourcePaneCount && <ResourcePaneCountButton {...props.resourcePaneCount} />}
-            <TopicRightPane.Shortcuts
-              browserEnabled={
-                !!assistantContext.assistant && assistantContext.assistant.settings.enableBrowser !== false
-              }
-            />
-          </>
+          <TopicRightPane.Shortcuts
+            browserEnabled={!!assistantContext.assistant && assistantContext.assistant.settings.enableBrowser !== false}
+          />
         ) : undefined
       }
       showTopRightToolWhenPaneOpen

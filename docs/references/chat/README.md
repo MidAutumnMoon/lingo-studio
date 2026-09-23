@@ -3,7 +3,9 @@ description: Current chat-domain map covering shared renderer modules, page-owne
 sources:
   - src/renderer/components/chat
   - src/renderer/components/composer
+  - src/renderer/components/Sidebar
   - src/renderer/pages/home/messages
+  - src/renderer/pages/home/Tabs
   - src/renderer/pages/agents/messages
   - src/main/data/services/MessageService.ts
 ---
@@ -29,6 +31,21 @@ directory; consumers import from the module that owns the capability.
 The repository previously carried target-architecture documents for a generic
 adapter layer and root package barrel. Those APIs did not land; the current
 reference set documents implemented behavior only.
+
+## Chat left area
+
+The chat page has one layout. The app sidebar carries both the app entries and the assistant
+list (`components/Sidebar` renders it from resolved rows; `hooks/useAssistantSidebarSection.tsx`
+owns the data, grouping, and entity menu, and `hooks/useAssistantNavigation.ts` opens an
+assistant's conversation — its latest topic, or a reusable placeholder — through the tab-URL
+channel). The single list pane is that assistant's history: time buckets with pinned first,
+two-line rows (`RESOURCE_LIST_ROW_LAYOUTS.history`), and a scoped `activeAssistantId`
+(`null` = conversations whose assistant is gone). The chat bar names the open conversation and
+the composer carries the assistant/model control.
+
+The retired alternatives — a per-assistant grouping mode, a configurable list side, and a
+right-panel copy of the topic list — are gone, along with the preferences that selected them
+(`topic.tab.display_mode`, `topic.tab.position`).
 
 ## Documents
 

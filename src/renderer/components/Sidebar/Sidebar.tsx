@@ -10,15 +10,17 @@ import { cn } from '@renderer/utils/style'
 import { getSidebarDisplayWidth, getSidebarLayout } from './constants'
 import { DefaultLogo } from './primitives'
 import { SidebarFooter, type SidebarFooterActions } from './SidebarFooter'
-import { SidebarList } from './SidebarList'
+import { SidebarList, SidebarSectionList } from './SidebarList'
 import { SidebarTooltip } from './Tooltip'
-import type { ResolvedSidebarEntry, SidebarUser } from './types'
+import type { ResolvedSidebarEntry, SidebarSection, SidebarUser } from './types'
 import { useSidebarResize } from './useSidebarResize'
 
 export interface SidebarProps {
   width: number
   setWidth: (width: number) => void
   entries: ResolvedSidebarEntry[]
+  /** Secondary list below the navigation: resolved rows for the active app's own resources. */
+  section?: SidebarSection
   title?: string
   logo?: React.ReactNode
   user?: SidebarUser
@@ -40,6 +42,7 @@ export function Sidebar({
   width,
   setWidth,
   entries,
+  section,
   title = '',
   logo,
   user,
@@ -223,6 +226,7 @@ export function Sidebar({
 
           <div className="flex-1 overflow-y-auto py-1 [&::-webkit-scrollbar]:hidden">
             <SidebarList layout="full" {...listProps} />
+            {section && <SidebarSectionList layout="full" section={section} />}
           </div>
 
           {showFooter && (
@@ -311,6 +315,7 @@ export function Sidebar({
       {/* Content */}
       <div className="flex-1 overflow-y-auto py-1 [&::-webkit-scrollbar]:hidden">
         <SidebarList layout={layout} {...listProps} />
+        {section && <SidebarSectionList layout={layout} section={section} />}
       </div>
 
       {/* Footer */}

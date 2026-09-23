@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -53,19 +54,30 @@ describe('ChatNavbar', () => {
     expect(screen.getByRole('button', { name: 'navbar.hide_sidebar' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it.each([false, true])('does not render a new-topic button when sidebar visibility is %j', (showSidebar) => {
-    preferenceMock.showSidebar = showSidebar
+  it('toggles the sidebar through the page handler that owns its state', async () => {
+    const user = userEvent.setup()
+    const onSidebarToggle = vi.fn()
+    render(<ChatNavbar onSidebarToggle={onSidebarToggle} />)
 
-    render(<ChatNavbar />)
-    expect(screen.queryByRole('button', { name: 'chat.conversation.new' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'navbar.show_sidebar' }))
+
+    expect(onSidebarToggle).toHaveBeenCalledTimes(1)
+    expect(preferenceMock.setShowSidebar).not.toHaveBeenCalled()
   })
 
-  it('places the conversation controls host after the sidebar toggle', () => {
-    const { container } = render(<ChatNavbar />)
+  it('names the open conversation with its emoji', () => {
+    render(<ChatNavbar topicTitle={{ label: 'Trip planning', emoji: '🧭' }} />)
 
-    const toggle = screen.getByRole('button', { name: 'navbar.show_sidebar' })
-    const controls = container.querySelector('[data-conversation-topbar-controls]')
+    expect(screen.getByText('Trip planning')).toBeInTheDocument()
+    // EmojiIcon paints the glyph twice (blurred backdrop plus foreground), so only presence matters.
+    expect(screen.getAllByText('🧭').length).toBeGreaterThan(0)
+  })
 
-    expect(toggle.compareDocumentPosition(controls!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  it('leaves the composer controls and the new-topic action to the composer', () => {
+    const { container } = render(<ChatNavbar topicTitle={{ label: 'Trip planning' }} />)
+
+    // Hosting the controls here would duplicate the assistant + model control the composer renders.
+    expect(container.querySelector('[data-conversation-topbar-controls]')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'chat.conversation.new' })).not.toBeInTheDocument()
   })
 })

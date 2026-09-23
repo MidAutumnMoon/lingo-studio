@@ -18,13 +18,14 @@ import {
   useResourceListGroupState,
   useResourceListItemAccessors,
   useResourceListMeta,
+  useResourceListRowLayout,
   useResourceListRowState,
   useResourceListView
 } from './ResourceListContext'
 import { GroupHeader, GroupShowMore } from './ResourceListGroups'
 import {
   RESOURCE_LIST_ACTIVE_ROW_CLASS,
-  RESOURCE_LIST_DEFAULT_ROW_LAYOUT,
+  RESOURCE_LIST_CHROME_ROW_LAYOUT,
   RESOURCE_LIST_DESCENDANT_FOCUS_ROW_CLASS,
   RESOURCE_LIST_INTERACTIVE_ROW_CLASS,
   RESOURCE_LIST_LABEL_CLASS,
@@ -32,7 +33,6 @@ import {
   RESOURCE_LIST_ROW_STATE_FOREGROUND_CLASS,
   RESOURCE_LIST_SELECTED_ROW_CLASS,
   RESOURCE_LIST_TITLE_FADE_CLASS,
-  RESOURCE_LIST_VISUAL_ROW_CLASS,
   type ResourceListPresentation
 } from './resourceListLayout'
 import { ResourceListLeadingSlot, type ResourceListLeadingSlotProps } from './ResourceListLeadingSlot'
@@ -408,6 +408,7 @@ function Item<T extends ResourceListItemBase>({
 }: ItemProps<T>) {
   const actions = useResourceListActions()
   const { getItemId } = useResourceListItemAccessors<T>()
+  const rowLayout = useResourceListRowLayout()
   const id = getItemId(item)
   const rowState = useResourceListRowState(id)
   const content = (
@@ -424,7 +425,7 @@ function Item<T extends ResourceListItemBase>({
       className={cn(
         'group relative flex w-full cursor-pointer items-center gap-1.5 px-2.5 text-foreground outline-none transition-all duration-150 has-[[data-resource-list-leading-slot=true]]:px-1.5',
         RESOURCE_LIST_LABEL_CLASS,
-        RESOURCE_LIST_VISUAL_ROW_CLASS,
+        rowLayout.visualClassName,
         RESOURCE_LIST_INTERACTIVE_ROW_CLASS,
         !rowState.active && !rowState.selected && RESOURCE_LIST_DESCENDANT_FOCUS_ROW_CLASS,
         rowState.active && !rowState.selected && RESOURCE_LIST_ACTIVE_ROW_CLASS,
@@ -702,7 +703,10 @@ function LoadingState({ className, ref, ...props }: LoadingStateProps) {
         <div key={group.id} data-resource-list-loading-group="true" className="flex flex-col pb-1">
           <div
             data-resource-list-loading-group-header="true"
-            className={cn('flex items-center gap-1.5 px-1.5 pt-2 pb-1', RESOURCE_LIST_DEFAULT_ROW_LAYOUT.className)}>
+            className={cn(
+              'flex items-center gap-1.5 px-1.5 pt-2 pb-1',
+              RESOURCE_LIST_CHROME_ROW_LAYOUT.containerClassName
+            )}>
             <ResourceListLeadingSlot variant="loading">
               <Skeleton data-slot="skeleton" className="size-5 shrink-0 rounded-md" />
             </ResourceListLeadingSlot>
@@ -714,7 +718,7 @@ function LoadingState({ className, ref, ...props }: LoadingStateProps) {
               data-resource-list-loading-item="true"
               className={cn(
                 'mb-1.5 flex w-full items-center gap-1.5 px-1.5 last:mb-0',
-                RESOURCE_LIST_VISUAL_ROW_CLASS
+                RESOURCE_LIST_CHROME_ROW_LAYOUT.visualClassName
               )}>
               <ResourceListLeadingSlot variant="loading">
                 <Skeleton data-slot="skeleton" className="size-5 shrink-0 rounded-md" />

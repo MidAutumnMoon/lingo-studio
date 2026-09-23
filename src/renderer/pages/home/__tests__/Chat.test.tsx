@@ -199,15 +199,17 @@ vi.mock('../ChatContent', async () => {
 
 vi.mock('../components/ChatNavbar', () => ({
   default: ({
-    conversationControls,
+    topicTitle,
     showSidebarControls
   }: {
-    conversationControls?: ReactNode
+    topicTitle?: { label: string; emoji?: string }
     showSidebarControls?: boolean
   }) => (
-    <div data-show-sidebar-controls={String(showSidebarControls)} data-testid="chat-navbar">
-      {conversationControls}
-    </div>
+    <div
+      data-show-sidebar-controls={String(showSidebarControls)}
+      data-topic-title={topicTitle?.label}
+      data-testid="chat-navbar"
+    />
   )
 }))
 
@@ -290,8 +292,17 @@ describe('Chat', () => {
     expect(conversationShellProps.current?.topBar).toBeTruthy()
     expect(conversationShellProps.current?.topRightTool).toBeTruthy()
     expect(screen.getByTestId('topic-right-shortcuts')).toBeInTheDocument()
-    expect(screen.getByTestId('chat-conversation-controls')).toHaveTextContent('Assistant')
     expect(chatContentProps.current?.assistantContext?.assistant?.id).toBe('assistant-1')
+  })
+
+  it('names the conversation in the top bar and leaves the assistant and model control to the composer', () => {
+    render(<Chat activeTopic={topic} showResourceListControls />)
+
+    // The bar says which conversation is open; the same control the bar used to host stays in the
+    // composer, which is what this flag tells the shell to do.
+    expect(conversationShellProps.current?.composerControlsInTopBar).toBe(false)
+    expect(screen.getByTestId('chat-navbar')).toHaveAttribute('data-topic-title', topic.name)
+    expect(screen.queryByTestId('chat-conversation-controls')).not.toBeInTheDocument()
   })
 
   it('keeps the navbar mounted while disabling sidebar controls', () => {
@@ -312,10 +323,12 @@ describe('Chat', () => {
     expect(chatContentProps.current?.assistantContext?.isModelPending).toBe(true)
   })
 
-  it('loads provider metadata for the single-model trigger', () => {
+  it('loads provider metadata for the composer’s model control', () => {
     render(<Chat activeTopic={topic} />)
 
-    expect(screen.getByTestId('chat-conversation-controls')).toHaveTextContent('Model | Provider')
+    // The control lives in the composer now, so the providers it renders names from travel with the
+    // composer's props rather than the top bar's.
+    expect(chatContentProps.current?.providers).toEqual([{ id: 'provider', name: 'Provider' }])
   })
 
   it('preserves the rail gutter while switching topics', async () => {

@@ -137,7 +137,11 @@ import {
   useResourceListRowState
 } from '../ResourceList'
 import type { ResourceListContextValue, ResourceListItemBase } from '../ResourceListContext'
-import { RESOURCE_LIST_DEFAULT_ROW_LAYOUT } from '../resourceListLayout'
+import {
+  DEFAULT_RESOURCE_LIST_ROW_LAYOUT,
+  RESOURCE_LIST_CHROME_ROW_LAYOUT,
+  RESOURCE_LIST_ROW_LAYOUTS
+} from '../resourceListLayout'
 
 afterEach(() => {
   dndMocks.droppableData.clear()
@@ -584,9 +588,60 @@ describe('ResourceList', () => {
     const options = lastVirtualizerOptions()
 
     // index 0 is the group header (shared row height), index 1 the first item (caller's estimate)
-    expect(options.estimateSize(0)).toBe(RESOURCE_LIST_DEFAULT_ROW_LAYOUT.size)
+    expect(options.estimateSize(0)).toBe(RESOURCE_LIST_CHROME_ROW_LAYOUT.size)
     expect(options.estimateSize(1)).toBe(44)
     expect(estimateItemSize).toHaveBeenCalledWith(0)
+  })
+
+  it('renders item rows at the declared row layout, keeping chrome at the shared height', () => {
+    const Provider = ResourceList.Provider<TestItem>
+    const { container } = render(
+      <Provider
+        items={ITEMS}
+        rowLayout={RESOURCE_LIST_ROW_LAYOUTS.history}
+        groupBy={(item) => ({ id: item.kind, label: item.kind })}>
+        <ResourceList.Frame>
+          <ResourceList.VirtualItems<TestItem>
+            renderItem={(item) => (
+              <ResourceList.Item item={item}>
+                <span>{item.name}</span>
+              </ResourceList.Item>
+            )}
+          />
+        </ResourceList.Frame>
+      </Provider>
+    )
+
+    // The virtualizer measures the wrapper and the item paints the surface: both must follow the
+    // declared layout, or rows drift from their scroll offsets.
+    const itemRow = container.querySelector('[data-resource-list-item-row="true"]')
+    expect(itemRow?.className).toContain(RESOURCE_LIST_ROW_LAYOUTS.history.containerClassName)
+    expect(itemRow?.firstElementChild?.firstElementChild?.className).toContain(
+      RESOURCE_LIST_ROW_LAYOUTS.history.visualClassName
+    )
+    expect(lastVirtualizerOptions().estimateSize(0)).toBe(RESOURCE_LIST_CHROME_ROW_LAYOUT.size)
+    expect(lastVirtualizerOptions().estimateSize(1)).toBe(RESOURCE_LIST_ROW_LAYOUTS.history.size)
+  })
+
+  it('defaults to the compact row layout when the list declares none', () => {
+    const Provider = ResourceList.Provider<TestItem>
+    const { container } = render(
+      <Provider items={ITEMS}>
+        <ResourceList.Frame>
+          <ResourceList.VirtualItems<TestItem>
+            renderItem={(item) => (
+              <ResourceList.Item item={item}>
+                <span>{item.name}</span>
+              </ResourceList.Item>
+            )}
+          />
+        </ResourceList.Frame>
+      </Provider>
+    )
+
+    const itemRow = container.querySelector('[data-resource-list-item-row="true"]')
+    expect(itemRow?.className).toContain(DEFAULT_RESOURCE_LIST_ROW_LAYOUT.containerClassName)
+    expect(lastVirtualizerOptions().estimateSize(0)).toBe(DEFAULT_RESOURCE_LIST_ROW_LAYOUT.size)
   })
 
   it('does not optimistically change row selection when selectedId is controlled', () => {
@@ -1957,9 +2012,9 @@ describe('ResourceList', () => {
 
     // The estimate has to agree with what got rendered or the virtualiser scrolls jumpily.
     const rows = lastVirtualizerOptions()
-    expect(rows.estimateSize(0)).toBe(RESOURCE_LIST_DEFAULT_ROW_LAYOUT.size)
+    expect(rows.estimateSize(0)).toBe(RESOURCE_LIST_CHROME_ROW_LAYOUT.size)
     expect(rows.estimateSize(1 + ITEMS.filter((item) => item.kind === 'session').length)).toBe(
-      RESOURCE_LIST_DEFAULT_ROW_LAYOUT.size
+      DEFAULT_RESOURCE_LIST_ROW_LAYOUT.size
     )
 
     // Rhythm stays shared; the label voice still distinguishes a bucket from an entity.

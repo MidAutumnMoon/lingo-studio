@@ -1,16 +1,13 @@
 import { BotMessageSquare, Database, FileText, MessagesSquare, Package } from 'lucide-react'
 
-import { renderAgentEntityIcon, renderAssistantEntityIcon } from '@renderer/components/chat/resourceList/base'
+import { renderAgentEntityIcon } from '@renderer/components/chat/resourceList/base'
 import { CLI_TOOLS, CliIcon } from '@renderer/components/icons/CliIcon'
 import MiniAppIcon from '@renderer/components/icons/MiniAppIcon'
 import { dataApiService } from '@renderer/data/DataApiService'
 import { preferenceService } from '@renderer/data/PreferenceService'
 import { getSidebarIconLabelKey } from '@renderer/i18n/label'
 import i18n from '@renderer/i18n/resolver'
-import {
-  resolveAgentEntrySessionIdForAgent,
-  resolveChatEntryTopicIdForAssistant
-} from '@renderer/utils/conversationEntry'
+import { resolveAgentEntrySessionIdForAgent } from '@renderer/utils/conversationEntry'
 import { miniAppIdFromTabUrl } from '@renderer/utils/miniAppKeepAlive'
 import {
   getSidebarApp,
@@ -221,50 +218,6 @@ const agentProvider: SidebarShortcutProvider = {
     isActiveResourceUrl(navigation.url, '/app/agents', 'agentId', target.locator.resourceId)
 }
 
-const assistantProvider: SidebarShortcutProvider = {
-  id: SIDEBAR_SHORTCUT_PROVIDER_IDS.ASSISTANT,
-  validate: (target) => validates(SIDEBAR_SHORTCUT_PROVIDER_IDS.ASSISTANT, target),
-  async resolveMany(targets) {
-    const [iconType, defaultModelId] = await Promise.all([
-      preferenceService.get('assistant.icon_type'),
-      preferenceService.get('chat.default_model_id')
-    ])
-    return resolvePaginatedTargets(
-      targets,
-      500,
-      (ids) => dataApiService.get('/assistants', { query: { ids, limit: ids.length } }),
-      (assistant) => assistant.id,
-      (assistant) => ({
-        label: assistant.name,
-        renderIcon: ({ slotSize, glyphSize }) =>
-          renderAssistantEntityIcon(
-            iconType === 'none' ? 'emoji' : iconType,
-            assistant,
-            defaultModelId,
-            slotSize,
-            glyphSize
-          ),
-        supportsNewTab: true
-      })
-    )
-  },
-  subscribe: resourceIconSubscription('/assistants', 'assistant.icon_type'),
-  async activate(target, gateway) {
-    if (!this.validate(target)) return
-    const topicId = await resolveChatEntryTopicIdForAssistant(target.locator.resourceId)
-    gateway.openWorkspace({
-      url: topicId
-        ? getSidebarApp('assistants')!.conversationRoute!.urlForKey(topicId)
-        : `/app/chat?assistantId=${encodeURIComponent(target.locator.resourceId)}`,
-      conversation: topicId ? { conversationType: 'assistant', conversationId: topicId } : undefined,
-      title: target.locator.resourceId
-    })
-  },
-  isActive: (target, navigation) =>
-    navigation.assistantId === target.locator.resourceId ||
-    isActiveResourceUrl(navigation.url, '/app/chat', 'assistantId', target.locator.resourceId)
-}
-
 const knowledgeBaseProvider: SidebarShortcutProvider = {
   id: SIDEBAR_SHORTCUT_PROVIDER_IDS.KNOWLEDGE_BASE,
   validate: (target) => validates(SIDEBAR_SHORTCUT_PROVIDER_IDS.KNOWLEDGE_BASE, target),
@@ -415,7 +368,6 @@ export const CORE_SIDEBAR_SHORTCUT_PROVIDERS: readonly SidebarShortcutProvider[]
   appProvider,
   miniAppProvider,
   agentProvider,
-  assistantProvider,
   knowledgeBaseProvider,
   topicProvider,
   agentSessionProvider,

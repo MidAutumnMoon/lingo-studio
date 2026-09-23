@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ConversationTopBarPortalProvider } from '@renderer/components/chat/shell/ConversationTopBarPortal'
+
 const preferenceMock = vi.hoisted(() => ({
   setShowSidebar: vi.fn(),
   showSidebar: false
@@ -100,7 +102,9 @@ describe('AgentContent', () => {
 
   it('places the conversation controls host after the sidebar toggle', () => {
     const { container } = render(
-      <AgentContent activeAgent={agentA} conversationControls={<span>conversation metadata</span>} />
+      <ConversationTopBarPortalProvider>
+        <AgentContent activeAgent={agentA} conversationControls={<span>conversation metadata</span>} />
+      </ConversationTopBarPortalProvider>
     )
 
     const toggle = screen.getByRole('button', { name: 'navbar.show_sidebar' })

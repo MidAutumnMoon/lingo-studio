@@ -3,14 +3,10 @@ import type { FC, HTMLAttributes } from 'react'
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { cacheService } from '@data/CacheService'
 import { usePreference } from '@data/hooks/usePreference'
 import { loggerService } from '@logger'
-import type { ResourcePaneConfig, ResourcePaneCountButtonProps } from '@renderer/components/chat/panes/Shell'
-import { AssistantResourceList } from '@renderer/components/chat/resourceList/AssistantResourceList'
 import type { ResourceListRevealRequest } from '@renderer/components/chat/resourceList/base'
 import { ConversationSidebarToggleButton } from '@renderer/components/chat/shell/ConversationSidebarToggleButton'
-import type { ChatPanePosition } from '@renderer/components/chat/shell/paneLayout'
 import {
   createRecentTopicEntryFromTopic,
   recordGlobalSearchRecentEntry
@@ -26,9 +22,7 @@ import { usePersistCache } from '@renderer/data/hooks/useCache'
 import { useCommandHandler } from '@renderer/hooks/command'
 import { useAssistantTopicsSource } from '@renderer/hooks/resourceViewSources'
 import { useCurrentTabId } from '@renderer/hooks/tab'
-import { useAssistants } from '@renderer/hooks/useAssistant'
-import { toCreateAssistantDtoFromCatalogPreset } from '@renderer/hooks/useAssistantCatalogPresets'
-import { useClassicLayoutRightPaneOpen } from '@renderer/hooks/useClassicLayoutRightPaneOpen'
+import { useAssistantsApi } from '@renderer/hooks/useAssistant'
 import { useComposerFocusRequest } from '@renderer/hooks/useComposerFocusRequest'
 import { useConversationCenterSurface } from '@renderer/hooks/useConversationCenterSurface'
 import { useConversationLocateRequest } from '@renderer/hooks/useConversationLocateRequest'
@@ -36,25 +30,18 @@ import { useConversationShellPaneState } from '@renderer/hooks/useConversationSh
 import { useModelById } from '@renderer/hooks/useModel'
 import { mapApiTopicToRendererTopic, useActiveTopic, useTopicMutations } from '@renderer/hooks/useTopic'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
-import type { ResourceListRevealPayload } from '@renderer/services/resourceListRevealEvents'
 import { toast } from '@renderer/services/toast'
 import type { AppRouter } from '@renderer/types/router'
 import type { Topic } from '@renderer/types/topic'
-import { getTopicAssistantDisplayGroupId } from '@renderer/utils/chat/topicsHelpers'
 import { formatErrorMessageWithPrefix } from '@renderer/utils/error'
 import { getDefaultRouteTitle } from '@renderer/utils/routeTitle'
 import { cn } from '@renderer/utils/style'
 import { isDataApiNotFoundError } from '@shared/data/api/errors'
 
 import Chat from './Chat'
-import {
-  AssistantConversationPickerDialog,
-  type AssistantConversationSelection
-} from './components/AssistantConversationPickerDialog'
 import { HomeTabRuntime } from './components/HomeTabRuntime'
 import { TopicRightPane } from './components/TopicRightPane'
 import { Topics } from './Tabs/components/Topics'
-import HomeTabs from './Tabs/HomeTabs'
 import type { AddNewTopicPayload } from './types'
 
 const logger = loggerService.withContext('HomePage')
@@ -75,28 +62,18 @@ type NewTopicAssistantTargetOptions = {
 const HomePage: FC = () => {
   const { t } = useTranslation()
   const [topicRevealRequest, setTopicRevealRequest] = useState<ResourceListRevealRequest>()
-  const topicRevealRequestIdRef = useRef(0)
-  // Guards the classic-layout topic-create paths against re-entry: a rapid double-click would
-  // otherwise read the same pre-refresh topic list twice and stack duplicate blank topics.
+  // Guards the topic-create paths against re-entry: a rapid double-click would otherwise read the
+  // same pre-refresh topic list twice and stack duplicate blank topics.
   const isCreatingTopicRef = useRef(false)
   const ownerFallbackRequestIdRef = useRef(0)
   const [lastUsedAssistantId, setLastUsedAssistantId] = usePersistCache(LAST_USED_ASSISTANT_CACHE_KEY)
   const lastRecordedRecentTopicRef = useRef<string | undefined>(undefined)
   const [showSidebar, setShowSidebar] = usePreference('topic.tab.show')
-  const [topicDisplayMode, setTopicDisplayMode] = usePreference('topic.tab.display_mode')
-  const [panePosition, setPanePosition] = usePreference('topic.tab.position')
-  const isClassicTopicLayout = topicDisplayMode === 'assistant'
-  const [assistantPickerOpen, setAssistantPickerOpen] = useState(false)
 
   const routeSearch = chatRouteApi.useSearch<AppRouter>()
   const navigate = useNavigate()
   const routeTopicId = routeSearch.topicId
   const routeAssistantId = routeSearch.assistantId
-  const handleManualPaneOpen = useCallback(() => {
-    requestAnimationFrame(() => {
-      void EventEmitter.emit(EVENT_NAMES.SHOW_ASSISTANTS)
-    })
-  }, [])
   const {
     isWindowFrame,
     shellPaneOpen,
@@ -107,27 +84,19 @@ const HomePage: FC = () => {
     handlePaneAutoCollapseChange
   } = useConversationShellPaneState({
     persistedPaneOpen: showSidebar,
-    setPersistedPaneOpen: setShowSidebar,
-    onManualPaneOpen: handleManualPaneOpen
-  })
-  const topicListPosition: ChatPanePosition =
-    !isWindowFrame && isClassicTopicLayout && panePosition === 'right' ? 'right' : 'left'
-  const [topicPaneOpen, setTopicPaneOpen] = useClassicLayoutRightPaneOpen('chat', {
-    enabled: isClassicTopicLayout,
-    defaultOpen: !isWindowFrame && panePosition === 'right'
+    setPersistedPaneOpen: setShowSidebar
   })
   // Shared full-topics list source plus exact latest/reusable lookups.
   const assistantTopicsSource = useAssistantTopicsSource()
-  const { topics: allTopics, loadLatestTopic, reuseOrCreateTopic } = assistantTopicsSource
+  const { reuseOrCreateTopic } = assistantTopicsSource
 
   const { createTopic, refreshTopics } = useTopicMutations()
   const {
     assistants,
     hasLoaded: hasAssistantsLoaded,
     isLoading: isAssistantsLoading,
-    isRefreshing: isAssistantsRefreshing,
-    addAssistant
-  } = useAssistants()
+    isRefreshing: isAssistantsRefreshing
+  } = useAssistantsApi()
   const assistantIdSet = useMemo(() => new Set(assistants.map((assistant) => assistant.id)), [assistants])
   const validLastUsedAssistantId =
     lastUsedAssistantId && assistantIdSet.has(lastUsedAssistantId) ? lastUsedAssistantId : undefined
@@ -229,16 +198,17 @@ const HomePage: FC = () => {
     activeResourceKind,
     closeSurface,
     historyActive: historyRecordsActive,
-    toggleHistory: toggleHistoryRecords,
-    toggleResource
+    openResource,
+    toggleHistory: toggleHistoryRecords
   } = useConversationCenterSurface<AssistantConversationResourceKind>({
     conversationKey: resourceConversationKey,
     disabled: !conversationResourcesEnabled,
     resourceKinds: ASSISTANT_CONVERSATION_RESOURCE_KINDS
   })
-  const toggleAssistantResourceView = useCallback(() => toggleResource('assistant'), [toggleResource])
   const manageAssistantsActive = activeResourceKind === 'assistant'
-  const onManageAssistants = conversationResourcesEnabled ? toggleAssistantResourceView : undefined
+  const openAssistantsLibrary = useCallback(() => {
+    openResource('assistant')
+  }, [openResource])
 
   useEffect(() => {
     if (!isAssistantListResolved || !lastUsedAssistantId || assistantIdSet.has(lastUsedAssistantId)) return
@@ -256,40 +226,17 @@ const HomePage: FC = () => {
   // own HomePage. `currentTabId` is *this* tab's id.
   const currentTabId = useCurrentTabId()
 
-  const clearTopicRevealRequestAfterPaint = useCallback((requestId: number) => {
-    const clear = () => {
-      setTopicRevealRequest((current) => (current?.requestId === requestId ? undefined : current))
-    }
-
-    if (window.requestAnimationFrame) {
-      window.requestAnimationFrame(clear)
-      return
-    }
-
-    window.setTimeout(clear, 0)
-  }, [])
-
-  const revealActiveTopicInResourceList = useEffectEvent(() => {
-    if (!visibleTopic?.id) return
-    const requestId = topicRevealRequestIdRef.current + 1
-    topicRevealRequestIdRef.current = requestId
-    setTopicRevealRequest({
-      itemId: visibleTopic.id,
-      requestId
-    })
-    clearTopicRevealRequestAfterPaint(requestId)
-  })
-
+  // The sidebar owns the assistant list, so opening the library from there arrives as an event
+  // targeted at the tab that asked for it.
   useEffect(() => {
-    const unsubscribe = EventEmitter.on(EVENT_NAMES.REVEAL_ACTIVE_RESOURCE_LIST, (payload) => {
-      const { source, tabId } = payload as ResourceListRevealPayload
-      if (source !== 'assistants' || tabId !== currentTabId) return
-      revealActiveTopicInResourceList()
+    const unsubscribe = EventEmitter.on(EVENT_NAMES.OPEN_ASSISTANTS_LIBRARY, (payload) => {
+      const { tabId } = payload as { tabId?: string }
+      if (tabId && tabId !== currentTabId) return
+      openAssistantsLibrary()
     })
 
     return unsubscribe
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `useEffectEvent` reads the latest topic without resubscribing.
-  }, [currentTabId])
+  }, [currentTabId, openAssistantsLibrary])
 
   // Label this tab with its assistant emoji + topic name so multiple chat tabs
   // are distinguishable in the tab bar (every tab labels itself — not gated on active).
@@ -297,14 +244,19 @@ const HomePage: FC = () => {
   const visibleAssistant = assistants.find((assistant) => assistant.id === visibleAssistantId)
   // Start the managed model query before assistant details resolve; Chat shares the same SWR request.
   useModelById(visibleAssistant?.modelId)
-  const topicResourcePaneCount = useMemo<ResourcePaneCountButtonProps | undefined>(() => {
-    if (!isClassicTopicLayout || topicListPosition !== 'right' || !visibleAssistantId) return undefined
-
-    return {
-      label: t('chat.topics.title'),
-      count: allTopics.filter((topic) => topic.assistantId === visibleAssistantId).length
+  /**
+   * Whose conversations the list shows. An open conversation decides it on its own: its assistant if
+   * that assistant still exists, otherwise the unlinked set — so archiving an assistant never hides
+   * the conversation that is still on screen. With nothing open, the route, the last assistant used,
+   * and the first assistant decide in that order.
+   */
+  const activeAssistantId = useMemo(() => {
+    if (visibleTopic) {
+      return visibleAssistantId && assistantIdSet.has(visibleAssistantId) ? visibleAssistantId : null
     }
-  }, [allTopics, isClassicTopicLayout, topicListPosition, t, visibleAssistantId])
+    const candidates = [routeAssistantId, validLastUsedAssistantId, assistants[0]?.id]
+    return candidates.find((candidate): candidate is string => !!candidate && assistantIdSet.has(candidate)) ?? null
+  }, [assistantIdSet, assistants, routeAssistantId, validLastUsedAssistantId, visibleAssistantId, visibleTopic])
   // While the bound topic is still loading, keep the tab's stored title/icon instead of stamping
   // a generic one.
   const targetTopicId = activeTopicId ?? undefined
@@ -328,7 +280,6 @@ const HomePage: FC = () => {
     recordGlobalSearchRecentEntry(createRecentTopicEntryFromTopic(activeTopic))
   }, [activeTopic])
 
-  const [topicPaneUserOpenIntentSeq, setTopicPaneUserOpenIntentSeq] = useState(0)
   useCommandHandler('app.sidebar.toggle', toggleShellPane)
 
   const setActiveTopicAndCloseResourceView = useCallback(
@@ -351,50 +302,6 @@ const HomePage: FC = () => {
       requestComposerFocus(topic.id)
     },
     [requestComposerFocus, setActiveTopicAndCloseResourceView]
-  )
-
-  const resolveAssistantIdForSelection = useCallback(
-    async (selection: AssistantConversationSelection) => {
-      if (selection.type === 'assistant') return selection.assistantId
-
-      // Reuse an assistant already created from this preset (matched by name, the only persistent
-      // link we have) instead of creating a duplicate every time the preset is picked.
-      const presetName = selection.preset.name.trim()
-      const existing = assistants.find((assistant) => assistant.name === presetName)
-      if (existing) return existing.id
-
-      return (await addAssistant(toCreateAssistantDtoFromCatalogPreset(selection.preset))).id
-    },
-    [addAssistant, assistants]
-  )
-
-  const handleAssistantConversationSelect = useCallback(
-    async (selection: AssistantConversationSelection) => {
-      if (isCreatingTopicRef.current) return
-      isCreatingTopicRef.current = true
-      // Close the picker first so the topic/assistant data churn below doesn't refresh the dialog
-      // while it's still visible (which reads as a black/white flash + the dialog reopening).
-      setAssistantPickerOpen(false)
-      try {
-        const assistantId = await resolveAssistantIdForSelection(selection)
-
-        const result = await reuseOrCreateTopic(assistantId)
-        const rendererTopic = mapApiTopicToRendererTopic(result.topic)
-
-        activateCreatedTopic(rendererTopic)
-        if (result.created) {
-          void refreshTopics().catch((err) => {
-            logger.warn('Failed to refresh topics after assistant picker topic create', err as Error)
-          })
-        }
-      } catch (err) {
-        logger.error('Failed to create assistant conversation from classic-layout picker', err as Error)
-        toast.error(formatErrorMessageWithPrefix(err, t('common.error')))
-      } finally {
-        isCreatingTopicRef.current = false
-      }
-    },
-    [activateCreatedTopic, refreshTopics, resolveAssistantIdForSelection, reuseOrCreateTopic, t]
   )
 
   const resolveEmptyTopic = useCallback(
@@ -447,44 +354,7 @@ const HomePage: FC = () => {
     [createAndActivateEmptyTopic]
   )
 
-  const handleCreateEmptyTopicForAssistant = useCallback(
-    (assistantId: string | null) => resolveEmptyTopic({ assistantId }),
-    [resolveEmptyTopic]
-  )
-
   // A bare entry with no resolvable topic stays empty until the user explicitly starts a conversation.
-
-  // After deleting the active assistant, settle on the latest remaining topic or the empty route.
-  const handleActiveAssistantDeleted = useCallback(
-    async (deletedAssistantId: string) => {
-      const requestId = ++ownerFallbackRequestIdRef.current
-      if (lastUsedAssistantId === deletedAssistantId) {
-        setLastUsedAssistantId(null)
-      }
-      try {
-        const nextTopic = await loadLatestTopic()
-        if (requestId !== ownerFallbackRequestIdRef.current) return
-        if (nextTopic) {
-          setActiveTopicAndCloseResourceView(mapApiTopicToRendererTopic(nextTopic))
-          return
-        }
-        reenterChatRoute()
-      } catch (err) {
-        if (requestId !== ownerFallbackRequestIdRef.current) return
-        logger.error('Failed to settle chat after deleting active assistant', err as Error, { deletedAssistantId })
-        toast.error(formatErrorMessageWithPrefix(err, t('common.error')))
-        reenterChatRoute()
-      }
-    },
-    [
-      lastUsedAssistantId,
-      loadLatestTopic,
-      reenterChatRoute,
-      setActiveTopicAndCloseResourceView,
-      setLastUsedAssistantId,
-      t
-    ]
-  )
 
   // "去对话" from the assistant library (after adding a preset): create/open a real empty topic
   // with that assistant selected.
@@ -501,13 +371,12 @@ const HomePage: FC = () => {
       if (!setActiveTopicAndCloseResourceView(topic)) return
       setShellPaneOpen(true)
       if (messageId) requestLocate(topic.id, messageId)
-      topicRevealRequestIdRef.current += 1
-      setTopicRevealRequest({
+      setTopicRevealRequest((current) => ({
         clearFilters: true,
         clearQuery: true,
         itemId: topic.id,
-        requestId: topicRevealRequestIdRef.current
-      })
+        requestId: (current?.requestId ?? 0) + 1
+      }))
     },
     [closeSurface, requestLocate, setActiveTopicAndCloseResourceView, setShellPaneOpen]
   )
@@ -606,103 +475,22 @@ const HomePage: FC = () => {
         )
       }
     : null
-  const setTopicListPosition = useCallback(
-    async (position: ChatPanePosition) => {
-      await setTopicDisplayMode('assistant')
-      if (position === 'left') {
-        const activeAssistantGroupId = visibleTopic ? getTopicAssistantDisplayGroupId(visibleTopic) : undefined
-        const collapsedAssistantGroupIds = Array.from(
-          new Set(
-            allTopics.map(getTopicAssistantDisplayGroupId).filter((groupId) => groupId !== activeAssistantGroupId)
-          )
-        )
-        cacheService.setPersist('ui.topic.expansion.assistant', collapsedAssistantGroupIds)
-      }
-      await setPanePosition(position)
-      setTopicPaneOpen(position === 'right', { force: true })
-      setShellPaneOpen(true)
-    },
-    [allTopics, setPanePosition, setShellPaneOpen, setTopicDisplayMode, setTopicPaneOpen, visibleTopic]
-  )
-  // Classic layout = entity rail + right topic panel; modern layout = one left navigation panel (HomeTabs).
-  const pane =
-    isClassicTopicLayout && topicListPosition === 'right' ? (
-      <AssistantResourceList
-        activeAssistantId={visibleAssistantId ?? null}
-        activeTopicId={visibleTopic?.id ?? null}
-        dataEnabled={shellPaneOpen}
-        assistantTopicsSource={assistantTopicsSource}
-        onAddAssistant={() => {
-          setAssistantPickerOpen(true)
-        }}
-        historyRecordsActive={historyRecordsActive}
-        onOpenHistoryRecords={isWindowFrame ? undefined : openHistoryRecords}
-        onSelectTopic={setActiveTopicAndCloseResourceView}
-        onClearActiveTopic={clearActiveTopicAndCloseResourceView}
-        onSelectedAssistantClick={() => {
-          closeSurface()
-          if (!topicPaneOpen) setTopicPaneUserOpenIntentSeq((seq) => seq + 1)
-          setTopicPaneOpen(!topicPaneOpen)
-        }}
-        onCreateTopic={handleCreateEmptyTopicForAssistant}
-        manageAssistantsActive={manageAssistantsActive}
-        onManageAssistants={onManageAssistants}
-        onActiveAssistantDeleted={handleActiveAssistantDeleted}
-      />
-    ) : (
-      <HomeTabs
-        activeTopic={visibleTopic}
-        dataEnabled={shellPaneOpen}
-        assistantTopicsSource={assistantTopicsSource}
-        onActiveAssistantDeleted={handleActiveAssistantDeleted}
-        onAddAssistant={() => {
-          setAssistantPickerOpen(true)
-        }}
-        clearActiveTopic={clearActiveTopicAndCloseResourceView}
-        setActiveTopic={setActiveTopicAndCloseResourceView}
-        onNewTopic={handleCreateEmptyTopic}
-        historyRecordsActive={historyRecordsActive}
-        onOpenHistoryRecords={isWindowFrame ? undefined : openHistoryRecords}
-        revealRequest={topicRevealRequest}
-        manageAssistantsActive={manageAssistantsActive}
-        onManageAssistants={onManageAssistants}
-        onSetPanePosition={isWindowFrame ? undefined : setTopicListPosition}
-        panePosition="left"
-      />
-    )
-  // In classic layout the topic list moves into the chat's right pane as a capability; the single page-level
-  // provider owns the RightPanel for both views so the rail and the right panel share its open/maximize
-  // state. New (sidebar) view passes a null config, leaving the pane as branch/trace only.
-  const resourcePane: ResourcePaneConfig | null =
-    isClassicTopicLayout && topicListPosition === 'right'
-      ? {
-          label: t('chat.topics.title'),
-          node: (
-            <Topics
-              assistantTopicsSource={assistantTopicsSource}
-              dataEnabled={topicPaneOpen}
-              presentation="right-panel"
-              activeTopic={visibleTopic}
-              assistantIdFilter={visibleAssistantId ?? null}
-              clearActiveTopic={clearActiveTopicAndCloseResourceView}
-              setActiveTopic={setActiveTopicAndCloseResourceView}
-              onNewTopic={handleCreateEmptyTopic}
-              onSetPanePosition={setTopicListPosition}
-              panePosition="right"
-              revealRequest={topicRevealRequest}
-            />
-          )
-        }
-      : null
-  const assistantPickerDialog = isClassicTopicLayout ? (
-    <AssistantConversationPickerDialog
-      open={assistantPickerOpen}
-      onOpenChange={setAssistantPickerOpen}
-      assistants={assistants}
-      assistantsLoading={isAssistantsLoading || isAssistantsRefreshing}
-      onSelect={handleAssistantConversationSelect}
+  // The navigation pane is the active assistant's conversation history.
+  const pane = (
+    <Topics
+      activeTopic={visibleTopic}
+      activeAssistantId={activeAssistantId}
+      dataEnabled={shellPaneOpen}
+      assistantTopicsSource={assistantTopicsSource}
+      clearActiveTopic={clearActiveTopicAndCloseResourceView}
+      setActiveTopic={setActiveTopicAndCloseResourceView}
+      onNewTopic={handleCreateEmptyTopic}
+      historyRecordsActive={historyRecordsActive}
+      onOpenHistoryRecords={isWindowFrame ? undefined : openHistoryRecords}
+      revealRequest={topicRevealRequest}
+      manageAssistantsActive={manageAssistantsActive}
     />
-  ) : null
+  )
 
   const centerSurface = historyRecordsCenter ?? resourceCenter
 
@@ -711,14 +499,10 @@ const HomePage: FC = () => {
   // decides whether a visited right-panel subtree survives.
   return (
     <TopicRightPane.Scope
-      resourcePane={resourcePane}
       topicId={visibleTopic?.id}
       topicName={visibleTopic?.name}
       traceId={visibleTopic?.traceId}
       present={!centerSurface}
-      defaultOpen={topicPaneOpen}
-      onOpenChange={isClassicTopicLayout ? setTopicPaneOpen : undefined}
-      userOpenIntentSeq={topicPaneUserOpenIntentSeq}
       revealRequest={topicRevealRequest}>
       <HomeTabRuntime
         title={tabTitle}
@@ -746,10 +530,8 @@ const HomePage: FC = () => {
             onSidebarToggle={toggleShellPane}
             locateMessageId={locateMessageId}
             onLocateMessageHandled={handleLocateMessageHandled}
-            resourcePaneCount={topicResourcePaneCount}
           />
         </ContentContainer>
-        {assistantPickerDialog}
       </Container>
     </TopicRightPane.Scope>
   )

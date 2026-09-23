@@ -129,7 +129,6 @@ const AppearanceSettings: FC = () => {
   const [customCss, setCustomCss] = usePreference('ui.custom_css')
   const [fontSize] = usePreference('chat.message.font_size')
   const [useSystemTitleBar, setUseSystemTitleBar] = usePreference('app.use_system_title_bar')
-  const [topicListPosition, setTopicListPosition] = usePreference('topic.tab.position')
   const [sessionListPosition, setSessionListPosition] = usePreference('agent.session.position')
   const [codeExecution, setCodeExecution] = useMultiplePreferences({
     enabled: 'chat.code.execution.enabled',
@@ -444,17 +443,6 @@ const AppearanceSettings: FC = () => {
             value={menuPresentationMode}
             onValueChange={handleMenuPresentationModeChange}
             options={menuPresentationModeOptions}
-            size="sm"
-          />
-        </SettingRow>
-        <SettingDivider />
-        <SettingRow id="setting-appearance-chat-list-position" className="scroll-mt-6">
-          <SettingRowTitle>{t('settings.display.list_position.chat')}</SettingRowTitle>
-          <SegmentedControl<TopicTabPosition>
-            value={topicListPosition}
-            onValueChange={setTopicListPosition}
-            options={listPositionOptions}
-            aria-label={t('settings.display.list_position.chat')}
             size="sm"
           />
         </SettingRow>

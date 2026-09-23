@@ -38,6 +38,13 @@ export function useConversationCenterSurface<TResourceKind extends string>({
     setActive(null)
   }, [])
 
+  const openResource = useCallback(
+    (kind: TResourceKind) => {
+      setActive(disabled ? null : { conversationKey, kind, type: 'resource' })
+    },
+    [conversationKey, disabled]
+  )
+
   const toggleResource = useCallback(
     (kind: TResourceKind) => {
       if (disabled) {
@@ -80,6 +87,7 @@ export function useConversationCenterSurface<TResourceKind extends string>({
     activeResourceKind,
     closeSurface,
     historyActive,
+    openResource,
     toggleHistory,
     toggleResource
   }

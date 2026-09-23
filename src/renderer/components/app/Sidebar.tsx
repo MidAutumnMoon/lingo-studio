@@ -7,10 +7,18 @@ import { useTranslation } from 'react-i18next'
 
 import { usePersistCache } from '@data/hooks/useCache'
 import { usePreference } from '@data/hooks/usePreference'
+import { useTabs } from '@renderer/hooks/tab'
+import { useAssistants, useAssistantsApi } from '@renderer/hooks/useAssistant'
+import { toCreateAssistantDtoFromCatalogPreset } from '@renderer/hooks/useAssistantCatalogPresets'
+import { useAssistantNavigation } from '@renderer/hooks/useAssistantNavigation'
+import { useAssistantSidebarSection } from '@renderer/hooks/useAssistantSidebarSection'
 import useAvatar from '@renderer/hooks/useAvatar'
 import { useSidebarShortcuts } from '@renderer/hooks/useSidebarShortcuts'
+import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { openSettingsTab } from '@renderer/services/mainWindowNavigation'
 import { toast } from '@renderer/services/toast'
+import { formatErrorMessageWithPrefix } from '@renderer/utils/error'
+import { getSidebarApp, tabBelongsToApp } from '@renderer/utils/sidebar'
 
 import { SidebarShellActions } from '../layout/ShellTabBarActions'
 import {
@@ -25,6 +33,10 @@ import {
   UserAvatar
 } from '../Sidebar'
 import UserPopup from '../UserPopup'
+import {
+  AssistantConversationPickerDialog,
+  type AssistantConversationSelection
+} from './AssistantConversationPickerDialog'
 import {
   useResolvedSidebarShortcuts,
   useSidebarShortcutActivation,
@@ -90,6 +102,50 @@ export default function Sidebar({
     () => <UserAvatar user={sidebarUser} className="h-full w-full" ring={false} />,
     [sidebarUser]
   )
+
+  const { assistants } = useAssistantsApi()
+  const { addAssistant } = useAssistants()
+  const { openAssistant } = useAssistantNavigation()
+  const { activeTab, openTab } = useTabs()
+  const [assistantPickerOpen, setAssistantPickerOpen] = useState(false)
+
+  const handleAssistantSelect = useCallback(
+    async (selection: AssistantConversationSelection) => {
+      setAssistantPickerOpen(false)
+      try {
+        if (selection.type === 'assistant') {
+          const assistant = assistants.find((candidate) => candidate.id === selection.assistantId)
+          await openAssistant({ id: selection.assistantId, name: assistant?.name ?? '' })
+          return
+        }
+
+        // Reuse an assistant already created from this preset (matched by name — the only persistent
+        // link a preset has) instead of creating a duplicate every time it is picked.
+        const presetName = selection.preset.name.trim()
+        const existing = assistants.find((assistant) => assistant.name === presetName)
+        const assistant = existing ?? (await addAssistant(toCreateAssistantDtoFromCatalogPreset(selection.preset)))
+        await openAssistant({ id: assistant.id, name: assistant.name })
+      } catch (error) {
+        toast.error(formatErrorMessageWithPrefix(error, t('common.error')))
+      }
+    },
+    [addAssistant, assistants, openAssistant, t]
+  )
+
+  const openAssistantsLibrary = useCallback(() => {
+    const chatApp = getSidebarApp('assistants')!
+    if (activeTab && tabBelongsToApp(chatApp, activeTab.url)) {
+      void EventEmitter.emit(EVENT_NAMES.OPEN_ASSISTANTS_LIBRARY, { tabId: activeTab.id })
+      return
+    }
+    // The library is a surface of the chat page, so with no chat tab on screen, land there first.
+    openTab(chatApp.routePrefix)
+  }, [activeTab, openTab])
+
+  const { section: assistantSection, editDialogHost: assistantEditDialogHost } = useAssistantSidebarSection({
+    onAddAssistant: () => setAssistantPickerOpen(true),
+    onOpenLibrary: openAssistantsLibrary
+  })
 
   const [hoverVisible, setHoverVisible] = useState(false)
   const layout = getSidebarLayout(activeSidebarWidth)
@@ -189,6 +245,7 @@ export default function Sidebar({
   const sidebarProps = {
     isFullscreen,
     entries,
+    section: assistantSection,
     title: sidebarUser.name,
     logo: sidebarLogo,
     onHeaderClick: sidebarUser.onClick,
@@ -226,6 +283,13 @@ export default function Sidebar({
           <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
         </Suspense>
       ) : null}
+      {assistantEditDialogHost}
+      <AssistantConversationPickerDialog
+        open={assistantPickerOpen}
+        onOpenChange={setAssistantPickerOpen}
+        assistants={assistants}
+        onSelect={handleAssistantSelect}
+      />
     </div>
   )
 }

@@ -39,7 +39,6 @@ describe('core sidebar shortcut providers', () => {
     ['core.app', 'files', 'workspace', '/app/files'],
     ['core.mini-app', 'mini app/one', 'workspace', '/app/mini-app/mini%20app%2Fone'],
     ['core.agent', 'agent/one', 'workspace', '/app/agents?agentId=agent%2Fone'],
-    ['core.assistant', 'assistant/one', 'workspace', '/app/chat?assistantId=assistant%2Fone'],
     ['core.knowledge-base', 'base/one', 'workspace', '/app/knowledge?baseId=base%2Fone'],
     ['core.topic', 'topic/one', 'workspace', '/app/chat?topicId=topic%2Fone'],
     ['core.agent-session', 'session/one', 'workspace', '/app/agents?sessionId=session%2Fone'],
@@ -64,41 +63,42 @@ describe('core sidebar shortcut providers', () => {
     expect(shortcutProvider.validate(target)).toBe(false)
   })
 
-  it.each([
-    ['core.assistant', '/topics/latest', 'topic', 'assistant', '/app/chat?topicId=conversation-1'],
-    ['core.agent', '/agent-sessions/latest', 'session', 'agent', '/app/agents?sessionId=conversation-1']
-  ])(
-    'resolves %s to a stable conversation before opening',
-    async (providerId, endpoint, field, conversationType, url) => {
-      mocks.dataGet.mockResolvedValue({ [field]: { id: 'conversation-1' } })
-      await provider(providerId).activate(createSidebarShortcutTarget(providerId, 'owner-1'), gateway)
-      expect(mocks.dataGet).toHaveBeenCalledWith(endpoint, { query: { [`${conversationType}Id`]: 'owner-1' } })
-      expect(openWorkspace).toHaveBeenCalledWith(
-        expect.objectContaining({ url, conversation: { conversationType, conversationId: 'conversation-1' } })
-      )
-    }
-  )
+  it('resolves core.agent to a stable conversation before opening', async () => {
+    mocks.dataGet.mockResolvedValue({ session: { id: 'conversation-1' } })
+    await provider('core.agent').activate(createSidebarShortcutTarget('core.agent', 'owner-1'), gateway)
+    expect(mocks.dataGet).toHaveBeenCalledWith('/agent-sessions/latest', { query: { agentId: 'owner-1' } })
+    expect(openWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/app/agents?sessionId=conversation-1',
+        conversation: { conversationType: 'agent', conversationId: 'conversation-1' }
+      })
+    )
+  })
 
-  it.each(['core.assistant', 'core.agent'])('does not navigate when %s entry resolution fails', async (providerId) => {
+  it('does not navigate when core.agent entry resolution fails', async () => {
     mocks.dataGet.mockRejectedValue(new Error('offline'))
     await expect(
-      provider(providerId).activate(createSidebarShortcutTarget(providerId, 'owner-1'), gateway)
+      provider('core.agent').activate(createSidebarShortcutTarget('core.agent', 'owner-1'), gateway)
     ).rejects.toThrow('offline')
     expect(openWorkspace).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ['core.assistant', 'assistantId', '/app/chat?topicId=topic-1'],
-    ['core.agent', 'agentId', '/app/agents?sessionId=session-1']
-  ])('highlights %s by the current conversation owner after redirect', (providerId, ownerKey, url) => {
-    const target = createSidebarShortcutTarget(providerId, 'owner-1')
-    expect(provider(providerId).isActive?.(target, { url, [ownerKey]: 'owner-1' })).toBe(true)
-    expect(provider(providerId).isActive?.(target, { url, [ownerKey]: 'other-owner' })).toBe(false)
+  it('highlights core.agent by the current conversation owner after redirect', () => {
+    const target = createSidebarShortcutTarget('core.agent', 'owner-1')
+    expect(
+      provider('core.agent').isActive?.(target, { url: '/app/agents?sessionId=session-1', agentId: 'owner-1' })
+    ).toBe(true)
+    expect(
+      provider('core.agent').isActive?.(target, { url: '/app/agents?sessionId=session-1', agentId: 'other-owner' })
+    ).toBe(false)
   })
 
-  it.each(['core.skill', 'core.mcp-server', 'core.provider'])('does not register %s', (providerId) => {
-    expect(CORE_SIDEBAR_SHORTCUT_PROVIDERS.some((candidate) => candidate.id === providerId)).toBe(false)
-  })
+  it.each(['core.skill', 'core.mcp-server', 'core.provider', 'core.assistant'])(
+    'does not register %s',
+    (providerId) => {
+      expect(CORE_SIDEBAR_SHORTCUT_PROVIDERS.some((candidate) => candidate.id === providerId)).toBe(false)
+    }
+  )
 
   it('accepts known Code Mate CLIs and rejects unknown resource ids', () => {
     const shortcutProvider = provider('core.code-cli')

@@ -73,6 +73,12 @@ export {
   moveResourceListStringGroupAfterDrop,
   withResourceListGroupIdPrefix
 } from './resourceListReorder'
+export {
+  DEFAULT_RESOURCE_LIST_ROW_LAYOUT,
+  RESOURCE_LIST_CHROME_ROW_LAYOUT,
+  RESOURCE_LIST_ROW_LAYOUTS,
+  type ResourceListRowLayout
+} from './resourceListLayout'
 export { SESSION_DISPLAY_LABEL_KEYS, SessionListOptionsMenu } from './SessionListOptionsMenu'
 export { TopicListOptionsMenu } from './TopicListOptionsMenu'
 export type { UseResourceListPinnedStateOptions, UseResourceListPinnedStateResult } from './useResourceListPinnedState'

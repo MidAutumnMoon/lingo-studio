@@ -2,10 +2,7 @@ import { useCallback } from 'react'
 
 import { usePersistCache } from '@renderer/data/hooks/useCache'
 
-const RIGHT_PANE_OPEN_OVERRIDE_CACHE_KEY = {
-  chat: 'ui.chat.right_pane_open_override',
-  agent: 'ui.agent.right_pane_open_override'
-} as const
+const AGENT_RIGHT_PANE_OPEN_OVERRIDE_CACHE_KEY = 'ui.agent.right_pane_open_override'
 
 interface ClassicLayoutRightPaneOpenOptions {
   enabled: boolean
@@ -15,16 +12,16 @@ interface ClassicLayoutRightPaneOpenOptions {
 type ClassicLayoutPaneOpenSetter = (open: boolean, options?: { force?: boolean }) => void
 
 /**
- * Classic-layout right-pane state, cached independently for Chat and Agent. A null override delegates
- * to the page's position-derived default; an explicit boolean preserves the user's choice across page
- * re-entry and seeds the stable AgentChat shell. Outside classic layout the pane is derived closed and
- * normal writes are ignored.
+ * Classic-layout right-pane state for the Work page, cached independently of the panel's own
+ * open state. A null override delegates to the page's position-derived default; an explicit
+ * boolean preserves the user's choice across page re-entry. Outside classic layout the pane is
+ * derived closed and normal writes are ignored.
  */
-export function useClassicLayoutRightPaneOpen(
-  surface: 'chat' | 'agent',
-  { enabled, defaultOpen }: ClassicLayoutRightPaneOpenOptions
-): readonly [boolean, ClassicLayoutPaneOpenSetter] {
-  const [storedOverride, setStoredOverride] = usePersistCache(RIGHT_PANE_OPEN_OVERRIDE_CACHE_KEY[surface])
+export function useClassicLayoutRightPaneOpen({
+  enabled,
+  defaultOpen
+}: ClassicLayoutRightPaneOpenOptions): readonly [boolean, ClassicLayoutPaneOpenSetter] {
+  const [storedOverride, setStoredOverride] = usePersistCache(AGENT_RIGHT_PANE_OPEN_OVERRIDE_CACHE_KEY)
   const paneOpen = enabled && (storedOverride ?? defaultOpen)
   const setPaneOpen = useCallback<ClassicLayoutPaneOpenSetter>(
     (open, options) => {

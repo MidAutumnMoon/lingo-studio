@@ -5,6 +5,10 @@ import {
   type SidebarShortcutTarget
 } from '@shared/data/preference/preferenceTypes'
 import { CONVERSATION_ROUTES, conversationRouteUrl } from '@shared/utils/conversationRoute'
+import {
+  RETIRED_SIDEBAR_SHORTCUT_PROVIDER_IDS,
+  SIDEBAR_SHORTCUT_PROVIDER_IDS as SIDEBAR_SHORTCUT_PROVIDER_IDS_SHARED
+} from '@shared/utils/sidebarShortcutProviderIds'
 
 /**
  * Context passed to sidebar navigation handlers. Carries per-call state the
@@ -150,19 +154,7 @@ export function isSidebarAppId(value: string): value is SidebarAppId {
   return sidebarFavoriteSet.has(value as SidebarAppId)
 }
 
-export const SIDEBAR_SHORTCUT_PROVIDER_IDS = {
-  APP: 'core.app',
-  MINI_APP: 'core.mini-app',
-  AGENT: 'core.agent',
-  ASSISTANT: 'core.assistant',
-  KNOWLEDGE_BASE: 'core.knowledge-base',
-  TOPIC: 'core.topic',
-  AGENT_SESSION: 'core.agent-session',
-  FILE_ENTRY: 'core.file-entry',
-  CODE_CLI: 'core.code-cli'
-} as const
-
-const RETIRED_SIDEBAR_SHORTCUT_PROVIDER_IDS = new Set(['core.skill', 'core.mcp-server', 'core.provider'])
+export const SIDEBAR_SHORTCUT_PROVIDER_IDS = SIDEBAR_SHORTCUT_PROVIDER_IDS_SHARED
 
 export function createSidebarShortcutTarget(
   providerId: string,
@@ -176,11 +168,12 @@ export function createSidebarShortcutTarget(
   }
 }
 
+// Assistants are not pinnable: the sidebar lists every assistant itself, so a stored assistant
+// shortcut is a second row for something already on screen.
 const LEGACY_PROVIDER_BY_TYPE = {
   app: SIDEBAR_SHORTCUT_PROVIDER_IDS.APP,
   mini_app: SIDEBAR_SHORTCUT_PROVIDER_IDS.MINI_APP,
-  agent: SIDEBAR_SHORTCUT_PROVIDER_IDS.AGENT,
-  assistant: SIDEBAR_SHORTCUT_PROVIDER_IDS.ASSISTANT
+  agent: SIDEBAR_SHORTCUT_PROVIDER_IDS.AGENT
 } as const
 
 type StoredSidebarItem = Record<string, unknown>

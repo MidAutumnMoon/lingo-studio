@@ -64,3 +64,20 @@ export const formatRelativeTime = (value: string, language: string, now = Date.n
   if (Math.round(magnitude / MONTH_MS) < 12) return formatter.format(inUnit(MONTH_MS), 'month')
   return formatter.format(inUnit(YEAR_MS), 'year')
 }
+
+/**
+ * Date and time for list rows that sort by recency, in the user's own short form (`09/24 00:31`).
+ * Absolute rather than relative: a history list is scanned for *when*, and rows directly above the
+ * open conversation make "2 hours ago" ambiguous.
+ */
+export const formatListTimestamp = (value: string, language: string) => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return new Intl.DateTimeFormat(language, {
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: '2-digit'
+  }).format(date)
+}

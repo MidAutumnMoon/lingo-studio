@@ -1,16 +1,26 @@
 import type { ReactNode } from 'react'
+import { Fragment } from 'react'
 
 import { MenuItem } from '@cherrystudio/ui'
 import { CommandContextMenu } from '@renderer/components/command'
+import { cn } from '@renderer/utils/style'
 
 import { ActiveIndicator } from './primitives'
 import type { SidebarClickGuard } from './SidebarSortableList'
 import { SidebarSortableList } from './SidebarSortableList'
 import { SidebarTooltip } from './Tooltip'
-import type { ResolvedSidebarEntry, SidebarIconPresentation, SidebarVisibleLayout } from './types'
+import type {
+  ResolvedSidebarEntry,
+  SidebarIconPresentation,
+  SidebarSection,
+  SidebarSectionAction,
+  SidebarSectionLink,
+  SidebarVisibleLayout
+} from './types'
 
 const FULL_ICON_PRESENTATION = { slotSize: 18, glyphSize: 16 } as const
 const ICON_ICON_PRESENTATION = { slotSize: 24, glyphSize: 18 } as const
+const SECTION_ICON_PRESENTATION = { slotSize: 20, glyphSize: 18 } as const
 
 export interface SidebarListProps {
   layout: SidebarVisibleLayout
@@ -81,7 +91,12 @@ function SidebarEntryIcon({
   )
 }
 
-function IconList({ entries, onReorder, onContextMenuOpenChange }: ListProps) {
+function IconList({
+  entries,
+  onReorder,
+  onContextMenuOpenChange,
+  iconPresentation = ICON_ICON_PRESENTATION
+}: ListProps & { iconPresentation?: SidebarIconPresentation }) {
   return (
     <SidebarSortableList
       items={entries}
@@ -114,7 +129,7 @@ function IconList({ entries, onReorder, onContextMenuOpenChange }: ListProps) {
                       : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
                 }`}>
                 {isActive && <ActiveIndicator className="rounded-full" />}
-                <SidebarEntryIcon entry={entry} presentation={ICON_ICON_PRESENTATION} />
+                <SidebarEntryIcon entry={entry} presentation={iconPresentation} />
               </button>
             </EntryContextMenu>
           </SidebarTooltip>
@@ -124,7 +139,12 @@ function IconList({ entries, onReorder, onContextMenuOpenChange }: ListProps) {
   )
 }
 
-function FullList({ entries, onReorder, onContextMenuOpenChange }: ListProps) {
+function FullList({
+  entries,
+  onReorder,
+  onContextMenuOpenChange,
+  iconPresentation = FULL_ICON_PRESENTATION
+}: ListProps & { iconPresentation?: SidebarIconPresentation }) {
   return (
     <SidebarSortableList
       items={entries}
@@ -139,7 +159,7 @@ function FullList({ entries, onReorder, onContextMenuOpenChange }: ListProps) {
             <EntryContextMenu items={entry.contextMenuItems} onOpenChange={onContextMenuOpenChange}>
               <MenuItem
                 variant="ghost"
-                icon={<SidebarEntryIcon entry={entry} presentation={FULL_ICON_PRESENTATION} />}
+                icon={<SidebarEntryIcon entry={entry} presentation={iconPresentation} />}
                 label={entry.label}
                 aria-label={entry.label}
                 aria-description={entry.statusLabel}
@@ -157,5 +177,85 @@ function FullList({ entries, onReorder, onContextMenuOpenChange }: ListProps) {
         )
       }}
     </SidebarSortableList>
+  )
+}
+
+function SidebarSectionHeader({ section }: { section: SidebarSection }) {
+  return (
+    <div className="flex h-7 shrink-0 items-center justify-between gap-1 px-2.5">
+      <span className="truncate text-muted-foreground text-xs">{section.title}</span>
+      {section.action && <SidebarSectionHeaderAction action={section.action} />}
+    </div>
+  )
+}
+
+function SidebarSectionHeaderAction({ action }: { action: SidebarSectionAction }) {
+  return (
+    <SidebarTooltip content={action.label}>
+      <button
+        type="button"
+        aria-label={action.label}
+        onClick={action.onClick}
+        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors [-webkit-app-region:no-drag] hover:bg-accent/60 hover:text-foreground">
+        {action.icon}
+      </button>
+    </SidebarTooltip>
+  )
+}
+
+function SidebarSectionLinkRow({ link }: { link: SidebarSectionLink }) {
+  return (
+    <div className="px-2">
+      <MenuItem
+        variant="ghost"
+        icon={link.icon}
+        label={link.label}
+        aria-label={link.label}
+        onClick={link.onClick}
+        className="rounded-xl"
+      />
+    </div>
+  )
+}
+
+/**
+ * The sidebar's secondary list: a divider, a section header, one or more groups of rows, and an
+ * optional way out. A single unlabelled group is the flat case and keeps drag reordering; grouped
+ * rows (assistant groups) do not reorder, because a drag would have to cross group boundaries that
+ * the rows themselves cannot express.
+ */
+export function SidebarSectionList({ layout, section }: { layout: SidebarVisibleLayout; section: SidebarSection }) {
+  const entries = section.groups.flatMap((group) => group.entries)
+  const flatGroup = section.groups.length === 1 && !section.groups[0].label ? section.groups[0].key : undefined
+
+  return (
+    <div className={cn('flex shrink-0 flex-col', layout === 'full' && 'pt-1 pb-1')}>
+      <div aria-hidden="true" className="mx-2 h-px shrink-0 bg-border-subtle" />
+      {layout === 'icon' ? (
+        <IconList
+          entries={entries}
+          iconPresentation={SECTION_ICON_PRESENTATION}
+          onContextMenuOpenChange={section.onContextMenuOpenChange}
+        />
+      ) : (
+        <>
+          <SidebarSectionHeader section={section} />
+          {section.groups.map((group) => (
+            <Fragment key={group.key}>
+              {group.label && (
+                <div className="truncate px-2.5 pt-1.5 pb-0.5 text-muted-foreground text-xs">{group.label}</div>
+              )}
+              <FullList
+                entries={group.entries}
+                iconPresentation={SECTION_ICON_PRESENTATION}
+                onReorder={group.key === flatGroup ? section.onEntriesReorder : undefined}
+                onContextMenuOpenChange={section.onContextMenuOpenChange}
+              />
+            </Fragment>
+          ))}
+          {section.footer && <SidebarSectionLinkRow link={section.footer} />}
+        </>
+      )}
+    </div>
   )
 }

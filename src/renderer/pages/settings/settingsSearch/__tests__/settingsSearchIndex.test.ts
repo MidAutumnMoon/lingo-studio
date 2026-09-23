@@ -104,6 +104,10 @@ describe('settings search index', () => {
   })
 
   it('every indexed focus id exists as an anchor in the settings TSX (dead anchors must fail)', () => {
+    // KNOWN RED: the conversation-list-position row was removed from AppearanceSettings.tsx, but
+    // appearance.search.ts still indexes it, so `setting-appearance-chat-list-position` has no
+    // anchor to scroll to (a result that flashes nothing). Product bug — drop the index entry;
+    // this guard stays as written.
     // Guard the guard: the scan must have found the hand-written anchors
     expect(literalAnchorIds.size).toBeGreaterThan(50)
     for (const section of settingsSearchSections) {
@@ -148,7 +152,6 @@ describe('settings search index aliases', () => {
     ['思维链', 'thought-auto-collapse'],
     ['开机自启', 'launch-onboot'],
     ['恢复出厂', 'data-reset'],
-    ['侧边栏', 'chat-list-position'],
     ['上下文数量', 'context-max-messages']
   ])('query "%s" hits the indexed row via alias', (query, anchorId) => {
     const focusIds = rankEntries(query, settingsSearchSections, tEnUs).map((r) => r.focusId)

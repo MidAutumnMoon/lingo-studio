@@ -22,6 +22,7 @@ import {
   useResourceListActions,
   useResourceListControlsState,
   useResourceListMeta,
+  useResourceListRowLayout,
   useResourceListSourceItems,
   useResourceListUiStore,
   useResourceListView
@@ -33,12 +34,10 @@ import {
   ResourceListGroupHeaderContextMenuOwner,
   SectionHeader
 } from './ResourceListGroups'
-import { estimateResourceListDefaultRowSize, RESOURCE_LIST_DEFAULT_ROW_LAYOUT } from './resourceListLayout'
+import { RESOURCE_LIST_CHROME_ROW_LAYOUT, type ResourceListRowLayout } from './resourceListLayout'
 
 const SCROLLBAR_AUTO_HIDE_DELAY = 1200
 const SCROLLBAR_FADE_STEP = 140
-const ITEM_ROW_CLASS = `flex w-full items-center py-[2px] ${RESOURCE_LIST_DEFAULT_ROW_LAYOUT.className}`
-const FIXED_ROW_CONTAINER_STYLE: CSSProperties = { height: RESOURCE_LIST_DEFAULT_ROW_LAYOUT.size }
 
 function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
   if (!ref) return
@@ -122,7 +121,7 @@ type ResourceListVirtualRow<T extends ResourceListItemBase> = GroupedVirtualList
   ResourceListVirtualFooter
 >
 
-const estimateResourceListChromeSize = () => RESOURCE_LIST_DEFAULT_ROW_LAYOUT.size
+const estimateResourceListChromeSize = () => RESOURCE_LIST_CHROME_ROW_LAYOUT.size
 
 function renderResourceListGroupHeader(header: ResourceListVirtualHeader) {
   return header.type === 'section' ? <SectionHeader section={header.section} /> : <GroupHeader group={header.group} />
@@ -207,17 +206,20 @@ function handleVirtualizerChange(virtualizer: Virtualizer<HTMLDivElement, Elemen
 
 function VirtualItemRow({
   children,
-  groupHeaderIconVisible
+  groupHeaderIconVisible,
+  rowLayout
 }: {
   children: ReactNode
   groupHeaderIconVisible: boolean
+  rowLayout: ResourceListRowLayout
 }) {
   return (
     <div
       data-resource-list-group-header-icon-visible={groupHeaderIconVisible}
       data-resource-list-item-row="true"
       className={cn(
-        ITEM_ROW_CLASS,
+        'flex w-full items-center py-[2px]',
+        rowLayout.containerClassName,
         !groupHeaderIconVisible &&
           '[&_[role=option]]:!px-2.5 [&_[data-resource-list-item-actions=true]]:!-mr-1 [&_[data-resource-list-leading-slot=true]]:hidden'
       )}>
@@ -536,6 +538,7 @@ export function VirtualItems<T extends ResourceListItemBase>({
 }: VirtualItemsProps<T>) {
   const meta = useResourceListMeta<T>()
   const { estimateItemSize, getItemId, revealRequest } = meta
+  const rowLayout = useResourceListRowLayout()
   const view = useResourceListView<T>()
   const renderContext = useResourceListRenderContext<T>()
   const groups = useMemo(() => buildVirtualGroups(view, Boolean(meta.groupEmptyLabel)), [meta.groupEmptyLabel, view])
@@ -551,19 +554,19 @@ export function VirtualItems<T extends ResourceListItemBase>({
     virtualRows
   })
   const isScrolling = stage !== 'idle'
-  const itemContainerStyle =
-    estimateItemSize === estimateResourceListDefaultRowSize ? FIXED_ROW_CONTAINER_STYLE : undefined
+  // Uniform rows get a fixed height hint; measured rows must stay style-free for the virtualizer.
+  const itemContainerStyle: CSSProperties | undefined = meta.measuredItems ? undefined : { height: rowLayout.size }
   const estimateVirtualItemSize = useCallback(
     (virtualItem: ResourceListVirtualItem<T>) => estimateItemSize(virtualItem.itemIndex),
     [estimateItemSize]
   )
   const renderVirtualItem = useCallback(
     (virtualItem: ResourceListVirtualItem<T>) => (
-      <VirtualItemRow groupHeaderIconVisible={hasGroupHeaderIcon(meta, virtualItem)}>
+      <VirtualItemRow groupHeaderIconVisible={hasGroupHeaderIcon(meta, virtualItem)} rowLayout={rowLayout}>
         <div className="w-full">{renderItem(virtualItem.item, renderContext)}</div>
       </VirtualItemRow>
     ),
-    [meta, renderContext, renderItem]
+    [meta, renderContext, renderItem, rowLayout]
   )
   const renderGroupFooter = useCallback(
     (footer: ResourceListVirtualFooter) => {
@@ -644,6 +647,7 @@ export function VirtualDraggableItems<T extends ResourceListItemBase>({
 }: VirtualDraggableItemsProps<T>) {
   const actions = useResourceListActions()
   const meta = useResourceListMeta<T>()
+  const rowLayout = useResourceListRowLayout()
   const {
     canDragGroup: canDragGroupMeta,
     canDragItem: canDragItemMeta,
@@ -669,8 +673,7 @@ export function VirtualDraggableItems<T extends ResourceListItemBase>({
     virtualRows
   })
   const isScrolling = stage !== 'idle'
-  const itemContainerStyle =
-    estimateItemSize === estimateResourceListDefaultRowSize ? FIXED_ROW_CONTAINER_STYLE : undefined
+  const itemContainerStyle: CSSProperties | undefined = meta.measuredItems ? undefined : { height: rowLayout.size }
   const getGroupId = useCallback((group: ResourceListVirtualGroupData) => group.id, [])
   const getGroupBoundaryId = useCallback(
     (group: ResourceListVirtualGroupData) => group.__resourceListBoundaryId ?? group.id,
@@ -802,11 +805,11 @@ export function VirtualDraggableItems<T extends ResourceListItemBase>({
   )
   const renderVirtualItem = useCallback(
     (virtualItem: ResourceListVirtualItem<T>) => (
-      <VirtualItemRow groupHeaderIconVisible={hasGroupHeaderIcon(meta, virtualItem)}>
+      <VirtualItemRow groupHeaderIconVisible={hasGroupHeaderIcon(meta, virtualItem)} rowLayout={rowLayout}>
         <div className="w-full">{renderItem(virtualItem.item, renderContext)}</div>
       </VirtualItemRow>
     ),
-    [meta, renderContext, renderItem]
+    [meta, renderContext, renderItem, rowLayout]
   )
   const renderGroupFooter = useCallback(
     (footer: ResourceListVirtualFooter) => {

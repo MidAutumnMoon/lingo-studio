@@ -241,6 +241,11 @@ export function useSidebarNavigationSnapshot(): SidebarNavigationSnapshot {
   const agentApp = getSidebarApp('agents')!
   const topicId = tabBelongsToApp(chatApp, url) ? chatApp.conversationRoute?.keyFromUrl(url) : undefined
   const sessionId = tabBelongsToApp(agentApp, url) ? agentApp.conversationRoute?.keyFromUrl(url) : undefined
+  // A chat tab can also name an assistant directly, before it owns any topic (`?assistantId=`).
+  const urlAssistantId =
+    topicId || !tabBelongsToApp(chatApp, url)
+      ? undefined
+      : (new URL(url, 'app://cherry').searchParams.get('assistantId') ?? undefined)
   const { data: topic, mutate: refreshTopic } = useQuery(`/topics/${topicId}`, {
     enabled: !!topicId,
     swrOptions: { keepPreviousData: false }
@@ -262,7 +267,7 @@ export function useSidebarNavigationSnapshot(): SidebarNavigationSnapshot {
     if (sessionId && effects.some((effect) => !effect.entityIds || effect.entityIds.includes(sessionId)))
       void refreshSession()
   })
-  const assistantId = topic?.id === topicId ? topic?.assistantId : undefined
+  const assistantId = (topic?.id === topicId ? topic?.assistantId : undefined) ?? urlAssistantId ?? undefined
   const agentId = session?.id === sessionId ? (session?.agentId ?? undefined) : undefined
   return useMemo(() => ({ url, assistantId, agentId }), [url, assistantId, agentId])
 }

@@ -1038,9 +1038,9 @@
           "originalKey": "topicPosition",
           "type": "PreferenceTypes.TopicTabPosition",
           "defaultValue": "left",
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "topic.tab.position"
+          "status": "deleted",
+          "category": null,
+          "targetKey": null
         },
         {
           "originalKey": "showTopicTime",

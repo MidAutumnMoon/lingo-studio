@@ -28,10 +28,12 @@ type ConversationListSectionToggle = {
 type ConversationListOptionsMenuProps<TMode extends string> = {
   historyAction?: ConversationListMenuAction
   manageAction?: ConversationListMenuAction
-  mode: TMode
-  onChange: (mode: TMode) => void
-  options: readonly ConversationListOption<TMode>[]
+  /** Mode options, for lists that can be read in more than one way. Omit for a single-mode list. */
+  mode?: TMode
+  onChange?: (mode: TMode) => void
+  options?: readonly ConversationListOption<TMode>[]
   sectionToggle?: ConversationListSectionToggle
+  /** Menu name, used for the trigger's accessible name and the options header. */
   title: string
 }
 
@@ -40,7 +42,7 @@ export function ConversationListOptionsMenu<TMode extends string>({
   manageAction,
   mode,
   onChange,
-  options,
+  options = [],
   sectionToggle,
   title
 }: ConversationListOptionsMenuProps<TMode>) {
@@ -72,7 +74,7 @@ export function ConversationListOptionsMenu<TMode extends string>({
       </PopoverTrigger>
       <PopoverContent align="end" side="bottom" sideOffset={4} className="w-44 p-1">
         <MenuList>
-          <div className="px-2.5 py-1 font-normal text-muted-foreground text-xs">{title}</div>
+          {options.length > 0 && <div className="px-2.5 py-1 font-normal text-muted-foreground text-xs">{title}</div>}
           {options.map((option) => (
             <MenuItem
               key={option.value}
@@ -80,7 +82,7 @@ export function ConversationListOptionsMenu<TMode extends string>({
               icon={option.icon}
               label={option.label}
               active={mode === option.value}
-              onClick={() => runAfterMenuClose(() => onChange(option.value))}
+              onClick={() => runAfterMenuClose(() => onChange?.(option.value))}
             />
           ))}
           {sectionToggle && sectionToggle.ids.length > 0 && (

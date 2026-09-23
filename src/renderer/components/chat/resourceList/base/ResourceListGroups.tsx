@@ -17,15 +17,14 @@ import {
   useResourceListView
 } from './ResourceListContext'
 import {
-  RESOURCE_LIST_DEFAULT_ROW_LAYOUT,
+  RESOURCE_LIST_CHROME_ROW_LAYOUT,
   RESOURCE_LIST_DESCENDANT_FOCUS_ROW_CLASS,
   RESOURCE_LIST_INTERACTIVE_ROW_CLASS,
   RESOURCE_LIST_LABEL_CLASS,
   RESOURCE_LIST_LEADING_ACTION_SLOT_CLASS,
   RESOURCE_LIST_SELECTED_ROW_CLASS,
   RESOURCE_LIST_TEXT_START_PADDING_CLASS,
-  RESOURCE_LIST_TITLE_FADE_CLASS,
-  RESOURCE_LIST_VISUAL_ROW_CLASS
+  RESOURCE_LIST_TITLE_FADE_CLASS
 } from './resourceListLayout'
 import { ResourceListLeadingSlot } from './ResourceListLeadingSlot'
 
@@ -106,14 +105,14 @@ export function SectionHeader({ section, className, ref, style, ...props }: Sect
       style={style}
       className={cn(
         'group/resource-list-section flex w-full items-center text-foreground text-sm',
-        RESOURCE_LIST_DEFAULT_ROW_LAYOUT.className,
+        RESOURCE_LIST_CHROME_ROW_LAYOUT.containerClassName,
         className
       )}
       {...props}>
       <div
         className={cn(
           'flex w-full items-center gap-1.5 px-2.5 text-muted-foreground transition-colors duration-150',
-          RESOURCE_LIST_VISUAL_ROW_CLASS,
+          RESOURCE_LIST_CHROME_ROW_LAYOUT.visualClassName,
           RESOURCE_LIST_INTERACTIVE_ROW_CLASS,
           RESOURCE_LIST_DESCENDANT_FOCUS_ROW_CLASS
         )}>
@@ -245,7 +244,7 @@ export function GroupHeader({ group, className, ref, style, onContextMenu, ...pr
       className={cn(
         'relative flex w-full items-center gap-1.5 transition-colors duration-150',
         hasLeadingSlot ? 'px-1.5' : 'px-2.5',
-        RESOURCE_LIST_VISUAL_ROW_CLASS,
+        RESOURCE_LIST_CHROME_ROW_LAYOUT.visualClassName,
         RESOURCE_LIST_INTERACTIVE_ROW_CLASS,
         !showsSelectedSurface && RESOURCE_LIST_DESCENDANT_FOCUS_ROW_CLASS,
         showsSelectedSurface && 'has-[:focus-visible]:bg-resource-list-row-selected',
@@ -350,7 +349,7 @@ export function GroupHeader({ group, className, ref, style, onContextMenu, ...pr
       style={style}
       className={cn(
         'group/resource-list-group flex w-full items-center text-foreground text-sm',
-        RESOURCE_LIST_DEFAULT_ROW_LAYOUT.className,
+        RESOURCE_LIST_CHROME_ROW_LAYOUT.containerClassName,
         className
       )}
       data-selected={selected || undefined}
@@ -395,7 +394,7 @@ export function GroupEmpty({ className, ref, style, ...props }: GroupEmptyProps)
       style={style}
       className={cn(
         'flex items-center pr-1.5 text-foreground-tertiary',
-        RESOURCE_LIST_DEFAULT_ROW_LAYOUT.className,
+        RESOURCE_LIST_CHROME_ROW_LAYOUT.containerClassName,
         RESOURCE_LIST_TEXT_START_PADDING_CLASS,
         RESOURCE_LIST_LABEL_CLASS,
         className
@@ -421,7 +420,7 @@ export function GroupShowMore({ groupId, className, ref, style, ...props }: Grou
       style={style}
       className={cn(
         'flex items-center justify-start pr-1.5 text-foreground',
-        RESOURCE_LIST_DEFAULT_ROW_LAYOUT.className,
+        RESOURCE_LIST_CHROME_ROW_LAYOUT.containerClassName,
         RESOURCE_LIST_TEXT_START_PADDING_CLASS,
         className
       )}

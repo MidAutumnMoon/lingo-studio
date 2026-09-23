@@ -1,14 +1,36 @@
-// 32px row surface + 4px breathing room, the same rhythm the settings sidebar uses (DESIGN.md puts
-// menu items at 32px). Keep the measured size and rendered class together: virtual-list estimates
-// must never drift from the row that they describe.
-export const RESOURCE_LIST_DEFAULT_ROW_LAYOUT = {
-  className: 'h-9',
-  size: 36
-} as const
+export type ResourceListRowLayout = {
+  /** Row pitch the virtualizer measures; must match `containerClassName`. */
+  size: number
+  /** Outer wrapper of one virtualized row. */
+  containerClassName: string
+  /** Inner surface carrying the row's hover and selected fill. */
+  visualClassName: string
+}
 
-export const estimateResourceListDefaultRowSize = () => RESOURCE_LIST_DEFAULT_ROW_LAYOUT.size
+/**
+ * Item-row geometry is a per-list decision, not a global one: entity rails and the default list read
+ * one line per row, the conversation history reads two (title + time). Keep the measured size and the
+ * rendered classes together — virtual-list estimates must never drift from the row they describe.
+ * 32px row surface + 4px breathing room is the shared rhythm (DESIGN.md puts menu items at 32px).
+ */
+export const RESOURCE_LIST_ROW_LAYOUTS = {
+  compact: { size: 36, containerClassName: 'h-9', visualClassName: 'h-8 rounded-lg' },
+  history: { size: 64, containerClassName: 'h-16', visualClassName: 'h-15 rounded-xl' }
+} as const satisfies Record<string, ResourceListRowLayout>
 
-export const RESOURCE_LIST_VISUAL_ROW_CLASS = 'h-8 rounded-lg'
+export type ResourceListRowLayoutName = keyof typeof RESOURCE_LIST_ROW_LAYOUTS
+
+export const DEFAULT_RESOURCE_LIST_ROW_LAYOUT: ResourceListRowLayout = RESOURCE_LIST_ROW_LAYOUTS.compact
+
+/**
+ * Rows that structure a list — section and group headers, empty states, show-more — keep one height
+ * whatever the item rows beside them do, so a list's chrome never reflows with its content.
+ */
+export const RESOURCE_LIST_CHROME_ROW_LAYOUT: ResourceListRowLayout = {
+  size: 36,
+  containerClassName: 'h-9',
+  visualClassName: 'h-8 rounded-lg'
+}
 
 export type ResourceListPresentation = 'left-panel' | 'right-panel'
 

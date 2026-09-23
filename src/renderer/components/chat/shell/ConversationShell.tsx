@@ -26,6 +26,11 @@ export interface ConversationShellProps {
   centerTopOverlay?: ReactNode
   overlay?: ReactNode
   rightPane?: ReactNode
+  /**
+   * Where the composer's conversation controls live. `false` keeps them in the composer, for pages
+   * whose top bar says something else (the chat page names the topic there).
+   */
+  composerControlsInTopBar?: boolean
   centerId?: string
   centerRef?: Ref<HTMLDivElement>
   centerClassName?: string
@@ -49,6 +54,7 @@ export default function ConversationShell({
   centerTopOverlay,
   overlay,
   rightPane,
+  composerControlsInTopBar = true,
   centerId,
   centerRef,
   centerClassName,
@@ -76,7 +82,7 @@ export default function ConversationShell({
         className
       )}>
       <QuickPanelProvider>
-        <ConversationTopBarPortalProvider>
+        <ConversationTopBarPortalProvider enabled={composerControlsInTopBar}>
           <ChatAppShell
             pane={pane}
             paneOpen={paneOpen}

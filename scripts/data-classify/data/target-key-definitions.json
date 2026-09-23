@@ -342,8 +342,8 @@
       "targetKey": "topic.tab.display_mode",
       "type": "PreferenceTypes.TopicDisplayMode",
       "defaultValue": "assistant",
-      "status": "classified",
-      "description": "Topic sidebar display grouping mode"
+      "status": "pending",
+      "description": "Retired: the chat list has one reading order (time buckets scoped to the selected assistant); the per-assistant grouping it selected is gone. Kept here so the disabled key stays visible in one place."
     },
     {
       "targetKey": "agent.icon_type",

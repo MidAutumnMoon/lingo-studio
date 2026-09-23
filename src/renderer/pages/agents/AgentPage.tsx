@@ -154,7 +154,7 @@ const AgentPage = () => {
     },
     [navigate]
   )
-  const [sessionPaneOpen, setSessionPaneOpen] = useClassicLayoutRightPaneOpen('agent', {
+  const [sessionPaneOpen, setSessionPaneOpen] = useClassicLayoutRightPaneOpen({
     enabled: isClassicSessionLayout,
     defaultOpen: !isWindowFrame && panePosition === 'right'
   })

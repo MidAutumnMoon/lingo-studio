@@ -14,6 +14,10 @@ export type {
   ResolvedSidebarEntry,
   SidebarIconPresentation,
   SidebarLayout,
+  SidebarSection,
+  SidebarSectionAction,
+  SidebarSectionGroup,
+  SidebarSectionLink,
   SidebarUser,
   SidebarVisibleLayout
 } from './types'

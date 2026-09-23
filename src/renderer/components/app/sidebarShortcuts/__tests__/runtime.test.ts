@@ -131,7 +131,7 @@ describe('sidebar conversation navigation', () => {
   it('ignores a late ordinary activation after a newer shortcut was opened', async () => {
     let resolveFirst!: (value: unknown) => void
     MockDataApiUtils.setCustomResponse(
-      '/topics/latest',
+      '/agent-sessions/latest',
       'GET',
       new Promise((resolve) => {
         resolveFirst = resolve
@@ -140,13 +140,13 @@ describe('sidebar conversation navigation', () => {
     const tabs = tabContext([{ id: 'current', type: 'route', url: '/app/files', title: 'Files' }])
     const wrapper = ({ children }: PropsWithChildren) => createElement(TabsContext, { value: tabs }, children)
     const { result } = renderHook(() => useSidebarShortcutActivation(), { wrapper })
-    const assistant = CORE_SIDEBAR_SHORTCUT_PROVIDERS.find((candidate) => candidate.id === 'core.assistant')!
+    const agent = CORE_SIDEBAR_SHORTCUT_PROVIDERS.find((candidate) => candidate.id === 'core.agent')!
     const knowledge = CORE_SIDEBAR_SHORTCUT_PROVIDERS.find((candidate) => candidate.id === 'core.knowledge-base')!
     const resource = { label: 'Resource', renderIcon: () => null }
-    const first = result.current(assistant, createSidebarShortcutTarget('core.assistant', 'a'), resource)
+    const first = result.current(agent, createSidebarShortcutTarget('core.agent', 'a'), resource)
     await act(async () => result.current(knowledge, createSidebarShortcutTarget('core.knowledge-base', 'b'), resource))
     await act(async () => {
-      resolveFirst({ topic: { id: 'late-topic' } })
+      resolveFirst({ session: { id: 'late-session' } })
       await first
     })
     expect(tabs.updateTab).toHaveBeenCalledTimes(1)
@@ -160,7 +160,7 @@ describe('sidebar conversation navigation', () => {
   it.each(['switch', 'navigate', 'unmount'] as const)('discards a pending activation on %s', async (change) => {
     let resolveEntry!: (value: unknown) => void
     MockDataApiUtils.setCustomResponse(
-      '/topics/latest',
+      '/agent-sessions/latest',
       'GET',
       new Promise((resolve) => {
         resolveEntry = resolve
@@ -169,9 +169,9 @@ describe('sidebar conversation navigation', () => {
     const tabs = tabContext([{ id: 'current', type: 'route', url: '/app/files', title: 'Files' }])
     const wrapper = ({ children }: PropsWithChildren) => createElement(TabsContext, { value: { ...tabs } }, children)
     const { result, rerender, unmount } = renderHook(() => useSidebarShortcutActivation(), { wrapper })
-    const assistant = CORE_SIDEBAR_SHORTCUT_PROVIDERS.find((candidate) => candidate.id === 'core.assistant')!
-    const first = result.current(assistant, createSidebarShortcutTarget('core.assistant', 'a'), {
-      label: 'Assistant',
+    const agent = CORE_SIDEBAR_SHORTCUT_PROVIDERS.find((candidate) => candidate.id === 'core.agent')!
+    const first = result.current(agent, createSidebarShortcutTarget('core.agent', 'a'), {
+      label: 'Agent',
       renderIcon: () => null
     })
     if (change === 'unmount') unmount()
@@ -180,7 +180,7 @@ describe('sidebar conversation navigation', () => {
       rerender()
     }
     await act(async () => {
-      resolveEntry({ topic: { id: 'late-topic' } })
+      resolveEntry({ session: { id: 'late-session' } })
       await first
     })
     expect(tabs.updateTab).not.toHaveBeenCalled()
@@ -189,40 +189,34 @@ describe('sidebar conversation navigation', () => {
     MockDataApiUtils.resetMocks()
   })
 
-  it.each([
-    ['core.assistant', '/topics/latest', 'topic', '/app/chat?extra=1&topicId=conversation-1'],
-    ['core.agent', '/agent-sessions/latest', 'session', '/app/agents?extra=1&sessionId=conversation-1']
-  ] as const)(
-    'reuses an existing canonical conversation for %s, but honors an explicit new tab',
-    async (providerId, endpoint, field, url) => {
-      MockDataApiUtils.setCustomResponse(endpoint, 'GET', { [field]: { id: 'conversation-1' } })
-      const tabs = tabContext([
-        { id: 'other', type: 'route', url: '/app/files', title: 'Files' },
-        { id: 'conversation', type: 'route', url, title: 'Conversation' }
-      ])
-      const wrapper = ({ children }: PropsWithChildren) => createElement(TabsContext, { value: tabs }, children)
-      const { result } = renderHook(() => useSidebarActivationGateway(), { wrapper })
-      const provider = CORE_SIDEBAR_SHORTCUT_PROVIDERS.find((candidate) => candidate.id === providerId)!
-      const target = createSidebarShortcutTarget(providerId, 'owner-1')
+  it('reuses an existing canonical conversation for core.agent, but honors an explicit new tab', async () => {
+    MockDataApiUtils.setCustomResponse('/agent-sessions/latest', 'GET', { session: { id: 'conversation-1' } })
+    const tabs = tabContext([
+      { id: 'other', type: 'route', url: '/app/files', title: 'Files' },
+      { id: 'conversation', type: 'route', url: '/app/agents?extra=1&sessionId=conversation-1', title: 'Conversation' }
+    ])
+    const wrapper = ({ children }: PropsWithChildren) => createElement(TabsContext, { value: tabs }, children)
+    const { result } = renderHook(() => useSidebarActivationGateway(), { wrapper })
+    const provider = CORE_SIDEBAR_SHORTCUT_PROVIDERS.find((candidate) => candidate.id === 'core.agent')!
+    const target = createSidebarShortcutTarget('core.agent', 'owner-1')
 
-      await act(async () => provider.activate(target, result.current))
-      expect(tabs.setActiveTab).toHaveBeenCalledWith('conversation')
-      expect(tabs.updateTab).not.toHaveBeenCalled()
-      expect(tabs.openTab).not.toHaveBeenCalled()
+    await act(async () => provider.activate(target, result.current))
+    expect(tabs.setActiveTab).toHaveBeenCalledWith('conversation')
+    expect(tabs.updateTab).not.toHaveBeenCalled()
+    expect(tabs.openTab).not.toHaveBeenCalled()
 
-      await act(async () =>
-        provider.activate(target, {
-          ...result.current,
-          openWorkspace: (destination) => result.current.openWorkspace(destination, { inNewTab: true })
-        })
-      )
-      expect(tabs.openTab).toHaveBeenCalledWith(
-        expect.stringContaining('conversation-1'),
-        expect.objectContaining({ forceNew: true })
-      )
-      MockDataApiUtils.resetMocks()
-    }
-  )
+    await act(async () =>
+      provider.activate(target, {
+        ...result.current,
+        openWorkspace: (destination) => result.current.openWorkspace(destination, { inNewTab: true })
+      })
+    )
+    expect(tabs.openTab).toHaveBeenCalledWith(
+      expect.stringContaining('conversation-1'),
+      expect.objectContaining({ forceNew: true })
+    )
+    MockDataApiUtils.resetMocks()
+  })
 
   it('repurposes the active tab for an app shortcut instead of focusing another tab of that app', async () => {
     const { context, state } = statefulTabContext([
@@ -358,6 +352,28 @@ describe('sidebar conversation navigation', () => {
     rerender()
     expect(result.current.assistantId).toBeUndefined()
     expect(result.current.agentId).toBeUndefined()
+    MockUseDataApiUtils.resetMocks()
+  })
+
+  it('reads the assistant from a chat tab that names one but owns no topic yet', () => {
+    const tabs = tabContext([{ id: 'chat', type: 'route', url: '/app/chat?assistantId=assistant-2', title: 'Chat' }])
+    const wrapper = ({ children }: PropsWithChildren) => createElement(TabsContext, { value: tabs }, children)
+    const { result } = renderHook(() => useSidebarNavigationSnapshot(), { wrapper })
+
+    expect(result.current.assistantId).toBe('assistant-2')
+  })
+
+  it('does not take the assistant from the URL while a named topic is still resolving', () => {
+    // The topic owns the assistant, so a stale ?assistantId alongside ?topicId must not be read
+    // before the topic arrives — it would highlight a row the open conversation does not belong to.
+    MockUseDataApiUtils.mockQueryLoading('/topics/topic-1')
+    const tabs = tabContext([
+      { id: 'chat', type: 'route', url: '/app/chat?topicId=topic-1&assistantId=assistant-2', title: 'Chat' }
+    ])
+    const wrapper = ({ children }: PropsWithChildren) => createElement(TabsContext, { value: tabs }, children)
+    const { result } = renderHook(() => useSidebarNavigationSnapshot(), { wrapper })
+
+    expect(result.current.assistantId).toBeUndefined()
     MockUseDataApiUtils.resetMocks()
   })
 })

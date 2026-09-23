@@ -1,19 +1,20 @@
-import type { FC, ReactNode } from 'react'
+import type { FC } from 'react'
 
+import { EmojiIcon } from '@cherrystudio/ui'
 import { usePreference } from '@data/hooks/usePreference'
 import { ConversationSidebarToggleButton } from '@renderer/components/chat/shell/ConversationSidebarToggleButton'
-import { ConversationTopBarPortalHost } from '@renderer/components/chat/shell/ConversationTopBarPortal'
 import { NavbarHeader } from '@renderer/components/Navbar'
 
 interface HeaderNavbarProps {
-  conversationControls?: ReactNode
+  /** The open conversation, named where the assistant + model control used to sit. */
+  topicTitle?: { label: string; emoji?: string }
   showSidebarControls?: boolean
   sidebarOpen?: boolean
   onSidebarToggle?: () => void
 }
 
 const HeaderNavbar: FC<HeaderNavbarProps> = ({
-  conversationControls,
+  topicTitle,
   showSidebarControls = true,
   sidebarOpen,
   onSidebarToggle
@@ -32,7 +33,12 @@ const HeaderNavbar: FC<HeaderNavbarProps> = ({
               tooltipPlacement="bottom"
             />
           )}
-          <ConversationTopBarPortalHost>{conversationControls}</ConversationTopBarPortalHost>
+          {topicTitle && (
+            <div data-conversation-topic-title className="ml-2 flex min-w-0 items-center gap-1.5 overflow-hidden">
+              {topicTitle.emoji && <EmojiIcon emoji={topicTitle.emoji} size={16} />}
+              <span className="truncate font-medium text-sm">{topicTitle.label}</span>
+            </div>
+          )}
         </div>
       </div>
     </NavbarHeader>
