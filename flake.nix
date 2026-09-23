@@ -16,6 +16,7 @@
       devShells = forAllSystems (
         system:
         let
+          lib = nixpkgs.lib;
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
@@ -33,10 +34,19 @@
                 libxfixes # -lXfixes
                 libxi # XTest.h includes X11/extensions/XInput.h
                 wayland # -lwayland-client
+                electron_44
               ];
+
+            ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
+            ELECTRON_OVERRIDE_DIST_PATH = "${pkgs.electron_44}/libexec/electron";
+            ELECTRON_EXEC_PATH = lib.getExe pkgs.electron_44;
+
             # selection-hook's binding.gyp hardcodes /usr/include/libevdev-1.0;
             # point the cc wrapper at the nix headers so no system libevdev is needed.
-            NIX_CFLAGS_COMPILE = "-I${nixpkgs.lib.getDev pkgs.libevdev}/include/libevdev-1.0";
+            NIX_CFLAGS_COMPILE = "-I${lib.getDev pkgs.libevdev}/include/libevdev-1.0";
+            # LD_LIBRARY_PATH = lib.makeLibraryPath (with pkgs; [
+            #   glib
+            # ]);
           };
         }
       );
