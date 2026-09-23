@@ -136,7 +136,9 @@ allowBuilds:
   msw: true
   node-mac-permissions: true
   node-pty: true
-  onnxruntime-node: true
+  # Its postinstall only fetches CUDA EP binaries from NuGet (unused here — the binding
+  # is downloaded on demand at runtime) and dies on api.nuget.org's geo 302 redirect.
+  onnxruntime-node: false
   protobufjs: true
   registry-js: true
   selection-hook: true
