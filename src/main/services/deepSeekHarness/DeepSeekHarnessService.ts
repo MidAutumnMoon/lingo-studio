@@ -8,8 +8,9 @@ import { providerService } from '@data/services/ProviderService'
 import { loggerService } from '@logger'
 import { BaseService, DependsOn, Injectable, Phase, ServicePhase } from '@main/core/lifecycle'
 import { isWin } from '@main/core/platform'
+import { systemToolService } from '@main/services/SystemToolService'
 import { crossPlatformSpawn, terminateProcessTree, waitForProcessExit } from '@main/utils/processRunner'
-import { getRawShellEnv, refreshShellEnv } from '@main/utils/shellEnv'
+import { getShellEnv } from '@main/utils/shellEnv'
 import { parseUniqueModelId, type UniqueModelId, UniqueModelIdSchema } from '@shared/data/types/model'
 import type { BinaryAvailability } from '@shared/types/binary'
 import type { DeepSeekHarnessPermissionMode, DeepSeekHarnessSettings } from '@shared/types/codeCli'
@@ -207,15 +208,14 @@ export class DeepSeekHarnessService extends BaseService {
   }
 
   private async findBinary(): Promise<Exclude<BinaryAvailability, { source: 'none' }> | null> {
-    const snapshot = (await application.get('BinaryManager').getToolSnapshots(['dsh'])).dsh
+    const snapshot = (await systemToolService.getToolSnapshots(['dsh'])).dsh
     return snapshot.availability.source === 'none' ? null : snapshot.availability
   }
 
   private async resolveRuntime(): Promise<DeepSeekHarnessRuntime> {
     const binary = await this.findBinary()
     if (!binary) throw new Error('DeepSeek Harness is not installed')
-    const env = binary.source === 'system' ? await getRawShellEnv() : await refreshShellEnv()
-    return { path: AbsoluteFilePathSchema.parse(binary.path), env }
+    return { path: AbsoluteFilePathSchema.parse(binary.path), env: await getShellEnv() }
   }
 
   private async syncConfig(input: DeepSeekHarnessStartInput): Promise<{

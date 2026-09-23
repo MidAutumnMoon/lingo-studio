@@ -50,7 +50,6 @@ export function buildPathRegistry() {
   const appUserDataRuntime = path.join(appUserData, 'Runtime')
   const appUserDataProviderRegistryOverride = path.join(appUserDataRuntime, 'provider-registry-override')
   const appUserDataToolchain = path.join(appUserData, 'Toolchain')
-  const appUserDataToolchainMise = path.join(appUserDataToolchain, 'mise')
   const appSession = app.getPath('sessionData')
   const sysTemp = app.getPath('temp')
   const appTemp = path.join(sysTemp, 'CherryStudio')
@@ -62,7 +61,6 @@ export function buildPathRegistry() {
   return Object.freeze({
     // -- A. cherry.* — ~/.cherrystudio infrastructure --
     'cherry.home': CHERRY_HOME,
-    'cherry.bin': path.join(CHERRY_HOME, 'bin'),
     'cherry.config': path.join(CHERRY_HOME, 'config'),
 
     // -- B. sys.* — OS directories (prefer app.* or cherry.* for Cherry-owned paths) --
@@ -79,7 +77,6 @@ export function buildPathRegistry() {
     // ⚠ app.root.resources (asar-bundled) vs app.extra_resources (electron-builder extraResources) are DIFFERENT locations.
     'app.root.resources': appRootResources,
     'app.root.resources.scripts': path.join(appRootResources, 'scripts'),
-    'app.root.resources.binaries': path.join(appRootResources, 'binaries'),
     'app.utility_process': path.join(app.getAppPath(), 'out', 'utility-process'), // utility-process entry bundles
     'app.exe_file': app.getPath('exe'),
     'app.install': path.dirname(app.getPath('exe')), // directory containing the executable
@@ -121,23 +118,6 @@ export function buildPathRegistry() {
 
     // BabelDOC runtime cache (layout model, fonts, CMap/tiktoken assets)
     'feature.pdf_translation.babeldoc': path.join(appUserDataRuntime, 'models', 'babeldoc'),
-
-    // BinaryManager (tool manager)
-    'feature.binary.data': appUserDataToolchainMise,
-    // Cherry-provisioned CPython for pipx tools. mise is never told about it —
-    // naming a Python runtime there is what makes mise fetch its own from
-    // GitHub releases (see binaryManager/pythonRuntime.ts).
-    'feature.binary.data.uv_python': path.join(appUserDataToolchainMise, 'uv-python'),
-    // Windows-only: %LOCALAPPDATA%/%APPDATA% relocated into the isolated install
-    // home so mise's aqua signature verification resolves its cache/config dirs
-    // without reading the user's real values (see getBinaryIsolatedHomeEnv).
-    'feature.binary.data.isolated.localappdata': path.join(appUserDataToolchainMise, 'localappdata'),
-    'feature.binary.data.isolated.appdata': path.join(appUserDataToolchainMise, 'appdata'),
-    // mise's rust recipe drives rustup, which keeps its toolchains outside the
-    // mise install dir. Pinning both homes keeps install and execution pointed at
-    // the same copy — the user's real ~/.rustup is never read or written.
-    'feature.binary.data.isolated.rustup': path.join(appUserDataToolchainMise, 'rustup'),
-    'feature.binary.data.isolated.cargo': path.join(appUserDataToolchainMise, 'cargo'),
 
     // DeepSeek Harness
     'feature.deepseek_harness.workspace': path.join(appUserDataData, 'DeepSeekHarness', 'Workspace'),
@@ -368,7 +348,6 @@ const NO_ENSURE = [
   'app.extra_resources',
   'app.root.resources',
   'app.root.resources.scripts',
-  'app.root.resources.binaries',
   'app.utility_process',
   'app.session.webview',
   'app.database.migrations',

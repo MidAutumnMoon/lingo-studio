@@ -26,7 +26,6 @@ import { CommandOutputLimitError } from '@main/utils/processRunner'
 import type * as ShellEnvModule from '@main/utils/shellEnv'
 import { SKILL_LIST_MEMBERSHIP_DIMENSIONS } from '@shared/data/api/schemas/skills'
 import type { DataApiDataChangeEffect } from '@shared/data/api/types'
-import { BINARY_INSTALL_PREFERENCE_KEY } from '@shared/data/presets/binaryTools'
 
 const notifyDataApiDataChangeMock = vi.hoisted(() => vi.fn())
 
@@ -874,32 +873,6 @@ describe('SkillService', () => {
       )
     })
 
-    it('uses the configured GitHub mirror for transport without changing persisted provenance', async () => {
-      MockMainPreferenceServiceUtils.setPreferenceValue(BINARY_INSTALL_PREFERENCE_KEY, {
-        githubMirror: 'https://ghfast.top',
-        githubToken: '',
-        npmRegistry: '',
-        pipIndexUrl: '',
-        verifySignatures: true
-      })
-      const { skillService, installSpy, gitCalls } = await setupGithubInstall({
-        refs: [{ name: 'main', oid: 'a'.repeat(40) }]
-      })
-
-      await skillService.install({
-        installSource: 'github:https://github.com/owner/repo/blob/main/skills/demo/SKILL.md'
-      })
-
-      const transportUrl = 'https://ghfast.top/https://github.com/owner/repo'
-      expect(gitCalls.find((args) => args.includes('ls-remote'))).toContain(transportUrl)
-      expect(gitCalls.find((args) => args.includes('fetch'))).toContain(transportUrl)
-      expect(installSpy).toHaveBeenCalledWith(
-        expect.any(String),
-        'marketplace',
-        'https://raw.githubusercontent.com/owner/repo/refs/heads/main/skills/demo/SKILL.md'
-      )
-    })
-
     it('updates the same skill when switching between blob and explicit raw branch URLs', async () => {
       const root = await createTempDir('github-reinstall-')
       const dataSkillsRoot = path.join(root, 'Data', 'Skills')
@@ -1276,22 +1249,6 @@ describe('SkillService', () => {
       expect(installedDirectory).toBe(await fs.promises.realpath(path.join(workDir, 'content')))
       await expect(fs.promises.access(path.join(installedDirectory, 'scripts', 'run.ts'))).resolves.toBeUndefined()
       await expect(fs.promises.access(path.join(installedDirectory, '.git'))).rejects.toMatchObject({ code: 'ENOENT' })
-    })
-
-    it.each(marketplaceSources)('uses the configured GitHub mirror for %s transport', async (source, installSource) => {
-      MockMainPreferenceServiceUtils.setPreferenceValue(BINARY_INSTALL_PREFERENCE_KEY, {
-        githubMirror: 'https://ghfast.top',
-        githubToken: '',
-        npmRegistry: '',
-        pipIndexUrl: '',
-        verifySignatures: true
-      })
-      const { skillService, gitCalls, workDir } = await setupGithubInstall({})
-      if (source === 'skills.sh') await findDescriptorsIn(workDir, { 'skills/demo': 'demo' })
-
-      await skillService.install({ installSource })
-
-      expect(gitFetchArgs(gitCalls)).toContain('https://ghfast.top/https://github.com/owner/repo')
     })
 
     it.each(marketplaceSources)('rejects an oversized %s skill before installing it', async (source, installSource) => {

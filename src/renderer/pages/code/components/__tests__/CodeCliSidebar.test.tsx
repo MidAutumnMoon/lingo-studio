@@ -63,12 +63,10 @@ function renderSidebar(
       onSelectTool={onSelectTool}
       toMeta={(tool) => ({ id: tool.value, label: tool.label, icon: tool.icon })}
       statuses={{
-        [CodeCli.CLAUDE_CODE]: { installed: false, source: 'none', canUpgrade: false },
-        [CodeCli.OPENAI_CODEX]: { installed: true, source: 'mise', current: '1.2.3', canUpgrade: false },
+        [CodeCli.CLAUDE_CODE]: { installed: false, source: 'none' },
+        [CodeCli.OPENAI_CODEX]: { installed: true, source: 'system', systemPath: '/usr/local/bin/codex' },
         ...statuses
       }}
-      installingTools={new Set()}
-      upgradingTools={new Set()}
       providerSummaries={providerSummaries}
       isSidebarPinned={(tool) => pinnedTools.has(tool)}
       onToggleSidebar={onToggleSidebar}
@@ -78,19 +76,17 @@ function renderSidebar(
 }
 
 describe('CodeCliSidebar', () => {
-  it('renders no version or upgrade indicator for installed tools', () => {
+  it('shows only the not-installed tag — never versions or paths', () => {
     renderSidebar({
       [CodeCli.OPENAI_CODEX]: {
         installed: true,
-        source: 'mise',
-        current: '1.2.3',
-        latest: '1.3.0',
-        canUpgrade: true
+        source: 'system',
+        systemPath: '/usr/local/bin/codex'
       }
     })
 
-    expect(screen.queryByText('v1.2.3')).not.toBeInTheDocument()
-    expect(screen.queryByText('v1.3.0')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Claude Code/ })).toHaveTextContent('code.not_installed')
+    expect(screen.getByRole('button', { name: /OpenAI Codex/ }).textContent).not.toContain('/usr/local/bin/codex')
   })
 
   it('renders the enabled-model label only on its matching tool', () => {

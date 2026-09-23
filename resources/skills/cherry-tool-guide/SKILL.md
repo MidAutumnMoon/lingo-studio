@@ -1,18 +1,18 @@
 ---
 name: cherry-tool-guide
-description: Cherry Studio first-party tool and bundled-shell routing for general agents. For straightforward local work in shell-capable sessions, run JS/TS with `bun <file>` and one-off JS tools with `bun x`; run Python with `uv run [--with <pkg>] python` and one-off Python CLIs with `uvx`; search with `rg`. Load this guide before changing project dependencies, deciding whether a tool should be ephemeral or reusable, reading or converting local Office/PDF files, coordinating or delegating across Agent Sessions, or using Cherry-owned web/browser, knowledge, persistent memory, schedules/notifications, IM channels, image generation, artifact reporting, managed CLI, skill, or MCP-server-registration capabilities—even if the user names no tool. Consult it before shell/file workarounds; live tool schemas are authoritative.
-version: 1.5.0
+description: Cherry Studio first-party tool and shell routing for general agents. For straightforward local work in shell-capable sessions, run JS/TS with `bun <file>` and one-off JS tools with `bun x`; run Python with `uv run [--with <pkg>] python` and one-off Python CLIs with `uvx`; search with `rg` — all plain tools on the session's shell PATH. Load this guide before changing project dependencies, deciding whether a tool should be ephemeral or reusable, reading or converting local Office/PDF files, coordinating or delegating across Agent Sessions, or using Cherry-owned web/browser, knowledge, persistent memory, schedules/notifications, IM channels, image generation, artifact reporting, skill, or MCP-server-registration capabilities—even if the user names no tool. Consult it before shell/file workarounds; live tool schemas are authoritative.
+version: 1.6.0
 ---
 
 # Cherry Tool Guide
 
 Cherry Studio injects first-party tools into your session over four MCP servers
-(`mcp__cherry-tools__*`, `mcp__agent-memory__*`, `mcp__skills__*`, `mcp__mcp-manager__*`)
-and gives shell-capable general agents bundled runtimes for local execution. The MCP
-tools act on the running app — the user's knowledge bases, IM channels, schedules,
-managed CLIs, skill library, and MCP server registry — through boundaries only Cherry
-owns. Shell and file tools cannot reach those app boundaries correctly; use the bundled
-runtimes only for the local execution cases routed below.
+(`mcp__cherry-tools__*`, `mcp__agent-memory__*`, `mcp__skills__*`, `mcp__mcp-manager__*`).
+The MCP tools act on the running app — the user's knowledge bases, IM channels,
+schedules, skill library, and MCP server registry — through boundaries only Cherry
+owns. Shell and file tools cannot reach those app boundaries correctly; shell-capable
+agents do local execution with ordinary programs from their own shell PATH, routed
+below.
 
 **This file is a router.** It carries only the global rules and the intent → tool →
 reference table. Each reference holds that domain's prerequisites, sequencing,
@@ -32,12 +32,12 @@ parameter names, enums, and required fields. Read it before every call.
   this session* — say so honestly and stop; never pretend a call succeeded or fabricate
   a result.
 - **Don't reach around Cherry's mutation boundaries.** Knowledge bases, IM channels,
-  schedules, managed CLIs, skills, and registered MCP servers are mutated only through
+  schedules, skills, and registered MCP servers are mutated only through
   these tools. Do not shell out to `npm install`, `git clone`, `crontab`, or hand-edit
   knowledge or MCP settings files to accomplish these — the tool does bookkeeping (registration, scoping, approval, sync)
   that a raw shell command skips. Shell is fine for *inspection* (e.g. `command -v` to
   probe PATH) — just not to perform the owned mutation.
-- **Honor approval.** `mcp__cherry-tools__kb_manage`, `mcp__cherry-tools__cli_install`,
+- **Honor approval.** `mcp__cherry-tools__kb_manage`,
   `mcp__cherry-tools__session_create`, `mcp__cherry-tools__session_send`,
   `mcp__skills__install_skill`, and `mcp__mcp-manager__install_mcp_server` are gated by
   the session's approval mode. Call them only once the user's intent is clear; if approval is
@@ -64,8 +64,8 @@ parameter names, enums, and required fields. Read it before every call.
 | Find, create, message, or inspect work across Agent Sessions | `mcp__cherry-tools__session_list` / `session_search` / `session_create` / `session_send` / `session_deliveries` | [sessions.md](references/sessions.md) |
 | Generate an image | `mcp__cherry-tools__generate_image` (needs a painting model) | [outputs.md](references/outputs.md) |
 | Declare final deliverable file(s) | `mcp__cherry-tools__report_artifacts` | [outputs.md](references/outputs.md) |
-| Run JS/TS or Python, invoke a one-off package, search local code/files | bundled `bun`, `uv` / `uvx`, or `rg` according to task lifetime | [cli.md](references/cli.md) |
-| Find / install a command-line tool | `command -v` check → `mcp__cherry-tools__cli_list` → `mcp__cherry-tools__cli_search` → `mcp__cherry-tools__cli_install` (approval) | [cli.md](references/cli.md) |
+| Run JS/TS or Python, invoke a one-off package, search local code/files | `bun`, `uv` / `uvx`, or `rg` from the shell PATH, chosen by task lifetime | [cli.md](references/cli.md) |
+| A command-line tool you need is missing | `command -v` check → if absent, tell the user to install it — never install it yourself | [cli.md](references/cli.md) |
 | Find / install a new capability skill | `mcp__skills__search_skills` → `mcp__skills__install_skill` (approval) | [skills.md](references/skills.md) |
 | Register a new MCP server the user supplied | `mcp__mcp-manager__install_mcp_server` (approval; never invent the config) | [mcp.md](references/mcp.md) |
 
@@ -74,8 +74,7 @@ parameter names, enums, and required fields. Read it before every call.
 Two different situations, don't confuse them:
 
 - **The tool is absent from your live list** → the capability is unavailable this
-  session (e.g. no knowledge base in scope, or CLI management disabled for a shell-less
-  agent). Explain what's missing and what the user can do; don't work around it with
+  session (e.g. no knowledge base in scope, or no shell exposed for this agent). Explain what's missing and what the user can do; don't work around it with
   shell/file tools. The reference for that domain says exactly when it can be absent.
 - **The tool is listed but reports a missing dependency** → e.g.
   `mcp__cherry-tools__notify` with no connected channel, or
@@ -83,7 +82,7 @@ Two different situations, don't confuse them:
   returns a note; relay the note and point the user at configuration — don't retry
   blindly or fake success.
 
-On any **tool error result** (bad ID, unsupported channel/file, invalid recipe), read
+On any **tool error result** (bad ID, unsupported channel/file, invalid arguments), read
 the message and correct the call; don't silently retry the same arguments. On **declined
 approval**, stop and report — never re-attempt the mutation through a different route.
 

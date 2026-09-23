@@ -2,23 +2,21 @@ import path from 'node:path'
 
 import { gte as semverGte } from 'semver'
 
-import { application } from '@application'
 import { loggerService } from '@logger'
-import { getBinaryExecutionEnv } from '@main/utils/binaryEnv'
+import { systemToolService } from '@main/services/SystemToolService'
 import { executeCommand } from '@main/utils/processRunner'
-import { getRawShellEnv } from '@main/utils/shellEnv'
+import { getShellEnv } from '@main/utils/shellEnv'
 const logger = loggerService.withContext('Utils:Rtk')
 
 const RTK_MIN_VERSION = '0.23.0'
 const REWRITE_TIMEOUT_MS = 3000
-// Bound the availability probe. getToolSnapshots may run `mise ls` and `mise which`,
-// each under BinaryManager's own multi-minute timeout, so a stalled mise backend
-// could otherwise hold up the Bash PreToolUse hook that awaits rtkRewrite for
-// minutes. On timeout rtk is treated as unavailable for this TTL cycle instead.
+// Bound the availability probe so a stalled PATH lookup cannot hold up the Bash
+// PreToolUse hook that awaits rtkRewrite. On timeout rtk is treated as
+// unavailable for this TTL cycle instead.
 const PROBE_TIMEOUT_MS = 3000
-// Re-probe rtk availability periodically so that installing or uninstalling rtk
-// via BinaryManager takes effect without restarting the app. The probe itself
-// is cheap (one execFile + version parse) and only runs at most once per minute.
+// Re-probe rtk availability periodically so a user installing or uninstalling
+// rtk takes effect without restarting the app. The probe itself is cheap (one
+// execFile + version parse) and only runs at most once per minute.
 const RTK_PROBE_TTL_MS = 60_000
 
 interface RtkExecution {
@@ -48,16 +46,13 @@ async function probeRtk(): Promise<RtkExecution | null> {
   // "no rewrite", never propagate out and fail the tool call.
   try {
     const snapshot = await withTimeout(
-      application
-        .get('BinaryManager')
-        .getToolSnapshots(['rtk'])
-        .then((snapshots) => snapshots.rtk),
+      systemToolService.getToolSnapshots(['rtk']).then((snapshots) => snapshots.rtk),
       PROBE_TIMEOUT_MS
     )
     if (!snapshot || snapshot.availability.source === 'none') {
       logger.warn(
         snapshot
-          ? 'rtk binary not found; command rewrite disabled until RTK is installed from Settings → Plugins'
+          ? 'rtk binary not found; command rewrite disabled until RTK is installed on PATH'
           : 'rtk snapshot probe timed out; command rewrite disabled this cycle'
       )
       return null
@@ -77,10 +72,7 @@ async function probeRtk(): Promise<RtkExecution | null> {
 
     const execution: RtkExecution = {
       path: snapshot.availability.path,
-      env:
-        snapshot.availability.source === 'system'
-          ? await getRawShellEnv()
-          : { ...process.env, ...getBinaryExecutionEnv() }
+      env: await getShellEnv()
     }
 
     const stdout = await executeCommand(execution.path, ['--version'], {

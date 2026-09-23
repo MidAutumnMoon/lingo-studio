@@ -770,7 +770,7 @@ describe('diagnose doctor', () => {
             ]
           },
           {
-            id: 'runtime-managed-tools',
+            id: 'runtime-claude-login',
             status: 'error',
             durationMs: 2,
             message: 'spawn failed at /Users/alice/private-runtime'

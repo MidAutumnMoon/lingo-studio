@@ -4,9 +4,6 @@ import { application } from '@application'
 import { loggerService } from '@logger'
 import { isMac, isWin } from '@main/core/platform'
 
-import { dedupePathSegments, getBinarySearchDirs, mergeBinaryExecutionEnv } from './binaryEnv'
-import { getBundledGitDir } from './bundledGit'
-
 const logger = loggerService.withContext('ShellEnv')
 
 // Give shells enough time to source profile files, but fail fast when they hang.
@@ -16,45 +13,6 @@ const SHELL_ENV_TIMEOUT_MS = 15_000
 export function getPathFromEnvironment(env: Record<string, string | undefined>): string | undefined {
   const pathKey = Object.keys(env).find((key) => key.toLowerCase() === 'path')
   return pathKey ? env[pathKey] : undefined
-}
-
-/**
- * Ensures Cherry-managed tool directories are appended to the user's PATH while
- * preserving the original key casing and avoiding duplicate segments.
- */
-const appendCherryToolDirsToPath = (env: Record<string, string>) => {
-  const pathSeparator = isWin ? ';' : ':'
-  const cherryToolDirs = getBinarySearchDirs()
-  // Bundled MinGit as a last-resort git: appended after the managed tool dirs so
-  // it lands at the very tail, letting any spawned process (agent, CLI) resolve a
-  // bare `git` with no system git — while system/mise/PATH git always win ahead.
-  const bundledGitDir = getBundledGitDir()
-  const tailDirs = bundledGitDir ? [...cherryToolDirs, bundledGitDir] : cherryToolDirs
-  const pathKeys = Object.keys(env).filter((key) => key.toLowerCase() === 'path')
-  const canonicalPathKey = pathKeys[0] || (isWin ? 'Path' : 'PATH')
-  const existingPathValue = env[canonicalPathKey] || env.PATH || ''
-
-  // Existing segments first, tool dirs appended — dedup keeps an already-present
-  // tool dir at its original position instead of moving it to the tail.
-  const updatedPath = dedupePathSegments([...existingPathValue.split(pathSeparator), ...tailDirs]).join(pathSeparator)
-
-  if (pathKeys.length > 0) {
-    pathKeys.forEach((key) => {
-      env[key] = updatedPath
-    })
-  } else {
-    env[canonicalPathKey] = updatedPath
-  }
-
-  if (!isWin) {
-    env.PATH = updatedPath
-  }
-}
-
-const applyBinaryExecutionEnv = (env: Record<string, string>) => {
-  const merged = mergeBinaryExecutionEnv(env)
-  Object.keys(env).forEach((key) => delete env[key])
-  Object.assign(env, merged)
 }
 
 /**
@@ -332,14 +290,14 @@ function loadShellEnv(): Promise<Record<string, string>> {
 }
 
 /**
- * Get the cached shell environment. If no cache exists yet, fetches it once.
+ * Get the cached login-shell environment. If no cache exists yet, fetches it once.
  * This is a pure query -- it never invalidates the cache.
  *
  * Returns a shallow copy: callers routinely mutate the env they get back (e.g.
  * `removeEnvProxy`, merging per-spawn overrides), and handing out the cached
  * object itself would let one such mutation silently poison every later reader.
  */
-export async function getRawShellEnv(signal?: AbortSignal): Promise<Record<string, string>> {
+export async function getShellEnv(signal?: AbortSignal): Promise<Record<string, string>> {
   signal?.throwIfAborted()
   // A cancellable cold query owns its shell; aborting it must not poison the shared app cache.
   const env = cachedEnv ?? (await (signal ? getLoginShellEnvironment(signal) : loadShellEnv()))
@@ -348,17 +306,10 @@ export async function getRawShellEnv(signal?: AbortSignal): Promise<Record<strin
   return { ...env }
 }
 
-export async function getShellEnv(signal?: AbortSignal): Promise<Record<string, string>> {
-  const env = await getRawShellEnv(signal)
-  appendCherryToolDirsToPath(env)
-  applyBinaryExecutionEnv(env)
-  return env
-}
-
 /**
  * Invalidate the shell env cache and immediately re-fetch a fresh environment.
  * This is an explicit command -- callers use this when they need to pick up
- * newly installed tools (nvm, mise, fnm, etc.) that change PATH.
+ * newly installed tools (nvm, fnm, etc.) that change PATH.
  *
  * Returns a fresh shallow copy (see getShellEnv) so callers can use it directly
  * without a separate getShellEnv() call, avoiding stale-read race conditions.
@@ -370,13 +321,10 @@ export async function getShellEnv(signal?: AbortSignal): Promise<Record<string, 
 export async function refreshShellEnv(): Promise<Record<string, string>> {
   if (inflight) {
     // Reusing a capture that started before the event prompting this refresh
-    // (e.g. a tool install completing mid-flight). Acceptable because downstream
+    // (e.g. a PATH change landing mid-flight). Acceptable because downstream
     // lookups hit the filesystem live; logged so the reuse is observable.
     logger.debug('refreshShellEnv reusing in-flight shell capture instead of re-spawning')
-    const env = { ...(await inflight) }
-    appendCherryToolDirsToPath(env)
-    applyBinaryExecutionEnv(env)
-    return env
+    return { ...(await inflight) }
   }
   cachedEnv = null
   return getShellEnv()

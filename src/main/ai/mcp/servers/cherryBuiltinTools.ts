@@ -16,8 +16,6 @@
  *   notifies, and self-configures the agent.
  * - {@link CherryKnowledgeTools} (`…__kb_search`, `…__kb_read`, `…__kb_list`,
  *   `…__kb_manage`) — owns knowledge-base exposure and per-call scope authorization.
- * - {@link CherryCliTools} (`…__cli_list`, `…__cli_search`, `…__cli_install`) —
- *   delegates live discovery and approved installation to BinaryManager.
  * - {@link CherryDocumentTools} (`…__to_markdown`) — converts workspace, agent-data, and
  *   session-attachment documents with Cherry's bundled converter and writes agent-private
  *   temporary Markdown.
@@ -66,7 +64,6 @@ import {
 } from '@shared/ai/builtinTools'
 
 import { type CherryAgentContext, CherryAutonomyTools } from './cherryAutonomyTools'
-import { CherryCliTools } from './cherryCliTools'
 import { type CherryDocumentContext, CherryDocumentTools } from './cherryDocumentTools'
 import { CherryKnowledgeTools } from './cherryKnowledgeTools'
 
@@ -224,23 +221,13 @@ export class CherryBuiltinToolsServer {
   constructor(agentContext: CherryBuiltinToolsContext) {
     const autonomy = new CherryAutonomyTools(agentContext)
     const knowledge = new CherryKnowledgeTools(agentContext)
-    const cli = new CherryCliTools()
     const documents = new CherryDocumentTools(agentContext)
     this.mcpServer = new McpServer({ name: 'cherry-tools', version: '1.0.0' }, { capabilities: { tools: {} } })
     this.mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [
-        ...listCherryBuiltinTools(),
-        ...knowledge.tools(),
-        ...autonomy.tools(),
-        ...cli.tools(),
-        ...documents.tools()
-      ]
+      tools: [...listCherryBuiltinTools(), ...knowledge.tools(), ...autonomy.tools(), ...documents.tools()]
     }))
     this.mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       const { name } = request.params
-      if (cli.handles(name)) {
-        return cli.call(name, request.params.arguments)
-      }
       if (documents.handles(name)) {
         return documents.call(request.params.arguments, extra.signal)
       }

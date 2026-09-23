@@ -1,6 +1,5 @@
-import { execFile, spawn } from 'child_process'
+import { spawn } from 'child_process'
 import fs from 'fs'
-import { promisify } from 'node:util'
 import path from 'path'
 
 import which from 'which'
@@ -8,18 +7,15 @@ import which from 'which'
 import { loggerService } from '@logger'
 import { isWin } from '@main/core/platform'
 
-import { getBundledGitPath } from './bundledGit'
 import { getPathFromEnvironment, getShellEnv } from './shellEnv'
 
 /**
  * Resolution for arbitrary executables in the user's environment — locating
- * commands (npx, uvx, git, …) in the captured shell env, with Windows-specific
- * fallbacks (PATH/PATHEXT lookup, mise) and Git Bash discovery. Distinct from
- * `binaryResolver.ts`, which resolves Cherry's own managed binaries.
+ * commands (npx, uvx, git, …) in the captured shell env, with a Windows-specific
+ * PATH/PATHEXT fallback and Git Bash discovery.
  */
 
 const logger = loggerService.withContext('Utils:CommandResolver')
-const execFileAsync = promisify(execFile)
 
 // Timeout for command lookup operations (in milliseconds)
 const COMMAND_LOOKUP_TIMEOUT_MS = 5000
@@ -161,7 +157,7 @@ function resolveExistingAbsoluteCommand(command: string): string | null {
  */
 export async function findCommandInShellEnv(
   command: string,
-  loginShellEnv: Record<string, string>,
+  loginShellEnv: Record<string, string | undefined>,
   signal?: AbortSignal
 ): Promise<string | null> {
   signal?.throwIfAborted()
@@ -265,7 +261,7 @@ export interface FindExecutableOptions {
   /** File extensions to search for (default: ['.exe', '.cmd']) */
   extensions?: string[]
   /** Environment variables to use for Windows PATH lookup (default: process.env) */
-  env?: Record<string, string>
+  env?: Record<string, string | undefined>
 }
 
 /**
@@ -303,132 +299,31 @@ export function findExecutable(name: string, options?: FindExecutableOptions): s
   return commandPath
 }
 
-/** Timeout for mise operations (in milliseconds) */
-const MISE_TIMEOUT_MS = 5000
-
-/**
- * Find an executable via `mise which <name>` on Windows.
- *
- * When Node.js is installed through mise, resolving the real binary avoids
- * depending on a shim that may not be visible in the registry-based PATH used
- * by `getWindowsEnvironment`.
- *
- * This function locates `mise.exe` in PATH and asks it directly for the real
- * binary path, bypassing shim/PATH issues entirely.
- *
- * @param name - Tool name to resolve (e.g. 'node', 'npm')
- * @param env  - Environment variables for subprocess
- * @returns Absolute path to the real executable, or null
- */
-export async function findViaMise(
-  name: string,
-  env: Record<string, string>,
-  signal?: AbortSignal
-): Promise<string | null> {
-  signal?.throwIfAborted()
-  if (!isWin) {
-    return null
-  }
-
-  // Validate command name (reuse the same regex used by findCommandInShellEnv)
-  if (!VALID_COMMAND_NAME_REGEX.test(name)) {
-    return null
-  }
-
-  const misePath = await findMiseExecutable(env, signal)
-  if (!misePath) {
-    logger.debug('mise not found, skipping mise fallback')
-    return null
-  }
-
-  try {
-    const { stdout: result } = await execFileAsync(misePath, ['which', name], {
-      encoding: 'utf8',
-      timeout: MISE_TIMEOUT_MS,
-      signal,
-      killSignal: 'SIGKILL',
-      env
-    })
-
-    const resolvedPath = result.trim().split(/\r?\n/)[0]?.trim()
-    if (!resolvedPath || !path.win32.isAbsolute(resolvedPath)) {
-      logger.debug(`mise which ${name} returned non-absolute path: ${resolvedPath}`)
-      return null
-    }
-
-    if (!fs.existsSync(resolvedPath)) {
-      logger.debug(`mise which ${name} returned non-existent path: ${resolvedPath}`)
-      return null
-    }
-
-    logger.debug(`Found ${name} via mise`, { path: resolvedPath })
-    return resolvedPath
-  } catch (error) {
-    signal?.throwIfAborted()
-    if ((error as { code?: unknown }).code === 1) return null
-    throw error
-  }
-}
-
-/**
- * Locate `mise.exe` on the local machine through the bounded, Unicode-safe PATH resolver.
- */
-export async function findMiseExecutable(
-  env: Record<string, string | undefined> = process.env,
-  signal?: AbortSignal
-): Promise<string | null> {
-  return (await findWindowsCommandCandidates('mise', env, ['.exe'], signal))[0] ?? null
-}
-
 /**
  * Find an executable in the user's shell environment.
  * This is a pure query -- it reads the (possibly cached) shell env and searches for the command.
  * It does NOT refresh the shell env cache. Callers that need a fresh environment should call
  * refreshShellEnv() explicitly before calling this function.
  *
- * Cross-platform: uses findCommandInShellEnv first, falls back to findExecutable on Windows,
- * then mise, and finally (for `git` only) the bundled MinGit as the last resort.
+ * Cross-platform: uses findCommandInShellEnv first, then findExecutable on Windows.
  */
 export async function findExecutableInEnv(
   name: string,
-  options: { env?: Record<string, string>; signal?: AbortSignal } = {}
+  options: { env?: Record<string, string | undefined>; signal?: AbortSignal } = {}
 ): Promise<string | null> {
   const { signal } = options
   signal?.throwIfAborted()
   const env = options.env ?? (await getShellEnv(signal))
 
-  // The bundled MinGit dir sits on the PATH tail (see shellEnv), so ordinary
-  // PATH lookup can surface it before the system/mise fallbacks run. Treat such
-  // hits as provisional and return the bundle only after every external source
-  // misses, preserving its last-resort priority.
-  const bundledGit = name === 'git' ? getBundledGitPath() : null
-  const isBundledGit = (p: string) => bundledGit !== null && p.toLowerCase() === bundledGit.toLowerCase()
-
   // Cross-platform: try shell environment lookup first
   const found = await findCommandInShellEnv(name, env, signal)
-  if (found && !isBundledGit(found)) {
+  if (found) {
     return found
   }
 
   // Windows fallback: findExecutable handles .cmd/.exe filtering and security checks
   if (isWin) {
-    const winFound = findExecutable(name, { env })
-    if (winFound && !isBundledGit(winFound)) {
-      return winFound
-    }
-
-    // Ask mise for the real binary path
-    try {
-      const viaMise = await findViaMise(name, env, signal)
-      if (viaMise) return viaMise
-    } catch (error) {
-      signal?.throwIfAborted()
-      logger.warn('mise lookup failed, continuing with fallback', { name, error })
-    }
-
-    // Last resort: the bundled MinGit shipped with the app, so git works even
-    // when the user has no system git installed. System/mise git always win above.
-    return bundledGit
+    return findExecutable(name, { env })
   }
 
   return null

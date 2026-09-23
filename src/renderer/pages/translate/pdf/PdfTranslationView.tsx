@@ -41,7 +41,7 @@ export interface PdfTranslationHandle {
   cancel: () => void
 }
 
-export type BabelDocAvailability = 'checking' | 'available' | 'missing' | 'outdated'
+export type BabelDocAvailability = 'checking' | 'available' | 'missing'
 
 export interface PdfTextFallback {
   content: ReactNode
@@ -53,7 +53,6 @@ interface PdfTranslationViewProps {
   modelId?: UniqueModelId
   sourceLangCode: TranslateSourceLanguage
   babelDocAvailability: BabelDocAvailability
-  babelDocInstalling: boolean
   textFallback?: PdfTextFallback
   /**
    * Seed the view with an already-finished translation (a history entry the user
@@ -64,7 +63,6 @@ interface PdfTranslationViewProps {
   onClose: () => void
   onHandleChange: (handle: PdfTranslationHandle | null) => void
   onStatusChange: (status: PdfTranslationStatus) => void
-  onInstallBabelDoc: () => void
   onBabelDocUnavailable: () => void
 }
 
@@ -88,9 +86,7 @@ type PdfTranslationResultState =
   | { type: 'persist_failed' }
   | { type: 'text_fallback'; content: ReactNode }
   | { type: 'checking_dependency' }
-  | { type: 'installing_dependency' }
   | { type: 'missing_dependency' }
-  | { type: 'outdated_dependency' }
   | { type: 'error' }
   | { type: 'ready' }
 
@@ -134,7 +130,6 @@ const getResultState = ({
   progress,
   textFallback,
   babelDocAvailability,
-  babelDocInstalling,
   error
 }: {
   output: PdfTranslationOutput | null
@@ -142,7 +137,6 @@ const getResultState = ({
   progress: PdfTranslationUiProgress | null
   textFallback?: PdfTextFallback
   babelDocAvailability: BabelDocAvailability
-  babelDocInstalling: boolean
   error: Error | null
 }): PdfTranslationResultState => {
   if (output) return { type: 'output', outputPath: output.outputPath, fileName: output.fileName }
@@ -155,12 +149,8 @@ const getResultState = ({
   if (babelDocAvailability === 'checking') return { type: 'checking_dependency' }
 
   const dependencyMissing = error instanceof IpcError && error.code === translateErrorCodes.PDF_DEPENDENCY_NOT_INSTALLED
-  const dependencyOutdated = error instanceof IpcError && error.code === translateErrorCodes.PDF_DEPENDENCY_OUTDATED
   if (babelDocAvailability === 'missing' || dependencyMissing) {
-    return { type: babelDocInstalling ? 'installing_dependency' : 'missing_dependency' }
-  }
-  if (babelDocAvailability === 'outdated' || dependencyOutdated) {
-    return { type: babelDocInstalling ? 'installing_dependency' : 'outdated_dependency' }
+    return { type: 'missing_dependency' }
   }
   if (error instanceof IpcError && error.code === translateErrorCodes.PDF_OCR_REQUIRED) {
     return { type: 'ocr_required' }
@@ -178,13 +168,11 @@ const PdfTranslationView = ({
   modelId,
   sourceLangCode,
   babelDocAvailability,
-  babelDocInstalling,
   textFallback,
   restoredOutput,
   onClose,
   onHandleChange,
   onStatusChange,
-  onInstallBabelDoc,
   onBabelDocUnavailable
 }: PdfTranslationViewProps) => {
   const { t } = useTranslation()
@@ -245,11 +233,7 @@ const PdfTranslationView = ({
           if (activeJobIdRef.current !== jobId) return
           activeJobIdRef.current = null
           const normalized = cause instanceof Error ? cause : new Error(String(cause))
-          if (
-            normalized instanceof IpcError &&
-            (normalized.code === translateErrorCodes.PDF_DEPENDENCY_NOT_INSTALLED ||
-              normalized.code === translateErrorCodes.PDF_DEPENDENCY_OUTDATED)
-          ) {
+          if (normalized instanceof IpcError && normalized.code === translateErrorCodes.PDF_DEPENDENCY_NOT_INSTALLED) {
             onBabelDocUnavailable()
           }
           setError(normalized)
@@ -317,7 +301,6 @@ const PdfTranslationView = ({
     progress,
     textFallback,
     babelDocAvailability,
-    babelDocInstalling,
     error
   })
 
@@ -369,20 +352,14 @@ const PdfTranslationView = ({
             </>
           }
           bordered>
-          <PdfTranslationResult state={resultState} onInstallBabelDoc={onInstallBabelDoc} />
+          <PdfTranslationResult state={resultState} />
         </PdfPane>
       </div>
     </div>
   )
 }
 
-const PdfTranslationResult = ({
-  state,
-  onInstallBabelDoc
-}: {
-  state: PdfTranslationResultState
-  onInstallBabelDoc: () => void
-}) => {
+const PdfTranslationResult = ({ state }: { state: PdfTranslationResultState }) => {
   const { t } = useTranslation()
 
   switch (state.type) {
@@ -441,26 +418,12 @@ const PdfTranslationResult = ({
       return state.content
     case 'checking_dependency':
       return <CenteredLoading label={t('translate.pdf.dependency.checking')} />
-    case 'installing_dependency':
-      return <CenteredLoading label={t('translate.pdf.dependency.installing')} />
     case 'missing_dependency':
       return (
         <EmptyState
           icon={Languages}
           title={t('translate.pdf.dependency.title')}
-          description={t('translate.pdf.dependency.description')}
-          actionLabel={t('translate.pdf.action.install_babeldoc')}
-          onAction={onInstallBabelDoc}
-        />
-      )
-    case 'outdated_dependency':
-      return (
-        <EmptyState
-          icon={Languages}
-          title={t('translate.pdf.dependency.outdated_title')}
-          description={t('translate.pdf.dependency.outdated_description')}
-          actionLabel={t('translate.pdf.action.update_babeldoc')}
-          onAction={onInstallBabelDoc}
+          description={t('translate.pdf.dependency.missing_hint')}
         />
       )
     case 'ready':

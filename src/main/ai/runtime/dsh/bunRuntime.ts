@@ -1,42 +1,22 @@
-import { execFile } from 'node:child_process'
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { promisify } from 'node:util'
-
-import { app } from 'electron'
-
-import { application } from '@application'
 import { loggerService } from '@logger'
-import { t } from '@main/i18n'
-import { toAsarUnpackedPath } from '@main/utils/asar'
-import { getBinaryName } from '@main/utils/binaryResolver'
+import { findExecutableInEnv } from '@main/utils/commandResolver'
 
-const execFileAsync = promisify(execFile)
-const logger = loggerService.withContext('DshBunRuntime')
+const logger = loggerService.withContext('dsh:bunRuntime')
 
-/** Require the bundled runtime, independently of user-installed tools and background extraction. */
+/**
+ * Resolve the Bun runtime DSH runs under, from the user's login-shell PATH.
+ *
+ * This fork no longer bundles a Bun runtime, so DSH is deliberately broken on
+ * machines without a system Bun — the error below is the designed failure mode,
+ * not a regression to work around.
+ */
 export async function resolveDshBunRuntime(): Promise<string> {
-  const bundledDir = toAsarUnpackedPath(
-    path.join(application.getPath('app.root.resources.binaries'), `${process.platform}-${process.arch}`)
-  )
-  const executable = path.join(bundledDir, getBinaryName('bun'))
-  try {
-    const expectedVersion = (await readFile(path.join(bundledDir, '.bun-version'), 'utf8')).trim()
-    const { stdout } = await execFileAsync(executable, ['--version'], {
-      env: {},
-      timeout: 10_000,
-      windowsHide: true
-    })
-    const version = stdout.trim()
-    if (!expectedVersion || version !== expectedVersion) {
-      throw new Error(`Bundled Bun version mismatch: expected ${expectedVersion || 'a version marker'}, got ${version}`)
-    }
-  } catch (cause) {
-    logger.warn('Bundled Bun runtime is unavailable', { executable, error: cause })
+  const bunPath = await findExecutableInEnv('bun')
+  if (!bunPath) {
     throw new Error(
-      app.isPackaged ? t('agent.session.dsh.bun_unavailable') : t('agent.session.dsh.bun_unavailable_dev'),
-      { cause }
+      'DSH requires Bun, which is no longer bundled with this app. Install Bun from https://bun.sh and restart.'
     )
   }
-  return executable
+  logger.debug('Resolved DSH Bun runtime from PATH', { bunPath })
+  return bunPath
 }

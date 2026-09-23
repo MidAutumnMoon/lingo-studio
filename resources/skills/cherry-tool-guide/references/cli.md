@@ -1,12 +1,10 @@
-# Shell runtimes and managed CLIs
+# Shell runtimes and command-line tools
 
-Covers the bundled shell runtimes plus `mcp__cherry-tools__cli_list`,
-`mcp__cherry-tools__cli_search`, and `mcp__cherry-tools__cli_install`. The first group
-executes local, project-scoped, or one-off work; the MCP tools install reusable CLIs in
-Cherry's **isolated managed environment**.
-
-Get exact argument shapes from the live tool schema — this reference gives routing,
-sequencing, and safety only.
+Covers running local, project-scoped, or one-off work with `bun`, `uv` / `uvx`, and
+`rg`, plus what to do when a command-line tool you need is missing. Cherry Studio
+bundles no runtimes and manages no CLI environment: these are ordinary programs on
+the session's shell PATH, and installing software is always the user's call, never
+yours.
 
 ## Choose by lifetime
 
@@ -16,72 +14,46 @@ Use the shortest-lived mechanism that fits:
 | --- | --- |
 | Run a JS/TS file | `bun <file>` |
 | Install an existing JS project's dependencies / add a project dependency | `bun install` / `bun add <pkg>` in the project cwd |
-| Run a one-off JavaScript package | `bun x <tool>` — only `bun` is bundled, not a `bunx` shim |
+| Run a one-off JavaScript package | `bun x <tool>` |
 | Run a Python file | `uv run python <file>` |
 | Run Python with a temporary dependency | `uv run --with <pkg> python <file>` |
 | Run a one-off Python CLI | `uvx <tool>` |
 | Search local files or contents | `rg` |
-| Keep a CLI for later tasks, login, or durable configuration | the managed CLI workflow below |
 
-Shell-capable general agents receive `bun`, `uv` / `uvx`, and `rg` on their execution
-PATH. Prefer them over `node` / `npm` / `npx` / `pip`, which are not guaranteed to
-exist. Do not assume a version or source: a Cherry-managed or system executable may
-shadow the bundled fallback. If `command -v` cannot resolve one of these expected
-commands, report an environment problem rather than pretending the command ran.
+## They are system PATH tools
+
+`bun`, `uv` / `uvx`, and `rg` are whatever the user's shell provides — Cherry neither
+bundles nor versions them. Check with `command -v <name>` before relying on one, and
+do not assume a version or install location. Where present, prefer them over `node` /
+`npm` / `npx` / `pip`, which are not guaranteed to exist either. The guidance in this
+reference applies only when the session exposes a shell.
+
+## A tool is missing → tell the user, never install it
+
+If `command -v` cannot resolve a tool you need, stop and tell the user what is
+missing and how they can install it (their usual package manager, the tool's own
+installer). Never run an installer yourself — no `npm install -g`, `brew install`,
+`apt install`, `pipx install`, `cargo install`, `uv tool install`, or a manually
+downloaded binary. The same applies to a missing language runtime: report it; do not
+provision it.
+
+## Keep changes project-scoped
 
 Keep dependency changes inside the current project. Global installs (`-g` /
-`--global`, `uv tool install`, `pip install --user`) and direct `mise` mutations are
-blocked because they leak state across agent sessions. Use `bun x` / `uvx` for one-off
-tools and the managed workflow for anything persistent. Do not use `cli_install` for a
-project library, and do not use an ephemeral runner for a CLI that needs login or reuse.
-
-## Conditional availability
-
-The built-in Assistant does not expose the `cli_*` tools. For every other role, the live
-tool list is authoritative. If they're absent, you cannot install CLIs in this session —
-say so; don't work around it. The bundled shell-runtime guidance above likewise applies
-only when the session exposes a shell.
-
-## Approval
-
-`mcp__cherry-tools__cli_install` mutates durable state and is **approval-gated**. Call it
-only once intent is clear; if approval is declined, stop and report — don't retry through
-the shell.
-
-## Workflow
-
-Before installing anything:
-
-1. **Probe the agent's effective PATH.** `mcp__cherry-tools__cli_list` reports only Cherry-managed
-   binaries and does **not** see the system PATH — so a tool it calls "unavailable" may
-   already resolve in the agent shell. Run `command -v <name>` (shell inspection is
-   fine) to inspect the agent's effective PATH before installing a duplicate. This PATH
-   includes Cherry-managed and bundled locations as well as the user's shell PATH; do
-   not treat it as a pure system-only probe. Use `mcp__cherry-tools__cli_list` to see
-   what Cherry already manages.
-2. **`mcp__cherry-tools__cli_search`** — look up the exact `name`/`tool` recipe from the
-   registry. Never guess the executable name or recipe.
-3. **`mcp__cherry-tools__cli_install`** — install using the recipe from search (or one
-   translated from trusted docs). Approval runs here.
-
-## Don't reach around the managed environment
-
-**Do not** substitute `npm install -g`, `pipx install`, `cargo install`, `brew install`,
-or a manual download — those bypass Cherry's managed environment.
-`mcp__cherry-tools__cli_install` accepts the same backends, so there's no capability you
-gain by shelling out — you only lose Cherry's bookkeeping.
+`--global`, `uv tool install`, `pip install --user`) leak state across agent sessions
+and belong to the user, not to you. Use `bun x` / `uvx` for one-off tools.
 
 ## Recovery
 
-- **Invalid recipe / wrong name** → the tool returns an error; correct the recipe (re-run
-  `cli_search`) rather than retrying blindly.
-- **Approval declined** → stop and report; don't install via the shell.
+- **`command -v` resolves the tool but the command fails** → read the error and
+  correct the invocation; don't reinstall or "upgrade" anything on the user's behalf.
+- **Tool missing** → report it and what you would have used it for; suggest the
+  install command but let the user run it.
 
 ## Example
 
-> "I need `jq` available for later data-processing tasks."
+> "I need `jq` for a one-off data-processing task."
 
-`command -v jq` to check the agent's effective PATH → if absent, `mcp__cherry-tools__cli_list` to see
-if Cherry already manages it → `mcp__cherry-tools__cli_search` "jq" for the exact recipe →
-`mcp__cherry-tools__cli_install` with that recipe (approval runs). Never `brew install` /
-`apt install` it yourself.
+`command -v jq` — if it resolves, use it. If not, either use a one-off runner that
+avoids it (e.g. `bun x` / `uvx` with an equivalent package) or tell the user to
+install `jq` themselves. Never install it for them.

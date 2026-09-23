@@ -13,7 +13,6 @@ import {
   findExecutable,
   findExecutableInEnv,
   findGitBash,
-  findViaMise,
   validateGitBashPath
 } from '../commandResolver'
 
@@ -783,71 +782,6 @@ describe('validateGitBashPath filename validation', () => {
     vi.mocked(fs.existsSync).mockReturnValue(true)
 
     expect(validateGitBashPath(launcherPath)).toBeNull()
-  })
-})
-
-describe.skipIf(process.platform !== 'win32')('findViaMise', () => {
-  const misePath = 'C:\\Users\\User\\AppData\\Local\\mise\\bin\\mise.exe'
-  const env = { PATH: 'C:\\Windows\\system32' }
-
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(which)
-      .mockReset()
-      .mockResolvedValue(null as never)
-    vi.mocked(path.win32.resolve).mockImplementation(resolveWindowsPath)
-    vi.mocked(path.win32.extname).mockImplementation((p) => p.match(/\.[^\\/.]+$/)?.[0] ?? '')
-    vi.mocked(path.win32.relative).mockImplementation((_from, to) => to)
-    vi.mocked(path.win32.isAbsolute).mockImplementation((p) => /^[A-Z]:/i.test(p))
-  })
-
-  it('returns null when mise is not installed', async () => {
-    vi.mocked(which).mockResolvedValue(null as never)
-
-    const result = await findViaMise('node', env)
-
-    expect(result).toBeNull()
-    expect(lookup.execFileAsync).not.toHaveBeenCalled()
-  })
-
-  it('returns null when mise is installed but tool is not managed', async () => {
-    vi.mocked(which).mockResolvedValue([misePath] as never)
-    lookup.execFileAsync.mockRejectedValue(Object.assign(new Error('No runtime found for node'), { code: 1 }))
-
-    const result = await findViaMise('node', env)
-
-    expect(result).toBeNull()
-  })
-
-  it('returns the resolved path when mise manages the tool', async () => {
-    const nodePath = 'C:\\Users\\User\\AppData\\Local\\mise\\installs\\node\\22.0.0\\node.exe'
-
-    vi.mocked(which).mockResolvedValue([misePath] as never)
-    lookup.execFileAsync.mockResolvedValue({ stdout: `${nodePath}\n` })
-    vi.mocked(fs.existsSync).mockImplementation((p) => p === nodePath)
-
-    const result = await findViaMise('node', env)
-
-    expect(result).toBe(nodePath)
-  })
-
-  it('reports mise timeouts as query failures rather than missing commands', async () => {
-    vi.mocked(which).mockResolvedValue([misePath] as never)
-    lookup.execFileAsync.mockRejectedValue(Object.assign(new Error('ETIMEDOUT'), { code: 'ETIMEDOUT' }))
-    await expect(findViaMise('node', env)).rejects.toThrow('ETIMEDOUT')
-  })
-
-  it('returns null when mise which returns a non-existent path', async () => {
-    const ghostPath = 'C:\\Users\\User\\AppData\\Local\\mise\\installs\\node\\22.0.0\\node.exe'
-
-    vi.mocked(which).mockResolvedValue([misePath] as never)
-    lookup.execFileAsync.mockResolvedValue({ stdout: `${ghostPath}\n` })
-    // The resolved path does not exist on disk
-    vi.mocked(fs.existsSync).mockReturnValue(false)
-
-    const result = await findViaMise('node', env)
-
-    expect(result).toBeNull()
   })
 })
 

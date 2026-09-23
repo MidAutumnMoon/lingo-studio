@@ -1,6 +1,5 @@
 const { Arch } = require('electron-builder')
 const { rebuild } = require('@electron/rebuild')
-const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 const { parse } = require('yaml')
@@ -186,13 +185,6 @@ exports.default = async function (context) {
   await prepareNativeModulesForElectron(context)
   assertPrebuiltPackages(platform, arch)
 
-  console.log(`Downloading bundled binaries for ${platform}-${arch}...`)
-  execSync(`node "${path.join(__dirname, 'download-binaries.js')}" ${platform} ${arch} --packaging`, {
-    stdio: 'inherit'
-  })
-  // Fail the build rather than ship a half-empty resources/binaries/<platform>.
-  require('./download-binaries').verifyBundledBinaries(platform, arch)
-
   const excludePackages = async (packagesToExclude) => {
     // 从项目根目录的 electron-builder.yml 读取 files 配置，避免多次覆盖配置导致出错
     const electronBuilderConfigPath = path.join(__dirname, '..', 'electron-builder.yml')
@@ -215,18 +207,9 @@ exports.default = async function (context) {
     .filter((p) => !x64KeepPackages.includes(p))
     .map((p) => '!node_modules/' + p + '/**')
 
-  const currentPlatformKey = `${platform}-${arch}`
-  // win32-arm64 is in this list so `build:win` (--x64 --arm64) can package it. The
-  // @aiany/sqlite-vec fork provides a windows-arm64 vec0.dll, so knowledge-base vector
-  // search works on that target too.
-  const allBinaryPlatforms = ['darwin-arm64', 'darwin-x64', 'linux-x64', 'linux-arm64', 'win32-x64', 'win32-arm64']
-  const excludeBundledBinaryFilters = allBinaryPlatforms
-    .filter((p) => p !== currentPlatformKey)
-    .map((p) => '!resources/binaries/' + p + '/**')
-
   if (context.arch === Arch.arm64) {
-    await excludePackages([...arm64ExcludePackages, ...excludeBundledBinaryFilters])
+    await excludePackages(arm64ExcludePackages)
   } else {
-    await excludePackages([...x64ExcludePackages, ...excludeBundledBinaryFilters])
+    await excludePackages(x64ExcludePackages)
   }
 }

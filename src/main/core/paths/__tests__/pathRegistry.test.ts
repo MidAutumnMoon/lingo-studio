@@ -82,15 +82,6 @@ describe('buildPathRegistry', () => {
     expect(shouldAutoEnsure('feature.provider_registry.override')).toBe(true)
   })
 
-  it('keeps the isolated mise tree under the userData toolchain', () => {
-    const registry = buildPathRegistry()
-    const miseRoot = path.join('/mock/userData', 'Toolchain', 'mise')
-
-    expect(registry['feature.binary.data']).toBe(miseRoot)
-    expect(registry['feature.binary.data.isolated.localappdata']).toBe(path.join(miseRoot, 'localappdata'))
-    expect(registry['feature.binary.data.isolated.appdata']).toBe(path.join(miseRoot, 'appdata'))
-  })
-
   it('keeps persisted MCP resource blobs in Cherry temporary storage', () => {
     const registry = buildPathRegistry()
 
@@ -262,10 +253,6 @@ describe('buildPathRegistry', () => {
 
 describe('pathRegistry.shouldAutoEnsure', () => {
   describe('cherry-owned directories — should auto-ensure', () => {
-    it('returns true for cherry.bin', () => {
-      expect(shouldAutoEnsure('cherry.bin')).toBe(true)
-    })
-
     it('returns true for cherry.config', () => {
       expect(shouldAutoEnsure('cherry.config')).toBe(true)
     })
@@ -410,10 +397,6 @@ describe('pathRegistry.shouldAutoEnsure', () => {
 
     it('returns false for app.root.resources.scripts', () => {
       expect(shouldAutoEnsure('app.root.resources.scripts')).toBe(false)
-    })
-
-    it('returns false for app.root.resources.binaries', () => {
-      expect(shouldAutoEnsure('app.root.resources.binaries')).toBe(false)
     })
 
     it('returns false for app.database.migrations (packaged read-only path)', () => {

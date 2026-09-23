@@ -3,7 +3,7 @@ import { type AiEventSchemas, aiRequestSchemas } from './ai'
 import { type ApiGatewayEventSchemas, apiGatewayRequestSchemas } from './apiGateway'
 import { type AppEventSchemas, appRequestSchemas } from './app'
 import { type BackupEventSchemas, backupRequestSchemas } from './backup'
-import { type BinaryEventSchemas, binaryRequestSchemas } from './binary'
+import { binaryRequestSchemas } from './binary'
 import { type BrowserEventSchemas, browserRequestSchemas } from './browser'
 import { type ChannelEventSchemas, channelRequestSchemas } from './channel'
 import { type CherryCloudEventSchemas, cherryCloudRequestSchemas } from './cherryCloud'
@@ -107,7 +107,6 @@ export type IpcEventSchemas = AiEventSchemas &
   ApiGatewayEventSchemas &
   AppEventSchemas &
   BackupEventSchemas &
-  BinaryEventSchemas &
   BrowserEventSchemas &
   ChannelEventSchemas &
   CherryCloudEventSchemas &

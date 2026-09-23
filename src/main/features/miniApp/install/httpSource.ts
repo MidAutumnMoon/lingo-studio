@@ -62,7 +62,7 @@ export function assertHttps(url: string): URL {
 
 /**
  * Mirrors in region order, the other as fallback — the shape every downloading feature
- * in this repo already uses (`BinaryManager`, `OnnxRuntimeBinaryService`,
+ * in this repo already uses (`OnnxRuntimeBinaryService`,
  * `modelSource.ts`, `JinaProvider`). A single global URL is unreachable for a whole
  * region of users, and the machinery to avoid that already exists.
  *

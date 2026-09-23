@@ -207,10 +207,6 @@ jobs:
         if: needs.resolve.outputs.mode == 'branch'
         run: pnpm --dir target-app install --frozen-lockfile
 
-      - name: Download application binary dependencies
-        if: needs.resolve.outputs.mode == 'branch'
-        run: pnpm --dir target-app download:binaries
-
       - name: Prepare application runtime once
         if: needs.resolve.outputs.mode == 'branch'
         shell: bash

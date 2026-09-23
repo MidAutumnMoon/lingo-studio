@@ -5,18 +5,12 @@ import type { BinaryToolSnapshot } from '@shared/types/binary'
 const snapshotRef = vi.hoisted(() => ({
   value: { name: 'rtk', availability: { source: 'none' } } as BinaryToolSnapshot
 }))
-const binaryManagerMock = vi.hoisted(() => ({ getToolSnapshots: vi.fn() }))
+const systemToolServiceMock = vi.hoisted(() => ({ getToolSnapshots: vi.fn() }))
 const executeCommandMock = vi.hoisted(() => vi.fn())
 
 // Mock dependencies before importing the module
 vi.mock('@main/utils/processRunner', () => ({
   executeCommand: executeCommandMock
-}))
-
-vi.mock('node:os', () => ({
-  default: {
-    homedir: () => '/home/testuser'
-  }
 }))
 
 vi.mock('@logger', () => ({
@@ -30,30 +24,12 @@ vi.mock('@logger', () => ({
   }
 }))
 
-vi.mock('electron', () => ({
-  app: {
-    isPackaged: false
-  }
-}))
-
-vi.mock('@main/core/platform', () => ({
-  isWin: false
-}))
-
-vi.mock('@application', () => ({
-  application: {
-    get: vi.fn(() => binaryManagerMock),
-    getPath: (key: string) => {
-      if (key === 'app.root.resources.binaries') return '/app/resources/binaries'
-      if (key === 'cherry.bin') return '/home/testuser/.cherrystudio/bin'
-      if (key === 'feature.binary.data') return '/home/testuser/.config/CherryStudio/Toolchain/mise'
-      return '/app/resources'
-    }
-  }
+vi.mock('@main/services/SystemToolService', () => ({
+  systemToolService: systemToolServiceMock
 }))
 
 vi.mock('@main/utils/shellEnv', () => ({
-  getRawShellEnv: vi.fn(async () => ({ PATH: '/usr/local/bin:/usr/bin', MISE_DATA_DIR: '/user/mise' }))
+  getShellEnv: vi.fn(async () => ({ PATH: '/usr/local/bin:/usr/bin', LC_ALL: 'C' }))
 }))
 
 vi.mock('semver', () => ({
@@ -76,7 +52,7 @@ describe('rtk utils', () => {
     now += 60_001
     vi.spyOn(Date, 'now').mockReturnValue(now)
     snapshotRef.value = { name: 'rtk', availability: { source: 'none' } }
-    binaryManagerMock.getToolSnapshots.mockImplementation(async () => ({ rtk: snapshotRef.value }))
+    systemToolServiceMock.getToolSnapshots.mockImplementation(async () => ({ rtk: snapshotRef.value }))
     executeCommandMock.mockReset()
   })
 
@@ -89,12 +65,12 @@ describe('rtk utils', () => {
       const result = await rtkRewrite('ls -la')
 
       expect(result).toBeNull()
-      expect(binaryManagerMock.getToolSnapshots).toHaveBeenCalledWith(['rtk'])
+      expect(systemToolServiceMock.getToolSnapshots).toHaveBeenCalledWith(['rtk'])
       expect(executeCommandMock).not.toHaveBeenCalled()
     })
 
     it('returns null without throwing when the snapshot probe rejects', async () => {
-      binaryManagerMock.getToolSnapshots.mockRejectedValueOnce(new Error('mise exploded'))
+      systemToolServiceMock.getToolSnapshots.mockRejectedValueOnce(new Error('PATH probe exploded'))
 
       await expect(rtkRewrite('ls -la')).resolves.toBeNull()
       expect(executeCommandMock).not.toHaveBeenCalled()
@@ -103,7 +79,7 @@ describe('rtk utils', () => {
     it('returns null when the snapshot probe exceeds its timeout budget', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
       // A snapshot query that never settles must not block the awaiting hook.
-      binaryManagerMock.getToolSnapshots.mockReturnValue(new Promise(() => {}))
+      systemToolServiceMock.getToolSnapshots.mockReturnValue(new Promise(() => {}))
 
       const pending = rtkRewrite('ls -la')
       await vi.advanceTimersByTimeAsync(3000)
@@ -113,7 +89,7 @@ describe('rtk utils', () => {
       vi.useRealTimers()
     })
 
-    it('uses a system RTK path and preserves the raw user environment', async () => {
+    it('uses a system RTK path and preserves the login-shell environment', async () => {
       snapshotRef.value = { name: 'rtk', availability: { source: 'system', path: '/usr/local/bin/rtk' } }
       executeCommandMock.mockResolvedValueOnce('rtk 0.30.1').mockResolvedValueOnce('rg --files')
 
@@ -124,7 +100,7 @@ describe('rtk utils', () => {
         ['--version'],
         expect.objectContaining({
           capture: true,
-          env: { PATH: '/usr/local/bin:/usr/bin', MISE_DATA_DIR: '/user/mise' }
+          env: { PATH: '/usr/local/bin:/usr/bin', LC_ALL: 'C' }
         })
       )
       expect(executeCommandMock).toHaveBeenNthCalledWith(
@@ -133,7 +109,7 @@ describe('rtk utils', () => {
         ['rewrite', 'find . -type f'],
         expect.objectContaining({
           capture: true,
-          env: { PATH: '/usr/local/bin:/usr/bin', MISE_DATA_DIR: '/user/mise' }
+          env: { PATH: '/usr/local/bin:/usr/bin', LC_ALL: 'C' }
         })
       )
     })
@@ -168,22 +144,16 @@ describe('rtk utils', () => {
       resolveVersion({ stdout: 'rtk 0.30.1', stderr: '' })
 
       await expect(Promise.all([first, second])).resolves.toEqual(['rewritten:first', 'rewritten:second'])
-      expect(binaryManagerMock.getToolSnapshots).toHaveBeenCalledTimes(1)
+      expect(systemToolServiceMock.getToolSnapshots).toHaveBeenCalledTimes(1)
       expect(executeCommandMock).toHaveBeenCalledTimes(3)
       for (const call of executeCommandMock.mock.calls) {
         expect(call[0]).toBe('/usr/local/bin/rtk')
-        expect(call[2]).toEqual(
-          expect.objectContaining({ env: { PATH: '/usr/local/bin:/usr/bin', MISE_DATA_DIR: '/user/mise' } })
-        )
+        expect(call[2]).toEqual(expect.objectContaining({ env: { PATH: '/usr/local/bin:/usr/bin', LC_ALL: 'C' } }))
       }
     })
 
     it('should return null when rewritten command equals original', async () => {
-      snapshotRef.value = {
-        name: 'rtk',
-        availability: { source: 'mise', path: '/managed/shims/rtk', version: '0.30.1' },
-        application: { status: 'applied', version: '0.30.1' }
-      }
+      snapshotRef.value = { name: 'rtk', availability: { source: 'system', path: '/usr/bin/rtk' } }
 
       // First call: version check, second call: rewrite
       executeCommandMock.mockResolvedValueOnce('rtk 0.30.1').mockResolvedValueOnce('ls -la')
@@ -194,11 +164,7 @@ describe('rtk utils', () => {
     })
 
     it('should return null when rtk exits with error (no rewrite available)', async () => {
-      snapshotRef.value = {
-        name: 'rtk',
-        availability: { source: 'mise', path: '/managed/shims/rtk', version: '0.30.1' },
-        application: { status: 'applied', version: '0.30.1' }
-      }
+      snapshotRef.value = { name: 'rtk', availability: { source: 'system', path: '/usr/bin/rtk' } }
 
       executeCommandMock.mockResolvedValueOnce('rtk 0.30.1').mockRejectedValueOnce(new Error('exit code 1'))
 

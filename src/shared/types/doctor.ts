@@ -106,7 +106,6 @@ export const DOCTOR_CHECK_IDS = [
   'network-provider-endpoint',
   'mcp-servers-connected',
   'mcp-launch-commands',
-  'runtime-managed-tools',
   'runtime-claude-login',
   'logs-recent-findings'
 ] as const
@@ -354,14 +353,6 @@ export const DOCTOR_CHECK_CATALOG = {
     scope: ['mcpServerIds'],
     fixes: [],
     details: ['unresolved', 'query_failed'],
-    requires: []
-  },
-  'runtime-managed-tools': {
-    domain: 'runtime',
-    tier: 'quick',
-    scope: 'global',
-    fixes: [],
-    details: ['failed'],
     requires: []
   },
   'runtime-claude-login': {

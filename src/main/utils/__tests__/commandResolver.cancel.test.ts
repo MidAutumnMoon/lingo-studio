@@ -15,10 +15,10 @@ vi.mock('child_process', async (importOriginal) => {
     }
   }
 })
-vi.mock('@main/core/platform', () => ({ isWin: false }))
+vi.mock('@main/core/platform', () => ({ isWin: false, isMac: false, isLinux: true }))
 
 import { findCommandInShellEnv } from '../commandResolver'
-import { getRawShellEnv } from '../shellEnv'
+import { getShellEnv } from '../shellEnv'
 
 afterEach(() => {
   for (const child of owned.children) if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
@@ -33,7 +33,7 @@ describe('owned lookup cancellation', () => {
       const pending =
         kind === 'command'
           ? findCommandInShellEnv('npx', { PATH: '/usr/bin' }, controller.signal)
-          : getRawShellEnv(controller.signal)
+          : getShellEnv(controller.signal)
       const child = owned.children[0]
       expect(child.pid).toBeTypeOf('number')
       const closed = new Promise<void>((resolve) => child.once('close', () => resolve()))

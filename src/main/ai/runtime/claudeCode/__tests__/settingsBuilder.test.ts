@@ -61,7 +61,7 @@ const mocks = vi.hoisted(() => ({
   applicationGetPath: vi.fn(),
   getShellEnv: vi.fn(),
   refreshShellEnv: vi.fn(),
-  getBinaryPath: vi.fn(),
+  findExecutableInEnv: vi.fn(),
   getProxyEnvironment: vi.fn(),
   getPathStatus: vi.fn(),
   ensureAgentDataDirectory: vi.fn(),
@@ -237,12 +237,9 @@ vi.mock('@main/i18n', () => ({
   }
 }))
 
-vi.mock('@main/utils/binaryResolver', () => ({
-  getBinaryPath: mocks.getBinaryPath
-}))
-
 vi.mock('@main/utils/commandResolver', () => ({
-  autoDiscoverGitBash: vi.fn(() => null)
+  autoDiscoverGitBash: vi.fn(() => null),
+  findExecutableInEnv: mocks.findExecutableInEnv
 }))
 
 vi.mock('@main/utils/rtk', () => ({
@@ -362,7 +359,7 @@ describe('buildClaudeCodeSessionSettings', () => {
     mocks.platform.isMac = false
     mocks.getShellEnv.mockResolvedValue({})
     mocks.refreshShellEnv.mockResolvedValue({})
-    mocks.getBinaryPath.mockResolvedValue('/usr/local/bin/bun')
+    mocks.findExecutableInEnv.mockResolvedValue('/usr/local/bin/bun')
     mocks.getProxyEnvironment.mockReturnValue({})
     mocks.getPathStatus.mockResolvedValue({ ok: true, kind: 'directory' })
     mocks.ensureAgentDataDirectory.mockImplementation(async (root: string, agentId: string) => path.join(root, agentId))
@@ -378,14 +375,14 @@ describe('buildClaudeCodeSessionSettings', () => {
     mocks.loadBuiltinAgentDefinition.mockReturnValue(undefined)
   })
 
-  it('preserves managed CLI paths from the login-shell environment', async () => {
+  it('passes the login-shell environment through verbatim, including the user’s own tool env', async () => {
     mocks.getShellEnv.mockResolvedValue({
-      PATH: '/managed/shims:/usr/bin',
-      MISE_DATA_DIR: '/managed',
-      MISE_CONFIG_DIR: '/managed/config',
-      MISE_CACHE_DIR: '/managed/cache',
-      MISE_STATE_DIR: '/managed/state',
-      MISE_SHIMS_DIR: '/managed/shims'
+      PATH: '/home/user/.local/share/mise/shims:/usr/bin',
+      MISE_DATA_DIR: '/home/user/.local/share/mise',
+      MISE_CONFIG_DIR: '/home/user/.config/mise',
+      MISE_CACHE_DIR: '/home/user/.cache/mise',
+      MISE_STATE_DIR: '/home/user/.local/state/mise',
+      MISE_SHIMS_DIR: '/home/user/.local/share/mise/shims'
     })
 
     const settings = await buildClaudeCodeSessionSettings(
@@ -398,12 +395,12 @@ describe('buildClaudeCodeSessionSettings', () => {
     )
 
     expect(settings.env).toMatchObject({
-      PATH: '/managed/shims:/usr/bin',
-      MISE_DATA_DIR: '/managed',
-      MISE_CONFIG_DIR: '/managed/config',
-      MISE_CACHE_DIR: '/managed/cache',
-      MISE_STATE_DIR: '/managed/state',
-      MISE_SHIMS_DIR: '/managed/shims'
+      PATH: '/home/user/.local/share/mise/shims:/usr/bin',
+      MISE_DATA_DIR: '/home/user/.local/share/mise',
+      MISE_CONFIG_DIR: '/home/user/.config/mise',
+      MISE_CACHE_DIR: '/home/user/.cache/mise',
+      MISE_STATE_DIR: '/home/user/.local/state/mise',
+      MISE_SHIMS_DIR: '/home/user/.local/share/mise/shims'
     })
   })
 
@@ -2569,26 +2566,9 @@ describe('buildClaudeCodeSessionSettings', () => {
     const handlers = cherryServer.server._requestHandlers
     const listed = await handlers.get('tools/list')({ method: 'tools/list', params: {} }, {})
     expect(listed.tools.map((tool: { name: string }) => tool.name)).toEqual(
-      expect.arrayContaining(['kb_search', 'kb_read', 'kb_list', 'kb_manage', 'cli_list', 'cli_search', 'cli_install'])
+      expect.arrayContaining(['kb_search', 'kb_read', 'kb_list', 'kb_manage'])
     )
     expect(systemPromptText(settings.systemPrompt)).toContain('mcp__cherry-tools__kb_search')
-  })
-
-  it('exposes CLI management tools to a normal Agent session', async () => {
-    const session = {
-      id: 'session-1',
-      agentId: 'agent-1',
-      workspace: { type: 'user', path: '/workspace/project' }
-    }
-
-    const settings = await buildClaudeCodeSessionSettings(session as never, {} as never)
-    const cherryServer = (settings.mcpServers?.['cherry-tools'] as any)?.instance
-    const handlers = cherryServer.server._requestHandlers
-    const listed = await handlers.get('tools/list')({ method: 'tools/list', params: {} }, {})
-
-    expect(listed.tools.map((tool: { name: string }) => tool.name)).toEqual(
-      expect.arrayContaining(['cli_list', 'cli_search', 'cli_install'])
-    )
   })
 
   it('uses one captured channel snapshot for Assistant MCP, approval, and prompt policy', async () => {

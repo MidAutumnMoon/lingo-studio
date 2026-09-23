@@ -199,7 +199,7 @@ const drain = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 beforeEach(() => {
   runtimeMocks.snapshot = baseSnapshot()
   runtimeMocks.harnessOptions = undefined
-  runtimeMocks.resolveBun.mockReset().mockResolvedValue('/bundled/bun')
+  runtimeMocks.resolveBun.mockReset().mockResolvedValue('/opt/bun/bin/bun')
   runtimeMocks.getShellEnv.mockReset().mockResolvedValue({
     PATH: ['/opt/homebrew/bin', '/usr/bin'].join(path.delimiter),
     HOME: '/Users/tester',
@@ -369,7 +369,7 @@ describe('DshRuntimeConnection tracing', () => {
     if (starting)
       runtimeMocks.resolveBun.mockImplementationOnce(async () => {
         await transition.promise
-        return '/bundled/bun'
+        return '/opt/bun/bin/bun'
       })
     const connecting = driver.connect(connectInput)
     let closing: Promise<void> | undefined
@@ -546,9 +546,9 @@ describe('DshRuntimeConnection tracing', () => {
       error: new Error('dsh bridge disconnected; runtime execution is stopping')
     })
   })
-  it('fails before materializing a connection when bundled Bun is unavailable', async () => {
-    runtimeMocks.resolveBun.mockRejectedValueOnce(new Error('Bundled Bun is unavailable'))
-    await expect(new DshRuntimeConnection(connectInput).start()).rejects.toThrow('Bundled Bun is unavailable')
+  it('fails before materializing a connection when the Bun runtime is unavailable', async () => {
+    runtimeMocks.resolveBun.mockRejectedValueOnce(new Error('Bun is unavailable'))
+    await expect(new DshRuntimeConnection(connectInput).start()).rejects.toThrow('Bun is unavailable')
     expect(runtimeMocks.harnessOptions).toBeUndefined()
   })
 
@@ -566,7 +566,7 @@ describe('DshRuntimeConnection tracing', () => {
     await connection.close()
   })
 
-  it('combines the login-shell PATH with managed CLIs without leaking the main-process environment', async () => {
+  it('scopes the child env to the login-shell PATH and HOME without leaking anything else', async () => {
     vi.stubEnv('PATH', '/usr/bin')
     vi.stubEnv('CHERRY_TEST_SECRET', 'do-not-copy')
     vi.stubEnv('ELECTRON_RUN_AS_NODE', '1')
@@ -574,25 +574,16 @@ describe('DshRuntimeConnection tracing', () => {
     const connection = await new DshRuntimeConnection(connectInput).start()
     const env = runtimeMocks.harnessOptions?.env as NodeJS.ProcessEnv
     expect(runtimeMocks.harnessOptions).toMatchObject({
-      runtimeExecutable: '/bundled/bun',
+      runtimeExecutable: '/opt/bun/bin/bun',
       runtimeArgs: ['--no-env-file'],
       processCwd: '/dsh'
     })
     expect(env).not.toHaveProperty('ELECTRON_RUN_AS_NODE')
 
-    expect(env.PATH?.split(path.delimiter)).toEqual([
-      path.normalize('/mock/feature.binary.data/shims'),
-      '/opt/homebrew/bin',
-      '/usr/bin'
-    ])
-    expect(env).toMatchObject({
-      HOME: '/Users/tester',
-      MISE_DATA_DIR: '/mock/feature.binary.data',
-      MISE_CONFIG_DIR: path.normalize('/mock/feature.binary.data/config'),
-      MISE_CACHE_DIR: path.normalize('/mock/feature.binary.data/cache'),
-      MISE_STATE_DIR: path.normalize('/mock/feature.binary.data/state'),
-      MISE_SHIMS_DIR: path.normalize('/mock/feature.binary.data/shims')
-    })
+    // The child PATH is the login-shell PATH verbatim — no shims dir, no main-process PATH.
+    expect(env.PATH?.split(path.delimiter)).toEqual(['/opt/homebrew/bin', '/usr/bin'])
+    expect(env.HOME).toBe('/Users/tester')
+    expect(env).not.toHaveProperty('MISE_DATA_DIR')
     expect(env).not.toHaveProperty('CHERRY_TEST_SECRET')
     expect(env).not.toHaveProperty('SECRET')
     await connection.close()

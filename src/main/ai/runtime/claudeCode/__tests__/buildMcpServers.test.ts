@@ -345,9 +345,7 @@ describe('buildMcpServers', () => {
 
     const names = await cherryToolNames(buildMcpServers(session, assistant, WITH_HOST_TOOLS))
 
-    expect(names).toEqual(
-      expect.arrayContaining(['kb_search', 'kb_read', 'kb_list', 'kb_manage', 'cli_list', 'cli_search', 'cli_install'])
-    )
+    expect(names).toEqual(expect.arrayContaining(['kb_search', 'kb_read', 'kb_list', 'kb_manage']))
   })
 
   it('revokes unrestricted knowledge access when the built-in Assistant is deleted', async () => {

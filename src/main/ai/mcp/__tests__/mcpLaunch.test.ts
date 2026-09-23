@@ -1,15 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const binaryMock = vi.hoisted(() => ({
-  isBinaryExists: vi.fn<(name: string) => Promise<boolean>>(),
-  getBinaryPath: vi.fn<(name?: string) => Promise<string>>()
-}))
 const commandMock = vi.hoisted(() => ({
-  findExecutableInEnv: vi.fn<(name: string) => Promise<string | null>>(),
-  findCommandInShellEnv: vi.fn<(name: string, env: Record<string, string>) => Promise<string | null>>()
+  findExecutableInEnv: vi.fn<(name: string, options: unknown) => Promise<string | null>>(),
+  findCommandInShellEnv:
+    vi.fn<(name: string, env: Record<string, string>, signal?: unknown) => Promise<string | null>>()
 }))
 
-vi.mock('@main/utils/binaryResolver', () => binaryMock)
 vi.mock('@main/utils/commandResolver', () => commandMock)
 
 const { resolveLaunchCommand } = await import('../mcpLaunch')
@@ -20,29 +16,27 @@ const resolve = (command: string, args: string[] = [], registryUrl?: string) =>
   resolveLaunchCommand({ command, args, registryUrl, loginShellEnv: { PATH: '/usr/bin' }, logger })
 
 describe('resolveLaunchCommand', () => {
-  it('shares resolution by command and effective environment without sharing arguments or registries', async () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
     commandMock.findExecutableInEnv.mockResolvedValue(null)
-    binaryMock.isBinaryExists.mockResolvedValue(true)
+    commandMock.findCommandInShellEnv.mockResolvedValue(null)
+  })
+
+  it('shares resolution by command and effective environment without sharing arguments or registries', async () => {
+    commandMock.findExecutableInEnv.mockResolvedValue('/usr/local/bin/npx')
     const resolutionCache = new Map()
     const options = { command: 'npx', loginShellEnv: { PATH: '/a' }, logger, resolutionCache }
     const a = await resolveLaunchCommand({ ...options, args: ['one'], registryUrl: 'https://one.example' })
     const b = await resolveLaunchCommand({ ...options, args: ['two'], registryUrl: 'https://two.example' })
-    expect(a.args).toEqual(['x', '-y', 'one'])
-    expect(b.args).toEqual(['x', '-y', 'two'])
+    expect(a.args).toEqual(['one'])
+    expect(b.args).toEqual(['two'])
     expect(b.env).toEqual({ NPM_CONFIG_REGISTRY: 'https://two.example' })
     expect(commandMock.findExecutableInEnv).toHaveBeenCalledTimes(1)
     await resolveLaunchCommand({ ...options, loginShellEnv: { PATH: '/b' }, args: [] })
     expect(commandMock.findExecutableInEnv).toHaveBeenCalledTimes(2)
   })
-  beforeEach(() => {
-    vi.clearAllMocks()
-    binaryMock.isBinaryExists.mockResolvedValue(false)
-    binaryMock.getBinaryPath.mockImplementation(async (name) => `/bundled/${name}`)
-    commandMock.findExecutableInEnv.mockResolvedValue(null)
-    commandMock.findCommandInShellEnv.mockResolvedValue(null)
-  })
 
-  it('prefers the user’s own npx over the bundled runtime', async () => {
+  it('prefers the user’s own npx and passes the args through verbatim', async () => {
     commandMock.findExecutableInEnv.mockResolvedValue('/usr/local/bin/npx')
 
     const launch = await resolve('npx', ['-y', 'example-mcp'])
@@ -53,29 +47,11 @@ describe('resolveLaunchCommand', () => {
       env: {},
       resolution: 'system'
     })
-    expect(binaryMock.isBinaryExists).not.toHaveBeenCalled()
-  })
-
-  it('falls back to bundled bun and rewrites the args for `bun x`', async () => {
-    binaryMock.isBinaryExists.mockResolvedValue(true)
-
-    const launch = await resolve('npx', ['-y', 'example-mcp'])
-
-    expect(launch.command).toBe('/bundled/bun')
-    expect(launch.args).toEqual(['x', '-y', 'example-mcp'])
-  })
-
-  it('prefixes `x -y` by position, including when the package itself is named x or -y', async () => {
-    binaryMock.isBinaryExists.mockResolvedValue(true)
-
-    expect((await resolve('npx', ['x'])).args).toEqual(['x', '-y', 'x'])
-    expect((await resolve('npx', ['-y'])).args).toEqual(['x', '-y'])
-    expect((await resolve('npx', ['pkg', 'x'])).args).toEqual(['x', '-y', 'pkg', 'x'])
-    expect((await resolve('npx', ['pkg', '-y'])).args).toEqual(['x', '-y', 'pkg', '-y'])
+    expect(launch.unavailableReason).toBeUndefined()
   })
 
   it('does not mutate the caller’s args', async () => {
-    binaryMock.isBinaryExists.mockResolvedValue(true)
+    commandMock.findExecutableInEnv.mockResolvedValue('/usr/local/bin/npx')
     const args = ['-y', 'example-mcp']
 
     await resolve('npx', args)
@@ -83,20 +59,46 @@ describe('resolveLaunchCommand', () => {
     expect(args).toEqual(['-y', 'example-mcp'])
   })
 
-  it('reports unresolved with the production failure reason when neither npx nor bundled bun exists', async () => {
+  it('reports unresolved with the Node.js guidance when npx is not on PATH', async () => {
     await expect(resolve('npx', ['example-mcp'])).resolves.toMatchObject({
+      command: 'npx',
+      args: ['example-mcp'],
       resolution: 'unresolved',
-      unavailableReason: expect.stringMatching(/npx not found in PATH and bundled bun/)
+      unavailableReason:
+        'npx not found in PATH.\n' +
+        'Please either:\n' +
+        '1. Install Node.js (which includes npx) from https://nodejs.org\n' +
+        '2. Restart the application if you recently installed Node.js'
     })
   })
 
-  it('falls back to the bundled binary of the same name for uv and uvx', async () => {
-    binaryMock.isBinaryExists.mockResolvedValue(true)
+  it('reports unresolved with the uv guidance when uv and uvx are not on PATH', async () => {
+    const expected =
+      'uvx not found in PATH.\n' +
+      'Please either:\n' +
+      '1. Install uv from https://github.com/astral-sh/uv\n' +
+      '2. Restart the application if you recently installed uvx'
 
-    expect((await resolve('uvx', ['example'])).command).toBe('/bundled/uvx')
-    expect((await resolve('uv', ['run'])).command).toBe('/bundled/uv')
-    // uv takes the package spec as-is; only bun needs the `x` rewrite.
-    expect((await resolve('uvx', ['example'])).args).toEqual(['example'])
+    await expect(resolve('uvx', ['example'])).resolves.toMatchObject({
+      command: 'uvx',
+      resolution: 'unresolved',
+      unavailableReason: expected
+    })
+    await expect(resolve('uv', ['run'])).resolves.toMatchObject({
+      command: 'uv',
+      resolution: 'unresolved',
+      unavailableReason: expected.replace(/uvx/g, 'uv')
+    })
+  })
+
+  it('resolves the user’s own uv and uvx to full paths without rewriting args', async () => {
+    commandMock.findExecutableInEnv.mockResolvedValue('/usr/local/bin/uvx')
+
+    expect(await resolve('uvx', ['example'])).toMatchObject({
+      command: '/usr/local/bin/uvx',
+      args: ['example'],
+      resolution: 'system'
+    })
   })
 
   it('passes the registry through the env each package manager reads', async () => {
@@ -110,6 +112,23 @@ describe('resolveLaunchCommand', () => {
       PIP_INDEX_URL: 'https://registry.example'
     })
     expect((await resolve('node', [], 'https://registry.example')).env).toEqual({})
+  })
+
+  it('probes known runners in the login-shell env and other commands via shell lookup', async () => {
+    commandMock.findExecutableInEnv.mockResolvedValue('/usr/local/bin/npx')
+    commandMock.findCommandInShellEnv.mockResolvedValue('/opt/tools/my-server')
+
+    await resolve('npx', [])
+    expect(commandMock.findExecutableInEnv).toHaveBeenCalledWith('npx', {
+      env: { PATH: '/usr/bin' },
+      signal: undefined
+    })
+    expect(commandMock.findCommandInShellEnv).not.toHaveBeenCalled()
+
+    vi.clearAllMocks()
+    await resolve('my-server', [])
+    expect(commandMock.findCommandInShellEnv).toHaveBeenCalledWith('my-server', { PATH: '/usr/bin' }, undefined)
+    expect(commandMock.findExecutableInEnv).not.toHaveBeenCalled()
   })
 
   it('resolves an unknown command to a full path, and keeps it verbatim when resolution fails', async () => {

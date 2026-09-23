@@ -186,15 +186,15 @@ function createSecondaryEvidencePanelController() {
   const controller = createCompletedPanelController()
   const evidenceRow = controller.viewModel.rows[0]
   const firstRow = {
-    domain: 'runtime',
+    domain: 'mcp',
     status: 'warn',
-    id: 'runtime-managed-tools',
+    id: 'mcp-launch-commands',
     result: {
-      id: 'runtime-managed-tools',
+      id: 'mcp-launch-commands',
       status: 'warn',
       durationMs: 1,
       attribution: 'user-fixable',
-      detail: { variant: 'failed' },
+      detail: { variant: 'unresolved' },
       evidence: [],
       actions: []
     },

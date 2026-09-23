@@ -6,9 +6,8 @@ import { defineRoute } from '../define'
 import { operationResultSchema } from './common'
 
 /**
- * OpenClaw gateway runtime schemas.
- * Install/update goes renderer → binary.install_tool (name-only) → BinaryManager,
- * which resolves the fixed recipe itself.
+ * OpenClaw gateway runtime schemas. The gateway binary is the user's own
+ * installation, resolved from PATH.
  */
 
 // ── Request schemas ──

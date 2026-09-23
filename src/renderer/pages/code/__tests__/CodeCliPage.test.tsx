@@ -16,7 +16,6 @@ import CodeCliPage from '../CodeCliPage'
 type MockCommandMenuItem = { type: string; id?: string; onSelect?: () => void }
 
 const {
-  clearCliConfigMock,
   readCliConfigFilesMock,
   extractConnectionFromCliConfigDraftMock,
   cliConfigConnectionMatchesProviderMock,
@@ -30,9 +29,6 @@ const {
   selectToolMock,
   setTerminalMock,
   selectFolderMock,
-  installMock,
-  upgradeMock,
-  removeMock,
   toastErrorMock,
   navigateMock,
   openSettingsTabMock,
@@ -46,7 +42,6 @@ const {
   unsupportedProviderIds,
   gatewayState
 } = vi.hoisted(() => ({
-  clearCliConfigMock: vi.fn(),
   readCliConfigFilesMock: vi.fn(),
   extractConnectionFromCliConfigDraftMock: vi.fn(),
   cliConfigConnectionMatchesProviderMock: vi.fn(),
@@ -60,9 +55,6 @@ const {
   selectToolMock: vi.fn(),
   setTerminalMock: vi.fn(),
   selectFolderMock: vi.fn(),
-  installMock: vi.fn(),
-  upgradeMock: vi.fn(),
-  removeMock: vi.fn(),
   toastErrorMock: vi.fn(),
   navigateMock: vi.fn(),
   openSettingsTabMock: vi.fn(),
@@ -136,20 +128,6 @@ vi.mock('@cherrystudio/ui', () => ({
       </button>
     )
   },
-  ConfirmDialog: ({ open, onConfirm }: { open?: boolean; onConfirm?: () => void | Promise<void> }) =>
-    open ? (
-      <button type="button" onClick={() => void onConfirm?.()}>
-        confirm remove
-      </button>
-    ) : null,
-  // Dialog family used by BinaryInstallErrorDialog (rendered by CodeCliContentPanel).
-  Dialog: ({ open, children }: { open?: boolean; children?: ReactNode }) =>
-    open ? <div role="dialog">{children}</div> : null,
-  DialogContent: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  DialogDescription: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  DialogFooter: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  DialogHeader: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  DialogTitle: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   Select: ({
     children,
     value,
@@ -266,10 +244,6 @@ vi.mock('../cliConfig/claudeModels', () => ({
     const env = config.env as Record<string, string> | undefined
     return Boolean(env?.ANTHROPIC_DEFAULT_FABLE_MODEL)
   }
-}))
-
-vi.mock('../cliConfig/clear', () => ({
-  clearCliConfig: (...args: unknown[]) => clearCliConfigMock(...args)
 }))
 
 vi.mock('../cliConfig/draft', () => ({
@@ -398,45 +372,23 @@ vi.mock('../components/LaunchDialog', () => ({
 vi.mock('../components/VersionStatusCard', () => ({
   VersionStatusCard: ({
     canLaunch,
-    onRemove,
     onLaunch,
-    onUpgrade,
-    upgradeDisabled,
-    installError,
-    onShowError,
-    launchDisabledHint
+    launchDisabledHint,
+    installed
   }: {
     canLaunch?: boolean
-    onRemove?: () => void
     onLaunch?: () => void
-    onUpgrade?: () => void
-    upgradeDisabled?: boolean
-    installError?: string
-    onShowError?: () => void
     launchDisabledHint?: string
+    installed?: boolean
   }) => (
     <div
       data-can-launch={String(canLaunch)}
       data-launch-disabled-hint={launchDisabledHint}
+      data-installed={String(installed)}
       data-testid="version-status-card">
-      {onRemove && (
-        <button type="button" onClick={onRemove}>
-          remove tool
-        </button>
-      )}
       {onLaunch && (
         <button type="button" disabled={!canLaunch} onClick={onLaunch}>
           start tool
-        </button>
-      )}
-      {onUpgrade && (
-        <button type="button" disabled={upgradeDisabled} onClick={onUpgrade}>
-          upgrade tool
-        </button>
-      )}
-      {installError && (
-        <button type="button" onClick={onShowError}>
-          show error
         </button>
       )}
     </div>
@@ -459,16 +411,6 @@ vi.mock('../constants/cliTools', () => ({
 
 vi.mock('../hooks/useAvailableTerminals', () => ({
   useAvailableTerminals: () => []
-}))
-
-vi.mock('../hooks/useBinaryActions', () => ({
-  useBinaryActions: () => ({
-    install: installMock,
-    upgrade: upgradeMock,
-    remove: removeMock,
-    installingTools: new Set(),
-    upgradingTools: new Set()
-  })
 }))
 
 vi.mock('../hooks/useCliVersionStatuses', () => ({
@@ -531,7 +473,7 @@ function mockCodeCliState({
 }
 
 function baseVersionStatuses(overrides: Partial<Record<CodeCli, Record<string, unknown>>> = {}) {
-  const base = { installed: true, source: 'mise', applicationStatus: 'applied', canUpgrade: false }
+  const base = { installed: true, source: 'system' }
   return {
     [CodeCli.CLAUDE_CODE]: { ...base, ...overrides[CodeCli.CLAUDE_CODE] },
     [CodeCli.OPENAI_CODEX]: { ...base, ...overrides[CodeCli.OPENAI_CODEX] },
@@ -564,7 +506,6 @@ describe('CodeCliPage', () => {
     mockCodeCliState()
     versionStatusesMock.mockReturnValue(baseVersionStatuses())
     versionStatusesResolvedState.value = true
-    clearCliConfigMock.mockResolvedValue(undefined)
     readCliConfigFilesMock.mockResolvedValue([])
     extractConnectionFromCliConfigDraftMock.mockReturnValue(null)
     cliConfigConnectionMatchesProviderMock.mockReturnValue(true)
@@ -610,20 +551,15 @@ describe('CodeCliPage', () => {
     )
   })
 
-  // A broken managed install is installed:false with no shim, so the `installed` filter hid the
-  // tool entirely — taking the Retry/Remove that repair or undo it out of reach for good.
-  it('keeps a broken Gemini installation reachable so it can be repaired or removed', () => {
+  it('keeps an installed-but-unpinned Gemini CLI visible while installed', () => {
     mockCodeCliState({ selectedCliTool: CodeCli.GEMINI_CLI })
     versionStatusesMock.mockReturnValue(
-      baseVersionStatuses({
-        [CodeCli.GEMINI_CLI]: { installed: false, source: 'none', applicationStatus: 'broken' }
-      })
+      baseVersionStatuses({ [CodeCli.GEMINI_CLI]: { installed: true, source: 'system' } })
     )
 
     render(<CodeCliPage />)
 
     expect(screen.getByText('Gemini CLI')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'remove tool' })).toBeInTheDocument()
     expect(selectToolMock).not.toHaveBeenCalled()
   })
 
@@ -666,10 +602,10 @@ describe('CodeCliPage', () => {
     expect(selectToolMock).not.toHaveBeenCalled()
   })
 
-  it.each(['system', 'mise'] as const)('shows an installed Gemini CLI from the %s snapshot', (source) => {
+  it('shows an installed Gemini CLI from a system snapshot', () => {
     versionStatusesMock.mockReturnValue(
       baseVersionStatuses({
-        [CodeCli.GEMINI_CLI]: { installed: true, source }
+        [CodeCli.GEMINI_CLI]: { installed: true, source: 'system' }
       })
     )
 
@@ -678,7 +614,7 @@ describe('CodeCliPage', () => {
     expect(screen.getByText('Gemini CLI')).toBeInTheDocument()
   })
 
-  it('falls back to the first visible tool after a selected Gemini installation is removed', async () => {
+  it('falls back to the first visible tool when the selected Gemini is not installed', async () => {
     mockCodeCliState({ selectedCliTool: CodeCli.GEMINI_CLI })
     versionStatusesMock.mockReturnValue(baseVersionStatuses())
 
@@ -692,7 +628,7 @@ describe('CodeCliPage', () => {
     mockCodeCliState({ selectedCliTool: CodeCli.GEMINI_CLI })
     versionStatusesMock.mockReturnValue(
       baseVersionStatuses({
-        [CodeCli.GEMINI_CLI]: { installed: true, source: 'mise' }
+        [CodeCli.GEMINI_CLI]: { installed: true, source: 'system' }
       })
     )
 
@@ -705,23 +641,19 @@ describe('CodeCliPage', () => {
     expect(screen.queryByText('code.gemini_cli_discontinued')).not.toBeInTheDocument()
   })
 
-  it('keeps launch, upgrade, and uninstall actions available for an installed Gemini CLI', () => {
+  it('keeps the launch action available for an installed Gemini CLI', () => {
     mockCodeCliState({
       selectedCliTool: CodeCli.GEMINI_CLI,
       providerConfigs: { anthropic: { modelId: 'anthropic::claude-new' } },
       currentProviderId: 'anthropic'
     })
     versionStatusesMock.mockReturnValue(
-      baseVersionStatuses({
-        [CodeCli.GEMINI_CLI]: { installed: true, source: 'mise', current: '1.0.0', latest: '1.1.0', canUpgrade: true }
-      })
+      baseVersionStatuses({ [CodeCli.GEMINI_CLI]: { installed: true, source: 'system' } })
     )
 
     render(<CodeCliPage />)
 
     expect(screen.getByRole('button', { name: 'start tool' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'upgrade tool' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'remove tool' })).toBeInTheDocument()
   })
 
   it('offers official login and Unified Gateway cards for Antigravity', () => {
@@ -843,17 +775,12 @@ describe('CodeCliPage', () => {
     expect(ipcRequestMock).not.toHaveBeenCalledWith('code_cli.run', expect.anything())
   })
 
-  it('locks DeepSeek Harness provider changes and upgrades while its managed process is running', async () => {
+  it('locks DeepSeek Harness provider changes while its managed process is running', async () => {
     mockCodeCliState({
       selectedCliTool: CodeCli.DEEPSEEK_HARNESS,
       providerConfigs: { anthropic: { modelId: 'anthropic::claude-new', config: {} } },
       currentProviderId: 'anthropic'
     })
-    versionStatusesMock.mockReturnValue(
-      baseVersionStatuses({
-        [CodeCli.DEEPSEEK_HARNESS]: { current: '1.0.0', latest: '1.1.0', canUpgrade: true }
-      })
-    )
     MockUseCacheUtils.setSharedCacheValue('feature.deepseek_harness.status', {
       status: 'running',
       url: 'http://127.0.0.1:43123'
@@ -863,29 +790,22 @@ describe('CodeCliPage', () => {
 
     const toggleButton = await screen.findByRole('button', { name: 'toggle anthropic' })
     const configureButton = screen.getByRole('button', { name: 'configure anthropic' })
-    const upgradeButton = screen.getByRole('button', { name: 'upgrade tool' })
     await waitFor(() => {
       expect(toggleButton).toBeDisabled()
       expect(configureButton).toBeDisabled()
-      expect(upgradeButton).toBeDisabled()
     })
     fireEvent.click(toggleButton)
     fireEvent.click(configureButton)
-    fireEvent.click(upgradeButton)
     expect(setCurrentProviderMock).not.toHaveBeenCalled()
     expect(screen.queryByTestId('config-panel')).not.toBeInTheDocument()
-    expect(upgradeMock).not.toHaveBeenCalled()
   })
 
-  it('locks Hermes Agent provider changes and upgrades while its web UI is running', async () => {
+  it('locks Hermes Agent provider changes while its web UI is running', async () => {
     mockCodeCliState({
       selectedCliTool: CodeCli.HERMES,
       providerConfigs: { anthropic: { modelId: 'anthropic::claude-new', config: {} } },
       currentProviderId: 'anthropic'
     })
-    versionStatusesMock.mockReturnValue(
-      baseVersionStatuses({ [CodeCli.HERMES]: { current: '1.0.0', latest: '1.1.0', canUpgrade: true } })
-    )
     MockUseCacheUtils.setSharedCacheValue('feature.hermes_dashboard.status', {
       status: 'running',
       url: 'http://127.0.0.1:49152'
@@ -896,7 +816,6 @@ describe('CodeCliPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'toggle anthropic' })).toBeDisabled()
       expect(screen.getByRole('button', { name: 'configure anthropic' })).toBeDisabled()
-      expect(screen.getByRole('button', { name: 'upgrade tool' })).toBeDisabled()
     })
   })
 
@@ -906,9 +825,6 @@ describe('CodeCliPage', () => {
       providerConfigs: { anthropic: { modelId: 'anthropic::claude-new', config: {} } },
       currentProviderId: 'anthropic'
     })
-    versionStatusesMock.mockReturnValue(
-      baseVersionStatuses({ [CodeCli.HERMES]: { current: '1.0.0', latest: '1.1.0', canUpgrade: true } })
-    )
     MockUseCacheUtils.setSharedCacheValue('feature.hermes_dashboard.status', {
       status: 'running',
       url: 'http://127.0.0.1:49152'
@@ -918,7 +834,6 @@ describe('CodeCliPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'toggle anthropic' })).toBeDisabled()
       expect(screen.getByRole('button', { name: 'configure anthropic' })).toBeDisabled()
-      expect(screen.getByRole('button', { name: 'upgrade tool' })).toBeDisabled()
     })
   })
 
@@ -1240,107 +1155,5 @@ describe('CodeCliPage', () => {
     expect(screen.queryByTestId('empty-config-list')).not.toBeInTheDocument()
     expect(screen.getByText(`toggle ${CLI_OWN_LOGIN_PROVIDER_ID}`)).toBeInTheDocument()
     expect(screen.getByTestId('version-status-card')).not.toHaveAttribute('data-launch-disabled-hint')
-  })
-
-  it('warns that credentials may remain when clearing the CLI config fails during tool removal', async () => {
-    mockCodeCliState({
-      providerConfigs: { anthropic: { modelId: 'anthropic::claude-new', config: {} } },
-      currentProviderId: 'anthropic'
-    })
-    removeMock.mockResolvedValue(true)
-    clearCliConfigMock.mockRejectedValue(new Error('EACCES'))
-
-    render(<CodeCliPage />)
-
-    fireEvent.click(screen.getByText('remove tool'))
-    fireEvent.click(await screen.findByText('confirm remove'))
-
-    await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith('code.clear_config_failed'))
-    // The in-app cleanup still proceeds so the tool state does not point at a removed provider.
-    expect(setCurrentProviderMock).toHaveBeenCalledWith(null)
-  })
-
-  it('stops the managed DeepSeek Harness process before uninstalling and only then clears CodeMate selection', async () => {
-    const events: string[] = []
-    mockCodeCliState({
-      selectedCliTool: CodeCli.DEEPSEEK_HARNESS,
-      providerConfigs: { anthropic: { modelId: 'anthropic::claude-new', config: {} } },
-      currentProviderId: 'anthropic'
-    })
-    ipcRequestMock.mockImplementation(async (route: string) => {
-      if (route === 'deepseek_harness.stop') {
-        events.push('stop')
-        return { success: true }
-      }
-      return { success: true }
-    })
-    MockUseCacheUtils.setSharedCacheValue('feature.deepseek_harness.status', {
-      status: 'running',
-      url: 'http://127.0.0.1:43123'
-    })
-    removeMock.mockImplementation(async () => {
-      events.push('remove')
-      return true
-    })
-    setCurrentProviderMock.mockImplementation(async () => {
-      events.push('clear-selection')
-    })
-
-    render(<CodeCliPage />)
-    fireEvent.click(screen.getByText('remove tool'))
-    fireEvent.click(await screen.findByText('confirm remove'))
-
-    await waitFor(() => expect(removeMock).toHaveBeenCalledWith(CodeCli.DEEPSEEK_HARNESS))
-    expect(events).toEqual(['stop', 'remove', 'clear-selection'])
-    expect(clearCliConfigMock).not.toHaveBeenCalled()
-  })
-
-  it('surfaces a failed install as an install-error dialog but not a failed uninstall', () => {
-    // A failed install exposes the error affordance, and opening it shows the install-error dialog.
-    versionStatusesMock.mockReturnValue(
-      baseVersionStatuses({
-        [CodeCli.CLAUDE_CODE]: { operation: { status: 'failed', action: 'install', error: 'install boom' } }
-      })
-    )
-    const { unmount } = render(<CodeCliPage />)
-
-    fireEvent.click(screen.getByText('show error'))
-    expect(screen.getByRole('dialog')).toHaveTextContent('settings.dependencies.installError')
-
-    unmount()
-
-    // A failed uninstall must not masquerade as an install error — the remove path has its own toast.
-    versionStatusesMock.mockReturnValue(
-      baseVersionStatuses({
-        [CodeCli.CLAUDE_CODE]: { operation: { status: 'failed', action: 'remove', error: 'remove boom' } }
-      })
-    )
-    render(<CodeCliPage />)
-
-    expect(screen.queryByText('show error')).not.toBeInTheDocument()
-  })
-
-  it('does not auto-reopen the install-error dialog after switching tools and back', () => {
-    versionStatusesMock.mockReturnValue(
-      baseVersionStatuses({
-        [CodeCli.CLAUDE_CODE]: { operation: { status: 'failed', action: 'install', error: 'boom' } }
-      })
-    )
-    const { rerender } = render(<CodeCliPage />)
-
-    fireEvent.click(screen.getByText('show error'))
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-
-    // Switch to a tool with no failed install: the dialog's controlled `open` goes false, but Radix
-    // does not fire onOpenChange on a controlled close (the mocked Dialog reproduces this).
-    mockCodeCliState({ selectedCliTool: CodeCli.OPENAI_CODEX })
-    rerender(<CodeCliPage />)
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-
-    // Switch back to the failed tool. Without resetting on tool change, the stale open flag would
-    // re-surface the dialog unprompted.
-    mockCodeCliState({ selectedCliTool: CodeCli.CLAUDE_CODE })
-    rerender(<CodeCliPage />)
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

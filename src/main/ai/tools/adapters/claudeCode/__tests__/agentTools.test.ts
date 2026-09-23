@@ -8,7 +8,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { CLI_INSTALL_TOOL_NAME, CLI_LIST_TOOL_NAME, CLI_SEARCH_TOOL_NAME } from '@main/ai/mcp/servers/cherryCliTools'
 import {
   findBuiltinToolPolicy,
   listBuiltinToolPolicies,
@@ -257,17 +256,14 @@ describe('createClaudeAgentToolPolicySnapshot — production approval-gate wirin
       'required'
     )
     expect(
-      findBuiltinToolPolicy(toCherryBuiltinRuntimeName(CLI_INSTALL_TOOL_NAME), CHERRY_ONLY_SERVERS)?.approval
-    ).toBe('required')
-    expect(
       findBuiltinToolPolicy(toCherryBuiltinRuntimeName(SESSION_CREATE_TOOL_NAME), CHERRY_ONLY_SERVERS)
     ).toMatchObject({
       approval: 'required',
       bypassApproval: 'enforce'
     })
-    for (const name of [CLI_LIST_TOOL_NAME, CLI_SEARCH_TOOL_NAME, TO_MARKDOWN_TOOL_NAME]) {
-      expect(findBuiltinToolPolicy(toCherryBuiltinRuntimeName(name), CHERRY_ONLY_SERVERS)?.approval).toBe('auto')
-    }
+    expect(
+      findBuiltinToolPolicy(toCherryBuiltinRuntimeName(TO_MARKDOWN_TOOL_NAME), CHERRY_ONLY_SERVERS)?.approval
+    ).toBe('auto')
   })
 
   it('keeps Assistant read-only and sensitive tools classified on their own entries', () => {

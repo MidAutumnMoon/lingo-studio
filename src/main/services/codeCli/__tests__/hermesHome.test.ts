@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   getPath: vi.fn(),
-  getRawShellEnv: vi.fn(),
+  getShellEnv: vi.fn(),
   isWin: false
 }))
 
@@ -14,7 +14,7 @@ vi.mock('@main/core/platform', () => ({
     return mocks.isWin
   }
 }))
-vi.mock('@main/utils/shellEnv', () => ({ getRawShellEnv: mocks.getRawShellEnv }))
+vi.mock('@main/utils/shellEnv', () => ({ getShellEnv: mocks.getShellEnv }))
 
 import { getHermesHome, resolveHermesHome } from '../hermesHome'
 
@@ -43,7 +43,7 @@ describe('resolveHermesHome', () => {
 describe('getHermesHome', () => {
   it('pins one home for the whole session, even for concurrent first calls', async () => {
     let resolveEnv!: (env: NodeJS.ProcessEnv) => void
-    mocks.getRawShellEnv.mockReturnValue(
+    mocks.getShellEnv.mockReturnValue(
       new Promise<NodeJS.ProcessEnv>((resolve) => {
         resolveEnv = resolve
       })
@@ -55,8 +55,8 @@ describe('getHermesHome', () => {
     await expect(first).resolves.toBe(path.resolve('/first/hermes'))
     await expect(second).resolves.toBe(path.resolve('/first/hermes'))
 
-    mocks.getRawShellEnv.mockResolvedValue({ HERMES_HOME: '/second/hermes' })
+    mocks.getShellEnv.mockResolvedValue({ HERMES_HOME: '/second/hermes' })
     await expect(getHermesHome()).resolves.toBe(path.resolve('/first/hermes'))
-    expect(mocks.getRawShellEnv).toHaveBeenCalledOnce()
+    expect(mocks.getShellEnv).toHaveBeenCalledOnce()
   })
 })

@@ -28,10 +28,6 @@ vi.mock('@main/utils/commandResolver', () => ({
   findExecutableInEnv: async () => '/usr/local/bin/npx',
   findCommandInShellEnv: async () => null
 }))
-vi.mock('@main/utils/binaryResolver', () => ({
-  isBinaryExists: async () => false,
-  getBinaryPath: async (name?: string) => `/bundled/${name}`
-}))
 
 const { createTransport } = await import('../mcpTransport')
 

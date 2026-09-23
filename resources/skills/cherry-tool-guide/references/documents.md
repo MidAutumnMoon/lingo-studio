@@ -3,7 +3,7 @@
 Covers `mcp__cherry-tools__to_markdown` — converting a supported readable local document
 into Markdown.
 This is distinct from knowledge-base tools, which search documents already indexed by
-Cherry, and from shell runtimes or managed CLIs.
+Cherry, and from shell tools run directly by the agent.
 
 Get exact argument shapes from the live tool schema — this reference gives routing,
 sequencing, supported formats, and recovery.
@@ -48,7 +48,7 @@ or symlink escapes out of those roots are rejected too. Temporary conversions ol
 - **Tool unavailable** → document conversion is unavailable in this session; do not
   install or invoke a substitute converter behind the user's back.
 - **Unsupported or unreadable file** → report the converter error. Do not retry through
-  `npm`, `bun x`, `npx`, direct `mise`, a remote installer, or a manually downloaded
+  `npm`, `bun x`, `npx`, a remote installer, or a manually downloaded
   binary.
 - **Empty output** → report that no text was produced; never present it as a successful
   conversion.

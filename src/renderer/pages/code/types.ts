@@ -1,5 +1,4 @@
 import type { IconComponent } from '@cherrystudio/ui/icons'
-import type { BinaryApplication, BinaryOperation } from '@shared/types/binary'
 import type { CodeCli } from '@shared/types/codeCli'
 
 export interface CodeToolMeta {
@@ -8,15 +7,9 @@ export interface CodeToolMeta {
   icon: IconComponent | null | undefined
 }
 
-/** Install/upgrade status for a single CLI tool binary. */
+/** Read-only PATH observation for a single CLI tool executable. */
 export interface VersionStatus {
   installed: boolean
-  source: 'mise' | 'bundled' | 'system' | 'none'
-  /** Exact-backend-application status; drives update/uninstall/repair authority. */
-  applicationStatus?: BinaryApplication['status']
+  source: 'system' | 'none'
   systemPath?: string
-  current?: string
-  latest?: string
-  canUpgrade: boolean
-  operation?: BinaryOperation
 }

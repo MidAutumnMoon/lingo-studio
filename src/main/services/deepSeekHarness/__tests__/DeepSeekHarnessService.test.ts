@@ -39,6 +39,13 @@ vi.mock('node:child_process', async (importOriginal) => ({
   execFile: mocks.execFile
 }))
 vi.mock('@application', () => ({ application: { get: mocks.appGet, getPath: mocks.appGetPath } }))
+vi.mock('@main/services/SystemToolService', () => ({
+  systemToolService: {
+    getToolSnapshots: vi.fn(async () => ({
+      dsh: { availability: { source: 'system', path: '/usr/local/bin/dsh' } }
+    }))
+  }
+}))
 vi.mock('@data/services/ProviderService', () => ({
   providerService: { getByProviderId: mocks.providerGet, getApiKeys: mocks.providerGetApiKeys }
 }))
@@ -53,13 +60,12 @@ vi.mock('@main/utils/processRunner', async (importOriginal) => ({
   crossPlatformSpawn: mocks.spawn
 }))
 vi.mock('@main/utils/shellEnv', () => ({
-  getRawShellEnv: vi.fn(async () => ({
+  getShellEnv: vi.fn(async () => ({
     PATH: '/system/bin',
     CHERRY_STUDIO_CODEMATE_481BD06FDD6C_API_KEY: 'stale-inherited-key',
     CHERRY_STUDIO_CODEMATE_GATEWAY_API_KEY: 'stale-gateway-key',
     CHERRY_STUDIO_CODEMATE_USER_API_KEY: 'unrelated'
-  })),
-  refreshShellEnv: vi.fn(async () => ({ PATH: '/managed/bin' }))
+  }))
 }))
 vi.mock('@logger', () => ({
   loggerService: { withContext: () => ({ info: vi.fn(), warn: mocks.loggerWarn, error: vi.fn(), debug: vi.fn() }) }
@@ -149,13 +155,6 @@ describe('DeepSeekHarnessService', () => {
       ) => callback(null, '', '')
     )
     mocks.appGet.mockImplementation((name: string) => {
-      if (name === 'BinaryManager') {
-        return {
-          getToolSnapshots: vi.fn(async () => ({
-            dsh: { availability: { source: 'system', path: '/usr/local/bin/dsh' } }
-          }))
-        }
-      }
       if (name === 'ApiGatewayService') {
         return {
           start: mocks.gatewayStart,

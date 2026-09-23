@@ -1,8 +1,6 @@
 import type { ComponentProps, FC } from 'react'
 import { Fragment } from 'react'
 
-import { ConfirmDialog } from '@cherrystudio/ui'
-
 import { CodeCliContentPanel } from './CodeCliContentPanel'
 import { CodeCliSidebar } from './CodeCliSidebar'
 import { ConfigEditPanel } from './configEditPanel/ConfigEditPanel'
@@ -14,7 +12,6 @@ export interface CodeCliPageViewProps {
   contentProps?: ComponentProps<typeof CodeCliContentPanel>
   emptyMessage: string
   launchDialogProps: ComponentProps<typeof LaunchDialog>
-  removeDialogProps: ComponentProps<typeof ConfirmDialog>
   configPanelKey?: string
   configPanelProps?: ComponentProps<typeof ConfigEditPanel>
   ownLoginConfigPanelProps?: ComponentProps<typeof OwnLoginConfigPanel>
@@ -25,7 +22,6 @@ export const CodeCliPageView: FC<CodeCliPageViewProps> = ({
   contentProps,
   emptyMessage,
   launchDialogProps,
-  removeDialogProps,
   configPanelKey,
   configPanelProps,
   ownLoginConfigPanelProps
@@ -47,7 +43,6 @@ export const CodeCliPageView: FC<CodeCliPageViewProps> = ({
       </div>
 
       <LaunchDialog {...launchDialogProps} />
-      <ConfirmDialog {...removeDialogProps} />
       {configPanelProps && (
         <Fragment key={configPanelKey}>
           <ConfigEditPanel {...configPanelProps} />

@@ -2,7 +2,7 @@ import path from 'node:path'
 
 import { application } from '@application'
 import { isWin } from '@main/core/platform'
-import { getRawShellEnv } from '@main/utils/shellEnv'
+import { getShellEnv } from '@main/utils/shellEnv'
 import { type AbsoluteFilePath, AbsoluteFilePathSchema } from '@shared/types/file'
 
 function readEnv(env: NodeJS.ProcessEnv, name: string): string {
@@ -25,6 +25,6 @@ let pinnedHome: Promise<AbsoluteFilePath> | null = null
  * all see one value, even if a shell-env refresh changes HERMES_HOME mid-session.
  */
 export function getHermesHome(): Promise<AbsoluteFilePath> {
-  pinnedHome ??= getRawShellEnv().then(resolveHermesHome)
+  pinnedHome ??= getShellEnv().then(resolveHermesHome)
   return pinnedHome
 }

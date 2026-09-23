@@ -10,8 +10,9 @@ import { loggerService } from '@logger'
 import { BaseService, Injectable, Phase, ServicePhase } from '@main/core/lifecycle'
 import { isWin } from '@main/core/platform'
 import { getHermesHome } from '@main/services/codeCli'
+import { systemToolService } from '@main/services/SystemToolService'
 import { crossPlatformSpawn, terminateProcessTree, waitForProcessExit } from '@main/utils/processRunner'
-import { getRawShellEnv, refreshShellEnv } from '@main/utils/shellEnv'
+import { getShellEnv } from '@main/utils/shellEnv'
 import type { HermesDashboardStartFailureReason, HermesDashboardStatus } from '@shared/ipc/schemas/hermesDashboard'
 import { type AbsoluteFilePath, AbsoluteFilePathSchema } from '@shared/types/file'
 import { redactSecretText } from '@shared/utils/redaction'
@@ -156,11 +157,11 @@ export class HermesDashboardService extends BaseService {
   }
 
   private async resolveRuntime(): Promise<HermesDashboardRuntime> {
-    const snapshot = (await application.get('BinaryManager').getToolSnapshots(['hermes'])).hermes
+    const snapshot = (await systemToolService.getToolSnapshots(['hermes'])).hermes
     if (snapshot.availability.source === 'none') {
       throw new HermesDashboardStartError('not_installed', 'Hermes is not installed')
     }
-    const env = snapshot.availability.source === 'system' ? await getRawShellEnv() : await refreshShellEnv()
+    const env = await getShellEnv()
     const home = await getHermesHome()
     // Pin the Dashboard to the same home config writes target, so it reads what
     // Cherry wrote regardless of how Hermes would resolve its default.

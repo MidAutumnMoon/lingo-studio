@@ -27,7 +27,6 @@ import { toolApprovalRegistry } from '@main/ai/toolApproval/ToolApprovalRegistry
 import { evaluateUserDataSqliteGuard } from '@main/ai/toolApproval/userDataSqliteGuard'
 import { chatErrorContext } from '@main/ai/utils/chatErrorContext'
 import { resolveKnowledgeBaseScope } from '@main/ai/utils/knowledgeScope'
-import { mergeBinaryExecutionEnv } from '@main/utils/binaryEnv'
 import { getPathFromEnvironment, getShellEnv } from '@main/utils/shellEnv'
 import type { AgentSessionContextUsage } from '@shared/ai/agentSessionContextUsage'
 import {
@@ -453,9 +452,8 @@ export class DshRuntimeConnection implements AgentRuntimeConnection {
       const sdk = await loadDshSdk()
       const loginShellEnv = await getShellEnv()
       const loginPath = getPathFromEnvironment(loginShellEnv)
-      const binaryExecutionEnv = mergeBinaryExecutionEnv(loginPath !== undefined ? { PATH: loginPath } : {})
       // Complete replacement env — deliberate credential scope: the child sees
-      // only managed binary locations, the routed API key, and the bridge socket.
+      // only the user's PATH, HOME, the routed API key, and the bridge socket.
       const dshBin = resolveDshRuntimeBinPath()
       const client = new sdk.HarnessClient({
         runtimeExecutable,
@@ -465,7 +463,7 @@ export class DshRuntimeConnection implements AgentRuntimeConnection {
         // Bun must not discover workspace preloads before DSH's permission gates exist.
         processCwd: path.dirname(dshBin),
         env: {
-          ...binaryExecutionEnv,
+          ...(loginPath !== undefined ? { PATH: loginPath } : {}),
           ...(loginShellEnv.HOME !== undefined
             ? { HOME: loginShellEnv.HOME }
             : process.env.HOME !== undefined

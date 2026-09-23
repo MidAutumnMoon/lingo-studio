@@ -412,10 +412,6 @@ beforeEach(() => {
     if (key === 'external.pi.settings_file') return mocks.piSettingsFile
     if (key === 'feature.agents.pi.root') return PI_ROOT
     if (key === 'feature.agents.pi.sessions') return PI_SESSIONS
-    if (key === 'feature.binary.data') return '/cherry/Toolchain/mise'
-    if (key === 'feature.binary.data.isolated.rustup') return '/cherry/Toolchain/rustup'
-    if (key === 'feature.binary.data.isolated.cargo') return '/cherry/Toolchain/cargo'
-    if (key === 'cherry.bin') return '/cherry/bin'
     return PI_SESSIONS
   })
   mocks.loadPiSdk.mockResolvedValue(fakePi)
@@ -660,7 +656,7 @@ describe('PiRuntimeConnection', () => {
     })
   })
 
-  it('layers Cherry-managed tools onto Pi bash without dropping Pi PATH entries', async () => {
+  it('hands the Pi bash execution environment through unchanged', async () => {
     await new PiRuntimeConnection(input).start()
 
     expect(mocks.createBashToolDefinition).toHaveBeenCalledWith(WORKSPACE, expect.any(Object))
@@ -674,59 +670,24 @@ describe('PiRuntimeConnection', () => {
       }
     ).spawnHook
     const result = spawnHook({
-      command: 'gh --version',
-      cwd: WORKSPACE,
-      env: { PATH: ['/pi/agent/bin', '/system/bin'].join(path.delimiter), PI_ONLY: 'preserved' }
-    })
-
-    expect(result.env.PATH?.split(path.delimiter)).toEqual([
-      path.join('/cherry/Toolchain/mise', 'shims'),
-      '/cherry/bin',
-      '/pi/agent/bin',
-      '/system/bin'
-    ])
-    expect(result.env).toMatchObject({
-      PI_ONLY: 'preserved',
-      MISE_DATA_DIR: '/cherry/Toolchain/mise',
-      MISE_SHIMS_DIR: path.join('/cherry/Toolchain/mise', 'shims')
-    })
-  })
-
-  it('preserves a caller-owned mise environment instead of redirecting its shims', async () => {
-    await new PiRuntimeConnection(input).start()
-
-    const spawnHook = (
-      mocks.bashToolOptions as {
-        spawnHook: (context: { command: string; cwd: string; env: NodeJS.ProcessEnv }) => {
-          command: string
-          cwd: string
-          env: NodeJS.ProcessEnv
-        }
-      }
-    ).spawnHook
-    const result = spawnHook({
       command: 'node --version',
       cwd: WORKSPACE,
       env: {
-        PATH: ['/home/user/.local/share/mise/shims', path.join('/cherry/Toolchain/mise', 'shims'), '/system/bin'].join(
-          path.delimiter
-        ),
+        PATH: ['/home/user/.local/share/mise/shims', '/pi/agent/bin', '/system/bin'].join(path.delimiter),
+        PI_ONLY: 'preserved',
         MISE_DATA_DIR: '/home/user/.local/share/mise',
         MISE_SHIMS_DIR: '/home/user/.local/share/mise/shims'
       }
     })
 
-    expect(result.env.PATH?.split(path.delimiter)).toEqual([
-      '/home/user/.local/share/mise/shims',
-      '/system/bin',
-      '/cherry/bin'
-    ])
-    expect(result.env).toMatchObject({
+    // No Cherry-managed tool dirs are layered in: PATH stays verbatim, the
+    // caller's own tool env survives, and nothing is stripped or redirected.
+    expect(result.env).toEqual({
+      PATH: ['/home/user/.local/share/mise/shims', '/pi/agent/bin', '/system/bin'].join(path.delimiter),
+      PI_ONLY: 'preserved',
       MISE_DATA_DIR: '/home/user/.local/share/mise',
       MISE_SHIMS_DIR: '/home/user/.local/share/mise/shims'
     })
-    expect(result.env.MISE_CONFIG_DIR).toBeUndefined()
-    expect(result.env.PATH?.split(path.delimiter)).not.toContain(path.join('/cherry/Toolchain/mise', 'shims'))
   })
 
   it('keeps authenticated proxy requests on the credential-aware Node transport', async () => {

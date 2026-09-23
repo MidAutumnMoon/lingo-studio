@@ -39,7 +39,6 @@ vi.mock('@main/core/paths/pathRegistry', async () => {
         'feature.files.data': '/mock/userData/Data/Files',
         'feature.notes.data': '/mock/userData/Data/Notes',
         'feature.agents.system_workspaces': '/mock/userData/Data/Agents/system',
-        'cherry.bin': '/mock/home/.cherrystudio/bin',
         // Cherry-owned files (auto-ensure dirname only)
         'feature.copilot.token_file': '/mock/home/.cherrystudio/config/.copilot_token',
         'app.database.file': '/mock/userData/Data/cherrystudio.sqlite',
@@ -174,12 +173,6 @@ describe('Application.getPath', () => {
     it('does not mkdir for keys under the sys.* prefix', () => {
       app.getPath('sys.home')
       expect(fs.mkdirSync).not.toHaveBeenCalled()
-    })
-
-    it('mkdirs cherry-owned keys not in the NO_ENSURE list', () => {
-      app.getPath('cherry.bin')
-      expect(fs.mkdirSync).toHaveBeenCalledTimes(1)
-      expect(fs.mkdirSync).toHaveBeenCalledWith('/mock/home/.cherrystudio/bin', { recursive: true })
     })
 
     it('returns the path even when mkdir throws, and caches the failed attempt', () => {

@@ -21,7 +21,7 @@ import { useNotesSettings } from '@renderer/hooks/useNotesSettings'
 import { useSmoothStream } from '@renderer/hooks/useSmoothStream'
 import { useTemporaryValue } from '@renderer/hooks/useTemporaryValue'
 import { useTimer } from '@renderer/hooks/useTimer'
-import { ipcApi, useIpcOn } from '@renderer/ipc'
+import { ipcApi } from '@renderer/ipc'
 import { exportContentToNotes } from '@renderer/services/ExportService'
 import { toast } from '@renderer/services/toast'
 import { type FileMetadata, isImageFileMetadata } from '@renderer/types/file'
@@ -37,11 +37,7 @@ import {
   UNKNOWN_LANG_CODE
 } from '@renderer/utils/translate'
 import type { TranslateLangCode } from '@shared/data/preference/preferenceTypes'
-import {
-  BABELDOC_MINIMUM_VERSION,
-  BABELDOC_TOOL_NAME,
-  getBabelDocInstallationStatus
-} from '@shared/data/presets/binaryTools'
+import { BABELDOC_TOOL_NAME, getBabelDocInstallationStatus } from '@shared/data/presets/binaryTools'
 import { BUILTIN_LANGUAGE } from '@shared/data/presets/translateLanguages'
 import { FileProcessingJobOutputSchema } from '@shared/data/types/fileProcessing'
 import { isUniqueModelId, type Model as SelectorModel, type UniqueModelId } from '@shared/data/types/model'
@@ -73,9 +69,7 @@ const logger = loggerService.withContext('TranslatePage')
 const PRIORITIZED_PROVIDER_IDS = ['cherryai', 'openai', 'anthropic', 'google', 'gemini', 'openrouter']
 const TRANSLATION_RESULT_TITLE_MAX_LENGTH = 80
 const useBabelDoc = (enabled: boolean) => {
-  const { t } = useTranslation()
   const [availability, setAvailability] = useState<BabelDocAvailability>('checking')
-  const [installing, setInstalling] = useState(false)
   const [availabilityRevision, setAvailabilityRevision] = useState(0)
 
   useEffect(() => {
@@ -99,35 +93,9 @@ const useBabelDoc = (enabled: boolean) => {
     }
   }, [availabilityRevision, enabled])
 
-  useIpcOn('binary.availability_changed', () => {
-    if (enabled) setAvailabilityRevision((revision) => revision + 1)
-  })
-
-  const install = useCallback(async () => {
-    if (installing) return
-    setInstalling(true)
-    try {
-      // A fresh install asks for the exact version too, not `@latest`: that
-      // resolves against whichever PyPI mirror answers, and a lagging mirror
-      // hands back a build Cherry's progress parser predates — which the next
-      // availability check flags as outdated, costing a second full download.
-      await ipcApi.request('binary.install_tool', {
-        name: BABELDOC_TOOL_NAME,
-        targetVersion: BABELDOC_MINIMUM_VERSION
-      })
-      setAvailability('available')
-    } catch (error) {
-      logger.error('Failed to install BabelDOC', error as Error)
-      setAvailability((current) => (current === 'checking' ? 'missing' : current))
-      toast.error(formatErrorMessageWithPrefix(error, t('settings.dependencies.installError')))
-    } finally {
-      setInstalling(false)
-    }
-  }, [installing, t])
-
   const refresh = useCallback(() => setAvailabilityRevision((revision) => revision + 1), [])
 
-  return { availability, installing, install, refresh }
+  return { availability, refresh }
 }
 
 const getModelInitial = (model: SelectorModel) => model.name.trim().charAt(0) || 'M'
@@ -522,7 +490,7 @@ const TranslatePage: FC = () => {
 
   const onTranslate = useCallback(async () => {
     if (pdfFile) {
-      if (babelDoc.availability === 'checking' || babelDoc.installing || targetLanguage === UNKNOWN_LANG_CODE) return
+      if (babelDoc.availability === 'checking' || targetLanguage === UNKNOWN_LANG_CODE) return
       if (babelDoc.availability === 'available') {
         if (!isSelectedPdfModelRoutable || pdfStatus.running) return
         // Layout-preserving translation is one-directional; guard against a same-language no-op
@@ -546,7 +514,6 @@ const TranslatePage: FC = () => {
     await translateTextContent(translateInput, true, () => textRequestIdRef.current === requestId)
   }, [
     babelDoc.availability,
-    babelDoc.installing,
     bidirectionalPair,
     isSelectedPdfModelRoutable,
     pdfFile,
@@ -873,12 +840,7 @@ const TranslatePage: FC = () => {
       ? pdfHandleReady && isSelectedPdfModelRoutable
       : babelDoc.availability === 'missing' && !!selectedModelId
   const couldTranslate = isPdfMode
-    ? pdfModelReady &&
-      !babelDoc.installing &&
-      targetLanguage !== UNKNOWN_LANG_CODE &&
-      !pdfStatus.running &&
-      !isTranslating &&
-      !isProcessing
+    ? pdfModelReady && targetLanguage !== UNKNOWN_LANG_CODE && !pdfStatus.running && !isTranslating && !isProcessing
     : !isEmpty(translateInput) && !!selectedModelId && !isTranslating && !isDetecting && !isProcessing && !isOcrRunning
 
   return (
@@ -1023,7 +985,6 @@ const TranslatePage: FC = () => {
               modelId={isSelectedPdfModelRoutable ? selectedModelId : undefined}
               sourceLangCode={sourceLanguage}
               babelDocAvailability={babelDoc.availability}
-              babelDocInstalling={babelDoc.installing}
               textFallback={
                 pdfTextFallbackActive
                   ? {
@@ -1046,7 +1007,6 @@ const TranslatePage: FC = () => {
               onClose={resetPdfMode}
               onHandleChange={handlePdfHandleChange}
               onStatusChange={handlePdfStatusChange}
-              onInstallBabelDoc={() => void babelDoc.install()}
               onBabelDocUnavailable={babelDoc.refresh}
             />
           </Suspense>

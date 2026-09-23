@@ -3,7 +3,7 @@
  * location and would therefore leak across agent sessions.
  *
  * The agent runtime keeps the user's real HOME (so the launched CLIs read their
- * config/creds — see binaryEnv.ts `getBinaryExecutionEnv`), which means a global
+ * config/creds), which means a global
  * install lands in `~/.bun`, `~/.local/share/uv`, etc. — shared by every agent
  * and polluting the user's machine. Project-local installs (cwd `node_modules` /
  * `.venv`, isolated per workspace) and ephemeral runners (`bun x` / `uvx`) are
@@ -47,12 +47,12 @@ const RULES: Array<{ test: (seg: string) => boolean; reason: string }> = [
     reason: 'uv pip install --system'
   },
   {
-    // BinaryManager is the sole owner of Cherry's isolated mise state.
+    // The user's mise state is theirs — an agent must not mutate it.
     test: (s) =>
       /\bmise\s+(?:(?:use|install|uninstall|remove|rm|prune|upgrade|update|reshim|trust|untrust)\b|plugins?\s+(?:install|uninstall|update)\b|settings?\s+(?:set|unset)\b)/.test(
         s
       ),
-    reason: 'direct mise mutation (use cli_search / cli_install)'
+    reason: "direct mise mutation of the user's tool state"
   },
   {
     test: (s) => /\bcargo\s+install\b/.test(s),

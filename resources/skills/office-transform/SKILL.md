@@ -101,7 +101,7 @@ Anchor shapes:
 Scripts live in this skill's `scripts/` directory; resolve paths relative to this
 skill folder. The library-edit recipes routed to below live in `references/` beside them.
 Python dependencies are per-format and provided at invocation time via
-`uv run --with <pkg>` (the bundled-shell idiom — do not `pip install` globally).
+`uv run --with <pkg>` (do not `pip install` globally).
 
 Which route an edit takes follows from the library that can write the format: `openpyxl`
 drops charts and drawings on a round-trip, which is why xlsx edits go through patch-copy,

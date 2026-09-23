@@ -771,23 +771,6 @@ describe('CherryBuiltinToolsServer autonomy tool registration', () => {
     expect(names).not.toContain('kb_manage')
   })
 
-  it('exposes CLI management to every agent, including the built-in Assistant', async () => {
-    const normal = new CherryBuiltinToolsServer(agentContext)
-    const assistant = new CherryBuiltinToolsServer({ ...agentContext, canAccessAllKnowledgeBases: () => true })
-    const normalHandlers = (normal.mcpServer.server as any)._requestHandlers
-    const assistantHandlers = (assistant.mcpServer.server as any)._requestHandlers
-
-    const normalNames = (await normalHandlers.get('tools/list')({ method: 'tools/list', params: {} }, {})).tools.map(
-      (tool: any) => tool.name
-    )
-    const assistantNames = (
-      await assistantHandlers.get('tools/list')({ method: 'tools/list', params: {} }, {})
-    ).tools.map((tool: any) => tool.name)
-
-    expect(normalNames).toEqual(expect.arrayContaining(['cli_list', 'cli_search', 'cli_install']))
-    expect(assistantNames).toEqual(expect.arrayContaining(['cli_list', 'cli_search', 'cli_install']))
-  })
-
   it('rejects a previously bound base after the live scope narrows', async () => {
     let knowledgeBaseIds = [...KB_SCOPE]
     const server = new CherryBuiltinToolsServer({ ...agentContext, getKnowledgeBaseIds: () => knowledgeBaseIds })

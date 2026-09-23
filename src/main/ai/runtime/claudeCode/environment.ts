@@ -13,8 +13,7 @@ import { loggerService } from '@logger'
 import { isLinux, isMac, isWin } from '@main/core/platform'
 import { getProxyEnvironment } from '@main/services/proxy/proxyEnv'
 import { toAsarUnpackedPath } from '@main/utils/asar'
-import { getBinaryPath } from '@main/utils/binaryResolver'
-import { autoDiscoverGitBash } from '@main/utils/commandResolver'
+import { autoDiscoverGitBash, findExecutableInEnv } from '@main/utils/commandResolver'
 import { getShellEnv, refreshShellEnv } from '@main/utils/shellEnv'
 import type { AgentEntity } from '@shared/data/api/schemas/agents'
 import { parseUniqueModelId } from '@shared/data/types/model'
@@ -149,7 +148,9 @@ export async function buildEnvironment(
   const proxyEnvironment = getProxyEnvironment(process.env)
   const loginShellEnv = await getClaudeCodeLoginShellEnvironment(proxyEnvironment)
   const customGitBashPath = isWin ? autoDiscoverGitBash() : null
-  const bunPath = await getBinaryPath('bun')
+  // No bundled Bun in this fork: point at the user's own bun when present, and
+  // at the bare name otherwise — consumers fall back to npx (see skills-manager).
+  const bunPath = (await findExecutableInEnv('bun', { env: loginShellEnv })) ?? 'bun'
 
   // API key and base URL are injected by the agent-session runtime query builder.
   // This function only builds agent-specific env vars.

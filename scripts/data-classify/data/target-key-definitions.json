@@ -447,26 +447,6 @@
       "description": "Translate page target language (from complex migration)"
     },
     {
-      "targetKey": "feature.binary.install_settings",
-      "type": "PreferenceTypes.BinaryInstallSettings",
-      "defaultValue": {
-        "githubMirror": "",
-        "githubToken": "",
-        "npmRegistry": "",
-        "pipIndexUrl": "",
-        "verifySignatures": true
-      },
-      "status": "classified",
-      "description": "BinaryManager's isolated mise install settings"
-    },
-    {
-      "targetKey": "feature.binary.tools",
-      "type": "PreferenceTypes.CustomToolDefinition[]",
-      "defaultValue": "VALUE: []",
-      "status": "classified",
-      "description": "BinaryManager custom tool registry: each entry is a user-added custom tool definition; requestedVersion is an optional version pin"
-    },
-    {
       "targetKey": "shortcut.app.fullscreen.exit",
       "type": "PreferenceTypes.PreferenceShortcutType",
       "defaultValue": {

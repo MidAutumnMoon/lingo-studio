@@ -309,7 +309,6 @@ export type SharedCacheSchema = {
   'feature.api_gateway.lan_running': boolean
   // Main-owned, session-only local model status and download progress.
   'local_model.statuses': LocalModelStatusSnapshots
-  'feature.binary.latest_versions': Record<string, string>
   // API key rotation state (cross-window, tracks last used key per provider)
   'web_search.provider.last_used_key.${providerId}': string
   'ocr.provider.last_used_key.${providerId}': string
@@ -370,7 +369,6 @@ export const DefaultSharedCache: SharedCacheSchema = {
   'feature.api_gateway.running': false,
   'feature.api_gateway.lan_running': false,
   'local_model.statuses': {},
-  'feature.binary.latest_versions': {},
   'web_search.provider.last_used_key.${providerId}': '',
   'ocr.provider.last_used_key.${providerId}': '',
   // Template defaults are placeholders never consumed at runtime — concrete

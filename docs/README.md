@@ -65,12 +65,6 @@
 | [Shared Layer Architecture (`src/shared` / `@shared`)](./references/architecture/shared-layer.md) | Defines what belongs in the @shared cross-process primitive layer, its closed top-level set, and import rules |
 | [Utility Process Architecture](./references/architecture/utility-process.md) | Architecture of the utility-process subsystem — ownership, lifecycle boundaries, build isolation, design decisions, and historical experiment evidence |
 
-### Binary Manager
-
-| Document | Description |
-|----------|-------------|
-| [BinaryManager Reference](./references/binary-manager/README.md) | Lifecycle service that acquires third-party CLI binaries through mise, with tool registry, snapshots, and IPC |
-
 ### Chat
 
 | Document | Description |

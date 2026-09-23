@@ -18,10 +18,6 @@ vi.mock('@main/core/platform', () => ({
 vi.mock('@application', () => ({
   application: {
     getPath: (key: string) => {
-      if (key === 'cherry.bin') return 'C:\\Users\\test\\.cherrystudio\\bin'
-      if (key === 'feature.binary.data') {
-        return 'C:\\Users\\test\\AppData\\Roaming\\CherryStudio\\Toolchain\\mise'
-      }
       if (key === 'sys.home') return 'C:\\Users\\test'
       return `/mock/${key}`
     }
@@ -42,16 +38,8 @@ vi.mock('registry-js', () => ({
   enumerateValuesSafe: enumerateValuesSafeMock
 }))
 
-// Control the bundled-git resolution; default null so most tests see no bundled
-// git appended (matching a build/host without the Windows MinGit bundle).
-vi.mock('../bundledGit', () => ({
-  getBundledGitPath: vi.fn(() => null),
-  getBundledGitDir: vi.fn(() => null)
-}))
-
 // Import AFTER mocks are registered so the module binds to mocked values.
-import { getBundledGitDir } from '../bundledGit'
-import { getPathFromEnvironment, getRawShellEnv, getShellEnv, refreshShellEnv } from '../shellEnv'
+import { getPathFromEnvironment, getShellEnv, refreshShellEnv } from '../shellEnv'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -197,46 +185,11 @@ describe('shellEnv – Windows registry PATH', () => {
     mockRegistryPaths({ system: 'C:\\Windows;C:\\UserNode' })
 
     await refreshShellEnv()
-    const env = await getRawShellEnv()
+    const env = await getShellEnv()
 
     expect(env.MISE_DATA_DIR).toBe('C:\\Users\\TestUser\\mise-data')
     expect(env.Path).toBe('C:\\Windows;C:\\UserNode')
     expect(env.Path).not.toContain('.cherrystudio')
-  })
-
-  it('should append Cherry Studio tool directories to PATH', async () => {
-    mockRegistryPaths({ system: 'C:\\Windows' })
-
-    const env = await refreshShellEnv()
-
-    expect(env.Path).toContain('.cherrystudio')
-    expect(env.Path).toContain('Toolchain\\mise')
-    expect(env.Path).toContain('shims')
-    expect(env.Path).toContain('bin')
-  })
-
-  it('lists the mise shims dir only once despite appending and prepending it', async () => {
-    // appendCherryToolDirsToPath() adds the shims dir, then mergeBinaryExecutionEnv()
-    // prepends it again — the merge step must dedup so it does not appear twice.
-    mockRegistryPaths({ system: 'C:\\Windows' })
-
-    const env = await refreshShellEnv()
-
-    const shimsCount = env.Path.split(';').filter((seg) => seg.endsWith('shims')).length
-    expect(shimsCount).toBe(1)
-  })
-
-  it('appends the bundled MinGit dir to the PATH tail as a last-resort git', async () => {
-    const bundledGitDir = 'C:\\Cherry\\resources\\binaries\\win32-x64\\git\\cmd'
-    vi.mocked(getBundledGitDir).mockReturnValue(bundledGitDir)
-    mockRegistryPaths({ system: 'C:\\Git\\cmd;C:\\Windows' })
-
-    const env = await refreshShellEnv()
-
-    const segments = env.Path.split(';')
-    // Present, and dead last so system git (C:\Git\cmd) and the managed tool dirs win ahead of it.
-    expect(segments[segments.length - 1]).toBe(bundledGitDir)
-    expect(segments.indexOf('C:\\Git\\cmd')).toBeLessThan(segments.length - 1)
   })
 
   // -- does not spawn cmd.exe -----------------------------------------------

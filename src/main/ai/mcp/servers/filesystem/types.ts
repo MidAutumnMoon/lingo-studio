@@ -5,8 +5,7 @@ import path from 'path'
 
 import { loggerService } from '@logger'
 import { isWin } from '@main/core/platform'
-import { getBinaryExecutionEnv } from '@main/utils/binaryEnv'
-import { getBinaryPath } from '@main/utils/binaryResolver'
+import { findExecutableInEnv } from '@main/utils/commandResolver'
 import { canonicalizePathForContainment } from '@main/utils/file'
 
 export const logger = loggerService.withContext('Mcp:FileSystemServer')
@@ -625,31 +624,32 @@ export interface RipgrepResult {
 }
 
 export async function getRipgrepBinaryPath(): Promise<string> {
-  return getBinaryPath('rg')
+  return (await findExecutableInEnv('rg')) ?? 'rg'
 }
 
 export async function runRipgrep(args: string[]): Promise<RipgrepResult> {
   const ripgrepBinaryPath = await getRipgrepBinaryPath()
 
-  return new Promise((resolve) => {
-    const child = spawn(ripgrepBinaryPath, args, {
-      cwd: process.cwd(),
-      env: { ...process.env, ...getBinaryExecutionEnv() },
-      stdio: ['ignore', 'pipe', 'pipe']
-    })
-
-    let stdout = ''
-
-    child.stdout?.on('data', (chunk) => {
-      stdout += chunk.toString('utf-8')
-    })
-
-    child.on('error', () => {
-      resolve({ ok: false, stdout: '', exitCode: null })
-    })
-
-    child.on('close', (code) => {
-      resolve({ ok: true, stdout, exitCode: code })
-    })
+  const { promise, resolve } = Promise.withResolvers<RipgrepResult>()
+  const child = spawn(ripgrepBinaryPath, args, {
+    cwd: process.cwd(),
+    env: { ...process.env },
+    stdio: ['ignore', 'pipe', 'pipe']
   })
+
+  let stdout = ''
+
+  child.stdout?.on('data', (chunk) => {
+    stdout += chunk.toString('utf-8')
+  })
+
+  child.on('error', () => {
+    resolve({ ok: false, stdout: '', exitCode: null })
+  })
+
+  child.on('close', (code) => {
+    resolve({ ok: true, stdout, exitCode: code })
+  })
+
+  return promise
 }

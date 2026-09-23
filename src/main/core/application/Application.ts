@@ -734,7 +734,7 @@ export class Application {
    * special-case path source (e.g. `paths/constants.ts` for code that
    * must run before the registry exists).
    *
-   * @param key      Dotted path key (e.g. 'feature.files.data', 'cherry.bin').
+   * @param key      Dotted path key (e.g. 'feature.files.data', 'cherry.config').
    *                 Type-checked at compile time against the path registry.
    * @param filename Optional filename to join under the registered root.
    *                 Should be a single relative segment (no absolute path,

@@ -8,26 +8,19 @@ import { app } from 'electron'
 import { application } from '@application'
 import { loggerService } from '@logger'
 import { skillService } from '@main/ai/skills/SkillService'
-import { BaseService, DependsOn, Injectable, Phase, ServicePhase } from '@main/core/lifecycle'
+import { BaseService, Injectable, Phase, ServicePhase } from '@main/core/lifecycle'
 import { isMac, isWin } from '@main/core/platform'
+import { systemToolService } from '@main/services/SystemToolService'
 import { toAsarUnpackedPath } from '@main/utils/asar'
-import { dedupePathSegments, mergeBinaryExecutionEnv } from '@main/utils/binaryEnv'
-import { getBundledGitDir } from '@main/utils/bundledGit'
 import { removeEnvProxy } from '@main/utils/processRunner'
-import { getRawShellEnv, getShellEnv } from '@main/utils/shellEnv'
+import { getShellEnv } from '@main/utils/shellEnv'
 import {
-  CODE_CLI_TOOL_PRESET_BY_EXECUTABLE,
   CODE_CLI_TOOL_PRESET_MAP,
   CODE_CLI_TOOL_PRESETS,
   type CodeCliToolPreset
 } from '@shared/data/presets/codeCliTools'
 import type { CodeCliRunInput } from '@shared/ipc/schemas/codeCli'
-import type {
-  BinaryInstallByNameRequest,
-  BinaryRemoveRequest,
-  BinaryRemoveResult,
-  BinaryToolSnapshot
-} from '@shared/types/binary'
+import type { BinaryToolSnapshot } from '@shared/types/binary'
 import {
   CodeCli,
   LOGIN_CAPABLE_CLI_TOOLS,
@@ -54,21 +47,6 @@ const execAsync = promisify(require('child_process').exec)
 const execFileAsync = promisify(execFile)
 const logger = loggerService.withContext('CodeCliService')
 
-/**
- * Append the bundled MinGit dir (Windows-only; null elsewhere) to the tail of
- * every PATH-cased key so a launched CLI resolves a bare `git` as a last resort
- * while any git already on PATH keeps winning (#16402).
- */
-function appendBundledGitPathTail(env: Record<string, string>): void {
-  const gitDir = getBundledGitDir()
-  if (!gitDir) return
-  const pathKeys = Object.keys(env).filter((key) => key.toLowerCase() === 'path')
-  const canonicalKey = pathKeys[0] ?? 'Path'
-  const segments = pathKeys.flatMap((key) => (env[key] ?? '').split(';'))
-  const updated = dedupePathSegments([...segments, gitDir]).join(';')
-  for (const key of pathKeys) env[key] = updated
-  if (pathKeys.length === 0) env[canonicalKey] = updated
-}
 const MACOS_APPLICATION_LOOKUP_SCRIPT = [
   'ObjC.import("AppKit")',
   'function run(argv) {',
@@ -79,7 +57,6 @@ const MACOS_APPLICATION_LOOKUP_SCRIPT = [
 
 @Injectable('CodeCliService')
 @ServicePhase(Phase.Background)
-@DependsOn(['BinaryManager'])
 export class CodeCliService extends BaseService {
   // Static properties for cleanup management (avoid listener accumulation)
   private static pendingBatCleanups = new Set<string>()
@@ -104,30 +81,8 @@ export class CodeCliService extends BaseService {
     })
   }
 
-  async installCli(request: BinaryInstallByNameRequest): Promise<void> {
-    const preset = this.requirePreset(request.name)
-    await application.get('BinaryManager').installByName(request)
-    const snapshot = (await application.get('BinaryManager').getToolSnapshots([preset.executable]))[preset.executable]
-    if (!snapshot || snapshot.availability.source === 'none') {
-      throw new Error(`${preset.executable} is unavailable after installation`)
-    }
-    await this.installCliSkill(preset)
-  }
-
-  async removeCli(request: BinaryRemoveRequest): Promise<BinaryRemoveResult> {
-    const preset = this.requirePreset(request.name)
-    const result = await application.get('BinaryManager').removeTool(request)
-    if (result.status === 'cleanup_blocked') return result
-
-    const snapshot = (await application.get('BinaryManager').getToolSnapshots([preset.executable]))[preset.executable]
-    if (snapshot) await this.reconcileCliSkill(preset, snapshot)
-    return result
-  }
-
   async reconcileCliSkills(): Promise<void> {
-    const snapshots = await application
-      .get('BinaryManager')
-      .getToolSnapshots(CODE_CLI_TOOL_PRESETS.map((preset) => preset.executable))
+    const snapshots = await systemToolService.getToolSnapshots(CODE_CLI_TOOL_PRESETS.map((preset) => preset.executable))
 
     for (const preset of CODE_CLI_TOOL_PRESETS) {
       const snapshot = snapshots[preset.executable]
@@ -143,12 +98,6 @@ export class CodeCliService extends BaseService {
     }
   }
 
-  private requirePreset(executable: string): CodeCliToolPreset {
-    const preset = CODE_CLI_TOOL_PRESET_BY_EXECUTABLE[executable]
-    if (!preset) throw new Error(`Unknown Code CLI: ${executable}`)
-    return preset
-  }
-
   private async installCliSkill(preset: CodeCliToolPreset): Promise<void> {
     const sourcePath = path.join(
       toAsarUnpackedPath(application.getPath('feature.code_cli.skills.builtin')),
@@ -162,9 +111,9 @@ export class CodeCliService extends BaseService {
       await this.installCliSkill(preset)
       return
     }
-    if (snapshot.application?.status === 'absent') {
-      await skillService.uninstallBuiltinSkill(preset.skillFolderName, preset.skillNamespace)
-    }
+    // Without the CLI on PATH its builtin skill is dead weight; the boot/launch
+    // reconcile reinstalls it once the executable appears again.
+    await skillService.uninstallBuiltinSkill(preset.skillFolderName, preset.skillNamespace)
   }
 
   /**
@@ -531,68 +480,32 @@ export class CodeCliService extends BaseService {
 
     const preset = CODE_CLI_TOOL_PRESET_MAP[cliTool]
     const executableName = preset.executable
-    const spec = { name: executableName, tool: preset.miseTool }
 
-    logger.debug(`Executable name: ${executableName}`)
-    logger.debug(`Tool install spec: ${spec.tool}`)
-
-    // Prefer mise/bundled binaries, then the user's login-shell PATH. Only
-    // install when no currently available source can execute the CLI.
-    const binaryManager = application.get('BinaryManager')
-    let snapshot = (await binaryManager.getToolSnapshots([executableName]))[executableName]
-    let { availability } = snapshot
+    // This fork installs no binaries: a launch requires the user's own CLI on
+    // PATH, and an absent executable is a user-side install away.
+    const snapshot = (await systemToolService.getToolSnapshots([executableName]))[executableName]
+    const { availability } = snapshot
 
     if (availability.source === 'none') {
-      logger.info(`${cliTool} not installed, installing via BinaryManager...`)
-      try {
-        // Name-only lazy install: BinaryManager resolves the Code CLI's fixed
-        // recipe itself and writes no Preference — the CLI is a code-owned tool,
-        // not a user-added custom one.
-        await this.installCli({ name: executableName })
-        logger.info(`${cliTool} installed successfully`)
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        logger.error(`Failed to install ${cliTool}:`, error as Error)
-        return { success: false, message: `Failed to install ${cliTool}: ${errorMessage}` }
-      }
+      const message = `${cliTool} is not installed. Install it on your system (its official installer, npm, or pipx) and try again.`
+      logger.error(message)
+      return { success: false, message }
+    }
 
-      snapshot = (await binaryManager.getToolSnapshots([executableName]))[executableName]
-      availability = snapshot.availability
-      if (availability.source === 'none') {
-        const message = `${cliTool} is not available after install`
-        logger.error(message)
-        return { success: false, message }
-      }
-    } else {
-      try {
-        await this.installCliSkill(preset)
-      } catch (error) {
-        logger.warn('Failed to sync an available Code CLI skill before launch', {
-          cliTool,
-          error: error instanceof Error ? error.message : String(error)
-        })
-      }
+    try {
+      await this.installCliSkill(preset)
+    } catch (error) {
+      logger.warn('Failed to sync an available Code CLI skill before launch', {
+        cliTool,
+        error: error instanceof Error ? error.message : String(error)
+      })
     }
 
     const executablePath = availability.path
-    const usesCherryExecutionEnv = availability.source !== 'system'
 
-    // Cherry's MISE_* variables are needed for currently available mise shims
-    // and bundled binaries. A system CLI receives no Cherry environment: adding
-    // it could redirect a user mise shim to Cherry's isolated data directory.
-    // The install request above is the only operation that declares ownership;
-    // execution depends only on this live availability fact.
-    const rawShellEnv = usesCherryExecutionEnv ? await getRawShellEnv() : undefined
-    const rawPathEnv = Object.fromEntries(
-      Object.entries(rawShellEnv ?? {}).filter(([key]) => key.toLowerCase() === 'path')
-    )
-    const env: Record<string, string> = usesCherryExecutionEnv
-      ? mergeBinaryExecutionEnv(rawPathEnv, [application.getPath('cherry.bin')])
-      : {}
-    // For a managed Windows launch buildEnvPrefix rewrites PATH inside the
-    // terminal from `env`, so the bundled-git tail must land here too, not only
-    // in the spawn env assembled below.
-    if (usesCherryExecutionEnv && isWin) appendBundledGitPathTail(env)
+    // Per-CLI launch variables exported inside the terminal; the terminal
+    // itself inherits the user's login-shell environment below.
+    const env: Record<string, string> = {}
     logger.debug(`Environment variables:`, Object.keys(env))
 
     // Select different terminal based on operating system
@@ -634,10 +547,7 @@ export class CodeCliService extends BaseService {
             return exportCmd
           })
           .join(' && ')
-        const clearAmbientMise = usesCherryExecutionEnv
-          ? 'for _cherry_mise_key in $(env | sed -n \'s/^\\(MISE_[A-Za-z0-9_]*\\)=.*/\\1/p\'); do unset "$_cherry_mise_key"; done'
-          : ''
-        return [clearAmbientMise, envCommands].filter(Boolean).join(' && ')
+        return envCommands
       }
     }
 
@@ -933,20 +843,8 @@ export class CodeCliService extends BaseService {
         throw new Error(`Unsupported operating system: ${platform}`)
     }
 
-    const baseProcessEnv = usesCherryExecutionEnv ? rawShellEnv! : await getRawShellEnv()
-    const processEnv = Object.fromEntries(
-      Object.entries(baseProcessEnv).filter(
-        ([key]) =>
-          !usesCherryExecutionEnv ||
-          !(platform === 'win32' ? key.toUpperCase().startsWith('MISE_') : key.startsWith('MISE_'))
-      )
-    )
+    const processEnv = await getShellEnv()
     Object.assign(processEnv, env)
-    // Bundled MinGit rides at the very tail of every Windows launch PATH so a
-    // bare `git` resolves even with no system git, while any real git ahead
-    // still wins (#16402). The tail is the only Cherry addition a system CLI
-    // receives — it must not reintroduce MISE_* redirection into the user's env.
-    if (platform === 'win32') appendBundledGitPathTail(processEnv)
     removeEnvProxy(processEnv)
 
     // Launch terminal process

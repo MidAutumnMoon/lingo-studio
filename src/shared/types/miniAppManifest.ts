@@ -296,7 +296,7 @@ export const MiniAppManifestSchema = z
      * Semver, because "is this newer" has to be decidable. A plain string makes the
      * update check compare lexicographically — `1.10.0 < 1.9.0` — and gives a server no
      * reason not to push a downgrade. `semver` is already a repo dependency (rtk.ts,
-     * versionPolicy.ts, BinaryManager.ts); the comparison is never hand-written.
+     * versionPolicy.ts); the comparison is never hand-written.
      */
     version: z
       .string()

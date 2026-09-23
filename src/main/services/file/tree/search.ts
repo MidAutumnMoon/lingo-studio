@@ -19,8 +19,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 import { loggerService } from '@logger'
-import { getBinaryExecutionEnv } from '@main/utils/binaryEnv'
-import { getBinaryPath } from '@main/utils/binaryResolver'
+import { findExecutableInEnv } from '@main/utils/commandResolver'
 import type { AbsoluteFilePath, DirectoryEntry, DirectoryListOptions } from '@shared/types/file'
 
 import { defaultRipgrepGlobArgs } from './gitignore'
@@ -80,13 +79,10 @@ const EXCLUDED_DIRS = new Set([
 
 // ─── Ripgrep binary + execution ────────────────────────────────────────────
 
-// Ripgrep is a BinaryManager-managed tool: bundled into `cherry.bin` at boot
-// and overridable by a mise-installed copy. `getBinaryPath('rg')` resolves
-// that single source of truth (mise shim → cherry.bin); a bare `rg` fallback
-// fails the existsSync check below, surfacing as "binary not available".
+// Ripgrep comes from the user's PATH (no bundled copy in this fork); a miss
+// surfaces as "binary not available" to the caller.
 async function resolveRipgrepBinary(): Promise<string | null> {
-  const binaryPath = await getBinaryPath('rg')
-  return fs.existsSync(binaryPath) ? binaryPath : null
+  return findExecutableInEnv('rg')
 }
 
 interface RipgrepResult {
@@ -101,44 +97,45 @@ async function executeRipgrep(args: string[]): Promise<RipgrepResult> {
     throw new Error('Ripgrep binary not available')
   }
 
-  return new Promise((resolve, reject) => {
-    const child = spawn(ripgrepBinaryPath, ['--no-config', '--ignore-case', ...args], {
-      env: { ...process.env, ...getBinaryExecutionEnv() },
-      stdio: ['pipe', 'pipe', 'pipe']
-    })
+  const { promise, resolve, reject } = Promise.withResolvers<RipgrepResult>()
+  const child = spawn(ripgrepBinaryPath, ['--no-config', '--ignore-case', ...args], {
+    env: { ...process.env },
+    stdio: ['pipe', 'pipe', 'pipe']
+  })
 
-    let stdout = ''
-    let stderr = ''
+  let stdout = ''
+  let stderr = ''
 
-    child.stdout.on('data', (data: Buffer) => {
-      stdout += data.toString()
-    })
+  child.stdout.on('data', (data: Buffer) => {
+    stdout += data.toString()
+  })
 
-    child.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString()
-    })
+  child.stderr.on('data', (data: Buffer) => {
+    stderr += data.toString()
+  })
 
-    child.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
-      // `code === null` happens when the process was killed by a signal
-      // (SIGKILL / SIGTERM on OOM, parent crash, etc.). Coercing it to 0
-      // would surface as "ripgrep exited successfully with no matches" =
-      // an empty directory listing, which is indistinguishable from a real
-      // empty result. Reject explicitly so callers can decide.
-      if (code === null && signal !== null) {
-        reject(new Error(`Ripgrep terminated by signal ${signal}: ${stderr || stdout}`))
-        return
-      }
-      resolve({
-        exitCode: code ?? 0,
-        stdout,
-        stderr
-      })
-    })
-
-    child.on('error', (error: Error) => {
-      reject(error)
+  child.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
+    // `code === null` happens when the process was killed by a signal
+    // (SIGKILL / SIGTERM on OOM, parent crash, etc.). Coercing it to 0
+    // would surface as "ripgrep exited successfully with no matches" =
+    // an empty directory listing, which is indistinguishable from a real
+    // empty result. Reject explicitly so callers can decide.
+    if (code === null && signal !== null) {
+      reject(new Error(`Ripgrep terminated by signal ${signal}: ${stderr || stdout}`))
+      return
+    }
+    resolve({
+      exitCode: code ?? 0,
+      stdout,
+      stderr
     })
   })
+
+  child.on('error', (error: Error) => {
+    reject(error)
+  })
+
+  return promise
 }
 
 function getUsableRipgrepOutput(result: RipgrepResult): string {

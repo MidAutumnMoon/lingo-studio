@@ -98,7 +98,7 @@ describe('projectDoctorReport', () => {
         ]
       },
       {
-        id: 'runtime-managed-tools',
+        id: 'runtime-claude-login',
         status: 'error',
         durationMs: 2,
         message: 'spawn failed at /Users/alice/private-runtime'
@@ -154,7 +154,7 @@ describe('projectDoctorReport', () => {
         durationMs: 1,
         evidence: [{ key: 'errno', value: 'EACCES', dataClass: 'public' }]
       },
-      { id: 'runtime-managed-tools', status: 'error', durationMs: 2 }
+      { id: 'runtime-claude-login', status: 'error', durationMs: 2 }
     ])
   })
 

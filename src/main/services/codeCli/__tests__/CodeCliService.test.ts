@@ -4,12 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CODE_CLI_TOOL_PRESETS } from '@shared/data/presets/codeCliTools'
 import type { CodeCliRunInput } from '@shared/ipc/schemas/codeCli'
-import type { BinaryRemoveRequest, BinaryRemoveResult } from '@shared/types/binary'
 import { CodeCli, TerminalApp } from '@shared/types/codeCli'
 
-const binaryManagerMock = vi.hoisted(() => ({
-  installByName: vi.fn(() => Promise.resolve()),
-  removeTool: vi.fn<(_request: BinaryRemoveRequest) => Promise<BinaryRemoveResult>>(),
+const systemToolServiceMock = vi.hoisted(() => ({
   getToolSnapshots: vi.fn()
 }))
 const hermesDashboardMock = vi.hoisted(() => ({ writeConfigFiles: vi.fn() }))
@@ -32,12 +29,15 @@ vi.mock('electron', () => ({
 vi.mock('@application', () => ({
   application: {
     get: vi.fn().mockImplementation((name: string) => {
-      if (name === 'BinaryManager') return binaryManagerMock
       if (name === 'HermesDashboardService') return hermesDashboardMock
       return {}
     }),
     getPath: vi.fn().mockReturnValue('/mock/binary-data')
   }
+}))
+
+vi.mock('@main/services/SystemToolService', () => ({
+  systemToolService: systemToolServiceMock
 }))
 
 vi.mock('../antigravity', () => ({
@@ -55,13 +55,7 @@ const platformMock = vi.hoisted(() => ({
   isWin: false
 }))
 const shellEnvMock = vi.hoisted(() => ({
-  getShellEnv: vi.fn(),
-  getRawShellEnv: vi.fn()
-}))
-// Default null = no bundled MinGit, matching a build/host without the Windows bundle.
-const bundledGitMock = vi.hoisted(() => ({
-  getBundledGitPath: vi.fn(),
-  getBundledGitDir: vi.fn()
+  getShellEnv: vi.fn()
 }))
 const childProcessMock = vi.hoisted(() => ({
   exec: vi.fn(),
@@ -90,13 +84,7 @@ vi.mock('@main/utils/processRunner', () => ({
 }))
 
 vi.mock('@main/utils/shellEnv', () => ({
-  getShellEnv: shellEnvMock.getShellEnv,
-  getRawShellEnv: shellEnvMock.getRawShellEnv
-}))
-
-vi.mock('@main/utils/bundledGit', () => ({
-  getBundledGitPath: bundledGitMock.getBundledGitPath,
-  getBundledGitDir: bundledGitMock.getBundledGitDir
+  getShellEnv: shellEnvMock.getShellEnv
 }))
 
 vi.mock('@main/services/RegionService', () => ({
@@ -158,22 +146,17 @@ describe('CodeCliService', () => {
     platformMock.isMac = true
     platformMock.isWin = false
     shellEnvMock.getShellEnv.mockResolvedValue({})
-    shellEnvMock.getRawShellEnv.mockResolvedValue({ PATH: '/usr/local/bin:/usr/bin' })
-    bundledGitMock.getBundledGitPath.mockReturnValue(null)
-    bundledGitMock.getBundledGitDir.mockReturnValue(null)
-    binaryManagerMock.getToolSnapshots.mockImplementation(async (names: string[]) =>
+    systemToolServiceMock.getToolSnapshots.mockImplementation(async (names: string[]) =>
       Object.fromEntries(
         names.map((name) => [
           name,
           {
             name,
-            availability: { source: 'mise', path: `/mock/bin/${name}`, version: '1.0.0' }
+            availability: { source: 'system', path: `/mock/bin/${name}` }
           }
         ])
       )
     )
-    binaryManagerMock.installByName.mockResolvedValue(undefined)
-    binaryManagerMock.removeTool.mockResolvedValue({ status: 'removed' })
     skillServiceMock.syncBuiltinSkill.mockResolvedValue(false)
     skillServiceMock.uninstallBuiltinSkill.mockResolvedValue(false)
     hermesDashboardMock.writeConfigFiles.mockResolvedValue(undefined)
@@ -231,73 +214,33 @@ describe('CodeCliService', () => {
   })
 
   describe('CLI skill lifecycle', () => {
-    it('installs the bundled skill only after the CLI install succeeds', async () => {
-      const { codeCliService } = await loadModules()
-
-      await codeCliService.installCli({ name: 'codex' })
-
-      expect(binaryManagerMock.installByName).toHaveBeenCalledWith({ name: 'codex' })
-      expect(skillServiceMock.syncBuiltinSkill).toHaveBeenCalledWith(
-        'code-mate-codex',
-        path.join('/mock/binary-data', 'code-mate-codex'),
-        '2.0.9',
-        'code-cli:openai-codex'
-      )
-    })
-
-    it('does not install a skill when the CLI install fails', async () => {
-      binaryManagerMock.installByName.mockRejectedValue(new Error('install failed'))
-      const { codeCliService } = await loadModules()
-
-      await expect(codeCliService.installCli({ name: 'codex' })).rejects.toThrow('install failed')
-
-      expect(skillServiceMock.syncBuiltinSkill).not.toHaveBeenCalled()
-    })
-
-    it('does not change the skill when binary removal is blocked', async () => {
-      binaryManagerMock.removeTool.mockResolvedValue({ status: 'cleanup_blocked', reason: 'conflict' })
-      const { codeCliService } = await loadModules()
-
-      await expect(codeCliService.removeCli({ name: 'codex' })).resolves.toEqual({
-        status: 'cleanup_blocked',
-        reason: 'conflict'
-      })
-
-      expect(skillServiceMock.syncBuiltinSkill).not.toHaveBeenCalled()
-      expect(skillServiceMock.uninstallBuiltinSkill).not.toHaveBeenCalled()
-    })
-
-    it('removes the owned skill when no CLI remains after removal', async () => {
-      binaryManagerMock.getToolSnapshots.mockResolvedValue({
-        codex: { name: 'codex', availability: { source: 'none' }, application: { status: 'absent' } }
+    it('uninstalls the dead skill when the CLI is absent from PATH', async () => {
+      systemToolServiceMock.getToolSnapshots.mockResolvedValue({
+        codex: { name: 'codex', availability: { source: 'none' } }
       })
       const { codeCliService } = await loadModules()
 
-      await expect(codeCliService.removeCli({ name: 'codex' })).resolves.toEqual({ status: 'removed' })
+      await codeCliService.reconcileCliSkills()
 
       expect(skillServiceMock.uninstallBuiltinSkill).toHaveBeenCalledWith('code-mate-codex', 'code-cli:openai-codex')
+      expect(skillServiceMock.syncBuiltinSkill).not.toHaveBeenCalled()
     })
 
-    it('keeps the skill when a system CLI remains after managed removal', async () => {
-      binaryManagerMock.getToolSnapshots.mockResolvedValue({
+    it('keeps the skill when a system CLI remains available', async () => {
+      systemToolServiceMock.getToolSnapshots.mockResolvedValue({
         codex: { name: 'codex', availability: { source: 'system', path: '/usr/local/bin/codex' } }
       })
       const { codeCliService } = await loadModules()
 
-      await codeCliService.removeCli({ name: 'codex' })
+      await codeCliService.reconcileCliSkills()
 
       expect(skillServiceMock.syncBuiltinSkill).toHaveBeenCalled()
       expect(skillServiceMock.uninstallBuiltinSkill).not.toHaveBeenCalled()
     })
 
-    it('preserves the skill when CLI state is unknown', async () => {
-      binaryManagerMock.getToolSnapshots.mockResolvedValue({
-        codex: {
-          name: 'codex',
-          availability: { source: 'none' },
-          application: { status: 'unknown', reason: 'backend_unavailable' }
-        }
-      })
+    it('preserves the skill when the snapshot probe omits the CLI', async () => {
+      systemToolServiceMock.getToolSnapshots.mockResolvedValue({})
+
       const { codeCliService } = await loadModules()
 
       await codeCliService.reconcileCliSkills()
@@ -490,11 +433,11 @@ describe('CodeCliService', () => {
       }
     })
 
-    it('preserves ambient mise settings for a system OpenCode while exporting its own env', async () => {
-      binaryManagerMock.getToolSnapshots.mockResolvedValue({
+    it('launches a PATH-resolved OpenCode while exporting its own env', async () => {
+      systemToolServiceMock.getToolSnapshots.mockResolvedValue({
         opencode: {
           name: 'opencode',
-          availability: { source: 'system', path: '/home/me/.local/share/mise/shims/opencode' }
+          availability: { source: 'system', path: '/home/me/.local/bin/opencode' }
         }
       })
       vi.useFakeTimers()
@@ -515,7 +458,6 @@ describe('CodeCliService', () => {
         expect(call).toBeDefined()
         const script = (call![1] as string[]).join(' ')
         expect(script).toContain('OPENCODE_DISABLE_AUTOUPDATE=')
-        expect(script).not.toContain('_cherry_mise_key')
       } finally {
         vi.useRealTimers()
       }
@@ -588,9 +530,9 @@ describe('CodeCliService', () => {
       expect(script).not.toContain('GOOGLE_GENAI_API_VERSION')
     })
 
-    it('preserves ambient mise settings for a system Gemini CLI while exporting its own env', async () => {
-      binaryManagerMock.getToolSnapshots.mockResolvedValue({
-        gemini: { name: 'gemini', availability: { source: 'system', path: '/home/me/.local/share/mise/shims/gemini' } }
+    it('launches a PATH-resolved Gemini CLI while exporting its own env', async () => {
+      systemToolServiceMock.getToolSnapshots.mockResolvedValue({
+        gemini: { name: 'gemini', availability: { source: 'system', path: '/home/me/.local/bin/gemini' } }
       })
       const script = await launchScript({
         mode: 'normal',
@@ -601,7 +543,6 @@ describe('CodeCliService', () => {
       })
 
       expect(script).toContain('GEMINI_CLI_TRUST_WORKSPACE=')
-      expect(script).not.toContain('_cherry_mise_key')
     })
   })
 
@@ -736,8 +677,8 @@ describe('CodeCliService', () => {
       Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
     })
 
-    it('launches a system PATH binary without installing a managed copy', async () => {
-      binaryManagerMock.getToolSnapshots.mockResolvedValue({
+    it('launches a system PATH binary from its snapshot path', async () => {
+      systemToolServiceMock.getToolSnapshots.mockResolvedValue({
         claude: { name: 'claude', availability: { source: 'system', path: '/usr/local/bin/claude' } }
       })
       const { spawn } = await import('child_process')
@@ -750,17 +691,15 @@ describe('CodeCliService', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(binaryManagerMock.installByName).not.toHaveBeenCalled()
-      expect(binaryManagerMock.getToolSnapshots).toHaveBeenCalledWith(['claude'])
+      expect(systemToolServiceMock.getToolSnapshots).toHaveBeenCalledWith(['claude'])
       const launchCall = vi.mocked(spawn).mock.calls.at(-1)
       expect(launchCall).toBeDefined()
       const launchArgs = (launchCall?.[1] ?? []).join(' ')
       expect(launchArgs).toContain('/usr/local/bin/claude')
-      expect(launchArgs).not.toContain('MISE_DATA_DIR')
     })
 
     it('single-quotes a system executable path containing shell metacharacters', async () => {
-      binaryManagerMock.getToolSnapshots.mockResolvedValue({
+      systemToolServiceMock.getToolSnapshots.mockResolvedValue({
         claude: {
           name: 'claude',
           availability: { source: 'system', path: '/tmp/$(touch pwned)/`whoami`/claude' }
@@ -781,17 +720,11 @@ describe('CodeCliService', () => {
       expect(launchArgs).not.toContain('"/tmp/$(touch pwned)')
     })
 
-    it('lazily recovers a missing CLI by name only, writing no Preference', async () => {
-      binaryManagerMock.getToolSnapshots
-        .mockResolvedValueOnce({
-          claude: { name: 'claude', availability: { source: 'none' } }
-        })
-        .mockResolvedValueOnce({
-          claude: {
-            name: 'claude',
-            availability: { source: 'mise', path: '/mock/binary-data/shims/claude', version: '1.0.0' }
-          }
-        })
+    it('refuses to launch when the CLI is not on PATH, without touching the terminal', async () => {
+      systemToolServiceMock.getToolSnapshots.mockResolvedValue({
+        claude: { name: 'claude', availability: { source: 'none' } }
+      })
+      const { spawn } = await import('child_process')
       const { codeCliService } = await loadModules()
 
       const result = await codeCliService.run({
@@ -800,23 +733,15 @@ describe('CodeCliService', () => {
         directory: '/tmp/project'
       })
 
-      expect(result.success).toBe(true)
-      // Name-only lazy install: main resolves the Code CLI's fixed recipe and
-      // writes no Preference — the renderer/service never supplies a recipe.
-      expect(binaryManagerMock.installByName).toHaveBeenCalledWith({ name: 'claude' })
+      expect(result).toMatchObject({ success: false, message: expect.stringContaining('claude-code is not installed') })
+      expect(spawn).not.toHaveBeenCalled()
     })
 
-    it('launches a managed npm CLI with Cherry shims first and no ambient MISE settings', async () => {
-      shellEnvMock.getRawShellEnv.mockResolvedValue({
-        PATH: '/usr/local/$(touch /tmp/pwn):`whoami`:$HOME:/usr/bin',
-        MISE_CONFIG_FILE: '/home/me/.config/mise/config.toml',
-        PRIVATE_TOKEN: 'must-not-be-exported'
-      })
-      binaryManagerMock.getToolSnapshots.mockResolvedValue({
-        claude: {
-          name: 'claude',
-          availability: { source: 'mise', path: '/mock/binary-data/shims/claude', version: '1.0.0' }
-        }
+    it('passes the login-shell environment through to the terminal untouched', async () => {
+      shellEnvMock.getShellEnv.mockResolvedValue({
+        PATH: '/usr/local/bin:/usr/bin',
+        PRIVATE_TOKEN: 'ambient-value',
+        USER_TOOL_HOME: '/home/me/.tools'
       })
       const { spawn } = await import('child_process')
       const { codeCliService } = await loadModules()
@@ -829,22 +754,12 @@ describe('CodeCliService', () => {
 
       expect(result.success).toBe(true)
       const launchCall = vi.mocked(spawn).mock.calls.at(-1)!
-      const launchArgs = (launchCall[1] ?? []).join(' ')
       const launchEnv = launchCall[2]?.env as Record<string, string>
-      expect(launchArgs).toContain(
-        "PATH='\\''/mock/binary-data/shims:/mock/binary-data:/usr/local/$(touch /tmp/pwn):`whoami`:$HOME:/usr/bin'\\''"
-      )
-      expect(launchArgs).toContain("MISE_DATA_DIR='\\''/mock/binary-data'\\''")
-      expect(launchArgs).toContain('for _cherry_mise_key in $(env | sed -n')
-      expect(launchArgs).toContain('do unset')
-      expect(launchArgs).toContain('$_cherry_mise_key')
-      expect(launchArgs.indexOf('unset')).toBeLessThan(launchArgs.indexOf('export MISE_DATA_DIR'))
-      expect(launchArgs).not.toContain('MISE_CONFIG_FILE')
-      expect(launchArgs).not.toContain('PRIVATE_TOKEN')
-      expect(launchArgs).not.toContain('must-not-be-exported')
-      expect(launchEnv.MISE_CONFIG_FILE).toBeUndefined()
-      expect(launchEnv.MISE_DATA_DIR).toBe('/mock/binary-data')
-      expect(launchEnv.PRIVATE_TOKEN).toBe('must-not-be-exported')
+      // No shims dir, no PATH rewrite, no env filtering: the terminal inherits
+      // the login-shell environment exactly as captured.
+      expect(launchEnv.PATH).toBe('/usr/local/bin:/usr/bin')
+      expect(launchEnv.PRIVATE_TOKEN).toBe('ambient-value')
+      expect(launchEnv.USER_TOOL_HOME).toBe('/home/me/.tools')
     })
 
     it('single-quotes a directory containing spaces and $() in the assembled command', async () => {
@@ -892,10 +807,10 @@ describe('CodeCliService', () => {
       Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
     })
 
-    it('filters mixed-case ambient MISE variables from the Windows launch environment', async () => {
-      shellEnvMock.getRawShellEnv.mockResolvedValue({
+    it('hands the login-shell environment to the Windows terminal verbatim', async () => {
+      shellEnvMock.getShellEnv.mockResolvedValue({
         Path: 'C:\\Windows\\System32',
-        Mise_Global_Config_File: 'C:\\Users\\me\\mise.toml'
+        USER_TOOL_HOME: 'C:\\Users\\me\\.tools'
       })
       const { spawn } = await import('child_process')
       const { codeCliService } = await loadModules()
@@ -908,8 +823,8 @@ describe('CodeCliService', () => {
 
       expect(result.success).toBe(true)
       const launchEnv = vi.mocked(spawn).mock.calls.at(-1)?.[2]?.env as Record<string, string>
-      expect(launchEnv.Mise_Global_Config_File).toBeUndefined()
-      expect(launchEnv.MISE_DATA_DIR).toBe('/mock/binary-data')
+      expect(launchEnv.Path).toBe('C:\\Windows\\System32')
+      expect(launchEnv.USER_TOOL_HOME).toBe('C:\\Users\\me\\.tools')
     })
 
     it('writes a 0600 .bat with %-doubled paths and launches it via the default cmd /c', async () => {
@@ -921,10 +836,10 @@ describe('CodeCliService', () => {
         const { spawn } = await import('child_process')
         const { codeCliService } = await loadModules()
 
-        binaryManagerMock.getToolSnapshots.mockResolvedValue({
+        systemToolServiceMock.getToolSnapshots.mockResolvedValue({
           claude: {
             name: 'claude',
-            availability: { source: 'mise', path: 'C:\\Tools\\100% cli\\claude.exe', version: '1.0.0' }
+            availability: { source: 'system', path: 'C:\\Tools\\100% cli\\claude.exe' }
           }
         })
 
@@ -986,73 +901,6 @@ describe('CodeCliService', () => {
         // The gateway address carries `://` and `/models/`; the route parses it back into
         // `providerId:apiModelId`, so quoting must not mangle or split it.
         expect(batContent).toContain('--model "gemini-api://618d8838/models/gemini-2.5-pro"')
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-
-    it('includes cherry.bin and appends the bundled MinGit dir to a managed launch PATH tail (#16402)', async () => {
-      // Regression (PR #16402 review): the launch env must carry the bundled
-      // git dir at the very tail so a terminal-launched CLI resolves a bare
-      // `git` on a machine without system git, while any real git ahead wins.
-      const gitDir = 'C:\\Cherry\\resources\\binaries\\win32-x64\\git\\cmd'
-      bundledGitMock.getBundledGitDir.mockReturnValue(gitDir)
-      shellEnvMock.getRawShellEnv.mockResolvedValue({ Path: 'C:\\Windows\\System32' })
-
-      vi.useFakeTimers()
-      try {
-        const fs = (await import('node:fs')).default
-        const { spawn } = await import('child_process')
-        const { codeCliService } = await loadModules()
-
-        const result = await codeCliService.run({
-          mode: 'login-flow',
-          cliTool: CodeCli.CLAUDE_CODE,
-          directory: 'C:\\Users\\me\\proj'
-        })
-
-        expect(result.success).toBe(true)
-        const spawnEnv = (vi.mocked(spawn).mock.calls.at(-1)![2] as { env: Record<string, string> }).env
-        expect(spawnEnv.Path.split(';')).toContain('/mock/binary-data')
-        expect(spawnEnv.Path.split(';').at(-1)).toBe(gitDir)
-        expect(spawnEnv.Path).toContain('C:\\Windows\\System32')
-        // The bat rewrites PATH inside the terminal, so the tail must be in the
-        // env prefix too, not only in the spawn env.
-        const batContent = vi.mocked(fs.writeFileSync).mock.calls.at(-1)![1] as string
-        expect(batContent).toContain(gitDir)
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-
-    it('gives a system CLI only the git tail — no Cherry MISE_* redirection', async () => {
-      const gitDir = 'C:\\Cherry\\resources\\binaries\\win32-x64\\git\\cmd'
-      bundledGitMock.getBundledGitDir.mockReturnValue(gitDir)
-      shellEnvMock.getRawShellEnv.mockResolvedValue({
-        Path: 'C:\\Windows\\System32',
-        MISE_DATA_DIR: 'C:\\Users\\me\\mise-data'
-      })
-      binaryManagerMock.getToolSnapshots.mockResolvedValue({
-        claude: { name: 'claude', availability: { source: 'system', path: 'C:\\Tools\\claude.exe' } }
-      })
-
-      vi.useFakeTimers()
-      try {
-        const { spawn } = await import('child_process')
-        const { codeCliService } = await loadModules()
-
-        const result = await codeCliService.run({
-          mode: 'login-flow',
-          cliTool: CodeCli.CLAUDE_CODE,
-          directory: 'C:\\Users\\me\\proj'
-        })
-
-        expect(result.success).toBe(true)
-        const spawnEnv = (vi.mocked(spawn).mock.calls.at(-1)![2] as { env: Record<string, string> }).env
-        expect(spawnEnv.Path.split(';').at(-1)).toBe(gitDir)
-        // The user's own mise settings pass through untouched; Cherry's isolated
-        // MISE_DATA_DIR must never redirect a system CLI's shims.
-        expect(spawnEnv.MISE_DATA_DIR).toBe('C:\\Users\\me\\mise-data')
       } finally {
         vi.useRealTimers()
       }
@@ -1284,7 +1132,7 @@ describe('CodeCliService', () => {
         success: false,
         message: 'Hermes Agent is managed through hermes_dashboard.* IPC, not code_cli.run'
       })
-      expect(binaryManagerMock.getToolSnapshots).not.toHaveBeenCalled()
+      expect(systemToolServiceMock.getToolSnapshots).not.toHaveBeenCalled()
     })
 
     it('rejects a normal CLI launch when the model is empty', async () => {

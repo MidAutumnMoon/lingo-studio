@@ -5,7 +5,6 @@ import type { Provider } from '@shared/data/types/provider'
 
 const services = vi.hoisted(() => ({
   ready: true,
-  getToolInventory: vi.fn(),
   checkClaudeLogin: vi.fn(),
   listAgents: vi.fn(),
   getProviderByProviderId: vi.fn()
@@ -13,12 +12,6 @@ const services = vi.hoisted(() => ({
 vi.mock('@application', async () => {
   const { mockApplicationFactory } = await import('@test-mocks/main/application')
   return mockApplicationFactory({
-    BinaryManager: {
-      get isReady() {
-        return services.ready
-      },
-      getToolInventory: services.getToolInventory
-    },
     CodeCliService: {
       get isReady() {
         return services.ready
@@ -34,7 +27,7 @@ vi.mock('@main/data/services/ProviderService', () => ({
   providerService: { getByProviderId: services.getProviderByProviderId }
 }))
 
-const { claudeLogin, managedTools } = await import('../runtime')
+const { claudeLogin } = await import('../runtime')
 const signal = new AbortController().signal
 const ctx = { signal, share: <T>(_key: string, factory: (signal: AbortSignal) => Promise<T>) => factory(signal) }
 
@@ -63,44 +56,9 @@ const provider = (id: string, authMethods: Provider['authMethods']): Provider =>
 beforeEach(() => {
   vi.clearAllMocks()
   services.ready = true
-  services.getToolInventory.mockResolvedValue([])
   services.checkClaudeLogin.mockResolvedValue(true)
   services.listAgents.mockReturnValue({ agents: [], total: 0 })
   services.getProviderByProviderId.mockReturnValue(provider('claude-code', ['external-cli']))
-})
-
-describe('runtime-managed-tools', () => {
-  it('does not declare failed initialization healthy', async () => {
-    services.ready = false
-    await expect(managedTools.run(ctx)).rejects.toThrow('not ready')
-  })
-  it('rejects an inventory containing unknown entries', async () => {
-    services.getToolInventory.mockResolvedValue([{ name: 'uv', status: 'unknown' }])
-    await expect(managedTools.run(ctx)).rejects.toThrow('incomplete')
-  })
-
-  it('does not treat an uninstalled tool as broken', async () => {
-    services.getToolInventory.mockResolvedValue([
-      { name: 'bun', status: 'ready' },
-      { name: 'fd', status: 'not_installed' }
-    ])
-    await expect(managedTools.run(ctx)).resolves.toEqual({ status: 'pass' })
-  })
-
-  it('warns for failed operations or broken managed installations', async () => {
-    services.getToolInventory.mockResolvedValue([
-      { name: 'bun', status: 'failed' },
-      { name: 'fd', status: 'ready' },
-      { name: 'uv', status: 'failed' }
-    ])
-    await expect(managedTools.run(ctx)).resolves.toMatchObject({
-      status: 'warn',
-      attribution: 'user-fixable',
-      detail: { variant: 'failed', params: { count: 2 } },
-      actions: [{ kind: 'navigate', target: '/settings/dependencies' }],
-      evidence: [{ key: 'tools', value: 'bun, uv', dataClass: 'local_only' }]
-    })
-  })
 })
 
 describe('runtime-claude-login', () => {

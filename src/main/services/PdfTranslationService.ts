@@ -15,8 +15,7 @@ import { BaseService, DependsOn, Injectable, Phase, ServicePhase } from '@main/c
 import { isWin } from '@main/core/platform'
 import { getProxyEnvironment } from '@main/services/proxy/proxyEnv'
 import { regionService } from '@main/services/RegionService'
-import { mergeBinaryExecutionEnv } from '@main/utils/binaryEnv'
-import { getBinaryPath } from '@main/utils/binaryResolver'
+import { systemToolService } from '@main/services/SystemToolService'
 import { crossPlatformSpawn, killProcessTree } from '@main/utils/processRunner'
 import { getShellEnv } from '@main/utils/shellEnv'
 import {
@@ -24,7 +23,7 @@ import {
   type TranslateLangCode,
   type TranslateSourceLanguage
 } from '@shared/data/preference/preferenceTypes'
-import { BABELDOC_TOOL_NAME, getBabelDocInstallationStatus } from '@shared/data/presets/binaryTools'
+import { BABELDOC_TOOL_NAME } from '@shared/data/presets/binaryTools'
 import { type FileEntry, SafeNameSchema } from '@shared/data/types/file'
 import { parseUniqueModelId, type UniqueModelId } from '@shared/data/types/model'
 import { IpcError } from '@shared/ipc/errors/IpcError'
@@ -72,7 +71,6 @@ const babeldocStreamEventSchema = z.discriminatedUnion('type', [
 // allowlist deliberately excludes the user's provider API keys (OPENAI_API_KEY, …):
 // BabelDOC's key is injected via babeldoc.toml pointing at the local gateway, so
 // forwarding the real keys would only risk leaking them into the child's logs.
-// Parallels BinaryManager's MISE_PASSTHROUGH_ENV.
 const SIDECAR_ENV_KEYS = new Set([
   'ALL_PROXY',
   'COMSPEC',
@@ -410,20 +408,12 @@ export class PdfTranslationService extends BaseService {
   }
 
   private async resolveSidecar(): Promise<string> {
-    const binaryManager = application.get('BinaryManager')
-    const snapshot = (await binaryManager.getToolSnapshots([BABELDOC_TOOL_NAME]))[BABELDOC_TOOL_NAME]
-    const status = getBabelDocInstallationStatus(snapshot)
-    if (status === 'missing') {
+    const snapshot = (await systemToolService.getToolSnapshots([BABELDOC_TOOL_NAME]))[BABELDOC_TOOL_NAME]
+    if (!snapshot || snapshot.availability.source !== 'system') {
       throw new IpcError(translateErrorCodes.PDF_DEPENDENCY_NOT_INSTALLED, 'BabelDOC is not installed')
     }
-    if (status === 'outdated') {
-      throw new IpcError(translateErrorCodes.PDF_DEPENDENCY_OUTDATED, 'BabelDOC must be updated')
-    }
 
-    const installedPath = await getBinaryPath(BABELDOC_TOOL_NAME)
-    if (!path.isAbsolute(installedPath)) {
-      throw new IpcError(translateErrorCodes.PDF_DEPENDENCY_NOT_INSTALLED, 'BabelDOC is not available')
-    }
+    const installedPath = snapshot.availability.path
     try {
       await fs.promises.access(installedPath, fs.constants.X_OK)
     } catch {
@@ -588,13 +578,13 @@ export class PdfTranslationService extends BaseService {
     }
 
     const runtimeHome = application.getPath('feature.pdf_translation.babeldoc')
-    return mergeBinaryExecutionEnv({
+    return {
       ...allowedEnv,
       ...buildSidecarProxyEnv(allowedEnv.NO_PROXY ?? allowedEnv.no_proxy, new URL(gatewayBaseUrl).hostname),
       HOME: runtimeHome,
       USERPROFILE: runtimeHome,
       PYTHONUTF8: '1',
       ...(inChina ? { BABELDOC_ASSET_UPSTREAM: 'modelscope' } : {})
-    })
+    }
   }
 }

@@ -8,7 +8,6 @@ import { HarnessClient } from '@deepseek-ai/dsh-sdk-client'
 import { expect, it, vi } from 'vitest'
 import { parse, stringify } from 'yaml'
 
-import { application } from '@application'
 import { BRIDGE_SOCKET_ENV, BRIDGE_TOKEN_ENV } from '@cherrystudio/dsh-bridge'
 
 import { resolveDshBunRuntime } from '../bunRuntime'
@@ -17,16 +16,11 @@ import { DshBridgeServer } from '../DshBridgeServer'
 
 // Explicit opt-in: this exercises native payloads and an actual runtime process.
 it.skipIf(process.env.CHERRY_DSH_SMOKE !== '1')(
-  'boots bundled Bun, decodes an image, runs a sandboxed shell and spawns a child',
+  'boots the system Bun, decodes an image, runs a sandboxed shell and spawns a child',
   async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'cherry-dsh-smoke-'))
     const packagedRoot = process.env.CHERRY_DSH_SMOKE_UNPACKED
-    const resources = packagedRoot ? path.join(packagedRoot, 'resources/binaries') : path.resolve('resources/binaries')
     const runtimeDir = packagedRoot ? path.join(root, 'node_modules/@cherrystudio/dsh-bridge/dist/runtime') : undefined
-    vi.spyOn(application, 'getPath').mockImplementation((key) => {
-      if (key === 'app.root.resources.binaries') return resources
-      throw new Error(`Unexpected smoke path: ${key}`)
-    })
     const events: any[] = []
     const childEdges: any[] = []
     const requests: any[] = []

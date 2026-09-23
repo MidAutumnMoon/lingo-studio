@@ -38,7 +38,6 @@ import { AppMenuService } from '@main/services/AppMenuService'
 import { AppService } from '@main/services/AppService'
 import { AppUpdaterService } from '@main/services/AppUpdaterService'
 import { AutoBackupService } from '@main/services/AutoBackupService'
-import { BinaryManager } from '@main/services/binaryManager'
 import { CherryCloudService } from '@main/services/cherryCloud/CherryCloudService'
 import { CitationPreviewService } from '@main/services/CitationPreviewService'
 import { CodeCliService } from '@main/services/codeCli'
@@ -153,7 +152,6 @@ export const services = {
   McpPackageService,
   McpRuntimeService,
   McpCatalogService,
-  BinaryManager,
   OpenClawService,
   PdfTranslationService,
   ClaudeCodeProcessManager,

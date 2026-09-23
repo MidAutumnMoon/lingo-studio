@@ -14,10 +14,9 @@ vi.mock('node:util', async (importOriginal) => {
 vi.mock('child_process')
 vi.mock('fs')
 vi.mock('which')
-vi.mock('../bundledGit', () => ({ getBundledGitPath: () => 'C:\\Cherry\\git\\git.exe' }))
 vi.mock('@main/core/platform', () => ({ isWin: true }))
 
-const { findCommandInShellEnv, findExecutable, findExecutableInEnv, findViaMise } = await import('../commandResolver')
+const { findCommandInShellEnv, findExecutable, findExecutableInEnv } = await import('../commandResolver')
 
 describe('findCommandInShellEnv on Windows', () => {
   beforeEach(() => {
@@ -116,87 +115,11 @@ describe('findCommandInShellEnv on Windows', () => {
     })
   })
 
-  it('finds mise at a Unicode path through bounded asynchronous PATH lookup', async () => {
-    const misePath = 'D:\\开发工具\\mise\\mise.exe'
-    const nodePath = 'D:\\开发工具\\mise\\installs\\node\\node.exe'
-    vi.mocked(which).mockResolvedValue([misePath] as never)
-    vi.mocked(fs.existsSync).mockImplementation((candidate) => candidate === nodePath)
-    asyncExec.mockImplementation(async (command, args) => {
-      if (command === misePath && (args as string[])[0] === 'which') {
-        return { stdout: nodePath, stderr: '' }
-      }
-      throw new Error('unexpected command')
-    })
-
-    const result = await findViaMise('node', { Path: 'D:\\开发工具\\mise' })
-
-    expect(result).toBe(nodePath)
-    expect(asyncExec).toHaveBeenCalledTimes(1)
-    expect(which.sync).not.toHaveBeenCalled()
-  })
-})
-
-describe('Windows mise lookup', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(fs.existsSync).mockReturnValue(true)
-    vi.mocked(which).mockResolvedValue(['C:\\tools\\mise.exe'] as never)
-  })
-  it('uses the asynchronous child API and preserves the lookup environment', async () => {
-    asyncExec.mockImplementation(async (_file, _args, options) => {
-      expect(options.env).toEqual({ PATH: 'C:\\tools' })
-      return { stdout: 'C:\\tools\\node.exe\n', stderr: '' }
-    })
-    await expect(findViaMise('node', { PATH: 'C:\\tools' })).resolves.toBe('C:\\tools\\node.exe')
-    expect(fs.existsSync).toHaveBeenCalledWith('C:\\tools\\node.exe')
-  })
-
-  it.each(['git', 'uv'])('preserves the %s fallback after a mise query failure', async (command) => {
-    vi.mocked(which).mockImplementation(async (name) => (name === 'mise' ? ['C:\\tools\\mise.exe'] : null) as never)
-    vi.mocked(which.sync).mockReturnValue(null as never)
+  it('falls back to the synchronous Windows lookup when the async shell lookup misses', async () => {
+    vi.mocked(which).mockResolvedValue(null as never)
+    vi.mocked(which.sync).mockReturnValue(['D:\\Tools\\uv.exe'] as never)
     vi.mocked(fs.existsSync).mockReturnValue(false)
-    asyncExec.mockRejectedValue(Object.assign(new Error('mise timed out'), { code: 'ETIMEDOUT' }))
 
-    await expect(findExecutableInEnv(command, { env: { PATH: 'C:\\tools' } })).resolves.toBe(
-      command === 'git' ? 'C:\\Cherry\\git\\git.exe' : null
-    )
-  })
-
-  it('does not use a fallback when canceled during a mise query', async () => {
-    const controller = new AbortController()
-    vi.mocked(which).mockImplementation(async (name) => (name === 'mise' ? ['C:\\tools\\mise.exe'] : null) as never)
-    vi.mocked(which.sync).mockReturnValue(null as never)
-    vi.mocked(fs.existsSync).mockReturnValue(false)
-    asyncExec.mockImplementation(async () => {
-      controller.abort(new Error('lookup canceled'))
-      throw controller.signal.reason
-    })
-
-    await expect(
-      findExecutableInEnv('git', {
-        env: { PATH: 'C:\\tools' },
-        signal: controller.signal
-      })
-    ).rejects.toThrow('lookup canceled')
-  })
-
-  it('propagates cancellation into the pending mise process', async () => {
-    const controller = new AbortController()
-    let started!: () => void
-    const ready = new Promise<void>((resolve) => {
-      started = resolve
-    })
-    asyncExec.mockImplementation((_file, _args, options) => {
-      const result = new Promise((_resolve, reject) =>
-        options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })
-      )
-      started()
-      return result
-    })
-    const pending = findViaMise('node', { PATH: 'C:\\tools' }, controller.signal)
-    await ready
-    const rejected = expect(pending).rejects.toThrow()
-    controller.abort()
-    await rejected
+    await expect(findExecutableInEnv('uv', { env: { PATH: 'D:\\Tools' } })).resolves.toBe('D:\\Tools\\uv.exe')
   })
 })

@@ -1,9 +1,8 @@
 import { ExternalLink } from 'lucide-react'
-import { type FC, useEffect, useState } from 'react'
+import { type FC, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, Button, SearchInput } from '@cherrystudio/ui'
-import { BinaryInstallErrorDialog } from '@renderer/components/BinaryInstallErrorDialog'
 import { openSettingsTab } from '@renderer/services/mainWindowNavigation'
 import type { CliProviderConfig } from '@shared/data/preference/preferenceTypes'
 import type { Provider } from '@shared/data/types/provider'
@@ -23,12 +22,7 @@ interface CodeCliContentPanelProps {
     launching: boolean
     running: boolean
     stopping: boolean
-    upgradeDisabled: boolean
   }
-  installingTools: Set<string>
-  upgradingTools: Set<string>
-  /** Failure message of the last install attempt for the selected tool (from the main-process install-state map). */
-  installError?: string
   providerState: {
     providerless: boolean
     showSelectionHint: boolean
@@ -39,9 +33,6 @@ interface CodeCliContentPanelProps {
   currentProviderModelName?: string
   providerActionsDisabled?: boolean
   resolveProviderMeta: (provider: Provider, cfg?: CliProviderConfig) => { providerName: string; modelName?: string }
-  onInstall: () => void
-  onUpgrade: () => void
-  onRemove?: () => void
   onLaunch: () => void
   onStop: () => void
   onOpenDashboard: () => void
@@ -69,9 +60,6 @@ export const CodeCliContentPanel: FC<CodeCliContentPanelProps> = ({
   activeMeta,
   versionStatus,
   versionCard,
-  installingTools,
-  upgradingTools,
-  installError,
   providerState,
   supportedProviders,
   providerConfigs,
@@ -79,9 +67,6 @@ export const CodeCliContentPanel: FC<CodeCliContentPanelProps> = ({
   currentProviderModelName,
   providerActionsDisabled,
   resolveProviderMeta,
-  onInstall,
-  onUpgrade,
-  onRemove,
   onLaunch,
   onStop,
   onOpenDashboard,
@@ -91,13 +76,6 @@ export const CodeCliContentPanel: FC<CodeCliContentPanelProps> = ({
 }) => {
   const { t } = useTranslation()
   const [providerSearch, setProviderSearch] = useState('')
-  const [showInstallError, setShowInstallError] = useState(false)
-
-  // Reset on tool switch: the dialog's controlled `open` goes false when
-  // `installError` clears for the new tool, but Radix does not fire onOpenChange
-  // on a controlled close, so `showInstallError` would stay true and re-surface
-  // the dialog unprompted when switching back to a failed tool.
-  useEffect(() => setShowInstallError(false), [selectedCliTool])
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -111,9 +89,6 @@ export const CodeCliContentPanel: FC<CodeCliContentPanelProps> = ({
             toolId={selectedCliTool}
             toolName={activeMeta.label}
             status={versionStatus}
-            onInstall={onInstall}
-            onUpgrade={onUpgrade}
-            onRemove={onRemove}
             onLaunch={onLaunch}
             onStop={onStop}
             onOpenDashboard={onOpenDashboard}
@@ -121,11 +96,6 @@ export const CodeCliContentPanel: FC<CodeCliContentPanelProps> = ({
             launching={versionCard.launching}
             running={versionCard.running}
             stopping={versionCard.stopping}
-            isInstalling={installingTools.has(selectedCliTool)}
-            isUpgrading={upgradingTools.has(selectedCliTool)}
-            upgradeDisabled={versionCard.upgradeDisabled}
-            installError={installError}
-            onShowError={() => setShowInstallError(true)}
             launchDisabledHint={
               providerState.showSelectionHint
                 ? t('code.select_provider_before_launch', { toolName: activeMeta.label })
@@ -133,15 +103,6 @@ export const CodeCliContentPanel: FC<CodeCliContentPanelProps> = ({
             }
           />
         )}
-
-        <BinaryInstallErrorDialog
-          error={
-            showInstallError && installError
-              ? { name: activeMeta.label, message: installError, action: 'install' }
-              : null
-          }
-          onOpenChange={(open) => !open && setShowInstallError(false)}
-        />
 
         {providerState.providerless ? (
           <div className="rounded-lg border border-border-subtle bg-accent/10 px-4 py-3 text-muted-foreground text-xs">

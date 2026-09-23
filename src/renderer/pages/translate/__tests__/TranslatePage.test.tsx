@@ -33,15 +33,13 @@ const ipcRequestMock = vi.hoisted(() => vi.fn())
 const ipcEventHandlers = vi.hoisted(() => new Map<string, (payload: unknown) => void>())
 const babeldocInstalledSnapshot: BinaryToolSnapshot = {
   name: 'babeldoc-stream',
-  availability: { source: 'mise', path: '/shims/babeldoc-stream' },
-  application: { status: 'applied', version: '0.6.4.post4' }
+  availability: { source: 'system', path: '/usr/bin/babeldoc-stream' }
 }
 const binaryMock = vi.hoisted(() => ({
   snapshots: {
     'babeldoc-stream': {
       name: 'babeldoc-stream',
-      availability: { source: 'mise', path: '/shims/babeldoc-stream' },
-      application: { status: 'applied', version: '0.6.4.post4' }
+      availability: { source: 'system', path: '/usr/bin/babeldoc-stream' }
     }
   } as Record<string, BinaryToolSnapshot>
 }))
@@ -435,14 +433,12 @@ vi.mock('../pdf/PdfTranslationView', () => {
     file: { name: string; path: string }
     modelId?: string
     sourceLangCode: string
-    babelDocAvailability: 'checking' | 'available' | 'missing' | 'outdated'
-    babelDocInstalling: boolean
+    babelDocAvailability: 'checking' | 'available' | 'missing'
     textFallback?: { content: React.ReactNode; ocrRequired: boolean }
     restoredOutput?: { outputPath: string; fileName: string } | null
     onClose: () => void
     onHandleChange: (handle: typeof pdfHandleMock | null) => void
     onStatusChange: (status: { phase: 'idle'; running: false }) => void
-    onInstallBabelDoc: () => void
   }) => {
     const { onHandleChange, onStatusChange } = props
     const [stateFilePath] = useState(props.file.path)
@@ -459,18 +455,6 @@ vi.mock('../pdf/PdfTranslationView', () => {
         data-state-file-path={stateFilePath}
         data-restored-output={props.restoredOutput?.outputPath}>
         <span data-testid="babeldoc-availability">{props.babelDocAvailability}</span>
-        {(props.babelDocAvailability === 'missing' || props.babelDocAvailability === 'outdated') &&
-          !props.textFallback && (
-            <button
-              type="button"
-              aria-label={
-                props.babelDocAvailability === 'outdated'
-                  ? 'translate.pdf.action.update_babeldoc'
-                  : 'translate.pdf.action.install_babeldoc'
-              }
-              onClick={props.onInstallBabelDoc}
-            />
-          )}
         {props.textFallback?.content}
         <button type="button" aria-label="translate.pdf.action.close" onClick={props.onClose} />
       </div>
@@ -522,7 +506,6 @@ describe('TranslatePage', () => {
     ipcRequestMock.mockImplementation((channel: string, payload?: unknown) => {
       if (channel === 'file_processing.start_job') return fileMock.startJob(payload)
       if (channel === 'binary.get_tool_snapshots') return Promise.resolve(binaryMock.snapshots)
-      if (channel === 'binary.install_tool') return Promise.resolve(undefined)
       return Promise.resolve(undefined)
     })
     fileMock.readExternal.mockResolvedValue('document content')
@@ -914,83 +897,6 @@ describe('TranslatePage', () => {
     await act(async () => resolveDetection('en-us'))
 
     expect(translateCoreMock.translateText).not.toHaveBeenCalled()
-  })
-
-  it('installs BabelDOC Stream from the PDF prompt without starting translation', async () => {
-    MockUsePreferenceUtils.setPreferenceValue('feature.translate.model_id', 'openai::gpt-4.1')
-    binaryMock.snapshots = {}
-    fileMock.getFileExtension.mockReturnValue('.pdf')
-    fileMock.onSelectFile.mockResolvedValue([{ name: 'input.pdf', path: '/tmp/input.pdf', size: 10, type: 'document' }])
-
-    render(<TranslatePage />)
-    fireEvent.click(screen.getByRole('button', { name: 'translate.files.upload' }))
-
-    await waitFor(() => expect(screen.getByTestId('babeldoc-availability')).toHaveTextContent('missing'))
-    fireEvent.click(screen.getByRole('button', { name: 'translate.pdf.action.install_babeldoc' }))
-
-    // Pinned even on a first install — `@latest` would resolve against whichever
-    // PyPI mirror answers and can land a build older than Cherry's parser needs.
-    await waitFor(() =>
-      expect(ipcRequestMock).toHaveBeenCalledWith('binary.install_tool', {
-        name: 'babeldoc-stream',
-        targetVersion: '0.6.4.post4'
-      })
-    )
-    await waitFor(() => expect(screen.getByTestId('babeldoc-availability')).toHaveTextContent('available'))
-    expect(pdfHandleMock.start).not.toHaveBeenCalled()
-  })
-
-  it('updates an outdated BabelDOC before layout-preserving translation', async () => {
-    MockUsePreferenceUtils.setPreferenceValue('feature.translate.model_id', 'openai::gpt-4.1')
-    binaryMock.snapshots = {
-      'babeldoc-stream': {
-        name: 'babeldoc-stream',
-        availability: { source: 'mise', path: '/shims/babeldoc-stream' },
-        application: { status: 'applied', version: '0.6.4.post1' }
-      }
-    }
-    fileMock.getFileExtension.mockReturnValue('.pdf')
-    fileMock.onSelectFile.mockResolvedValue([{ name: 'input.pdf', path: '/tmp/input.pdf', size: 10, type: 'document' }])
-
-    render(<TranslatePage />)
-    fireEvent.click(screen.getByRole('button', { name: 'translate.files.upload' }))
-
-    await waitFor(() => expect(screen.getByTestId('babeldoc-availability')).toHaveTextContent('outdated'))
-    fireEvent.click(screen.getByRole('button', { name: 'translate.pdf.action.update_babeldoc' }))
-
-    await waitFor(() =>
-      expect(ipcRequestMock).toHaveBeenCalledWith('binary.install_tool', {
-        name: 'babeldoc-stream',
-        targetVersion: '0.6.4.post4'
-      })
-    )
-  })
-
-  it('keeps text fallback available when inline BabelDOC installation fails', async () => {
-    const installError = new Error('install failed')
-    MockUsePreferenceUtils.setMultiplePreferenceValues({
-      'feature.translate.model_id': 'openai::gpt-4.1',
-      'feature.translate.page.source_language': 'en-us',
-      'feature.translate.page.target_language': 'zh-cn'
-    })
-    binaryMock.snapshots = {}
-    fileMock.getFileExtension.mockReturnValue('.pdf')
-    fileMock.onSelectFile.mockResolvedValue([{ name: 'input.pdf', path: '/tmp/input.pdf', size: 10, type: 'document' }])
-    ipcRequestMock.mockImplementation((channel: string) => {
-      if (channel === 'binary.get_tool_snapshots') return Promise.resolve(binaryMock.snapshots)
-      if (channel === 'binary.install_tool') return Promise.reject(installError)
-      return Promise.resolve(undefined)
-    })
-
-    render(<TranslatePage />)
-    fireEvent.click(screen.getByRole('button', { name: 'translate.files.upload' }))
-
-    await waitFor(() => expect(screen.getByTestId('babeldoc-availability')).toHaveTextContent('missing'))
-    fireEvent.click(screen.getByRole('button', { name: 'translate.pdf.action.install_babeldoc' }))
-
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('settings.dependencies.installError'))
-    expect(screen.getByTestId('babeldoc-availability')).toHaveTextContent('missing')
-    await waitFor(() => expect(screen.getByRole('button', { name: 'translate.button.translate' })).toBeEnabled())
   })
 
   it('reports OCR as required when text fallback extracts no content', async () => {

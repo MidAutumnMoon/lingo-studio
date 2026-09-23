@@ -1,11 +1,7 @@
 import type { LoggerService } from '@logger'
-import { getBinaryPath, isBinaryExists } from '@main/utils/binaryResolver'
 import { findCommandInShellEnv, findExecutableInEnv } from '@main/utils/commandResolver'
 
 type Runner = {
-  /** Bundled binary to fall back on when the command is missing from PATH; defaults to the command. */
-  bundled?: string
-  transformArgs?: (args: string[]) => string[]
   registryEnv?: (url: string) => Record<string, string>
   notFound: (command: string) => string
 }
@@ -13,26 +9,20 @@ type Runner = {
 const uvRunner: Runner = {
   registryEnv: (url) => ({ UV_DEFAULT_INDEX: url, PIP_INDEX_URL: url }),
   notFound: (command) =>
-    `${command} not found in PATH and bundled version is not available. This may indicate an installation issue.\n` +
+    `${command} not found in PATH.\n` +
     'Please either:\n' +
     '1. Install uv from https://github.com/astral-sh/uv\n' +
-    '2. Run the MCP dependencies installer from Settings\n' +
-    `3. Restart the application if you recently installed ${command}`
+    `2. Restart the application if you recently installed ${command}`
 }
 
 const RUNNERS: Record<string, Runner> = {
   npx: {
-    bundled: 'bun',
-    // `bun x -y <pkg>` is bun's npx equivalent. Prefix by position, not membership: a package
-    // argument that happens to be `x` or `-y` must not suppress it.
-    transformArgs: (args) => (args.length === 0 ? args : args[0] === '-y' ? ['x', ...args] : ['x', '-y', ...args]),
     registryEnv: (url) => ({ NPM_CONFIG_REGISTRY: url }),
     notFound: () =>
-      'npx not found in PATH and bundled bun is not available. This may indicate an installation issue.\n' +
+      'npx not found in PATH.\n' +
       'Please either:\n' +
       '1. Install Node.js (which includes npx) from https://nodejs.org\n' +
-      '2. Run the MCP dependencies installer from Settings\n' +
-      '3. Restart the application if you recently installed Node.js'
+      '2. Restart the application if you recently installed Node.js'
   },
   uvx: uvRunner,
   uv: uvRunner
@@ -43,7 +33,7 @@ export type LaunchCommand = {
   args: string[]
   /** Registry env the resolved package manager reads; merge into the transport env. */
   env: Record<string, string>
-  resolution: 'system' | 'bundled' | 'unresolved'
+  resolution: 'system' | 'unresolved'
   unavailableReason?: string
 }
 
@@ -51,9 +41,11 @@ type CommandResolution = Pick<LaunchCommand, 'command' | 'resolution' | 'unavail
 export type LaunchResolutionCache = Map<string, Promise<CommandResolution>>
 
 /**
- * Resolves what a stdio server is actually started with: the user's own `npx` / `uvx` / `uv`
- * when it is in PATH, otherwise the bundled binary. Any other command is best-effort resolved
- * to a full path so cross-spawn does not depend on a possibly incomplete PATH.
+ * Resolves what a stdio server is actually started with: the user's own `npx` /
+ * `uvx` / `uv` from PATH — this fork bundles no binaries, so an absent runner is
+ * a user-side install away, not a fallback away. Any other command is
+ * best-effort resolved to a full path so cross-spawn does not depend on a
+ * possibly incomplete PATH.
  */
 export async function resolveLaunchCommand({
   command,
@@ -88,17 +80,11 @@ export async function resolveLaunchCommand({
     signal?.throwIfAborted()
     if (systemPath) return { command: systemPath, resolution: 'system' }
     if (!runner) return { command: normalizedCommand, resolution: 'unresolved' }
-    const bundled = runner.bundled ?? normalizedCommand
-    if (!(await isBinaryExists(bundled))) {
-      return {
-        command: normalizedCommand,
-        resolution: 'unresolved',
-        unavailableReason: runner.notFound(normalizedCommand)
-      }
+    return {
+      command: normalizedCommand,
+      resolution: 'unresolved',
+      unavailableReason: runner.notFound(normalizedCommand)
     }
-    const command = await getBinaryPath(bundled)
-    signal?.throwIfAborted()
-    return { command, resolution: 'bundled' }
   }
   const key = JSON.stringify([normalizedCommand, Object.entries(loginShellEnv).sort(([a], [b]) => a.localeCompare(b))])
   let pending = resolutionCache?.get(key)
@@ -109,11 +95,7 @@ export async function resolveLaunchCommand({
   const resolution = await pending
   signal?.throwIfAborted()
   logger.debug('Resolved stdio launch command', { resolution: resolution.resolution })
-  return {
-    ...resolution,
-    args: resolution.resolution === 'bundled' ? (runner?.transformArgs?.(args) ?? args) : args,
-    env
-  }
+  return { ...resolution, args, env }
 }
 
 export function buildStdioEnvironment(

@@ -12,9 +12,10 @@ import { BaseService, Injectable, Phase, ServicePhase } from '@main/core/lifecyc
 import { isWin } from '@main/core/platform'
 import type { Model, Provider, ProviderType, VertexProvider } from '@main/data/migration/legacyTypes'
 import { t } from '@main/i18n'
+import { systemToolService } from '@main/services/SystemToolService'
 import { atomicWriteFile, remove } from '@main/utils/file'
 import { crossPlatformSpawn, removeEnvProxy } from '@main/utils/processRunner'
-import { getRawShellEnv, refreshShellEnv } from '@main/utils/shellEnv'
+import { getShellEnv } from '@main/utils/shellEnv'
 import type { EndpointType, Model as DataModel, UniqueModelId } from '@shared/data/types/model'
 import {
   CURRENCY,
@@ -492,12 +493,11 @@ export class OpenClawService extends BaseService {
 
   /** Resolve the same live executable path the management UI reports. */
   private async findOpenClawBinary(): Promise<Exclude<BinaryAvailability, { source: 'none' }> | null> {
-    const snapshot = (await application.get('BinaryManager').getToolSnapshots(['openclaw'])).openclaw
+    const snapshot = (await systemToolService.getToolSnapshots(['openclaw'])).openclaw
     return snapshot.availability.source === 'none' ? null : snapshot.availability
   }
 
   private async resolveOpenClawRuntime(): Promise<OpenClawRuntime> {
-    const managedShellEnv = await refreshShellEnv()
     const openclaw = await this.findOpenClawBinary()
     if (!openclaw) {
       throw new Error('OpenClaw binary not found. Please install OpenClaw first.')
@@ -505,7 +505,7 @@ export class OpenClawService extends BaseService {
 
     return {
       path: AbsoluteFilePathSchema.parse(openclaw.path),
-      env: openclaw.source === 'system' ? await getRawShellEnv() : managedShellEnv
+      env: await getShellEnv()
     }
   }
 
@@ -822,8 +822,8 @@ export class OpenClawService extends BaseService {
     const env = { ...shellEnv }
     removeEnvProxy(env)
     const proc = crossPlatformSpawn(openclawPath, args, {
-      // OpenClaw's own auto-updater would swap the binary underneath us, desyncing the
-      // version BinaryManager installed and reports. This is OpenClaw's documented kill
+      // OpenClaw's own auto-updater would swap the binary underneath the one we
+      // resolved and launched. This is OpenClaw's documented kill
       // switch, scoped to the gateway process we spawn.
       env: {
         ...env,
@@ -1431,7 +1431,7 @@ export class OpenClawService extends BaseService {
       config.gateway.auth = { token }
 
       // Silence OpenClaw's update banner. Its "Update now" button swaps the binary
-      // BinaryManager installed and version-tracks; the hint has no env kill switch
+      // underneath the running gateway; the hint has no env kill switch
       // (unlike OPENCLAW_NO_AUTO_UPDATE, which only blocks automatic applies).
       // Only defaulted, never forced: a user who sets checkOnStart themselves keeps it.
       if (config.update?.checkOnStart === undefined) {
