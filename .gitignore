@@ -91,6 +91,9 @@ vitest.config.*.timestamp-*
 playwright-report
 test-results
 
+# Nix / direnv
+.direnv/
+
 # Python bytecode. Skill scripts under resources/skills are run straight from the tree, and the
 # cache lands next to them — from there it ships into users' skill directories.
 __pycache__/
