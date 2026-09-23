@@ -116,6 +116,7 @@
 | [Preference System Overview](./references/data/preference-overview.md) | Preference architecture - generated key schema, SQLite ownership, BootConfig routing, renderer cache, and cross-window sync |
 | [Preference Schema Guide](./references/data/preference-schema-guide.md) | How to add Preference keys through the data-classify generator without editing generated schemas |
 | [Preference Usage Guide](./references/data/preference-usage.md) | Current usePreference, useMultiplePreferences, and direct PreferenceService APIs |
+| [SQLite Driver Selection](./references/data/sqlite-driver-selection.md) | Proposal and verification plan for replacing better-sqlite3 with the runtime-provided node:sqlite driver, including the dev-time ABI pain it would remove |
 | [Migration V2 (Main Process)](./references/data/v2-migration-guide.md) | One-shot v1-to-v2 migration engine - upgrade gate, migrator contracts, data source readers, status tracking |
 
 ### Diagnostics

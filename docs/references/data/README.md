@@ -29,6 +29,7 @@ This is the main entry point for Cherry Studio's data management documentation. 
 - [API Design Guidelines](./api-design-guidelines.md) - RESTful design rules
 - [Database Patterns](./database-patterns.md) - DB naming, schema patterns, [Write Serialization (`withWriteTx`)](./database-patterns.md#write-serialization-dbservicewithwritetx) — the conventional wrapper for multi-statement / read-then-write atomicity (a direct `db.transaction()` is equivalent; single autocommit writes need neither), running as one synchronous `BEGIN IMMEDIATE` transaction on the one better-sqlite3 connection
 - [Database Construction](./database-construction.md) - Boot build order, drizzle migrations, CUSTOM_SQL_STATEMENTS replay, FTS5/`fts_rowid`, additive-vs-rebuild
+- [SQLite Driver Selection](./sqlite-driver-selection.md) - **Proposal (not implemented)**: replacing better-sqlite3 with the runtime-provided `node:sqlite` — the dev-time ABI flip between the app and the test runner, what to verify first, and the expected net gain
 - [API Types](./api-types.md) - API type system, schemas, error handling
 - [Cache Schema Guide](./cache-schema-guide.md) - Adding new cache keys (fixed and template)
 - [Preference Schema Guide](./preference-schema-guide.md) - Adding new preference keys
