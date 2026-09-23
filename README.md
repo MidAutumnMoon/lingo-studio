@@ -1,4 +1,6 @@
 
+> **Fork notice:** This repository is a personal fork of [Cherry Studio](https://github.com/CherryHQ/cherry-studio) that intentionally makes incompatible changes. It is not affiliated with the upstream project — for the official Cherry Studio, see the [upstream repository](https://github.com/CherryHQ/cherry-studio).
+
 <h1 align="center">
   <a href="https://github.com/CherryHQ/cherry-studio/releases">
     <img src="https://github.com/CherryHQ/cherry-studio/blob/main/build/icon.png?raw=true" width="150" height="150" alt="banner" /><br>

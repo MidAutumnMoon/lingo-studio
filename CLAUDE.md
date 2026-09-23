@@ -1,3 +1,11 @@
+## Fork Notice
+
+This repository is a personal fork of [CherryHQ/cherry-studio](https://github.com/CherryHQ/cherry-studio) and intentionally makes incompatible changes to suit its owner. Consequences:
+
+- Divergence from upstream is deliberate — do not "fix" code, structure, or conventions back to match upstream.
+- References to the upstream project (GitHub links, workflows, community channels) may not apply here.
+- The rest of this file still governs work in this repo unless overridden by `CLAUDE.local.md` or the owner.
+
 ## Guiding Principles (MUST FOLLOW)
 
 ### Mindset
