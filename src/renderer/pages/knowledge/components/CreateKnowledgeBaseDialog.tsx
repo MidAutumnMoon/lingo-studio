@@ -28,7 +28,7 @@ import {
   KnowledgeDialogFooter,
   KnowledgeDialogHeader
 } from './KnowledgeDialogLayout'
-import { KnowledgeEmbeddingModelSelect } from './KnowledgeEmbeddingModelSelect'
+import { isEmbeddingModel, KnowledgeModelSelect } from './KnowledgeModelSelect'
 
 interface CreateKnowledgeBaseDialogProps {
   open: boolean
@@ -206,11 +206,12 @@ const CreateKnowledgeBaseDialogRoot = ({
 
             <KnowledgeDialogField>
               <Label>{t('knowledge.embedding_model')}</Label>
-              <KnowledgeEmbeddingModelSelect
+              <KnowledgeModelSelect
                 aria-label={t('knowledge.embedding_model')}
                 value={values.embeddingModelId}
                 placeholder={t('knowledge.rag.rerank_disabled')}
                 noneOptionLabel={t('knowledge.rag.rerank_disabled')}
+                filter={isEmbeddingModel}
                 onSettingsNavigate={handleSettingsNavigate}
                 onChange={handleEmbeddingModelChange}
               />

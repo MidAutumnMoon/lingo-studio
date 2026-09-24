@@ -4,7 +4,6 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { toast } from '@renderer/services/toast'
-import { LOCAL_EMBEDDING_UNIQUE_MODEL_ID } from '@shared/data/presets/localEmbedding'
 import type { KnowledgeBase } from '@shared/data/types/knowledge'
 
 import RagConfigPanel from '../RagConfigPanel'
@@ -14,11 +13,9 @@ const mockSave = vi.fn()
 const mockEnableEmbedding = vi.fn()
 // embedMany goes through ipcApi.request('ai.embedding.embed_many', …) now (Main IPC).
 const { mockEmbedMany } = vi.hoisted(() => ({ mockEmbedMany: vi.fn() }))
-// FileProcessingSection probes the local OCR model and Open MinerU's host on mount;
-// answering both here keeps those calls out of the embedMany spy the embedding
-// assertions read.
+// FileProcessingSection probes Open MinerU's host on mount; answering it here
+// keeps that call out of the embedMany spy the embedding assertions read.
 const FILE_PROCESSING_PROBES: Record<string, unknown> = {
-  'local_model.get_status': { status: 'ready' },
   'file_processing.open_mineru.check_connectivity': true
 }
 vi.mock('@renderer/ipc', () => ({
@@ -200,6 +197,7 @@ vi.mock('../../../hooks/useEmbeddingDimensions', () => ({
 }))
 
 vi.mock('../../../components/KnowledgeModelSelect', () => ({
+  isEmbeddingModel: () => true,
   isRerankModel: () => true,
   KnowledgeModelSelect: ({
     value,
@@ -221,39 +219,11 @@ vi.mock('../../../components/KnowledgeModelSelect', () => ({
         value={value ?? ''}
         onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
       />
-      {noneOptionLabel ? (
-        <button type="button" onClick={() => onChange(null)}>
-          {noneOptionLabel}
+      {ariaLabel === '嵌入模型' ? (
+        <button type="button" onClick={() => onChange('openai::text-embedding-3-small')}>
+          select-embedding
         </button>
       ) : null}
-    </div>
-  )
-}))
-
-vi.mock('../../../components/KnowledgeEmbeddingModelSelect', () => ({
-  KnowledgeEmbeddingModelSelect: ({
-    value,
-    placeholder,
-    noneOptionLabel,
-    onChange,
-    'aria-label': ariaLabel
-  }: {
-    value: string | null
-    placeholder: string
-    noneOptionLabel?: string
-    onChange: (modelId: string | null) => void
-    'aria-label'?: string
-  }) => (
-    <div>
-      <span>{value ?? placeholder}</span>
-      <input
-        aria-label={ariaLabel ?? placeholder}
-        value={value ?? ''}
-        onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
-      />
-      <button type="button" onClick={() => onChange('local-embedding::qwen3-embedding-0.6b')}>
-        select-local-embedding
-      </button>
       {noneOptionLabel ? (
         <button type="button" onClick={() => onChange(null)}>
           {noneOptionLabel}
@@ -701,15 +671,15 @@ describe('RagConfigPanel', () => {
 
     renderRagConfigPanel(onRestoreBase, { embeddingModelId: null, dimensions: null }, 0)
 
-    fireEvent.click(screen.getByRole('button', { name: 'select-local-embedding' }))
+    fireEvent.click(screen.getByRole('button', { name: 'select-embedding' }))
     expect(mockSave).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
     await waitFor(() => {
       expect(mockSave).toHaveBeenCalledWith(
-        expect.objectContaining({ embeddingModelId: LOCAL_EMBEDDING_UNIQUE_MODEL_ID }),
-        { embeddingModelId: LOCAL_EMBEDDING_UNIQUE_MODEL_ID, dimensions: 2048 }
+        expect.objectContaining({ embeddingModelId: 'openai::text-embedding-3-small' }),
+        { embeddingModelId: 'openai::text-embedding-3-small', dimensions: 2048 }
       )
     })
     expect(onRestoreBase).not.toHaveBeenCalled()
@@ -738,7 +708,7 @@ describe('RagConfigPanel', () => {
 
     renderRagConfigPanel(onRestoreBase, { embeddingModelId: null, dimensions: null }, 5)
 
-    fireEvent.click(screen.getByRole('button', { name: 'select-local-embedding' }))
+    fireEvent.click(screen.getByRole('button', { name: 'select-embedding' }))
     expect(mockEnableEmbedding).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
@@ -746,7 +716,7 @@ describe('RagConfigPanel', () => {
     await waitFor(() => {
       expect(mockEnableEmbedding).toHaveBeenCalledWith(
         'base-1',
-        expect.objectContaining({ embeddingModelId: LOCAL_EMBEDDING_UNIQUE_MODEL_ID, dimensions: 2048 })
+        expect.objectContaining({ embeddingModelId: 'openai::text-embedding-3-small', dimensions: 2048 })
       )
     })
     expect(mockSave).not.toHaveBeenCalled()

@@ -22,8 +22,8 @@ vi.mock('@renderer/components/ModelSelector', () => ({
     return (
       <div>
         {props.trigger}
-        <button type="button" onClick={() => props.onSelect('local-embedding::qwen3-embedding-0.6b')}>
-          select-local-model
+        <button type="button" onClick={() => props.onSelect('openai::text-embedding-3-small')}>
+          select-model
         </button>
       </div>
     )
@@ -67,22 +67,22 @@ describe('KnowledgeModelSelect', () => {
   })
 
   it('uses the registered model name and reports normal model selection through onChange', () => {
-    mockModels.value = [makeModel('local-embedding::qwen3-embedding-0.6b', 'Qwen3 Embedding 0.6B')]
+    mockModels.value = [makeModel('openai::text-embedding-3-small', 'Text Embedding 3 Small')]
     const onChange = vi.fn()
 
     render(
       <KnowledgeModelSelect
         aria-label="embedding-model"
-        value="local-embedding::qwen3-embedding-0.6b"
+        value="openai::text-embedding-3-small"
         placeholder="not-set"
         filter={() => true}
         onChange={onChange}
       />
     )
 
-    expect(screen.getByText('Qwen3 Embedding 0.6B')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'select-local-model' }))
-    expect(onChange).toHaveBeenCalledWith('local-embedding::qwen3-embedding-0.6b')
+    expect(screen.getByText('Text Embedding 3 Small')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'select-model' }))
+    expect(onChange).toHaveBeenCalledWith('openai::text-embedding-3-small')
   })
 
   it('combines capability and non-Agent visibility rules and renders no external clear button', () => {

@@ -1,6 +1,5 @@
 import type { AiUsageRecordListSortBy, AiUsageRecordSortOrder } from '@shared/data/api/schemas/aiUsageRecords'
 import type { JobProgress, JobSnapshot } from '@shared/data/api/schemas/jobs'
-import type { LocalModelStatusSnapshots } from '@shared/data/presets/localModel'
 import type { ChannelStatus } from '@shared/data/types/channel'
 import type { MiniAppRegion, TransientMiniApp } from '@shared/data/types/miniApp'
 import type { Currency } from '@shared/data/types/model'
@@ -314,8 +313,6 @@ export type SharedCacheSchema = {
   // API gateway  runtime running state.
   'feature.api_gateway.running': boolean
   'feature.api_gateway.lan_running': boolean
-  // Main-owned, session-only local model status and download progress.
-  'local_model.statuses': LocalModelStatusSnapshots
   // API key rotation state (cross-window, tracks last used key per provider)
   'web_search.provider.last_used_key.${providerId}': string
   'ocr.provider.last_used_key.${providerId}': string
@@ -375,7 +372,6 @@ export const DefaultSharedCache: SharedCacheSchema = {
   'feature.hermes_dashboard.status': { status: 'stopped' },
   'feature.api_gateway.running': false,
   'feature.api_gateway.lan_running': false,
-  'local_model.statuses': {},
   'web_search.provider.last_used_key.${providerId}': '',
   'ocr.provider.last_used_key.${providerId}': '',
   // Template defaults are placeholders never consumed at runtime — concrete

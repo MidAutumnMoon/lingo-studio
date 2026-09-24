@@ -177,7 +177,6 @@ src/main/ai/
 ├── mcp/                          ← McpRuntimeService / McpCatalogService, oauth, built-in servers
 ├── skills/                       ← SkillService, SkillInstaller
 ├── contextBuild/                 ← context policy, compression, persisted tool outputs
-├── inference/                    ← local embedding/OCR inference
 ├── tokens/                       ← token estimators and modality profiles
 ├── tools/                        ← AI SDK registry and runtime-specific adapters
 ├── observability/                ← AI trace adapters, local projection, sinks

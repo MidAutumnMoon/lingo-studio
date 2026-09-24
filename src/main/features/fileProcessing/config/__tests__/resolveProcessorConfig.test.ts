@@ -1,19 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { isSupportedSystemMock, isLocalModelReadyMock } = vi.hoisted(() => ({
-  isSupportedSystemMock: vi.fn(() => true),
-  isLocalModelReadyMock: vi.fn(() => true)
+const { isSupportedSystemMock } = vi.hoisted(() => ({
+  isSupportedSystemMock: vi.fn(() => true)
 }))
 
 vi.mock('@application', async () => {
   const { mockApplicationFactory } = await import('@test-mocks/main/application')
-  const result = mockApplicationFactory()
-  const originalGet = result.application.get.getMockImplementation()!
-  result.application.get.mockImplementation((name: string) => {
-    if (name === 'LocalModelService') return { isCapabilityReady: isLocalModelReadyMock }
-    return originalGet(name)
-  })
-  return result
+  return mockApplicationFactory()
 })
 
 vi.mock('../../processors/registry', () => ({
@@ -21,8 +14,6 @@ vi.mock('../../processors/registry', () => ({
     tesseract: { isSupported: () => true },
     system: { isSupported: isSupportedSystemMock },
     paddleocr: { isSupported: () => true },
-    'local-paddleocr': { isSupported: () => true },
-    'local-document': { isSupported: () => true },
     ovocr: { isSupported: () => true },
     mineru: { isSupported: () => true },
     doc2x: { isSupported: () => true },
@@ -50,7 +41,6 @@ describe('resolveProcessorConfig', () => {
     vi.clearAllMocks()
     MockMainPreferenceServiceUtils.resetMocks()
     isSupportedSystemMock.mockReturnValue(true)
-    isLocalModelReadyMock.mockReturnValue(true)
     resolveDefaultImageToTextProcessorMock.mockReturnValue('tesseract')
   })
 
@@ -179,32 +169,5 @@ describe('resolveProcessorConfig', () => {
     expect(() => resolveProcessorConfigByFeature('image_to_text')).toThrowError(
       'File processor system is not available on this platform'
     )
-  })
-
-  // A missing model is fixable in one click; a missing platform API never is.
-  // The two must not share a message — the platform wording sent users hunting
-  // for an OS problem when all they had to do was download the model.
-  it('distinguishes a missing local model from an unsupported platform', () => {
-    isLocalModelReadyMock.mockReturnValue(false)
-
-    expect(() => resolveProcessorConfigByFeature('document_to_markdown', 'local-document')).toThrowError(
-      'File processor local-document needs the local ocr model to be downloaded first'
-    )
-    expect(isLocalModelReadyMock).toHaveBeenCalledWith('ocr')
-  })
-
-  it('accepts a local model processor once its model is ready', () => {
-    expect(resolveProcessorConfigByFeature('document_to_markdown', 'local-document')).toEqual(
-      expect.objectContaining({ id: 'local-document' })
-    )
-  })
-
-  it('does not probe a local model for processors that need none', () => {
-    isLocalModelReadyMock.mockReturnValue(false)
-
-    expect(resolveProcessorConfigByFeature('document_to_markdown', 'paddleocr')).toEqual(
-      expect.objectContaining({ id: 'paddleocr' })
-    )
-    expect(isLocalModelReadyMock).not.toHaveBeenCalled()
   })
 })

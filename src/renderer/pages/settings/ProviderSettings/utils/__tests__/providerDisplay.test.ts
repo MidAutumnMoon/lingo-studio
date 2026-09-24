@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { LOCAL_EMBEDDING_PROVIDER_ID } from '@shared/data/presets/localEmbedding'
 import type { Provider } from '@shared/data/types/provider'
 
 // Stub imported i18n and provider helpers so these tests stay focused on provider eligibility.
@@ -30,10 +29,6 @@ const presetSource = (overrides: Partial<Provider> = {}): Provider =>
   }) as Provider
 
 describe('isProviderSettingsListVisibleProvider', () => {
-  it('hides the internal local-embedding provider from the management list', () => {
-    expect(isProviderSettingsListVisibleProvider(provider(LOCAL_EMBEDDING_PROVIDER_ID))).toBe(false)
-  })
-
   it('hides the CherryAI provider', () => {
     expect(isProviderSettingsListVisibleProvider(provider('cherryai'))).toBe(false)
   })

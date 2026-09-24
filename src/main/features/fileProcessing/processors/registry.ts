@@ -1,4 +1,4 @@
-import { isDarwinX64, isMac, isWin, isWinArm64 } from '@main/core/platform'
+import { isMac, isWin } from '@main/core/platform'
 import type { FileProcessorFeature } from '@shared/data/preference/preferenceTypes'
 
 import { isOvOcrAvailable } from './ovocr/utils'
@@ -48,33 +48,6 @@ export const processorRegistry = {
       document_to_markdown: lazyHandler('remote-poll', async () =>
         import('./paddleocr/documentToMarkdown/handler').then(
           ({ paddleDocumentToMarkdownHandler }) => paddleDocumentToMarkdownHandler
-        )
-      )
-    }
-  },
-  'local-paddleocr': {
-    runtime: 'local',
-    // Intel Mac ships no onnxruntime-node binding, so the model can never run
-    // there. Whether it is *downloaded* is a separate, user-fixable question the
-    // UI must keep offering — see FILE_PROCESSOR_LOCAL_MODEL.
-    isSupported: () => !isDarwinX64,
-    capabilities: {
-      image_to_text: lazyHandler('background', async () =>
-        import('./localPaddleocr/imageToText/handler').then(
-          ({ localPaddleocrImageToTextHandler }) => localPaddleocrImageToTextHandler
-        )
-      )
-    }
-  },
-  'local-document': {
-    runtime: 'local',
-    // Scanned PDFs need the local OCR model, while text PDFs need anydoc. The
-    // latter ships no Windows ARM64 binding or wasm fallback.
-    isSupported: () => !isDarwinX64 && !isWinArm64,
-    capabilities: {
-      document_to_markdown: lazyHandler('background', async () =>
-        import('./localDocument/documentToMarkdown/handler').then(
-          ({ localDocumentToMarkdownHandler }) => localDocumentToMarkdownHandler
         )
       )
     }

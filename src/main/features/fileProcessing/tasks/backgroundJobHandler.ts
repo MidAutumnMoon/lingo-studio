@@ -55,8 +55,7 @@ export const backgroundJobHandler: JobHandler<FileProcessingJobPayload> = {
 /**
  * Background processors whose work happens on this machine. One at a time: the
  * runtimes behind them are already serialized — tesseract's extraction queue,
- * and the single OcrInferenceService worker that both local-paddleocr and
- * local-document share — so a second concurrent job gains nothing. It would
+ * the system OCR session — so a second concurrent job gains nothing. It would
  * only interleave inside that runtime, stretching both jobs while both of their
  * timeout clocks keep running.
  */

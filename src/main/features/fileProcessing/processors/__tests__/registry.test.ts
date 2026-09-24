@@ -7,8 +7,6 @@ type Platform = {
   isLinux: boolean
   isMac: boolean
   isWin: boolean
-  isDarwinX64?: boolean
-  isWinArm64?: boolean
 }
 
 async function importRegistryWithPlatform(platform: Platform) {
@@ -16,9 +14,7 @@ async function importRegistryWithPlatform(platform: Platform) {
   vi.doMock('@main/core/platform', () => ({
     isLinux: platform.isLinux,
     isMac: platform.isMac,
-    isWin: platform.isWin,
-    isDarwinX64: platform.isDarwinX64 ?? false,
-    isWinArm64: platform.isWinArm64 ?? false
+    isWin: platform.isWin
   }))
 
   const { processorRegistry } = await import('../registry')
@@ -66,38 +62,5 @@ describe('processorRegistry', () => {
     const processorRegistry = await importRegistryWithPlatform({ isLinux, isMac, isWin })
 
     expect(processorRegistry.system.isSupported()).toBe(expected)
-  })
-
-  // isSupported must answer "could this machine ever run it", never "is the model
-  // downloaded" — conflating the two is what hid local-paddleocr from the OCR
-  // settings page, the only place offering the download that would unhide it.
-  it.each([
-    { isDarwinX64: false, expected: true },
-    { isDarwinX64: true, expected: false }
-  ])(
-    'gates the local model processors on platform only (isDarwinX64=$isDarwinX64)',
-    async ({ isDarwinX64, expected }) => {
-      const processorRegistry = await importRegistryWithPlatform({
-        isLinux: false,
-        isMac: true,
-        isWin: false,
-        isDarwinX64
-      })
-
-      expect(processorRegistry['local-paddleocr'].isSupported()).toBe(expected)
-      expect(processorRegistry['local-document'].isSupported()).toBe(expected)
-    }
-  )
-
-  it('keeps local PaddleOCR available but excludes local document processing on Windows ARM64', async () => {
-    const processorRegistry = await importRegistryWithPlatform({
-      isLinux: false,
-      isMac: false,
-      isWin: true,
-      isWinArm64: true
-    })
-
-    expect(processorRegistry['local-paddleocr'].isSupported()).toBe(true)
-    expect(processorRegistry['local-document'].isSupported()).toBe(false)
   })
 })

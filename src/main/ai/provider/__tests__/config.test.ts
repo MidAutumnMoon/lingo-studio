@@ -11,11 +11,6 @@ import {
   CHERRYAI_DEFAULT_UNIQUE_MODEL_ID,
   CHERRYAI_PROVIDER_ID
 } from '@shared/data/presets/cherryai'
-import {
-  LOCAL_EMBEDDING_MODEL_ID,
-  LOCAL_EMBEDDING_PROVIDER_ID,
-  LOCAL_EMBEDDING_UNIQUE_MODEL_ID
-} from '@shared/data/presets/localEmbedding'
 import { ENDPOINT_TYPE, MODEL_CAPABILITY } from '@shared/data/types/model'
 import type { AuthConfig } from '@shared/data/types/provider'
 
@@ -1070,39 +1065,6 @@ describe('providerToAiSdkConfig — builder dispatch matrix', () => {
           })
         })
       )
-    })
-  })
-
-  describe('Local embedding routing (in-process provider, no endpoint/baseURL/apiKey)', () => {
-    it('routes the local embedding provider to its own provider id instead of the openai-compatible fallback (REGRESSION)', async () => {
-      // The local embedding provider has no endpoint config, so resolveAiSdkProviderId
-      // returns 'openai-compatible'. Without the dedicated dispatch row it would fall
-      // through to buildOpenAICompatibleConfig, which hands ai-core an empty baseURL and
-      // throws "Invalid URL". The id-based row must win and produce empty providerSettings.
-      const provider = makeProvider({
-        id: LOCAL_EMBEDDING_PROVIDER_ID,
-        presetProviderId: LOCAL_EMBEDDING_PROVIDER_ID,
-        // Mirrors the registered row: in-process runtime, no endpoints.
-        endpointConfigs: {}
-      })
-      const model = makeModel({
-        id: LOCAL_EMBEDDING_UNIQUE_MODEL_ID,
-        providerId: LOCAL_EMBEDDING_PROVIDER_ID,
-        apiModelId: LOCAL_EMBEDDING_MODEL_ID,
-        capabilities: [MODEL_CAPABILITY.EMBEDDING]
-      })
-
-      const config = await providerToAiSdkConfig(provider, model)
-      const settings = config.providerSettings as Record<string, unknown>
-
-      expect(config.providerId).toBe(LOCAL_EMBEDDING_PROVIDER_ID)
-      // The local builder returns empty providerSettings: no baseURL/apiKey leak from the
-      // openai-compatible builder, and no unused provider key is selected.
-      expect(settings.baseURL).toBeUndefined()
-      expect(settings.apiKey).toBeUndefined()
-      expect(resolveApiKeyMock).not.toHaveBeenCalled()
-      // Still defaulted to the proxy-aware fetch by the shared tail of providerToAiSdkConfig.
-      expect(settings.fetch).toBe(customFetch)
     })
   })
 

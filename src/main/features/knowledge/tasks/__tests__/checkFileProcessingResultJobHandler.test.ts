@@ -239,7 +239,7 @@ describe('check-file-processing-result job handler', () => {
           file: { kind: 'path', path: '/mock/feature.knowledgebase.data/kb-1/raw/source.pdf' },
           output: { kind: 'path', path: '/mock/feature.knowledgebase.data/kb-1/raw/source.md' },
           context: { dataId: FILE_ITEM_ID },
-          processorId: 'local-document'
+          processorId: 'tesseract'
         },
         output: {
           artifact: { kind: 'file', format: 'markdown', path: '/mock/feature.knowledgebase.data/kb-1/raw/source.md' }

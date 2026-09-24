@@ -133,7 +133,6 @@ const miniAppThemeAssetPlugin = (): Plugin => ({
   }
 })
 
-/** Shared with the utility-process entries build, which must resolve identically. */
 export const mainResolveAlias = {
   '@main': resolve('src/main'),
   '@application': resolve('src/main/core/application/Application'),

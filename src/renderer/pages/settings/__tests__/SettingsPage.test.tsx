@@ -80,7 +80,6 @@ vi.mock('react-i18next', () => ({
         'settings.appearance.title': '外观',
         'settings.channels.title': '频道',
         'settings.dependencies.title': '环境依赖',
-        'settings.dependencies.localModels.title': '本地模型',
         'settings.general.common.title': zhCN['settings.general.common.title'],
         'settings.menuGroups.automation': '效率',
         'settings.menuGroups.capabilities': '工具',
@@ -146,7 +145,7 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('button', { name: 'settings.search.placeholder' })).toBeInTheDocument()
   })
 
-  it('places General directly above Appearance and local models directly below the default model', () => {
+  it('places General directly above Appearance in the settings menu', () => {
     const { container } = render(<SettingsPage />)
 
     expect(container.querySelector('[data-ui="settings.view"]')).toBeInTheDocument()
@@ -156,15 +155,10 @@ describe('SettingsPage', () => {
 
     const generalItem = screen.getByRole('button', { name: '通用' })
     const appearanceItem = screen.getByRole('button', { name: '外观' })
-    const defaultModelItem = screen.getByRole('button', { name: '默认模型' })
-    const localModelsItem = screen.getByRole('button', { name: '本地模型' })
 
     expect(generalItem.nextElementSibling).toBe(appearanceItem)
-    expect(defaultModelItem.nextElementSibling).toBe(localModelsItem)
     fireEvent.click(generalItem)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/general' })
-    fireEvent.click(localModelsItem)
-    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/local-models' })
   })
 
   it('exposes device connections as its own settings destination without developer mode', () => {

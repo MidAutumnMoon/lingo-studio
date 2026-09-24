@@ -65,10 +65,7 @@ describe('dataReset ↔ pathRegistry conformance', () => {
     expect(USER_DATA_WIPE).toContain('Local Storage.restore')
   })
 
-  it('USER_DATA_KEPT shields the model/toolchain trees the registry places under userData', () => {
-    expect(USER_DATA_KEPT).toContain(firstSegment(registry['feature.embedding.models'], userData))
-    expect(USER_DATA_KEPT).toContain(firstSegment(registry['feature.ocr.paddleocr'], userData))
-    expect(USER_DATA_KEPT).toContain(firstSegment(registry['feature.onnxruntime.binary'], userData))
+  it('USER_DATA_KEPT shields the runtime trees the registry places under userData', () => {
     expect(USER_DATA_KEPT).toContain(firstSegment(registry['feature.ocr.tesseract'], userData))
   })
 

@@ -37,7 +37,6 @@ vi.mock('@renderer/i18n/label', () => ({
   getFileProcessorLabelKey: (id: string) =>
     (
       ({
-        'local-document': 'Local Document',
         paddleocr: 'PaddleOCR',
         mineru: 'MinerU',
         doc2x: 'Doc2X',
@@ -96,7 +95,7 @@ describe('useKnowledgeRagConfig', () => {
       }
     ])
     mockUseAvailableFileProcessors.mockReturnValue({
-      processorIds: new Set(['paddleocr', 'local-document', 'mineru', 'doc2x', 'mistral', 'open-mineru']),
+      processorIds: new Set(['paddleocr', 'mineru', 'doc2x', 'mistral', 'open-mineru']),
       status: 'ready'
     })
   })
@@ -111,12 +110,6 @@ describe('useKnowledgeRagConfig', () => {
     // `statusLabel` is what the row shows on the right; it must track `disabled`
     // so an unconfigured processor says why rather than looking merely greyed out.
     expect(result.current.fileProcessorOptions).toEqual([
-      {
-        value: 'local-document',
-        label: 'Local Document',
-        disabled: false,
-        statusLabel: undefined
-      },
       { value: 'paddleocr', label: 'PaddleOCR', disabled: false, statusLabel: undefined },
       { value: 'mineru', label: 'MinerU', disabled: true, statusLabel: 'knowledge.rag.processor_not_configured' },
       { value: 'doc2x', label: 'Doc2X', disabled: true, statusLabel: 'knowledge.rag.processor_not_configured' },
@@ -182,9 +175,7 @@ describe('useKnowledgeRagConfig', () => {
       status: 'ready'
     })
 
-    const { result } = renderHook(() =>
-      useKnowledgeRagConfig(createKnowledgeBase({ fileProcessorId: 'local-document' }))
-    )
+    const { result } = renderHook(() => useKnowledgeRagConfig(createKnowledgeBase({ fileProcessorId: 'doc2x' })))
 
     expect(result.current.fileProcessorOptions.map((option) => option.value)).toEqual(['paddleocr', 'mineru'])
   })
@@ -194,14 +185,12 @@ describe('useKnowledgeRagConfig', () => {
     (status) => {
       mockUseAvailableFileProcessors.mockReturnValue({ processorIds: new Set(), status })
 
-      const { result } = renderHook(() =>
-        useKnowledgeRagConfig(createKnowledgeBase({ fileProcessorId: 'local-document' }))
-      )
+      const { result } = renderHook(() => useKnowledgeRagConfig(createKnowledgeBase({ fileProcessorId: 'paddleocr' })))
 
       expect(result.current.fileProcessorOptions).toEqual([
         {
-          value: 'local-document',
-          label: 'Local Document',
+          value: 'paddleocr',
+          label: 'PaddleOCR',
           disabled: true,
           statusLabel: undefined
         }

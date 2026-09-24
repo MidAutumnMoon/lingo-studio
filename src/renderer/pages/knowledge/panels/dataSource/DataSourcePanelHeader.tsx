@@ -1,4 +1,4 @@
-import { Plus, RefreshCw, Settings2, Trash2 } from 'lucide-react'
+import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -21,10 +21,6 @@ interface DataSourcePanelHeaderProps {
   /** Adding is only meaningful at the base root; a drilled-in directory mirrors a read-only
    *  filesystem folder, so the entry is hidden there to avoid "add" silently landing at the root. */
   canAddSource?: boolean
-  localModelStatus?: {
-    label: string
-    onOpenSettings?: () => void
-  }
 }
 
 const DataSourcePanelHeader = ({
@@ -35,8 +31,7 @@ const DataSourcePanelHeader = ({
   onBulkReindex,
   onBulkDelete,
   onAdd,
-  canAddSource = true,
-  localModelStatus
+  canAddSource = true
 }: DataSourcePanelHeaderProps) => {
   const { t, i18n } = useTranslation()
   const [isSourceMenuOpen, setIsSourceMenuOpen] = useState(false)
@@ -84,27 +79,7 @@ const DataSourcePanelHeader = ({
         {t('knowledge.meta.updated_at', { time: formatRelativeTime(updatedAt, i18n.language) })}
       </span>
       <div className="flex shrink-0 items-center gap-2">
-        {localModelStatus ? (
-          <>
-            <span
-              role="status"
-              className="max-w-52 truncate text-xs text-muted-foreground"
-              title={localModelStatus.label}>
-              {localModelStatus.label}
-            </span>
-            {localModelStatus.onOpenSettings ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 min-h-0 gap-1 rounded-md bg-transparent px-2 py-1 text-xs leading-4 font-medium text-muted-foreground shadow-none hover:bg-accent hover:text-foreground"
-                onClick={localModelStatus.onOpenSettings}>
-                <Settings2 className="size-3" />
-                {t('common.go_to_settings')}
-              </Button>
-            ) : null}
-          </>
-        ) : canAddSource ? (
+        {canAddSource ? (
           <Popover open={isSourceMenuOpen} onOpenChange={setIsSourceMenuOpen}>
             <PopoverTrigger asChild>
               <Button

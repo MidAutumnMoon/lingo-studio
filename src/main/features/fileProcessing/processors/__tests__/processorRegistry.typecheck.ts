@@ -36,11 +36,6 @@ const validRegistry = {
     isSupported: () => true,
     capabilities: {}
   },
-  'local-paddleocr': {
-    runtime: 'local',
-    isSupported: () => true,
-    capabilities: {}
-  },
   ovocr: {
     runtime: 'local',
     isSupported: () => true,
@@ -80,11 +75,6 @@ const validRegistry = {
   },
   mistral: {
     runtime: 'remote',
-    isSupported: () => true,
-    capabilities: {}
-  },
-  'local-document': {
-    runtime: 'local',
     isSupported: () => true,
     capabilities: {}
   },

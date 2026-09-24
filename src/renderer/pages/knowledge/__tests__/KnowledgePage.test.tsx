@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { toast } from '@renderer/services/toast'
 import type { KnowledgeBaseListItem } from '@shared/data/api/schemas/knowledges'
-import { LOCAL_EMBEDDING_UNIQUE_MODEL_ID } from '@shared/data/presets/localEmbedding'
 import type { Group } from '@shared/data/types/group'
 import type {
   KnowledgeBase,
@@ -255,7 +254,6 @@ vi.mock('../components/DetailHeader', () => ({
 
 vi.mock('../panels/dataSource/DataSourcePanel', () => ({
   default: ({
-    embeddingModelId,
     items,
     isLoading,
     onAdd,
@@ -269,7 +267,6 @@ vi.mock('../panels/dataSource/DataSourcePanel', () => ({
     onReindex,
     onReindexItems
   }: {
-    embeddingModelId?: string | null
     items: KnowledgeItem[]
     isLoading: boolean
     onAdd: () => void
@@ -283,7 +280,7 @@ vi.mock('../panels/dataSource/DataSourcePanel', () => ({
     onReindex: (item: { id: string }) => void | Promise<void>
     onReindexItems: (itemIds: string[]) => void | Promise<void>
   }) => {
-    mockDataSourcePanelRender({ embeddingModelId, onPreviewFile })
+    mockDataSourcePanelRender({ items, onPreviewFile })
 
     return (
       <div>
@@ -847,7 +844,7 @@ describe('KnowledgePage', () => {
         createKnowledgeBase({
           id: 'base-1',
           name: 'Base 1',
-          embeddingModelId: LOCAL_EMBEDDING_UNIQUE_MODEL_ID
+          embeddingModelId: 'openai::text-embedding-3-small'
         }),
         createKnowledgeBase({ id: 'base-2', name: 'Base 2' })
       ],
@@ -874,9 +871,7 @@ describe('KnowledgePage', () => {
     expect(screen.getByTestId('group-names')).toHaveTextContent('Research,Archive')
     expect(screen.getByTestId('selected-base-id')).toHaveTextContent('base-1')
     expect(screen.getByTestId('data-source-panel')).toHaveTextContent('2:idle')
-    expect(mockDataSourcePanelRender).toHaveBeenLastCalledWith(
-      expect.objectContaining({ embeddingModelId: LOCAL_EMBEDDING_UNIQUE_MODEL_ID })
-    )
+    expect(mockDataSourcePanelRender).toHaveBeenLastCalledWith(expect.objectContaining({ items: expect.any(Array) }))
   })
 
   it('selects the knowledge base from the route and publishes later selections', async () => {

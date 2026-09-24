@@ -21,11 +21,11 @@ const FILE_PROCESSING_FEATURE_SECTIONS: readonly {
 }[] = [
   {
     feature: 'image_to_text',
-    processors: ['system', 'paddleocr', 'local-paddleocr', 'tesseract', 'mistral', 'ovocr']
+    processors: ['system', 'paddleocr', 'tesseract', 'mistral', 'ovocr']
   },
   {
     feature: 'document_to_markdown',
-    processors: ['local-document', 'mineru', 'paddleocr', 'doc2x', 'mistral', 'open-mineru']
+    processors: ['mineru', 'paddleocr', 'doc2x', 'mistral', 'open-mineru']
   }
 ] as const
 
@@ -50,16 +50,6 @@ const PROCESSOR_DISPLAY_META: Record<FileProcessorId, ProcessorDisplayMeta> = {
     nameKey: 'settings.tool.file_processing.processors.paddleocr.name',
     descriptionKey: 'settings.tool.file_processing.processors.paddleocr.description',
     apiKeyWebsite: 'https://aistudio.baidu.com/paddleocr/'
-  },
-  'local-paddleocr': {
-    nameKey: 'settings.tool.file_processing.processors.local_paddleocr.name',
-    descriptionKey: 'settings.tool.file_processing.processors.local_paddleocr.description',
-    apiKeyWebsite: null
-  },
-  'local-document': {
-    nameKey: 'settings.tool.file_processing.processors.local_document.name',
-    descriptionKey: 'settings.tool.file_processing.processors.local_document.description',
-    apiKeyWebsite: null
   },
   ovocr: {
     nameKey: 'settings.tool.file_processing.processors.ovocr.name',

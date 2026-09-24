@@ -2,7 +2,6 @@ import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CHERRY_CLOUD_PROVIDER_ID, CHERRYAI_PROVIDER_ID } from '@shared/data/presets/cherryai'
-import { LOCAL_EMBEDDING_PROVIDER_ID } from '@shared/data/presets/localEmbedding'
 import { type Model, MODEL_CAPABILITY } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
 import type { AppEdition } from '@shared/types/appEdition'
@@ -186,16 +185,16 @@ describe('useModelSelectorData', () => {
     expect(result.current.selectableModelsById.has('google::gemini-pro')).toBe(false)
   })
 
-  it.each(['cherryai', LOCAL_EMBEDDING_PROVIDER_ID])('hides the provider settings action for %s', (providerId) => {
+  it('hides the provider settings action for cherryai', () => {
     wireDeps({
-      providers: [makeProvider(providerId)],
-      models: [makeModel('qwen', providerId)]
+      providers: [makeProvider('cherryai')],
+      models: [makeModel('qwen', 'cherryai')]
     })
 
     const { result } = renderHook(() => useModelSelectorData({ searchText: '' }))
 
     expect(result.current.listItems.find((item) => item.type === 'group')).toMatchObject({
-      key: `provider-${providerId}`,
+      key: 'provider-cherryai',
       canNavigateToSettings: false
     })
   })
@@ -220,11 +219,11 @@ describe('useModelSelectorData', () => {
     })
 
     const { result } = renderHook(() =>
-      useModelSelectorData({ searchText: '', prioritizedProviderIds: ['local-embedding'] })
+      useModelSelectorData({ searchText: '', prioritizedProviderIds: ['unregistered-provider'] })
     )
 
     expect(result.current.sortedProviders.map((provider) => provider.id)).toEqual(['openai'])
-    expect(result.current.listItems.some((item) => item.key.includes('local-embedding'))).toBe(false)
+    expect(result.current.listItems.some((item) => item.key.includes('unregistered-provider'))).toBe(false)
   })
 
   it('renders pinned rows first, in pin order, without provider-group duplicates', () => {

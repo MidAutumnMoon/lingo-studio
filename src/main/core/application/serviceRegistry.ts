@@ -8,9 +8,6 @@ import { AgentSessionDeliveryService } from '@main/ai/agentSession/AgentSessionD
 import { AgentSessionRuntimeService } from '@main/ai/agentSession/AgentSessionRuntimeService'
 import { AiService } from '@main/ai/AiService'
 import { ChannelManager } from '@main/ai/channels'
-import { EmbeddingInferenceService } from '@main/ai/localModel'
-import { LocalModelService } from '@main/ai/localModel'
-import { OcrInferenceService } from '@main/ai/localModel'
 import { McpCatalogService } from '@main/ai/mcp/McpCatalogService'
 import { McpPackageService } from '@main/ai/mcp/McpPackageService'
 import { McpRuntimeService } from '@main/ai/mcp/McpRuntimeService'
@@ -25,7 +22,6 @@ import { JobManager } from '@main/core/job/JobManager'
 import type { ServiceConstructor } from '@main/core/lifecycle'
 import { PowerService } from '@main/core/power/PowerService'
 import { SchedulerService } from '@main/core/scheduler/SchedulerService'
-import { UtilityProcessManager } from '@main/core/utilityProcess/UtilityProcessManager'
 import { WindowManager } from '@main/core/window/WindowManager'
 import { ApiGatewayService } from '@main/features/apiGateway/ApiGatewayService'
 import { BrowserSessionService } from '@main/features/browser'
@@ -99,7 +95,6 @@ import { WebviewService } from '@main/services/webview'
 export const services = {
   MainNetworkDevtoolsService,
   WindowManager,
-  UtilityProcessManager,
   DbService,
   CacheService,
   DataApiService,
@@ -160,9 +155,6 @@ export const services = {
   ClaudeCodeWarmQueryManager,
   ClaudeCodeSessionStateService,
   AiStreamManager,
-  EmbeddingInferenceService,
-  OcrInferenceService,
-  LocalModelService,
   KnowledgeService,
   KnowledgeVectorStoreService,
   MiniAppRuntimeService,

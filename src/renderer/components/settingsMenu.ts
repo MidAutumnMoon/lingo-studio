@@ -5,7 +5,6 @@ import {
   CalendarClock,
   Cloud,
   Command,
-  FileBox,
   FileCode,
   Globe,
   HardDrive,
@@ -59,11 +58,6 @@ export interface SettingsMenuEntry {
 export const settingsMenu: readonly SettingsMenuEntry[] = [
   { route: '/settings/provider', titleKey: 'settings.provider.title', icon: createElement(Cloud) },
   { route: '/settings/model', titleKey: 'settings.model', icon: createElement(Package) },
-  {
-    route: '/settings/local-models',
-    titleKey: 'settings.dependencies.localModels.title',
-    icon: createElement(FileBox)
-  },
   { route: '/settings/api-gateway', titleKey: 'apiGateway.title', icon: createElement(GatewayIcon) },
   {
     route: '/settings/mcp',

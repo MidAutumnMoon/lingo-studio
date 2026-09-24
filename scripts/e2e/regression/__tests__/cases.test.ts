@@ -50,7 +50,7 @@ describe('regression execution plan', () => {
     expect(workflow.concurrency['cancel-in-progress']).toBe(false)
   })
 
-  it('prepares native and utility-process dependencies before the first branch launch only', () => {
+  it('prepares native dependencies before the first branch launch only', () => {
     const workflow = parse(readFileSync(resolve('.github/workflows/e2e-regression-test.yml'), 'utf8'))
     const steps = workflow.jobs.test.steps as Array<{ name: string; if?: string; run?: string }>
     const prepare = steps.findIndex((step) => step.name === 'Prepare application runtime once')
@@ -60,9 +60,6 @@ describe('regression execution plan', () => {
     const commands = steps.flatMap((step) => step.run?.split('\n') ?? [])
     expect(commands.filter((command) => command.includes('rebuild:electron'))).toEqual([
       'pnpm --dir target-app rebuild:electron'
-    ])
-    expect(commands.filter((command) => command.includes('build:utility-process'))).toEqual([
-      'pnpm --dir target-app run build:utility-process'
     ])
   })
 

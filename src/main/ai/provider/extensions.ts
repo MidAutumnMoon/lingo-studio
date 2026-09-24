@@ -18,13 +18,11 @@ import type { OllamaProviderSettings } from 'ollama-ai-provider-v2'
 import type { VoyageProviderSettings } from 'voyage-ai-provider'
 
 import { ProviderExtension, type ProviderExtensionConfig } from '@cherrystudio/ai-core/provider'
-import { LOCAL_EMBEDDING_PROVIDER_ID } from '@shared/data/presets/localEmbedding'
 import { SystemProviderIds } from '@shared/utils/systemProviderId'
 
 import type { AihubmixProviderSettings } from './custom/aihubmix/aihubmixProvider'
 import type { DashScopeProviderSettings } from './custom/dashscope/dashscopeProvider'
 import type { DmxapiProviderSettings } from './custom/dmxapi/dmxapiProvider'
-import type { LocalEmbeddingProviderSettings } from './custom/localEmbedding/localEmbeddingProvider'
 import type { MinimaxProviderSettings } from './custom/minimax/minimaxProvider'
 import type { ModelscopeProviderSettings } from './custom/modelscope/modelscopeProvider'
 import type {
@@ -379,21 +377,6 @@ export const VoyageExtension = ProviderExtension.create({
   create: async (settings) => (await import('voyage-ai-provider')).createVoyage(settings)
 } as const satisfies ProviderExtensionConfig<VoyageProviderSettings, ProviderV3, 'voyage'>)
 
-/**
- * Local Embedding Extension - optional in-process text embeddings via
- * transformers.js + onnxruntime-node (no auth, no network). Embedding-only.
- */
-export const LocalEmbeddingExtension = ProviderExtension.create({
-  name: LOCAL_EMBEDDING_PROVIDER_ID,
-  supportsImageGeneration: false,
-  create: async (settings) =>
-    (await import('./custom/localEmbedding/localEmbeddingProvider')).createLocalEmbeddingProvider(settings)
-} as const satisfies ProviderExtensionConfig<
-  LocalEmbeddingProviderSettings,
-  ProviderV3,
-  typeof LOCAL_EMBEDDING_PROVIDER_ID
->)
-
 export const extensions = [
   GoogleVertexExtension,
   GoogleVertexAnthropicExtension,
@@ -422,6 +405,5 @@ export const extensions = [
   TokenhubExtension,
   VoyageExtension,
   TogetherAIExtension,
-  GroqExtension,
-  LocalEmbeddingExtension
+  GroqExtension
 ] as const

@@ -1,4 +1,3 @@
-import { MockCacheUtils } from '@test-mocks/renderer/CacheService'
 import { mockRendererLoggerService } from '@test-mocks/RendererLoggerService'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -6,29 +5,16 @@ import type React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as CherryStudioUi from '@cherrystudio/ui'
-import { cacheService } from '@data/CacheService'
 import { PopupHost } from '@renderer/components/PopupHost'
 import { POPUP_EXIT_MS, popupService } from '@renderer/services/popup'
 import { toast } from '@renderer/services/toast'
 import type * as RendererConstantModule from '@renderer/utils/platform'
-import {
-  LOCAL_MODEL_STATUS_CACHE_KEY,
-  type LocalModelBundleId,
-  type LocalModelStatusSnapshot
-} from '@shared/data/presets/localModel'
 
 import { PADDLEOCR_DEPLOYMENT_URL } from '../components/PaddleOcrDeploymentInfo'
 import DocumentProcessingSettings from '../DocumentProcessingSettings'
 import OcrSettings from '../OcrSettings'
 
 vi.unmock('@data/hooks/useCache')
-
-const OCR = 'pp-ocrv6-medium'
-
-function publishLocalModelStatus(id: LocalModelBundleId, snapshot: LocalModelStatusSnapshot): void {
-  const snapshots = cacheService.getSharedSnapshot(LOCAL_MODEL_STATUS_CACHE_KEY) ?? {}
-  cacheService.setShared(LOCAL_MODEL_STATUS_CACHE_KEY, { ...snapshots, [id]: snapshot })
-}
 
 const setPreferencesMock = vi.hoisted(() => vi.fn())
 const setOverridesMock = vi.hoisted(() => vi.fn())
@@ -272,7 +258,6 @@ describe('processing settings pages', () => {
   let loggerWarnSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    MockCacheUtils.resetMocks()
     preferencesMock.defaultDocumentProcessor = null
     preferencesMock.defaultImageProcessor = null
     overridesMock.value = {}
@@ -413,124 +398,6 @@ describe('processing settings pages', () => {
     expect(
       screen.queryByText('settings.tool.file_processing.processors.open_mineru.description')
     ).not.toBeInTheDocument()
-  })
-
-  // This page is the only place the local OCR model's download is reachable from,
-  // so hiding the processor while the model is missing left users with no way to
-  // get it. It must stay listed, with the download right there.
-  it.each([
-    { status: 'not_downloaded', action: 'settings.dependencies.localModels.download' },
-    { status: 'error', action: 'common.retry' }
-  ] as const)('offers the download inline when the local model is $status', async ({ status, action }) => {
-    publishLocalModelStatus(OCR, {
-      status,
-      percent: 0,
-      ...(status === 'error' ? { errorCode: 'download_failed' as const } : {})
-    })
-    ipcRequestMock.mockResolvedValue({
-      processorIds: ['system', 'tesseract', 'paddleocr', 'local-paddleocr', 'mineru', 'doc2x', 'mistral']
-    })
-
-    const user = userEvent.setup()
-    render(<OcrSettings />)
-
-    await user.click(
-      await screen.findByRole('button', { name: /settings.tool.file_processing.processors.local_paddleocr.name/ })
-    )
-
-    expect(await screen.findByRole('button', { name: action })).toBeInTheDocument()
-    expect(
-      screen.queryByText('settings.tool.file_processing.processors.local_paddleocr.status.local')
-    ).not.toBeInTheDocument()
-    expect(setPreferencesMock).not.toHaveBeenCalled()
-  })
-
-  it('replaces the download with the ready notice once the local model is on disk', async () => {
-    publishLocalModelStatus(OCR, { status: 'ready', percent: 100 })
-    ipcRequestMock.mockResolvedValue({
-      processorIds: ['system', 'tesseract', 'paddleocr', 'local-paddleocr', 'mineru', 'doc2x', 'mistral']
-    })
-
-    const user = userEvent.setup()
-    render(<OcrSettings />)
-
-    await user.click(
-      await screen.findByRole('button', { name: /settings.tool.file_processing.processors.local_paddleocr.name/ })
-    )
-
-    expect(
-      await screen.findByText('settings.tool.file_processing.processors.local_paddleocr.status.local')
-    ).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'settings.dependencies.localModels.download' })).not.toBeInTheDocument()
-    await waitFor(() => {
-      expect(setPreferencesMock).toHaveBeenCalledWith({ defaultImageProcessor: 'local-paddleocr' })
-    })
-  })
-
-  it.each([
-    { result: 'cancelled', rejects: false },
-    { result: null, rejects: true }
-  ])(
-    'keeps the previous default when a local model download does not finish ($result)',
-    async ({ result, rejects }) => {
-      preferencesMock.defaultImageProcessor = 'system'
-      publishLocalModelStatus(OCR, { status: 'not_downloaded', percent: 0 })
-      ipcRequestMock.mockImplementation((route: string) => {
-        if (route === 'file_processing.list_available_processors') {
-          return Promise.resolve({
-            processorIds: ['system', 'tesseract', 'paddleocr', 'local-paddleocr', 'mineru', 'doc2x', 'mistral']
-          })
-        }
-        if (route === 'local_model.download') {
-          return rejects ? Promise.reject(new Error('download failed')) : Promise.resolve({ result })
-        }
-        return Promise.resolve(undefined)
-      })
-
-      const user = userEvent.setup()
-      render(<OcrSettings />)
-
-      await user.click(
-        await screen.findByRole('button', { name: /settings.tool.file_processing.processors.local_paddleocr.name/ })
-      )
-      await user.click(await screen.findByRole('button', { name: 'settings.dependencies.localModels.download' }))
-
-      await waitFor(() =>
-        expect(ipcRequestMock).toHaveBeenCalledWith('local_model.download', { id: 'pp-ocrv6-medium' })
-      )
-      expect(setPreferencesMock).not.toHaveBeenCalled()
-    }
-  )
-
-  it('sets the document default only after the local model download succeeds', async () => {
-    preferencesMock.defaultDocumentProcessor = 'mineru'
-    publishLocalModelStatus(OCR, { status: 'not_downloaded', percent: 0 })
-    ipcRequestMock.mockImplementation((route: string) => {
-      if (route === 'file_processing.list_available_processors') {
-        return Promise.resolve({
-          processorIds: ['paddleocr', 'local-document', 'mineru', 'doc2x', 'mistral', 'open-mineru']
-        })
-      }
-      if (route === 'local_model.download') {
-        return Promise.resolve({ result: 'ready' })
-      }
-      return Promise.resolve(undefined)
-    })
-
-    const user = userEvent.setup()
-    render(<DocumentProcessingSettings />)
-
-    await user.click(
-      await screen.findByRole('button', { name: /settings.tool.file_processing.processors.local_document.name/ })
-    )
-    expect(setPreferencesMock).not.toHaveBeenCalled()
-
-    await user.click(await screen.findByRole('button', { name: 'settings.dependencies.localModels.download' }))
-    act(() => publishLocalModelStatus(OCR, { status: 'ready', percent: 100 }))
-
-    await waitFor(() => {
-      expect(setPreferencesMock).toHaveBeenCalledWith({ defaultDocumentProcessor: 'local-document' })
-    })
   })
 
   it('shows OV OCR only when file processing reports it as available', async () => {

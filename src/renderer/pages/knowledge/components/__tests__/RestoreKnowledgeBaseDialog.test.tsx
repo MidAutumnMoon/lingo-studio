@@ -3,7 +3,6 @@ import { type ReactNode, useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { toast } from '@renderer/services/toast'
-import { LOCAL_EMBEDDING_DIMENSIONS, LOCAL_EMBEDDING_UNIQUE_MODEL_ID } from '@shared/data/presets/localEmbedding'
 import type { KnowledgeBase } from '@shared/data/types/knowledge'
 
 import RestoreKnowledgeBaseDialog from '../RestoreKnowledgeBaseDialog'
@@ -25,8 +24,10 @@ vi.mock('@renderer/hooks/useProvider', () => ({
   useProviders: (...args: unknown[]) => mockUseProviders(...args)
 }))
 
-vi.mock('../KnowledgeEmbeddingModelSelect', () => ({
-  KnowledgeEmbeddingModelSelect: ({
+vi.mock('../KnowledgeModelSelect', () => ({
+  isEmbeddingModel: () => true,
+  isRerankModel: () => false,
+  KnowledgeModelSelect: ({
     value,
     placeholder,
     noneOptionLabel,
@@ -330,41 +331,6 @@ describe('RestoreKnowledgeBaseDialog', () => {
     )
     expect(mockEmbedMany).not.toHaveBeenCalled()
     expect(screen.queryByText('未设置')).not.toBeInTheDocument()
-  })
-
-  it('restores with the local embedding model using its fixed dimensions', async () => {
-    const restoredBase = createKnowledgeBase({
-      id: 'restored-base',
-      status: 'completed',
-      error: null,
-      embeddingModelId: LOCAL_EMBEDDING_UNIQUE_MODEL_ID,
-      dimensions: LOCAL_EMBEDDING_DIMENSIONS
-    })
-    const restoreBase = vi.fn().mockResolvedValue({ base: restoredBase, skippedMissingSourceCount: 0 })
-
-    render(
-      <RestoreKnowledgeBaseDialog
-        open
-        base={createKnowledgeBase()}
-        isRestoring={false}
-        restoreBase={restoreBase}
-        onOpenChange={vi.fn()}
-        onRestored={vi.fn()}
-      />
-    )
-
-    fireEvent.change(screen.getByLabelText('嵌入模型'), { target: { value: LOCAL_EMBEDDING_UNIQUE_MODEL_ID } })
-    fireEvent.click(screen.getByRole('button', { name: '重建' }))
-
-    await waitFor(() =>
-      expect(restoreBase).toHaveBeenCalledWith({
-        sourceBaseId: 'source-base',
-        name: 'Legacy KB_副本',
-        embeddingModelId: LOCAL_EMBEDDING_UNIQUE_MODEL_ID,
-        dimensions: LOCAL_EMBEDDING_DIMENSIONS
-      })
-    )
-    expect(mockEmbedMany).not.toHaveBeenCalled()
   })
 
   it('probes dimensions when the RAG config panel supplies a new embedding model without dimensions', async () => {

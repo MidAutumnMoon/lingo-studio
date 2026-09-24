@@ -13,7 +13,7 @@ import { useEmbeddingDimensions } from '../hooks/useEmbeddingDimensions'
 import { getKnowledgeBaseFailureReason } from '../utils/error'
 import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog'
 import { KnowledgeDialogBody, KnowledgeDialogField } from './KnowledgeDialogLayout'
-import { KnowledgeEmbeddingModelSelect } from './KnowledgeEmbeddingModelSelect'
+import { isEmbeddingModel, KnowledgeModelSelect } from './KnowledgeModelSelect'
 
 interface RestoreKnowledgeBaseDialogProps {
   open: boolean
@@ -138,11 +138,12 @@ const RestoreKnowledgeBaseDialog = ({
 
             <KnowledgeDialogField>
               <Label>{t('knowledge.embedding_model')}</Label>
-              <KnowledgeEmbeddingModelSelect
+              <KnowledgeModelSelect
                 aria-label={t('knowledge.embedding_model')}
                 value={values.embeddingModelId}
                 placeholder={t('knowledge.rag.rerank_disabled')}
                 noneOptionLabel={t('knowledge.rag.rerank_disabled')}
+                filter={isEmbeddingModel}
                 onSettingsNavigate={handleSettingsNavigate}
                 onChange={handleEmbeddingModelChange}
               />

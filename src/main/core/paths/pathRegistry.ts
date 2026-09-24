@@ -49,7 +49,6 @@ export function buildPathRegistry() {
   const appUserDataData = path.join(appUserData, 'Data')
   const appUserDataRuntime = path.join(appUserData, 'Runtime')
   const appUserDataProviderRegistryOverride = path.join(appUserDataRuntime, 'provider-registry-override')
-  const appUserDataToolchain = path.join(appUserData, 'Toolchain')
   const appSession = app.getPath('sessionData')
   const sysTemp = app.getPath('temp')
   const appTemp = path.join(sysTemp, 'CherryStudio')
@@ -77,7 +76,6 @@ export function buildPathRegistry() {
     // ⚠ app.root.resources (asar-bundled) vs app.extra_resources (electron-builder extraResources) are DIFFERENT locations.
     'app.root.resources': appRootResources,
     'app.root.resources.scripts': path.join(appRootResources, 'scripts'),
-    'app.utility_process': path.join(app.getAppPath(), 'out', 'utility-process'), // utility-process entry bundles
     'app.exe_file': app.getPath('exe'),
     'app.install': path.dirname(app.getPath('exe')), // directory containing the executable
     'app.logs': LOGS_DIR,
@@ -108,13 +106,6 @@ export function buildPathRegistry() {
 
     // Isolated preload for site `<webview>` guests. Local mini apps keep their capability bridge.
     'feature.webview.preload_file': path.join(app.getAppPath(), 'out/preload/webview.js'),
-
-    // Local embedding model cache (transformers.js HF cache root, downloaded on first use)
-    'feature.embedding.models': path.join(appUserDataRuntime, 'models', 'qwen3-embedding'),
-
-    // onnxruntime-node native binary (napi addon + shared lib), downloaded on first
-    // use of local embedding or local OCR — see ai/localModel's shared artifacts.
-    'feature.onnxruntime.binary': path.join(appUserDataToolchain, 'onnxruntime'),
 
     // BabelDOC runtime cache (layout model, fonts, CMap/tiktoken assets)
     'feature.pdf_translation.babeldoc': path.join(appUserDataRuntime, 'models', 'babeldoc'),
@@ -212,8 +203,6 @@ export function buildPathRegistry() {
 
     // OCR
     'feature.ocr.tesseract': path.join(appUserData, 'tesseract'),
-    // Local OCR model files (PaddleOCR / ppu-paddle-ocr, downloaded on demand)
-    'feature.ocr.paddleocr': path.join(appUserDataRuntime, 'models', 'pp-ocrv6'),
 
     // Version log
     'feature.version_log.file': path.join(appUserData, 'version.log'),
@@ -348,7 +337,6 @@ const NO_ENSURE = [
   'app.extra_resources',
   'app.root.resources',
   'app.root.resources.scripts',
-  'app.utility_process',
   'app.session.webview',
   'app.database.migrations',
   'feature.provider_registry.data',

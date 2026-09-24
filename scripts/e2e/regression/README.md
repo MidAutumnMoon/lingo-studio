@@ -24,7 +24,7 @@ The explicit profile/restart operation prepares Windows connections by closing n
 
 ## Execution contract
 
-Branch runs prepare `rebuild:electron` and `build:utility-process` once after installing
+Branch runs prepare `rebuild:electron` once after installing
 application dependencies. The controller then launches the development server directly,
 including on profile switches and persistence-test restarts. Local controller runs must
 perform the same preparation in the target checkout before `launch`; release installers

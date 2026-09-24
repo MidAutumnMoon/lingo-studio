@@ -394,9 +394,7 @@ export type FileProcessorFeature = (typeof FILE_PROCESSOR_FEATURES)[number]
 export const FILE_PROCESSOR_IDS = [
   'tesseract',
   'system',
-  'local-document',
   'paddleocr',
-  'local-paddleocr',
   'ovocr',
   'mineru',
   'doc2x',

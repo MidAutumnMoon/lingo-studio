@@ -1,10 +1,6 @@
 import { application } from '@application'
 import type { FileProcessorFeature, FileProcessorId, PreferenceKeyType } from '@shared/data/preference/preferenceTypes'
-import {
-  FILE_PROCESSOR_LOCAL_MODEL,
-  type FileProcessorMerged,
-  PRESETS_FILE_PROCESSORS
-} from '@shared/data/presets/fileProcessing'
+import { type FileProcessorMerged, PRESETS_FILE_PROCESSORS } from '@shared/data/presets/fileProcessing'
 
 import { processorRegistry } from '../processors/registry'
 import { resolveDefaultImageToTextProcessor } from './defaultImageToTextProcessor'
@@ -52,15 +48,6 @@ function assertProcessorUsable(config: FileProcessorMerged, feature: FileProcess
 
   if (!processorRegistry[config.id].isSupported()) {
     throw new Error(`File processor ${config.id} is not available on this platform`)
-  }
-
-  // Distinct message on purpose: this one reaches the user verbatim (a failed
-  // knowledge-base item, a translation toast), and "not available on this
-  // platform" sent people hunting for an OS problem when all they had to do was
-  // download the model.
-  const requiredModel = FILE_PROCESSOR_LOCAL_MODEL[config.id]
-  if (requiredModel && !application.get('LocalModelService').isCapabilityReady(requiredModel)) {
-    throw new Error(`File processor ${config.id} needs the local ${requiredModel} model to be downloaded first`)
   }
 }
 

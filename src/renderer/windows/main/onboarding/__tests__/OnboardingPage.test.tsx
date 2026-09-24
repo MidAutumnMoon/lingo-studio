@@ -383,25 +383,6 @@ describe('OnboardingPage', () => {
     expect(nextButton.parentElement).toHaveAttribute('data-title', 'onboarding.provider_setup.missing_model')
   })
 
-  it('does not allow the seeded local embedding model to satisfy provider setup', async () => {
-    enabledProvidersMock.splice(0, enabledProvidersMock.length, { id: 'local-embedding', isEnabled: true })
-    enabledModelsMock.splice(0, enabledModelsMock.length, {
-      id: 'local-embedding::qwen3-embedding-0.6b',
-      providerId: 'local-embedding',
-      isEnabled: true,
-      capabilities: ['embedding']
-    })
-    render(<OnboardingPage />)
-
-    await openProviderSetup()
-
-    const nextButton = screen.getByRole('button', { name: 'onboarding.provider_setup.next' })
-    expect(nextButton).toHaveAttribute('aria-disabled', 'true')
-    fireEvent.click(nextButton)
-    expect(screen.getByRole('heading', { name: 'onboarding.provider_setup.title' })).toBeInTheDocument()
-    expect(nextButton.parentElement).toHaveAttribute('data-title', 'onboarding.provider_setup.missing_model')
-  })
-
   it('keeps the start action disabled until all three models are selected', async () => {
     selectedModelsMock.translateModel = undefined
     render(<OnboardingPage />)

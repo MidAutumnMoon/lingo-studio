@@ -180,11 +180,6 @@ export type FileProcessingProcessorRegistry = {
      * Whether this machine could ever run the processor. `false` is permanent —
      * a missing platform API or unsupported hardware — so the UI hides the
      * processor outright rather than offering the user something to fix.
-     *
-     * Deliberately *not* about downloadable prerequisites: those live in
-     * `FILE_PROCESSOR_LOCAL_MODEL` and stay visible with a download entry point.
-     * Folding the two back together is what made `local-paddleocr` vanish from
-     * the OCR settings page with no way to bring it back.
      */
     isSupported: () => boolean
     runtime: FileProcessorRuntime

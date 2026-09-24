@@ -1,5 +1,5 @@
 import { List, SquareCheckBig } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -29,12 +29,10 @@ import { toast } from '@renderer/services/toast'
 import { formatApiKeys, joinApiKeyString, splitApiKeyString, validateApiHost } from '@renderer/utils/api'
 import { cn } from '@renderer/utils/style'
 import type { FileProcessorFeature, FileProcessorId } from '@shared/data/preference/preferenceTypes'
-import { FILE_PROCESSOR_LOCAL_MODEL } from '@shared/data/presets/fileProcessing'
 
 import {
   type FileProcessingMenuEntry,
   getProcessorApiKeyWebsite,
-  getProcessorDescriptionKey,
   getProcessorNameKey,
   getTesseractLanguageCode,
   shouldShowLanguageOptions,
@@ -42,7 +40,6 @@ import {
   supportsLanguageConfig
 } from '../utils/fileProcessingMeta'
 import { FileProcessingApiKeyListPopup } from './FileProcessingApiKeyList'
-import { LocalModelRequirement } from './LocalModelRequirement'
 import { PaddleOcrDeploymentInfo } from './PaddleOcrDeploymentInfo'
 import { PaddleOcrModelSettings } from './PaddleOcrModelSettings'
 import { TesseractLanguagePacks } from './TesseractLanguagePacks'
@@ -94,18 +91,12 @@ export function ProcessorPanel({
   const featureTitle = t(featureTitleKey)
   const showApiSettings = supportsApiSettings(processor)
   const showLanguageOptions = shouldShowLanguageOptions(processor.id)
-  const requiredLocalModel = FILE_PROCESSOR_LOCAL_MODEL[processor.id]
   const hasProcessorDetails =
-    showApiSettings ||
-    processor.id === 'paddleocr' ||
-    processor.id === 'system' ||
-    Boolean(requiredLocalModel) ||
-    showLanguageOptions
+    showApiSettings || processor.id === 'paddleocr' || processor.id === 'system' || showLanguageOptions
 
   const [apiKeysInput, setApiKeysInput] = useState(() => joinApiKeyString(processor.apiKeys ?? []))
   const [apiHostInput, setApiHostInput] = useState(entry.capability.apiHost ?? '')
   const [modelIdInput, setModelIdInput] = useState(entry.capability.modelId ?? '')
-  const pendingDefaultKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     setApiKeysInput(joinApiKeyString(processor.apiKeys ?? []))
@@ -191,23 +182,6 @@ export function ProcessorPanel({
     [entry.feature, onSetCapabilityField, persist, processor.id]
   )
 
-  const commitPendingDefault = useCallback(
-    async (selectedEntry: FileProcessingMenuEntry) => {
-      if (pendingDefaultKeyRef.current !== selectedEntry.key) {
-        return
-      }
-
-      const saved = await persist(
-        () => onSetDefaultProcessor(selectedEntry.feature, selectedEntry.processor.id),
-        'set default processor'
-      )
-      if (saved && pendingDefaultKeyRef.current === selectedEntry.key) {
-        pendingDefaultKeyRef.current = null
-      }
-    },
-    [onSetDefaultProcessor, persist]
-  )
-
   const handleProcessorChange = useCallback(
     (processorId: string) => {
       const selectedEntry = entries.find((item) => item.processor.id === processorId)
@@ -216,13 +190,7 @@ export function ProcessorPanel({
         return
       }
 
-      const selectedModel = FILE_PROCESSOR_LOCAL_MODEL[selectedEntry.processor.id]
-      pendingDefaultKeyRef.current = selectedModel ? selectedEntry.key : null
       onSelectEntry(selectedEntry)
-
-      if (selectedModel) {
-        return
-      }
 
       void persist(
         () => onSetDefaultProcessor(selectedEntry.feature, selectedEntry.processor.id),
@@ -339,14 +307,6 @@ export function ProcessorPanel({
       ) : null}
 
       {processor.id === 'paddleocr' ? <PaddleOcrDeploymentInfo /> : null}
-
-      {requiredLocalModel ? (
-        <LocalModelRequirement
-          capability={requiredLocalModel}
-          description={t(getProcessorDescriptionKey(processor.id))}
-          onReady={() => commitPendingDefault(entry)}
-        />
-      ) : null}
 
       {processor.id === 'system' ? (
         <div className="flex flex-col gap-3 border-border-subtle border-t pt-4">

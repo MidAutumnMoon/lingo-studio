@@ -11,8 +11,10 @@ vi.mock('../panelPrimitives', () => ({
   RagFieldLabel: ({ label }: { label: string }) => <span>{label}</span>
 }))
 
-vi.mock('../../../components/KnowledgeEmbeddingModelSelect', () => ({
-  KnowledgeEmbeddingModelSelect: ({
+vi.mock('../../../components/KnowledgeModelSelect', () => ({
+  isEmbeddingModel: () => true,
+  isRerankModel: () => false,
+  KnowledgeModelSelect: ({
     value,
     placeholder,
     noneOptionLabel,
@@ -25,8 +27,8 @@ vi.mock('../../../components/KnowledgeEmbeddingModelSelect', () => ({
   }) => (
     <div>
       <span>{value ?? placeholder}</span>
-      <button type="button" onClick={() => onChange('local-embedding::qwen3-embedding-0.6b')}>
-        local-model-option
+      <button type="button" onClick={() => onChange('openai::text-embedding-3-small')}>
+        model-option
       </button>
       {noneOptionLabel ? (
         <button type="button" onClick={() => onChange(null)}>
@@ -38,25 +40,25 @@ vi.mock('../../../components/KnowledgeEmbeddingModelSelect', () => ({
 }))
 
 describe('EmbeddingSection', () => {
-  it('keeps the local model and disabled entries inside the selector', () => {
+  it('keeps the model and disabled entries inside the selector', () => {
     const { rerender } = render(<EmbeddingSection embeddingModelId={null} onEmbeddingModelChange={vi.fn()} />)
-    const localOption = screen.getByText('local-model-option')
+    const modelOption = screen.getByText('model-option')
 
-    expect(localOption).toBeInTheDocument()
+    expect(modelOption).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'knowledge.rag.rerank_disabled' })).toBeInTheDocument()
     expect(screen.queryByText('knowledge.rag.file_processing_none')).not.toBeInTheDocument()
 
-    rerender(<EmbeddingSection embeddingModelId="openai::text-embedding-3-small" onEmbeddingModelChange={vi.fn()} />)
-    expect(screen.getByText('local-model-option')).toBeInTheDocument()
+    rerender(<EmbeddingSection embeddingModelId="voyage::voyage-3-large" onEmbeddingModelChange={vi.fn()} />)
+    expect(screen.getByText('model-option')).toBeInTheDocument()
   })
 
-  it('reports local model selection through the single change callback', () => {
+  it('reports model selection through the single change callback', () => {
     const onEmbeddingModelChange = vi.fn()
     render(<EmbeddingSection embeddingModelId={null} onEmbeddingModelChange={onEmbeddingModelChange} />)
 
-    fireEvent.click(screen.getByText('local-model-option'))
+    fireEvent.click(screen.getByText('model-option'))
 
-    expect(onEmbeddingModelChange).toHaveBeenCalledWith('local-embedding::qwen3-embedding-0.6b')
+    expect(onEmbeddingModelChange).toHaveBeenCalledWith('openai::text-embedding-3-small')
   })
 
   it('reports the disabled entry through the single change callback', () => {

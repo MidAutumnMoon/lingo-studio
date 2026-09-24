@@ -94,7 +94,6 @@ const providerKeyMap = {
   'minimax-global': 'provider.minimax-global',
   'moonshot-global': 'provider.moonshot-global',
   zai: 'provider.zai',
-  'local-embedding': 'provider.local-embedding',
   opencode: 'provider.opencode'
 } as const
 
@@ -114,15 +113,13 @@ export const getProviderLabelKey = (id: string, fallback?: string): string => {
 }
 
 // Must cover every FILE_PROCESSOR_IDS entry: getLabelKey falls back to the raw
-// id (and logs an error) for anything missing, so a gap here surfaces as
-// "local-document" sitting in a dropdown among properly named siblings.
+// id (and logs an error) for anything missing, so a gap here surfaces as a raw
+// id sitting in a dropdown among properly named siblings.
 const fileProcessorKeyMap = {
   doc2x: 'provider.doc2x',
   mineru: 'provider.mineru',
   ovocr: 'provider.ovocr',
   paddleocr: 'provider.paddleocr',
-  'local-paddleocr': 'settings.tool.file_processing.processors.local_paddleocr.name',
-  'local-document': 'settings.tool.file_processing.processors.local_document.name',
   system: 'provider.system',
   tesseract: 'provider.tesseract',
   mistral: 'provider.mistral',

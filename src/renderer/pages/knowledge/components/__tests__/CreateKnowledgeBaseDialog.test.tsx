@@ -21,8 +21,10 @@ vi.mock('@cherrystudio/ui/lib/utils', () => ({
   cn: (...classNames: Array<string | false | null | undefined>) => classNames.filter(Boolean).join(' ')
 }))
 
-vi.mock('../KnowledgeEmbeddingModelSelect', () => ({
-  KnowledgeEmbeddingModelSelect: ({
+vi.mock('../KnowledgeModelSelect', () => ({
+  isEmbeddingModel: () => true,
+  isRerankModel: () => false,
+  KnowledgeModelSelect: ({
     value,
     placeholder,
     noneOptionLabel,
@@ -46,8 +48,8 @@ vi.mock('../KnowledgeEmbeddingModelSelect', () => ({
       <button type="button" onClick={() => onSettingsNavigate?.(mockSettingsNavigate)}>
         open model settings
       </button>
-      <button type="button" onClick={() => onChange('local-embedding::qwen3-embedding-0.6b')}>
-        local-model-option
+      <button type="button" onClick={() => onChange('openai::text-embedding-3-small')}>
+        model-option
       </button>
       {noneOptionLabel ? (
         <button type="button" onClick={() => onChange(null)}>
@@ -472,59 +474,6 @@ describe('CreateKnowledgeBaseDialog', () => {
       uniqueModelId: 'openai::text-embedding-3-small',
       values: ['test']
     })
-  })
-
-  it('keeps the local embedding entry inside the model selector', () => {
-    render(
-      <CreateKnowledgeBaseDialog
-        open
-        groups={[]}
-        isCreating={false}
-        createBase={vi.fn().mockResolvedValue(createKnowledgeBase())}
-        onOpenChange={vi.fn()}
-        onCreated={vi.fn()}
-      />
-    )
-
-    expect(screen.getByRole('button', { name: 'local-model-option' })).toBeInTheDocument()
-
-    fireEvent.change(screen.getByLabelText('嵌入模型'), { target: { value: 'openai::text-embedding-3-small' } })
-
-    expect(screen.getByRole('button', { name: 'local-model-option' })).toBeInTheDocument()
-  })
-
-  it('submits the local embedding model with its fixed dimensions and no probe', async () => {
-    const createBase = vi.fn().mockResolvedValue(
-      createKnowledgeBase({
-        embeddingModelId: 'local-embedding::qwen3-embedding-0.6b',
-        dimensions: 1024
-      })
-    )
-
-    render(
-      <CreateKnowledgeBaseDialog
-        open
-        groups={[]}
-        isCreating={false}
-        createBase={createBase}
-        onOpenChange={vi.fn()}
-        onCreated={vi.fn()}
-      />
-    )
-
-    fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'My Base' } })
-    fireEvent.click(screen.getByRole('button', { name: 'local-model-option' }))
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-
-    await waitFor(() =>
-      expect(createBase).toHaveBeenCalledWith({
-        name: 'My Base',
-        embeddingModelId: 'local-embedding::qwen3-embedding-0.6b',
-        dimensions: 1024
-      })
-    )
-    // The local model runs in-process with a known dimension, so it is never probed.
-    expect(mockIpcRequest).not.toHaveBeenCalled()
   })
 
   it('keeps the dialog open and reports the error when probing dimensions fails', async () => {
