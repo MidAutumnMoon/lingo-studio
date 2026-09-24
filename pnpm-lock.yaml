@@ -1344,9 +1344,6 @@ importers:
       yjs:
         specifier: ^13.6.27
         version: 13.6.29
-      youtubei.js:
-        specifier: ^15.0.1
-        version: 15.1.1
       zipread:
         specifier: ^1.3.3
         version: 1.3.3
@@ -2821,9 +2818,6 @@ packages:
 
   '@braintree/sanitize-url@7.1.1':
     resolution: {integrity: sha512-i1L7noDNxtFyL5DmZafWy1wRVhGehQmzZaz1HiN5e7iylJMSZR7ekOV7NsIqa5qBldlLrsKv4HbgFUVlQrz8Mw==}
-
-  '@bufbuild/protobuf@2.10.2':
-    resolution: {integrity: sha512-uFsRXwIGyu+r6AMdz+XijIIZJYpoWeYzILt5yZ2d3mCjQrWUTVpVD9WL/jZAbvp+Ed04rOhrsk7FiTcEDseB5A==}
 
   '@buttercup/fetch@0.2.1':
     resolution: {integrity: sha512-sCgECOx8wiqY8NN1xN22BqqKzXYIG2AicNLlakOAI4f0WgyLVUbAigMf8CZhBtJxdudTcB1gD5lciqi44jwJvg==}
@@ -12505,9 +12499,6 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  jintr@3.3.1:
-    resolution: {integrity: sha512-nnOzyhf0SLpbWuZ270Omwbj5LcXUkTcZkVnK8/veJXtSZOiATM5gMZMdmzN75FmTyj+NVgrGaPdH12zIJ24oIA==}
-
   jiti@2.7.0:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
@@ -16428,9 +16419,6 @@ packages:
   youtube-video-element@1.8.1:
     resolution: {integrity: sha512-+5UuAGaj+5AnBf39huLVpy/4dLtR0rmJP1TxOHVZ81bac4ZHFpTtQ4Dz2FAn2GPnfXISezvUEaQoAdFW4hH9Xg==}
 
-  youtubei.js@15.1.1:
-    resolution: {integrity: sha512-fuEDj9Ky6cAQg93BrRVCbr+GTYNZQAIFZrx/a3oDRuGc3Mf5bS0dQfoYwwgjtSV7sgAKQEEdGtzRdBzOc8g72Q==}
-
   yuku-ast@0.8.7:
     resolution: {integrity: sha512-h6+4bDfyootiMB9vckk5uKo5r5j0GHrkr17FQTDNfEsFT3DWlN9uu1HJwQwc64pgmLCI945fWM3lbTIqxjT3GQ==}
 
@@ -17618,8 +17606,6 @@ snapshots:
   '@borewit/text-codec@0.2.2': {}
 
   '@braintree/sanitize-url@7.1.1': {}
-
-  '@bufbuild/protobuf@2.10.2': {}
 
   '@buttercup/fetch@0.2.1':
     optionalDependencies:
@@ -28049,10 +28035,6 @@ snapshots:
       filelist: 1.0.6
       picocolors: 1.1.1
 
-  jintr@3.3.1:
-    dependencies:
-      acorn: 8.15.0
-
   jiti@2.7.0: {}
 
   jose@6.1.3: {}
@@ -32778,12 +32760,6 @@ snapshots:
   yoctocolors@2.1.2: {}
 
   youtube-video-element@1.8.1: {}
-
-  youtubei.js@15.1.1:
-    dependencies:
-      '@bufbuild/protobuf': 2.10.2
-      jintr: 3.3.1
-      undici: 6.27.0
 
   yuku-ast@0.8.7:
     dependencies:
