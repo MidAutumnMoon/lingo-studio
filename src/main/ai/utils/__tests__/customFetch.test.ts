@@ -155,7 +155,7 @@ describe('customFetch', () => {
     expect(redirectHeaders.get('X-Custom')).toBe('custom')
   })
 
-  it.each(['file:///etc/passwd', 'cherry-media://files/private'])(
+  it.each(['file:///etc/passwd', 'ftp://files/private'])(
     'rejects redirects to non-HTTP(S) protocol %s',
     async (location) => {
       vi.mocked(net.fetch).mockResolvedValueOnce(

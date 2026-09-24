@@ -73,7 +73,7 @@ const transientResult: DoctorCheckResult = {
 }
 
 const erroredResult: DoctorCheckResult = {
-  id: 'install-native-modules',
+  id: 'install-update-available',
   status: 'error',
   durationMs: 1,
   message: 'Native module check failed'
@@ -138,7 +138,7 @@ const translations: Record<string, string> = {
   'settings.doctor.checks.config-boot-config-valid.detail.invalid_keys':
     'Some startup settings are not recognized or valid.',
   'settings.doctor.checks.config-boot-config-valid.title': 'Startup configuration',
-  'settings.doctor.checks.install-native-modules.title': 'Native components',
+  'settings.doctor.checks.install-update-available.title': 'Available update',
   'settings.doctor.checks.logs-recent-findings.title': 'Recent findings',
   'settings.doctor.checks.network-online.title': 'Network availability',
   'settings.doctor.checks.network-model-endpoint.detail.unreachable': 'The configured Base URL could not be reached.',

@@ -7,8 +7,8 @@ describe('resolveDoctorFixLabel', () => {
     const resolveTargetName = vi.fn()
 
     expect(
-      resolveDoctorFixLabel('permission-screen-capture', { kind: 'fix', fixId: 'request' }, resolveTargetName)
-    ).toEqual({ key: 'settings.doctor.fixes.request_screen_capture' })
+      resolveDoctorFixLabel('permission-accessibility', { kind: 'fix', fixId: 'request' }, resolveTargetName)
+    ).toEqual({ key: 'settings.doctor.fixes.request_accessibility' })
     expect(resolveTargetName).not.toHaveBeenCalled()
   })
 

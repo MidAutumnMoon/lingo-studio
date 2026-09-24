@@ -1015,10 +1015,10 @@ describe('WindowManager', () => {
       })
 
       it('skips eager warmup on boot for a pool suspended beforehand', async () => {
-        // Feature-gated pools (screenshot overlays) suspend themselves during their
-        // owner's onInit when the feature is off. Warming them anyway at onAllReady
-        // would hold a hidden window — and its renderer's memory — for the whole run,
-        // for a feature the user has switched off.
+        // Feature-gated pools suspend themselves during their owner's onInit when the
+        // feature is off. Warming them anyway at onAllReady would hold a hidden window —
+        // and its renderer's memory — for the whole run, for a feature the user has
+        // switched off.
         wm.suspendPool('eagerPooled' as never)
 
         await wm._doAllReady()

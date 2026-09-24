@@ -7,7 +7,7 @@ import { createDoctorSession, doctorSessionReducer } from '../doctorSessionReduc
 const fixRequest: DoctorFixRequest = {
   scope: 'global',
   runId: 'run-1',
-  checkId: 'permission-screen-capture',
+  checkId: 'permission-accessibility',
   fixId: 'request'
 }
 

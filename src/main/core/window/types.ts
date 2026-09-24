@@ -12,8 +12,7 @@ export enum WindowType {
   SubWindow = 'subWindow',
   SelectionToolbar = 'selectionToolbar',
   SelectionAction = 'selectionAction',
-  McpBrowser = 'mcpBrowser',
-  Screenshot = 'screenshot'
+  McpBrowser = 'mcpBrowser'
 }
 
 /** Valid WindowType values for runtime validation */

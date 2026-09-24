@@ -344,7 +344,7 @@ describe('DoctorCheckAccordionItems interactions', () => {
           request: {
             scope: 'global',
             runId: 'run-1',
-            checkId: 'permission-screen-capture',
+            checkId: 'permission-accessibility',
             fixId: 'request'
           }
         }

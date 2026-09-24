@@ -61,13 +61,13 @@ describe('buildDoctorViewModel', () => {
       selectedCheckIds: [
         'install-version-channel',
         'install-update-available',
-        'permission-screen-capture',
+        'permission-accessibility',
         'permission-accessibility',
         'network-online'
       ],
       startedAt: '2026-09-04T08:59:00.000Z',
       activeCheckIds: ['permission-accessibility', 'network-online'],
-      results: [result('permission-screen-capture', 'fail'), result('install-version-channel', 'pass')]
+      results: [result('permission-accessibility', 'fail'), result('install-version-channel', 'pass')]
     }
 
     const viewModel = buildDoctorViewModel(state, NOW)
@@ -136,7 +136,7 @@ describe('buildDoctorViewModel', () => {
   it('never synthesizes actions for findings', () => {
     const state: DoctorState = {
       status: 'completed',
-      report: report([result('permission-screen-capture', 'pass'), result('permission-accessibility', 'fail')])
+      report: report([result('permission-accessibility', 'pass'), result('config-boot-config-valid', 'fail')])
     }
 
     const viewModel = buildDoctorViewModel(state, NOW)
@@ -151,7 +151,7 @@ describe('buildDoctorViewModel', () => {
     const state: DoctorState = {
       status: 'completed',
       report: report(
-        [result('permission-screen-capture', 'fail', [{ kind: 'fix', fixId: 'request' }])],
+        [result('permission-accessibility', 'fail', [{ kind: 'fix', fixId: 'request' }])],
         '2026-09-04T08:59:59.999Z'
       )
     }

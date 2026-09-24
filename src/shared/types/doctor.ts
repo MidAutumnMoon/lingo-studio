@@ -81,8 +81,6 @@ export const DOCTOR_CHECK_IDS = [
   'install-architecture-match',
   'install-version-channel',
   'install-update-available',
-  'install-native-modules',
-  'permission-screen-capture',
   'permission-accessibility',
   'storage-userdata-location',
   'storage-disk-space',
@@ -155,22 +153,6 @@ export const DOCTOR_CHECK_CATALOG = {
     fixes: [],
     details: ['available', 'unsupported'],
     requires: ['network-endpoint-update']
-  },
-  'install-native-modules': {
-    domain: 'install',
-    tier: 'quick',
-    scope: 'global',
-    fixes: [],
-    details: ['unavailable'],
-    requires: []
-  },
-  'permission-screen-capture': {
-    domain: 'permission',
-    tier: 'quick',
-    scope: 'global',
-    fixes: [{ id: 'request', reversible: true, relaunch: false }],
-    details: ['denied', 'restricted'],
-    requires: []
   },
   'permission-accessibility': {
     domain: 'permission',

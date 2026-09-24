@@ -267,7 +267,7 @@ describe('useDoctorController', () => {
       })
     )
 
-    await act(async () => result.current.executeAction('install-native-modules', { kind: 'report' }))
+    await act(async () => result.current.executeAction('install-update-available', { kind: 'report' }))
 
     expect(result.current.session.activePanel).toBe('report')
     expect(result.current.session.descriptionDraft).toBe('confirmed safe description')
@@ -369,7 +369,7 @@ describe('useDoctorController', () => {
 
   it('keeps the shared Doctor report authoritative until the cache publishes a fixed result', async () => {
     const warning = {
-      id: 'permission-screen-capture',
+      id: 'permission-accessibility',
       status: 'warn',
       durationMs: 1,
       attribution: 'user-fixable',
@@ -388,17 +388,17 @@ describe('useDoctorController', () => {
     }
     mocks.request.mockResolvedValue({
       status: 'fixed',
-      result: { id: 'permission-screen-capture', status: 'pass', durationMs: 1 }
+      result: { id: 'permission-accessibility', status: 'pass', durationMs: 1 }
     })
     const { rerender, result } = renderHook(() =>
       useDoctorController({ subject: { kind: 'global' }, initialPanel: 'checks', onNavigate: vi.fn() })
     )
 
-    expect(result.current.viewModel.rows[0]).toMatchObject({ id: 'permission-screen-capture', status: 'warn' })
+    expect(result.current.viewModel.rows[0]).toMatchObject({ id: 'permission-accessibility', status: 'warn' })
 
     await act(async () =>
       result.current.executeAction(
-        'permission-screen-capture',
+        'permission-accessibility',
         { kind: 'fix', fixId: 'request' },
         completed.report.runId
       )
@@ -407,24 +407,24 @@ describe('useDoctorController', () => {
     expect(mocks.request).toHaveBeenCalledWith('diagnostics.doctor.fix', {
       scope: 'global',
       runId: completed.report.runId,
-      checkId: 'permission-screen-capture',
+      checkId: 'permission-accessibility',
       fixId: 'request'
     })
-    expect(result.current.session.fixedCheckIds).toEqual(['permission-screen-capture'])
-    expect(result.current.viewModel.rows[0]).toMatchObject({ id: 'permission-screen-capture', status: 'warn' })
+    expect(result.current.session.fixedCheckIds).toEqual(['permission-accessibility'])
+    expect(result.current.viewModel.rows[0]).toMatchObject({ id: 'permission-accessibility', status: 'warn' })
     expect(mocks.toastSuccess).toHaveBeenCalledWith('settings.doctor.messages.fix_completed')
 
     mocks.doctorState = {
       ...completed,
       report: {
         ...completed.report,
-        results: [{ id: 'permission-screen-capture', status: 'pass', durationMs: 1 }],
+        results: [{ id: 'permission-accessibility', status: 'pass', durationMs: 1 }],
         summary: { pass: 1, warn: 0, fail: 0, skip: 0, error: 0 }
       }
     }
     rerender()
 
-    expect(result.current.viewModel.rows[0]).toMatchObject({ id: 'permission-screen-capture', status: 'pass' })
+    expect(result.current.viewModel.rows[0]).toMatchObject({ id: 'permission-accessibility', status: 'pass' })
   })
 
   it.each(['failed', 'stale'] as const)('does not count a %s fix response as repaired', async (status) => {

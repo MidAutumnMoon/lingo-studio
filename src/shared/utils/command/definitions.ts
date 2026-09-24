@@ -213,19 +213,6 @@ export const COMMAND_DEFINITIONS = [
     }
   }),
   defineCommand({
-    id: 'screenshot.capture',
-    titleKey: 'settings.shortcuts.screenshot_capture',
-    categoryKey: 'settings.shortcuts.feature.screenshot',
-    scope: 'main',
-    enablement: 'feature.screenshot.enabled',
-    keybinding: {
-      defaultBinding: ['CommandOrControl', 'Shift', 'A'],
-      global: true,
-      when: 'feature.screenshot.enabled',
-      supportedPlatforms: ['darwin', 'win32', 'linux']
-    }
-  }),
-  defineCommand({
     id: 'topic.clear_messages',
     titleKey: 'chat.topics.clear.title',
     categoryKey: 'settings.shortcuts.topic',

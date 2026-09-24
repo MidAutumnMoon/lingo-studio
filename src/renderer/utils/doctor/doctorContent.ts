@@ -54,7 +54,6 @@ export const DOCTOR_NAVIGATION_LABEL_KEYS = {
 } as const satisfies Record<DoctorNavigateTarget, string>
 
 const DOCTOR_FIX_LABEL_DECLARATIONS = {
-  'permission-screen-capture': { request: 'settings.doctor.fixes.request_screen_capture' },
   'permission-accessibility': { request: 'settings.doctor.fixes.request_accessibility' },
   'config-boot-config-valid': { repair: 'settings.doctor.fixes.repair_boot_config' },
   'mcp-servers-connected': {

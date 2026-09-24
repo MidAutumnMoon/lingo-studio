@@ -1,7 +1,6 @@
 import { app } from 'electron'
 
 import { application } from '@application'
-import { loadNativeCaptureBackend } from '@main/services/screenshot'
 import { UpgradeChannel } from '@shared/data/preference/preferenceTypes'
 
 import { defineDoctorCheck } from '../types'
@@ -92,42 +91,6 @@ export const installUpdateAvailable = defineDoctorCheck({
         { key: 'currentVersion', value: runningVersion, dataClass: 'public' },
         { key: 'availableVersion', value: update.version, dataClass: 'public' }
       ]
-    }
-  },
-  fixes: {}
-})
-
-export const installNativeModules = defineDoctorCheck({
-  id: 'install-native-modules',
-  async run() {
-    try {
-      loadNativeCaptureBackend()
-      return { status: 'pass' }
-    } catch (error) {
-      return {
-        status: 'fail',
-        attribution: 'app-bug',
-        detail: { variant: 'unavailable' },
-        actions: [{ kind: 'report' }],
-        devMessage: 'The screenshot native backend is unavailable; this check covers node-screenshots only',
-        evidence: [
-          { key: 'module', value: 'node-screenshots', dataClass: 'public' },
-          {
-            key: 'error',
-            value: error instanceof Error ? error.message : String(error),
-            dataClass: 'consent_required'
-          },
-          ...(error instanceof Error && error.cause
-            ? [
-                {
-                  key: 'cause',
-                  value: error.cause instanceof Error ? error.cause.message : String(error.cause),
-                  dataClass: 'consent_required' as const
-                }
-              ]
-            : [])
-        ]
-      }
     }
   },
   fixes: {}

@@ -27,20 +27,12 @@ describe('WINDOW_TYPE_REGISTRY behavior invariants', () => {
       ).toBe(true)
     }
   })
-
-  it('keeps screenshot overlays on their capture Space while allowing fullscreen coverage', () => {
-    expect(WINDOW_TYPE_REGISTRY[WindowType.Screenshot]?.behavior?.visibleOnAllWorkspaces).toEqual({
-      enabled: false,
-      visibleOnFullScreen: true,
-      skipTransformProcessType: true
-    })
-  })
 })
 
 // The shared preload bundle is code-split, and Electron's sandbox blocks a preload from
 // requiring its own chunks — it fails with "module not found: ./chunks/…". The window then
 // loads without `window.api`, so the renderer throws while initialising and never mounts.
-// On an ordinary window that reads as a blank page; on the screenshot overlay it produced a
+// On an ordinary window that reads as a blank page; on an overlay window it produced a
 // transparent, always-on-top, click-swallowing window that could only be force-quit.
 describe('WINDOW_TYPE_REGISTRY preload invariants', () => {
   it('every window using the shared preload disables the sandbox', () => {

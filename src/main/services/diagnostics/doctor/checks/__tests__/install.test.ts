@@ -2,12 +2,10 @@ import { MockMainPreferenceServiceUtils } from '@test-mocks/main/PreferenceServi
 import { app } from 'electron'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ScreenCaptureError } from '@main/services/screenshot'
 import { UpgradeChannel } from '@shared/data/preference/preferenceTypes'
 
 const services = vi.hoisted(() => ({
-  queryUpdateAvailability: vi.fn(),
-  loadNativeCaptureBackend: vi.fn()
+  queryUpdateAvailability: vi.fn()
 }))
 
 vi.mock('@application', async () => {
@@ -16,12 +14,7 @@ vi.mock('@application', async () => {
     AppUpdaterService: { queryUpdateAvailability: services.queryUpdateAvailability }
   } as never)
 })
-vi.mock('@main/services/screenshot/nativeCaptureBackend', () => ({
-  loadNativeCaptureBackend: services.loadNativeCaptureBackend
-}))
-
-const { installArchitectureMatch, installNativeModules, installUpdateAvailable, installVersionChannel } =
-  await import('../install')
+const { installArchitectureMatch, installUpdateAvailable, installVersionChannel } = await import('../install')
 
 const setTranslated = (value: boolean | undefined) => {
   ;(app as { runningUnderARM64Translation?: boolean }).runningUnderARM64Translation = value
@@ -34,7 +27,6 @@ beforeEach(() => {
   MockMainPreferenceServiceUtils.resetMocks()
   vi.mocked(app.getVersion).mockReturnValue('2.0.0')
   services.queryUpdateAvailability.mockResolvedValue({ status: 'current', currentVersion: '2.0.0' })
-  services.loadNativeCaptureBackend.mockReturnValue({})
   setTranslated(false)
 })
 
@@ -130,30 +122,6 @@ describe('install-update-available', () => {
       attribution: 'user-fixable',
       detail: { variant: 'available', params: { currentVersion: '2.0.0', availableVersion: '2.1.0' } },
       actions: [{ kind: 'navigate', target: '/settings/about' }]
-    })
-  })
-})
-
-describe('install-native-modules', () => {
-  it('passes when the native capture backend loads', async () => {
-    await expect(installNativeModules.run(ctx)).resolves.toEqual({ status: 'pass' })
-  })
-
-  it('reports a missing or unloadable native backend as an app bug', async () => {
-    services.loadNativeCaptureBackend.mockImplementation(() => {
-      throw new ScreenCaptureError('Screen capture backend is unavailable', { cause: new Error('dlopen failed') })
-    })
-
-    await expect(installNativeModules.run(ctx)).resolves.toMatchObject({
-      status: 'fail',
-      attribution: 'app-bug',
-      detail: { variant: 'unavailable' },
-      actions: [{ kind: 'report' }],
-      evidence: [
-        { key: 'module', value: 'node-screenshots', dataClass: 'public' },
-        { key: 'error', value: 'Screen capture backend is unavailable', dataClass: 'consent_required' },
-        { key: 'cause', value: 'dlopen failed', dataClass: 'consent_required' }
-      ]
     })
   })
 })

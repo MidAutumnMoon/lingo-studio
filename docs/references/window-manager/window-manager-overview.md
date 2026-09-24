@@ -104,7 +104,7 @@ Windows are reused rather than destroyed. The pool has two orthogonal axes:
 
 Both axes are independently enabled via config. `open()` pops an idle window (sending the `window.reused` IpcApi event when `initData` is provided) or creates fresh if empty. `close()` either recycles or destroys depending on the recycle config.
 
-**Use for**: frequently opened windows where creation cost is high (selection actions, screenshot overlays).
+**Use for**: frequently opened windows where creation cost is high (selection actions).
 
 ```typescript
 // Example: SelectionAction — hybrid (standby + recycle).

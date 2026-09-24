@@ -205,11 +205,26 @@
       "targetKey": "ui.sidebar.favorites",
       "type": "PreferenceTypes.SidebarFavoriteItem[]",
       "defaultValue": [
-        { "id": "agents", "type": "app" },
-        { "id": "assistants", "type": "app" },
-        { "id": "translate", "type": "app" },
-        { "id": "paintings", "type": "app" },
-        { "id": "knowledge", "type": "app" }
+        {
+          "id": "agents",
+          "type": "app"
+        },
+        {
+          "id": "assistants",
+          "type": "app"
+        },
+        {
+          "id": "translate",
+          "type": "app"
+        },
+        {
+          "id": "paintings",
+          "type": "app"
+        },
+        {
+          "id": "knowledge",
+          "type": "app"
+        }
       ],
       "status": "classified",
       "description": "Legacy sidebar favorites, preserved as the source for shortcut migration"
@@ -220,27 +235,57 @@
       "defaultValue": [
         {
           "id": "sidebar-shortcut:core.app:agents",
-          "target": { "kind": "resource", "locator": { "providerId": "core.app", "resourceId": "agents" } },
+          "target": {
+            "kind": "resource",
+            "locator": {
+              "providerId": "core.app",
+              "resourceId": "agents"
+            }
+          },
           "type": "shortcut"
         },
         {
           "id": "sidebar-shortcut:core.app:assistants",
-          "target": { "kind": "resource", "locator": { "providerId": "core.app", "resourceId": "assistants" } },
+          "target": {
+            "kind": "resource",
+            "locator": {
+              "providerId": "core.app",
+              "resourceId": "assistants"
+            }
+          },
           "type": "shortcut"
         },
         {
           "id": "sidebar-shortcut:core.app:translate",
-          "target": { "kind": "resource", "locator": { "providerId": "core.app", "resourceId": "translate" } },
+          "target": {
+            "kind": "resource",
+            "locator": {
+              "providerId": "core.app",
+              "resourceId": "translate"
+            }
+          },
           "type": "shortcut"
         },
         {
           "id": "sidebar-shortcut:core.app:paintings",
-          "target": { "kind": "resource", "locator": { "providerId": "core.app", "resourceId": "paintings" } },
+          "target": {
+            "kind": "resource",
+            "locator": {
+              "providerId": "core.app",
+              "resourceId": "paintings"
+            }
+          },
           "type": "shortcut"
         },
         {
           "id": "sidebar-shortcut:core.app:knowledge",
-          "target": { "kind": "resource", "locator": { "providerId": "core.app", "resourceId": "knowledge" } },
+          "target": {
+            "kind": "resource",
+            "locator": {
+              "providerId": "core.app",
+              "resourceId": "knowledge"
+            }
+          },
           "type": "shortcut"
         }
       ],
@@ -578,7 +623,10 @@
       "targetKey": "shortcut.chat.input.focus",
       "type": "PreferenceTypes.PreferenceShortcutType",
       "defaultValue": {
-        "binding": ["CommandOrControl", "I"],
+        "binding": [
+          "CommandOrControl",
+          "I"
+        ],
         "enabled": true
       },
       "status": "classified",
@@ -804,34 +852,6 @@
       "defaultValue": "VALUE: null",
       "status": "classified",
       "description": "The composer shortcut that inserts a line break. No stored default: resolved at read time to Shift+Enter, or Enter when the send shortcut already takes Shift+Enter. Send / newline / inject shortcuts are mutually exclusive."
-    },
-    {
-      "targetKey": "feature.screenshot.enabled",
-      "type": "boolean",
-      "defaultValue": false,
-      "status": "classified",
-      "description": "Whether interactive screen capture is enabled"
-    },
-    {
-      "targetKey": "feature.screenshot.auto_ocr",
-      "type": "boolean",
-      "defaultValue": true,
-      "status": "classified",
-      "description": "Whether OCR runs automatically after a selection is made"
-    },
-    {
-      "targetKey": "shortcut.screenshot.capture",
-      "type": "PreferenceTypes.PreferenceShortcutType",
-      "defaultValue": {
-        "binding": [
-          "CommandOrControl",
-          "Shift",
-          "A"
-        ],
-        "enabled": true
-      },
-      "status": "classified",
-      "description": "Command shortcut: screenshot.capture (unified command system)"
     },
     {
       "targetKey": "data.trash.retention_days",
