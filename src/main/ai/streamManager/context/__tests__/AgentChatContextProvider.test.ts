@@ -89,7 +89,7 @@ describe('AgentChatContextProvider', () => {
     vi.clearAllMocks()
     runtimeDriverRegistry.clearForTest()
     runtimeDriverRegistry.register({
-      type: 'claude-code',
+      type: 'pi',
       capabilities: ['agent-session'],
       connect: vi.fn(),
       validateSession: mocks.runtimeValidateSession,
@@ -100,7 +100,7 @@ describe('AgentChatContextProvider', () => {
     mocks.getAgent.mockReturnValue({
       id: 'agent-1',
       name: 'My Agent',
-      type: 'claude-code',
+      type: 'pi',
       model: 'anthropic::claude-sonnet',
       modelName: 'Claude Sonnet'
     })
@@ -217,7 +217,7 @@ describe('AgentChatContextProvider', () => {
       sessionId: 'session-1',
       topicId: 'agent-session:session-1',
       agentId: 'agent-1',
-      agentType: 'claude-code',
+      agentType: 'pi',
       modelId: 'anthropic::claude-sonnet',
       reasoningEffort: 'default',
       serviceTier: 'standard',
@@ -351,7 +351,7 @@ describe('AgentChatContextProvider', () => {
     mocks.getAgent.mockReturnValue({
       id: 'agent-1',
       name: 'My Agent',
-      type: 'claude-code',
+      type: 'pi',
       model: 'anthropic::claude-sonnet',
       modelName: 'Claude Sonnet',
       configuration: { reasoning_effort: 'high', service_tier: 'flex' }
@@ -371,7 +371,7 @@ describe('AgentChatContextProvider', () => {
     mocks.getAgent.mockReturnValue({
       id: 'agent-1',
       name: 'My Agent',
-      type: 'claude-code',
+      type: 'pi',
       model: 'anthropic::claude-sonnet',
       modelName: 'Claude Sonnet',
       configuration: { reasoning_effort: 'high', service_tier: 'flex' }

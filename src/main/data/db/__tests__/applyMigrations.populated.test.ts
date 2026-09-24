@@ -336,7 +336,7 @@ describe('applyMigrations over a populated database', () => {
       .prepare(
         `INSERT INTO agent
            (id, type, name, instructions, order_key, created_at, updated_at)
-         VALUES ('agent-channel-migration', 'claude-code', 'Agent', '', 'a0', ?, ?)`
+         VALUES ('agent-channel-migration', 'pi', 'Agent', '', 'a0', ?, ?)`
       )
       .run(now, now)
     sqlite
@@ -931,7 +931,7 @@ describe('applyMigrations over a populated database', () => {
     sqlite
       .prepare(
         `INSERT INTO agent (id, type, name, instructions, order_key, created_at, updated_at)
-         VALUES ('agent-skill-migrate', 'claude-code', 'Agent', '', 'a0', ?, ?)`
+         VALUES ('agent-skill-migrate', 'pi', 'Agent', '', 'a0', ?, ?)`
       )
       .run(now, now)
     sqlite
@@ -1027,7 +1027,7 @@ describe('applyMigrations over a populated database', () => {
     sqlite
       .prepare(
         `INSERT INTO agent (id, type, name, instructions, order_key, created_at, updated_at)
-         VALUES ('agent-task-migrate', 'claude-code', 'Agent', '', 'a0', ?, ?)`
+         VALUES ('agent-task-migrate', 'pi', 'Agent', '', 'a0', ?, ?)`
       )
       .run(now, now)
     sqlite

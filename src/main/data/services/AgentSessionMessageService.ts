@@ -1984,7 +1984,7 @@ export class AgentSessionMessageService {
       (!session.agentUpdatedAt ||
         new Date(session.agentUpdatedAt).toISOString() !== expectedAgent.updatedAt ||
         session.agentModel !== expectedAgent.model ||
-        (session.agentType === 'cherry-claw' ? 'claude-code' : session.agentType) !== expectedAgent.type)
+        session.agentType !== expectedAgent.type)
     ) {
       throw DataApiErrorFactory.concurrentModification('Agent', expectedAgent.id)
     }

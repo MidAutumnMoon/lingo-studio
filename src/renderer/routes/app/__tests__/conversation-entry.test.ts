@@ -59,12 +59,6 @@ describe('conversation entry route guards', () => {
     expect(mocks.resolveAgentEntrySessionId).not.toHaveBeenCalled()
   })
 
-  it('does not resolve a feedback-intent agent entry', async () => {
-    await agentBeforeLoad({ search: { intent: 'feedback' } })
-
-    expect(mocks.resolveAgentEntrySessionId).not.toHaveBeenCalled()
-  })
-
   it('resolves an assistant-scoped topic for a sidebar assistant entry', async () => {
     mocks.resolveChatEntryTopicIdForAssistant.mockResolvedValue('topic-assistant')
 

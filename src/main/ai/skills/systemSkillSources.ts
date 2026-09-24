@@ -19,13 +19,11 @@ function resolveHomePath(home: string, configuredPath: string | undefined, fallb
  */
 export function buildSystemSkillSources(home: string, env: Record<string, string>): SystemSkillSource[] {
   const configHome = resolveHomePath(home, env.XDG_CONFIG_HOME, ['.config'])
-  const claudeHome = resolveHomePath(home, env.CLAUDE_CONFIG_DIR, ['.claude'])
   const codexHome = resolveHomePath(home, env.CODEX_HOME, ['.codex'])
 
   return [
     { id: 'agents', name: 'Agent Skills', directoryPath: path.join(home, '.agents', 'skills') },
     { id: 'agents-xdg', name: 'Agent Skills', directoryPath: path.join(configHome, 'agents', 'skills') },
-    { id: 'claude-code', name: 'Claude Code', directoryPath: path.join(claudeHome, 'skills') },
     { id: 'codex', name: 'Codex', directoryPath: path.join(codexHome, 'skills') },
     { id: 'cursor', name: 'Cursor', directoryPath: path.join(home, '.cursor', 'skills') },
     { id: 'gemini-cli', name: 'Gemini CLI', directoryPath: path.join(home, '.gemini', 'skills') },

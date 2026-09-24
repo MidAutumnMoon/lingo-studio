@@ -19,7 +19,7 @@ import type { TraceStore } from './TraceStore'
 
 const logger = loggerService.withContext('TraceStorageService')
 
-// Claude Code's OTLP log events (raw API bodies, tool I/O, prompts) stream in every ~1s DURING a
+// Runtime OTLP log events (raw API bodies, tool I/O, prompts) can stream in DURING a
 // turn, but the span they reference is only exported when it ENDS — so events routinely arrive
 // before their span. Buffer such orphans (bounded) and drain them once the span lands, instead of
 // dropping them and losing the rich per-span detail. Caps keep a span that never arrives from
@@ -50,7 +50,7 @@ function estimateEventBytes(event: TimedEvent): number {
 }
 
 // The MAX_PENDING_* caps above bound only the ORPHAN buffer: once a span is stored, events were
-// appended to it without any limit, and Claude Code streams them for the whole turn. A measured span
+// appended to it without any limit, and a runtime can stream them for a whole turn. A measured span
 // reached ~1.5k events / ~20 MiB, which is then parsed into the main heap, structure-cloned over IPC
 // and retained by the renderer whole — so cap what a single stored span keeps. Held well under
 // MAX_TRACE_FILE_BYTES so one span cannot consume the entire file budget on its own.
@@ -128,7 +128,7 @@ export class TraceStorageService extends BaseService implements TraceStore, Acti
   private readonly pendingEvents = new Map<string, TimedEvent[]>()
   // Running estimate of bytes retained across all pendingEvents, kept in sync on buffer/evict/drain.
   private pendingEventBytes = 0
-  // Retained-event byte total per stored span. Claude Code delivers one OTLP batch as a separate
+  // Retained-event byte total per stored span. Delivery may come as separate
   // addSpanEvent call per event, so re-measuring the retained window on each append would be
   // quadratic in the events a span receives. Weakly keyed: an entry dies with the span it measures,
   // so store eviction and flush clearing need no bookkeeping here. A miss just re-measures once.
@@ -263,13 +263,13 @@ export class TraceStorageService extends BaseService implements TraceStore, Acti
       this.addEntity(entity)
     }
     this.updateModelName(entity)
-    // Claude Code spans land here via /v1/traces; attach any log events that arrived first.
+    // Spans may arrive after their events; attach any log events that arrived first.
     this.drainPendingEvents(entity.id)
   }
 
   /**
    * Append a single OTel event to an in-memory span. Used by `LocalTraceWindowSink`
-   * to deliver Claude Code OTLP log events that arrive separately from their parent span.
+   * to deliver log events that arrive separately from their parent span.
    *
    * The event's span may not be stored yet (it arrives mid-turn; the span is exported on end), so a
    * miss buffers the event for later draining (see {@link drainPendingEvents}) instead of dropping it.
@@ -361,7 +361,7 @@ export class TraceStorageService extends BaseService implements TraceStore, Acti
     const live = this.store.getSpans({ topicId, traceId })
     const history = await this.getHistoryData(topicId, traceId)
     // Return OTel-faithful spans merged across history + live; display-only re-parenting of warm
-    // claude_code spans under their owning ai.turn is done in the renderer trace viewer.
+    // runtime spans under their owning ai.turn is done in the renderer trace viewer.
     return mergeSpansById(history, live)
   }
 

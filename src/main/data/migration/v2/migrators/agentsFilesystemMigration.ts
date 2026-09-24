@@ -1,10 +1,9 @@
 import { createHash, type Hash, randomUUID } from 'node:crypto'
 import { type BigIntStats, constants, createReadStream } from 'node:fs'
-import { copyFile, cp, link, lstat, mkdir, readdir, readlink, realpath, rename, rmdir, unlink } from 'node:fs/promises'
+import { copyFile, link, lstat, mkdir, readdir, readlink, realpath, rename, rmdir, unlink } from 'node:fs/promises'
 import path from 'node:path'
 
 import PQueue from 'p-queue'
-import { validate as isUuid } from 'uuid'
 
 import { loggerService } from '@logger'
 import {
@@ -19,10 +18,7 @@ import { isPathInside, isSameOrInside } from '@main/utils/file'
 
 const logger = loggerService.withContext('AgentsFilesystemMigration')
 const IDENTITY_ENTRY_NAMES = new Set(['soul.md', 'user.md', 'memory'])
-const CLAUDE_PROJECT_DIRECTORY_NAME_MAX_LENGTH = 200
 const AGENT_MIGRATION_FILESYSTEM_CONCURRENCY = 16
-const CLAUDE_CONFIG_PROGRESS_INTERVAL_MS = 100
-const CLAUDE_CONFIG_PROGRESS_BYTE_STEP = 16 * 1024 * 1024
 
 function createFilesystemQueue(): PQueue {
   return new PQueue({ concurrency: AGENT_MIGRATION_FILESYSTEM_CONCURRENCY })
@@ -89,90 +85,6 @@ export interface AgentFilesystemMigrationProgress {
 
 export interface AgentFilesystemMigrationResult {
   skippedTargetCount: number
-}
-
-export interface ClaudeConfigMigrationProgress {
-  phase: 'scanning' | 'copying' | 'verifying'
-  processed: number
-  total: number
-  byteCount: number
-  byteTotal: number
-}
-
-export interface ClaudeSessionMigrationProgress {
-  processed: number
-  total: number
-  fileCount: number
-  byteCount: number
-}
-
-type FilesystemReadProgressCallback = (byteDelta: number, fileCompleted: boolean) => void
-
-function createClaudeConfigProgressTracker(
-  phase: ClaudeConfigMigrationProgress['phase'],
-  onProgress: (progress: ClaudeConfigMigrationProgress) => void,
-  initialTotal = 0,
-  initialByteTotal = 0
-) {
-  let processed = 0
-  let total = initialTotal
-  let byteCount = 0
-  let byteTotal = initialByteTotal
-  let lastPublishedAt = performance.now()
-  let lastPublishedBytes = 0
-  let lastPublishedPercent = -1
-
-  const publish = (force = false) => {
-    const boundedProcessed = total > 0 ? Math.min(processed, total) : processed
-    const boundedByteCount = byteTotal > 0 ? Math.min(byteCount, byteTotal) : byteCount
-    const percent =
-      byteTotal > 0
-        ? Math.floor((boundedByteCount / byteTotal) * 100)
-        : total > 0
-          ? Math.floor((boundedProcessed / total) * 100)
-          : -1
-    const now = performance.now()
-    if (
-      !force &&
-      percent === lastPublishedPercent &&
-      now - lastPublishedAt < CLAUDE_CONFIG_PROGRESS_INTERVAL_MS &&
-      boundedByteCount - lastPublishedBytes < CLAUDE_CONFIG_PROGRESS_BYTE_STEP
-    ) {
-      return
-    }
-
-    lastPublishedAt = now
-    lastPublishedBytes = boundedByteCount
-    lastPublishedPercent = percent
-    onProgress({
-      phase,
-      processed: boundedProcessed,
-      total,
-      byteCount: boundedByteCount,
-      byteTotal
-    })
-  }
-
-  publish(true)
-  return {
-    recordRead(byteDelta: number, fileCompleted: boolean) {
-      byteCount += byteDelta
-      if (fileCompleted) processed++
-      publish()
-    },
-    recordFile(fileBytes: number) {
-      processed++
-      byteCount += fileBytes
-      publish()
-    },
-    finish(finalTotal: number, finalByteTotal: number) {
-      processed = finalTotal
-      total = finalTotal
-      byteCount = finalByteTotal
-      byteTotal = finalByteTotal
-      publish(true)
-    }
-  }
 }
 
 interface CopyEntryResult {
@@ -444,507 +356,6 @@ async function removeTreeWithoutFollowingWithQueue(
   await queueFilesystemOperation(queue, () => rmdir(targetPath))
 }
 
-/**
- * Copy the v1 global Claude Agent SDK config into its v2 Agent-data location.
- * The source remains intact for downgrade compatibility. Publication is
- * atomic, an existing destination directory is left untouched, and symlinks
- * are skipped so the copy does not require Windows symlink privileges.
- */
-export async function copyLegacyClaudeConfig(
-  sourcePath: string,
-  destinationPath: string,
-  onProgress?: (progress: ClaudeConfigMigrationProgress) => void
-): Promise<boolean> {
-  const startedAt = performance.now()
-  const destinationStat = await lstatIfExists(destinationPath)
-  if (destinationStat?.isDirectory() && !destinationStat.isSymbolicLink()) {
-    logger.info('Skipping legacy Claude config migration because the destination directory already exists', {
-      sourcePath,
-      destinationPath,
-      durationMs: Math.round(performance.now() - startedAt)
-    })
-    return false
-  }
-
-  const sourceStat = await lstatIfExists(sourcePath)
-  if (!sourceStat) return false
-  if (sourceStat.isSymbolicLink()) {
-    logger.warn('Skipping symlinked legacy Claude config root during Agent migration', { sourcePath })
-    return false
-  }
-  if (!sourceStat.isDirectory()) {
-    throw new Error(`Legacy Claude config source is not a directory: ${sourcePath}`)
-  }
-
-  const sourceStats = onProgress ? await filesystemEntryStats(sourcePath) : undefined
-  if (onProgress && !sourceStats) throw new Error(`Legacy Claude config source disappeared: ${sourcePath}`)
-  const scanningProgress =
-    onProgress && sourceStats
-      ? createClaudeConfigProgressTracker('scanning', onProgress, sourceStats.fileCount, sourceStats.byteCount)
-      : undefined
-  const sourceSnapshot = await requiredFilesystemEntrySnapshot(sourcePath, true, scanningProgress?.recordRead)
-  scanningProgress?.finish(sourceSnapshot.fileCount, sourceSnapshot.byteCount)
-
-  await mkdir(path.dirname(destinationPath), { recursive: true })
-  const stagingPath = path.join(
-    path.dirname(destinationPath),
-    `.${path.basename(destinationPath)}.migration-${randomUUID()}`
-  )
-
-  try {
-    const copyingProgress = onProgress
-      ? createClaudeConfigProgressTracker('copying', onProgress, sourceSnapshot.fileCount, sourceSnapshot.byteCount)
-      : undefined
-    await cp(sourcePath, stagingPath, {
-      recursive: true,
-      force: false,
-      errorOnExist: true,
-      dereference: false,
-      verbatimSymlinks: true,
-      mode: constants.COPYFILE_FICLONE,
-      filter: async (entryPath) => {
-        const entryStat = await lstat(entryPath)
-        if (!entryStat.isSymbolicLink()) {
-          // fs.cp invokes the filter immediately before copying each entry, so
-          // this is file-granularity progress and leads by at most one file.
-          if (entryStat.isFile()) copyingProgress?.recordFile(entryStat.size)
-          return true
-        }
-        logger.warn('Skipping symlink while copying legacy Claude config', { entryPath })
-        return false
-      }
-    })
-    copyingProgress?.finish(sourceSnapshot.fileCount, sourceSnapshot.byteCount)
-
-    const verifyingProgress = onProgress
-      ? createClaudeConfigProgressTracker('verifying', onProgress, sourceSnapshot.fileCount, sourceSnapshot.byteCount)
-      : undefined
-    const stagingSnapshot = await requiredFilesystemEntrySnapshot(stagingPath, false, verifyingProgress?.recordRead)
-    verifyingProgress?.finish(stagingSnapshot.fileCount, stagingSnapshot.byteCount)
-    if (stagingSnapshot.fingerprint !== sourceSnapshot.fingerprint) {
-      throw new Error(`Legacy Claude config copy verification failed: ${sourcePath}`)
-    }
-
-    const racedDestinationStat = await lstatIfExists(destinationPath)
-    if (racedDestinationStat) {
-      const racedDestinationSnapshot = await requiredFilesystemEntrySnapshot(destinationPath)
-      if (racedDestinationSnapshot.fingerprint !== sourceSnapshot.fingerprint) {
-        throw new Error(`Legacy Claude config destination conflict: ${destinationPath}`)
-      }
-      logger.info('Reusing identical Claude config from an earlier migration attempt', {
-        sourcePath,
-        destinationPath
-      })
-    } else {
-      try {
-        await publishStagedWorkspaceEntry(stagingPath, destinationPath)
-      } catch (error) {
-        const racedDestinationSnapshot = await filesystemEntrySnapshot(destinationPath)
-        if (!racedDestinationSnapshot || racedDestinationSnapshot.fingerprint !== sourceSnapshot.fingerprint) {
-          throw error
-        }
-      }
-    }
-
-    logger.info('Copied legacy Claude config into the v2 Agents data directory', {
-      sourcePath,
-      destinationPath,
-      fileCount: sourceSnapshot.fileCount,
-      byteCount: sourceSnapshot.byteCount,
-      durationMs: Math.round(performance.now() - startedAt)
-    })
-    return true
-  } finally {
-    await removeTreeWithoutFollowing(stagingPath).catch(() => undefined)
-  }
-}
-
-function claudeProjectDirectoryNameHash(workspacePath: string): string {
-  let hash = 0
-  for (let index = 0; index < workspacePath.length; index++) {
-    hash = ((hash << 5) - hash + workspacePath.charCodeAt(index)) | 0
-  }
-  return Math.abs(hash).toString(36)
-}
-
-/**
- * Mirror Claude Agent SDK 0.3.218's private cwd-to-project-directory mapping.
- * Session lookup is scoped to this directory when the runtime passes `cwd`, so
- * a moved workspace needs its transcript copied under the new key.
- */
-export function claudeProjectDirectoryName(workspacePath: string): string {
-  const sanitized = workspacePath.replace(/[^a-zA-Z0-9]/g, '-')
-  if (sanitized.length <= CLAUDE_PROJECT_DIRECTORY_NAME_MAX_LENGTH) return sanitized
-  return `${sanitized.slice(0, CLAUDE_PROJECT_DIRECTORY_NAME_MAX_LENGTH)}-${claudeProjectDirectoryNameHash(workspacePath)}`
-}
-
-async function claudeProjectDirectoryPath(projectsDirectory: string, workspacePath: string): Promise<string> {
-  let resolvedWorkspacePath: string
-  try {
-    resolvedWorkspacePath = path.normalize(await realpath(workspacePath))
-  } catch {
-    resolvedWorkspacePath = path.resolve(workspacePath)
-  }
-  return path.join(projectsDirectory, claudeProjectDirectoryName(resolvedWorkspacePath))
-}
-
-interface ClaudeSessionSource {
-  transcriptPath: string
-}
-
-async function existingClaudeProjectsDirectories(projectsDirectories: string[]): Promise<string[]> {
-  const existingDirectories: string[] = []
-  const seenDirectories = new Set<string>()
-
-  for (const projectsDirectory of projectsDirectories) {
-    const normalizedProjectsDirectory = path.resolve(projectsDirectory)
-    if (seenDirectories.has(normalizedProjectsDirectory)) continue
-    seenDirectories.add(normalizedProjectsDirectory)
-
-    const projectsStat = await lstatIfExists(normalizedProjectsDirectory)
-    if (projectsStat?.isDirectory() && !projectsStat.isSymbolicLink()) {
-      existingDirectories.push(normalizedProjectsDirectory)
-    }
-  }
-
-  return existingDirectories
-}
-
-async function expectedClaudeProjectDirectories(
-  projectsDirectories: string[],
-  workspacePath: string
-): Promise<string[]> {
-  let resolvedWorkspacePath: string
-  try {
-    resolvedWorkspacePath = path.normalize(await realpath(workspacePath))
-  } catch {
-    resolvedWorkspacePath = path.resolve(workspacePath)
-  }
-
-  const projectDirectoryName = claudeProjectDirectoryName(resolvedWorkspacePath)
-  const existingDirectories: string[] = []
-  for (const projectsDirectory of projectsDirectories) {
-    const projectDirectory = path.join(projectsDirectory, projectDirectoryName)
-    const projectStat = await lstatIfExists(projectDirectory)
-    if (projectStat?.isDirectory() && !projectStat.isSymbolicLink()) {
-      existingDirectories.push(projectDirectory)
-    }
-  }
-  return existingDirectories
-}
-
-async function findClaudeSessionSourceInProjectDirectory(
-  projectDirectory: string,
-  runtimeResumeToken: string
-): Promise<ClaudeSessionSource | undefined> {
-  const transcriptPath = path.join(projectDirectory, `${runtimeResumeToken}.jsonl`)
-  const transcriptStat = await lstatIfExists(transcriptPath)
-  if (!transcriptStat?.isFile() || transcriptStat.isSymbolicLink()) return undefined
-
-  return { transcriptPath }
-}
-
-async function findClaudeSessionSourceInExpectedProjects(
-  projectDirectories: string[],
-  runtimeResumeToken: string
-): Promise<ClaudeSessionSource | undefined> {
-  for (const projectDirectory of projectDirectories) {
-    const source = await findClaudeSessionSourceInProjectDirectory(projectDirectory, runtimeResumeToken)
-    if (source) return source
-  }
-
-  return undefined
-}
-
-async function findClaudeSessionSourcesGlobally(
-  projectsDirectories: string[],
-  runtimeResumeTokens: Set<string>
-): Promise<Map<string, ClaudeSessionSource>> {
-  const sources = new Map<string, ClaudeSessionSource>()
-
-  for (const projectsDirectory of projectsDirectories) {
-    const projectEntries = await readdir(projectsDirectory, { withFileTypes: true })
-    projectEntries.sort((left, right) => left.name.localeCompare(right.name))
-    for (const projectEntry of projectEntries) {
-      if (!projectEntry.isDirectory() || projectEntry.isSymbolicLink()) continue
-      const projectDirectory = path.join(projectsDirectory, projectEntry.name)
-      const sessionEntries = await readdir(projectDirectory, { withFileTypes: true })
-      sessionEntries.sort((left, right) => left.name.localeCompare(right.name))
-
-      for (const sessionEntry of sessionEntries) {
-        if (!sessionEntry.isFile() || !sessionEntry.name.endsWith('.jsonl')) continue
-        const runtimeResumeToken = sessionEntry.name.slice(0, -'.jsonl'.length)
-        if (!runtimeResumeTokens.has(runtimeResumeToken) || sources.has(runtimeResumeToken)) continue
-
-        sources.set(runtimeResumeToken, {
-          transcriptPath: path.join(projectDirectory, sessionEntry.name)
-        })
-      }
-
-      if (sources.size === runtimeResumeTokens.size) return sources
-    }
-  }
-
-  return sources
-}
-
-async function copyClaudeSessionEntry(
-  sourcePath: string,
-  destinationPath: string,
-  sourceSnapshots: Map<string, FilesystemEntrySnapshot>
-): Promise<CopyEntryResult> {
-  const sourceStat = await lstatIfExists(sourcePath)
-  if (!sourceStat) {
-    throw new Error(`Legacy Claude session cache disappeared: ${sourcePath}`)
-  }
-  if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) {
-    throw new Error(`Legacy Claude session cache is not a regular file: ${sourcePath}`)
-  }
-
-  const sourceKey = path.resolve(sourcePath)
-  let sourceSnapshot = sourceSnapshots.get(sourceKey)
-  if (!sourceSnapshot) {
-    sourceSnapshot = await requiredFilesystemEntrySnapshot(sourcePath, true)
-    sourceSnapshots.set(sourceKey, sourceSnapshot)
-  }
-  if (path.resolve(sourcePath) === path.resolve(destinationPath)) {
-    return {
-      copied: false,
-      fileCount: sourceSnapshot.fileCount,
-      byteCount: sourceSnapshot.byteCount
-    }
-  }
-
-  await removeTreeWithoutFollowing(destinationPath)
-  const cleanedDestinationRace = await filesystemEntrySnapshot(destinationPath)
-  if (cleanedDestinationRace) {
-    if (cleanedDestinationRace.fingerprint !== sourceSnapshot.fingerprint) {
-      throw new Error(`Legacy Claude session cache destination conflict: ${destinationPath}`)
-    }
-    logger.info('Reusing identical Claude session cache entry created after target cleanup', {
-      sourcePath,
-      destinationPath
-    })
-    return {
-      copied: false,
-      fileCount: sourceSnapshot.fileCount,
-      byteCount: sourceSnapshot.byteCount
-    }
-  }
-
-  const stagingPath = path.join(
-    path.dirname(destinationPath),
-    `.${path.basename(destinationPath)}.migration-${randomUUID()}`
-  )
-  try {
-    await copyFile(sourcePath, stagingPath, constants.COPYFILE_EXCL | constants.COPYFILE_FICLONE)
-
-    const stagingSnapshot = await requiredFilesystemEntrySnapshot(stagingPath)
-    if (stagingSnapshot.fingerprint !== sourceSnapshot.fingerprint) {
-      throw new Error(`Legacy Claude session cache copy verification failed: ${sourcePath}`)
-    }
-
-    const racedDestinationStat = await lstatIfExists(destinationPath)
-    if (racedDestinationStat) {
-      const racedDestinationSnapshot = await requiredFilesystemEntrySnapshot(destinationPath)
-      if (racedDestinationSnapshot.fingerprint !== sourceSnapshot.fingerprint) {
-        throw new Error(`Legacy Claude session cache destination conflict: ${destinationPath}`)
-      }
-      logger.info('Reusing identical Claude session cache entry from an earlier migration attempt', {
-        sourcePath,
-        destinationPath
-      })
-      return {
-        copied: false,
-        fileCount: sourceSnapshot.fileCount,
-        byteCount: sourceSnapshot.byteCount
-      }
-    } else {
-      try {
-        await publishStagedWorkspaceEntry(stagingPath, destinationPath)
-      } catch (error) {
-        const racedDestinationSnapshot = await filesystemEntrySnapshot(destinationPath)
-        if (!racedDestinationSnapshot || racedDestinationSnapshot.fingerprint !== sourceSnapshot.fingerprint) {
-          throw error
-        }
-        return {
-          copied: false,
-          fileCount: sourceSnapshot.fileCount,
-          byteCount: sourceSnapshot.byteCount
-        }
-      }
-    }
-
-    return {
-      copied: true,
-      fileCount: sourceSnapshot.fileCount,
-      byteCount: sourceSnapshot.byteCount
-    }
-  } finally {
-    await removeTreeWithoutFollowing(stagingPath).catch(() => undefined)
-  }
-}
-
-/**
- * Make validated Claude SDK session transcripts available under each v2
- * workspace key. The old project cache remains intact for downgrade and GC;
- * only the JSONL transcript is copied.
- */
-export async function copyLegacyClaudeSessionData(input: {
-  agentsDataRoot: string
-  sourceProjectsDirectories: string[]
-  destinationProjectsDirectory: string
-  sessions: AgentFileSessionPlan[]
-  onProgress?: (progress: ClaudeSessionMigrationProgress) => void
-}): Promise<void> {
-  const startedAt = performance.now()
-  const copyPlans: Array<{
-    sourceSessionId: string
-    runtimeResumeToken: string
-    sourceWorkspacePath: string
-    destinationWorkspacePath: string
-  }> = []
-  const requestedTokens = new Set<string>()
-
-  for (const session of input.sessions) {
-    const destinationWorkspacePath = session.isManagedDefault
-      ? session.systemWorkspacePath
-      : session.sourceWorkspacePath
-    if (!destinationWorkspacePath) continue
-
-    for (const runtimeResumeToken of session.runtimeResumeTokens) {
-      if (!isUuid(runtimeResumeToken)) {
-        logger.warn('Skipping invalid Claude runtime resume token during Agent migration', {
-          sourceSessionId: session.sourceSessionId,
-          runtimeResumeToken
-        })
-        continue
-      }
-      requestedTokens.add(runtimeResumeToken)
-      copyPlans.push({
-        sourceSessionId: session.sourceSessionId,
-        runtimeResumeToken,
-        sourceWorkspacePath: session.sourceWorkspacePath,
-        destinationWorkspacePath
-      })
-    }
-  }
-
-  if (requestedTokens.size === 0) return
-
-  const sourceProjectsDirectories = await existingClaudeProjectsDirectories(input.sourceProjectsDirectories)
-  const projectDirectoriesByWorkspace = new Map<string, string[]>()
-  const expectedSources = new Map<string, ClaudeSessionSource | undefined>()
-  const sourcesByCopyPlan: Array<ClaudeSessionSource | undefined> = []
-  const globallyUnresolvedTokens = new Set<string>()
-  for (const copyPlan of copyPlans) {
-    const sourceKey = `${copyPlan.sourceWorkspacePath}\0${copyPlan.runtimeResumeToken}`
-    let source = expectedSources.get(sourceKey)
-    if (!expectedSources.has(sourceKey)) {
-      const workspaceKey = path.resolve(copyPlan.sourceWorkspacePath)
-      let projectDirectories = projectDirectoriesByWorkspace.get(workspaceKey)
-      if (!projectDirectories) {
-        projectDirectories = await expectedClaudeProjectDirectories(
-          sourceProjectsDirectories,
-          copyPlan.sourceWorkspacePath
-        )
-        projectDirectoriesByWorkspace.set(workspaceKey, projectDirectories)
-      }
-      source = await findClaudeSessionSourceInExpectedProjects(projectDirectories, copyPlan.runtimeResumeToken)
-      expectedSources.set(sourceKey, source)
-    }
-    sourcesByCopyPlan.push(source)
-    if (!source) globallyUnresolvedTokens.add(copyPlan.runtimeResumeToken)
-  }
-
-  const globallyDiscoveredSources =
-    globallyUnresolvedTokens.size === 0
-      ? new Map<string, ClaudeSessionSource>()
-      : await findClaudeSessionSourcesGlobally(sourceProjectsDirectories, globallyUnresolvedTokens)
-  const latestTokensBySessionId = new Map(
-    input.sessions
-      .filter((session) => session.latestRuntimeResumeToken)
-      .map((session) => [session.sourceSessionId, session.latestRuntimeResumeToken!])
-  )
-  const resolvedSourcesByCopyPlan = copyPlans.map(
-    (copyPlan, index) => sourcesByCopyPlan[index] ?? globallyDiscoveredSources.get(copyPlan.runtimeResumeToken)
-  )
-  const resumableSessionIds = new Set<string>()
-  for (const [copyPlanIndex, copyPlan] of copyPlans.entries()) {
-    const source = resolvedSourcesByCopyPlan[copyPlanIndex]
-    if (!source) {
-      logger.warn('Claude session transcript not found during Agent migration', {
-        sourceSessionId: copyPlan.sourceSessionId,
-        runtimeResumeToken: copyPlan.runtimeResumeToken
-      })
-      continue
-    }
-    if (latestTokensBySessionId.get(copyPlan.sourceSessionId) === copyPlan.runtimeResumeToken) {
-      resumableSessionIds.add(copyPlan.sourceSessionId)
-    }
-  }
-
-  const destinationDirectoriesByWorkspace = new Map<string, string>()
-  const preparedDestinationDirectories = new Set<string>()
-  const sourceSnapshots = new Map<string, FilesystemEntrySnapshot>()
-  let preparedEntries = 0
-  let reusedEntries = 0
-  let fileCount = 0
-  let byteCount = 0
-  const eligibleCopyPlanIndices = copyPlans
-    .map((copyPlan, index) => ({ copyPlan, index }))
-    .filter(
-      ({ copyPlan, index }) => resumableSessionIds.has(copyPlan.sourceSessionId) && resolvedSourcesByCopyPlan[index]
-    )
-
-  for (const [eligibleIndex, { copyPlan, index: copyPlanIndex }] of eligibleCopyPlanIndices.entries()) {
-    const source = resolvedSourcesByCopyPlan[copyPlanIndex]!
-
-    let destinationProjectDirectory = destinationDirectoriesByWorkspace.get(copyPlan.destinationWorkspacePath)
-    if (!destinationProjectDirectory) {
-      destinationProjectDirectory = await claudeProjectDirectoryPath(
-        input.destinationProjectsDirectory,
-        copyPlan.destinationWorkspacePath
-      )
-      destinationDirectoriesByWorkspace.set(copyPlan.destinationWorkspacePath, destinationProjectDirectory)
-    }
-
-    if (!preparedDestinationDirectories.has(destinationProjectDirectory)) {
-      await ensureAgentStorageDirectory(input.agentsDataRoot, destinationProjectDirectory)
-      preparedDestinationDirectories.add(destinationProjectDirectory)
-    }
-
-    const result = await copyClaudeSessionEntry(
-      source.transcriptPath,
-      path.join(destinationProjectDirectory, `${copyPlan.runtimeResumeToken}.jsonl`),
-      sourceSnapshots
-    )
-    if (result.copied) {
-      preparedEntries++
-    } else {
-      reusedEntries++
-    }
-    fileCount += result.fileCount
-    byteCount += result.byteCount
-    input.onProgress?.({
-      processed: eligibleIndex + 1,
-      total: eligibleCopyPlanIndices.length,
-      fileCount,
-      byteCount
-    })
-  }
-
-  logger.info('Prepared Claude session cache for migrated Agent workspace paths', {
-    requestedSessions: copyPlans.length,
-    preparedEntries,
-    reusedEntries,
-    uniqueSources: sourceSnapshots.size,
-    fileCount,
-    byteCount,
-    durationMs: Math.round(performance.now() - startedAt)
-  })
-}
-
 type FilesystemEntryKind = 'directory' | 'file' | 'symlink'
 
 interface FilesystemEntrySnapshot {
@@ -952,8 +363,6 @@ interface FilesystemEntrySnapshot {
   fileCount: number
   byteCount: number
 }
-
-type FilesystemEntryStats = Omit<FilesystemEntrySnapshot, 'fingerprint'>
 
 interface CopySourceSnapshot {
   copiedFingerprint: string
@@ -982,15 +391,13 @@ function updateFingerprintField(hash: Hash, value: string): void {
 
 async function filesystemEntrySnapshot(
   targetPath: string,
-  skipSymlinks = false,
-  onReadProgress?: FilesystemReadProgressCallback
+  skipSymlinks = false
 ): Promise<FilesystemEntrySnapshot | undefined> {
   return filesystemEntrySnapshotWithQueue(
     targetPath,
     skipSymlinks,
     createFilesystemQueue(),
-    new FilesystemBranchScheduler(),
-    onReadProgress
+    new FilesystemBranchScheduler()
   )
 }
 
@@ -998,8 +405,7 @@ async function filesystemEntrySnapshotWithQueue(
   targetPath: string,
   skipSymlinks: boolean,
   queue: PQueue,
-  scheduler: FilesystemBranchScheduler,
-  onReadProgress?: FilesystemReadProgressCallback
+  scheduler: FilesystemBranchScheduler
 ): Promise<FilesystemEntrySnapshot | undefined> {
   const targetStat = await queueFilesystemOperation(queue, () => lstatBigIntIfExists(targetPath))
   if (!targetStat) return undefined
@@ -1020,7 +426,6 @@ async function filesystemEntrySnapshotWithQueue(
     await queueFilesystemOperation(queue, async () => {
       for await (const chunk of createReadStream(targetPath)) {
         contentHash.update(chunk)
-        onReadProgress?.(chunk.length, false)
       }
     })
   } else {
@@ -1032,13 +437,7 @@ async function filesystemEntrySnapshotWithQueue(
       scheduler,
       async (entry) => {
         const childPath = path.join(targetPath, entry)
-        const childSnapshot = await filesystemEntrySnapshotWithQueue(
-          childPath,
-          skipSymlinks,
-          queue,
-          scheduler,
-          onReadProgress
-        )
+        const childSnapshot = await filesystemEntrySnapshotWithQueue(childPath, skipSymlinks, queue, scheduler)
         if (!childSnapshot) {
           if (
             skipSymlinks &&
@@ -1064,55 +463,11 @@ async function filesystemEntrySnapshotWithQueue(
     }
   }
 
-  if (kind === 'file') onReadProgress?.(0, true)
   return {
     fingerprint: contentHash.digest('hex'),
     fileCount,
     byteCount
   }
-}
-
-async function filesystemEntryStats(targetPath: string): Promise<FilesystemEntryStats | undefined> {
-  return filesystemEntryStatsWithQueue(targetPath, createFilesystemQueue(), new FilesystemBranchScheduler())
-}
-
-async function filesystemEntryStatsWithQueue(
-  targetPath: string,
-  queue: PQueue,
-  scheduler: FilesystemBranchScheduler
-): Promise<FilesystemEntryStats | undefined> {
-  const targetStat = await queueFilesystemOperation(queue, () => lstatBigIntIfExists(targetPath))
-  if (!targetStat) return undefined
-
-  const kind = filesystemEntryKind(targetStat)
-  let fileCount = kind === 'file' ? 1 : 0
-  let byteCount = kind === 'file' ? Number(targetStat.size) : 0
-  if (kind === 'directory') {
-    const entries = await queueFilesystemOperation(queue, () => readdir(targetPath))
-    entries.sort()
-    const childStats: FilesystemEntryStats[] = new Array(entries.length)
-    await processFilesystemEntriesWithWorkers(
-      entries,
-      scheduler,
-      async (entry) => {
-        const childPath = path.join(targetPath, entry)
-        const stats = await filesystemEntryStatsWithQueue(childPath, queue, scheduler)
-        if (!stats) {
-          throw new Error(`Agent migration fingerprint source disappeared: ${childPath}`)
-        }
-        return stats
-      },
-      (stats, index) => {
-        childStats[index] = stats
-      }
-    )
-    for (const stats of childStats) {
-      fileCount += stats.fileCount
-      byteCount += stats.byteCount
-    }
-  }
-
-  return { fileCount, byteCount }
 }
 
 async function identityCopySourceSnapshot(targetPath: string): Promise<CopySourceSnapshot | undefined> {
@@ -1239,10 +594,9 @@ async function workspaceSourceSnapshotWithQueue(
 
 async function requiredFilesystemEntrySnapshot(
   targetPath: string,
-  skipSymlinks = false,
-  onReadProgress?: FilesystemReadProgressCallback
+  skipSymlinks = false
 ): Promise<FilesystemEntrySnapshot> {
-  const snapshot = await filesystemEntrySnapshot(targetPath, skipSymlinks, onReadProgress)
+  const snapshot = await filesystemEntrySnapshot(targetPath, skipSymlinks)
   if (!snapshot) {
     throw new Error(`Agent migration fingerprint source disappeared: ${targetPath}`)
   }

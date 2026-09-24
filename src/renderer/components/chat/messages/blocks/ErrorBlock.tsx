@@ -10,7 +10,7 @@ import { useTimer } from '@renderer/hooks/useTimer'
 import { getHttpMessageLabelKey, getProviderLabelKey } from '@renderer/i18n/label'
 import type { SerializedError } from '@renderer/types/error'
 import { formatErrorMessageWithPrefix, providerErrorText } from '@renderer/utils/error'
-import { classifyError, getClaudeCodeExitCategory, getClaudeCodeExitInfo } from '@renderer/utils/errorClassifier'
+import { classifyError } from '@renderer/utils/errorClassifier'
 
 import { useMessageListActions } from '../MessageListProvider'
 import type { MessageListItem } from '../types'
@@ -33,14 +33,6 @@ const ErrorBlock: React.FC<Props> = ({ partId, error, message }) => {
 
 const ErrorMessage: React.FC<{ error: Props['error'] }> = ({ error }) => {
   const { t, i18n } = useTranslation()
-
-  const claudeCodeExit = getClaudeCodeExitInfo(error)
-  if (claudeCodeExit) {
-    const { reference, exitCode, exitSignal } = claudeCodeExit
-    if (exitCode !== undefined) return t('error.claude_code_exit.code', { code: exitCode, reference })
-    if (exitSignal !== undefined) return t('error.claude_code_exit.signal', { signal: exitSignal, reference })
-    return t('error.claude_code_exit.start', { reference })
-  }
 
   const i18nKey = error && 'i18nKey' in error ? `error.${(error as Record<string, unknown>).i18nKey}` : ''
   const errorKey = `error.${error?.message}`
@@ -96,7 +88,6 @@ const MessageErrorInfo: React.FC<{
   const errorMessage = error?.message ?? undefined
   const errorProviderId = (error as Record<string, unknown> | undefined)?.providerId as string | undefined
   const errorI18nKey = (error as Record<string, unknown> | undefined)?.i18nKey
-  const claudeCodeExitCategory = getClaudeCodeExitCategory(error)
   const hasAppOwnedI18nKey = typeof errorI18nKey === 'string' && i18n.exists(`error.${errorI18nKey}`)
 
   const providerId = getMessageListItemModel(message)?.provider ?? errorProviderId
@@ -107,14 +98,7 @@ const MessageErrorInfo: React.FC<{
   )
 
   useEffect(() => {
-    if (
-      claudeCodeExitCategory !== undefined ||
-      hasAppOwnedI18nKey ||
-      classification.category !== 'unknown' ||
-      !errorMessage ||
-      !error ||
-      !diagnoseMessageError
-    )
+    if (hasAppOwnedI18nKey || classification.category !== 'unknown' || !errorMessage || !error || !diagnoseMessageError)
       return
     let cancelled = false
     diagnoseMessageError({
@@ -134,16 +118,7 @@ const MessageErrorInfo: React.FC<{
     // Intentionally exclude `error` from deps — its identity changes per render
     // but the action input's scalar message/language fields are both stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    claudeCodeExitCategory,
-    classification.category,
-    diagnoseMessageError,
-    errorMessage,
-    hasAppOwnedI18nKey,
-    i18n.language,
-    message,
-    partId
-  ])
+  }, [classification.category, diagnoseMessageError, errorMessage, hasAppOwnedI18nKey, i18n.language, message, partId])
 
   const onRemoveErrorPart = useCallback(
     (e: React.MouseEvent) => {

@@ -1,14 +1,8 @@
-import { loggerService } from '@logger'
-import { loadBuiltinAgentDefinition, provisionBuiltinAgent } from '@main/ai/agents/builtin/BuiltinAgentProvisioner'
 import { type AgentPromptBase, PromptBuilder } from '@main/ai/agents/prompt'
 import { getEffectiveAgentLanguage } from '@main/ai/utils/agentLanguage'
 import { replacePromptVariables } from '@main/utils/prompt'
 import { REPORT_ARTIFACTS_TOOL_NAME } from '@shared/ai/builtinTools'
 import type { AgentEntity } from '@shared/data/api/schemas/agents'
-
-const logger = loggerService.withContext('AgentPrompt')
-const MINIMAL_CHERRY_ASSISTANT_INSTRUCTIONS =
-  'Within Cherry Studio, serve as Cherry Assistant, its built-in general-purpose Agent and onboarding guide. Help the user complete any request using the available tools.'
 
 const AGENT_INSTRUCTION_PRECEDENCE_PROMPT = `## Instruction Precedence
 
@@ -57,21 +51,8 @@ export async function buildAgentRuntimePrompt({
   customBaseContext,
   effectiveLanguage
 }: BuildAgentRuntimePromptOptions): Promise<AgentRuntimePrompt> {
-  const builtinRole = agent.configuration?.builtin_role as string | undefined
-  const isAssistant = builtinRole === 'assistant'
-  let instructions = agent.instructions
-
-  if (builtinRole && !instructions?.trim()) {
-    instructions = loadBuiltinAgentDefinition(builtinRole)?.instructions
-    if (!instructions && isAssistant) {
-      logger.error('Builtin Cherry Assistant definition missing; using minimal fallback instructions')
-      instructions = MINIMAL_CHERRY_ASSISTANT_INSTRUCTIONS
-    }
-  }
-  if (builtinRole) await provisionBuiltinAgent(agentDataPath, builtinRole)
-
-  const resolvedInstructions = instructions?.trim()
-    ? await replacePromptVariables(instructions, agent.modelName ?? undefined)
+  const resolvedInstructions = agent.instructions?.trim()
+    ? await replacePromptVariables(agent.instructions, agent.modelName ?? undefined)
     : ''
   const hasAgentInstructions = Boolean(resolvedInstructions.trim())
   const parts = await promptBuilder.buildPromptParts(

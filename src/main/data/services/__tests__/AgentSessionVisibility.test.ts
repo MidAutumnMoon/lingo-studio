@@ -19,10 +19,7 @@ describe('background session isolation', () => {
   const dbh = setupTestDatabase()
 
   beforeEach(() => {
-    dbh.db
-      .insert(agentTable)
-      .values({ id: 'agent', type: 'claude-code', name: 'Agent', instructions: '', orderKey: 'a0' })
-      .run()
+    dbh.db.insert(agentTable).values({ id: 'agent', type: 'pi', name: 'Agent', instructions: '', orderKey: 'a0' }).run()
     notify.mockClear()
   })
 

@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 const wizardValues = {
   avatar: '🤖',
   name: 'New',
-  agentType: 'claude-code' as const,
+  agentType: 'pi' as const,
   permissionMode: 'auto' as const,
   modelId: 'p::m',
   description: 'desc',
@@ -61,11 +61,9 @@ describe('AgentCreateDialog', () => {
 
     await waitFor(() =>
       expect(mocks.createAgent).toHaveBeenCalledWith({
-        type: 'claude-code',
+        type: 'pi',
         name: 'New',
         model: 'p::m',
-        planModel: 'p::m',
-        smallModel: 'p::m',
         description: 'desc',
         instructions: 'Agent instructions',
         knowledgeBaseIds: ['kb-1'],

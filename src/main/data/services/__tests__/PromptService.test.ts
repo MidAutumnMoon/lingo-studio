@@ -42,7 +42,7 @@ describe('PromptService', () => {
   async function seedAgent() {
     await dbh.db.insert(agentTable).values({
       id: AGENT_ID,
-      type: 'claude-code',
+      type: 'pi',
       name: 'Agent',
       instructions: 'Help',
       orderKey: 'a0'

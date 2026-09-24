@@ -10,14 +10,6 @@ export interface ErrorClassification {
   navTarget: string | null
 }
 
-/** Claude Code process exit surfaced by the main process; see `processExitDiagnostics`. */
-export interface ClaudeCodeExitInfo {
-  category: ErrorCategory
-  reference: string
-  exitCode?: number
-  exitSignal?: string
-}
-
 const PROVIDER_SETTINGS_CATEGORIES: ReadonlySet<ErrorCategory> = new Set<ErrorCategory>([
   'auth',
   'bad_request',
@@ -41,30 +33,6 @@ function navTargetFor(category: ErrorCategory, providerSuffix: string): string |
       return '/app/knowledge'
     default:
       return null
-  }
-}
-
-/**
- * The category the main process already derived from the subprocess's stderr. The renderer
- * cannot re-derive it: the message crossing IPC is sanitized down to the exit status.
- */
-export function getClaudeCodeExitCategory(error?: SerializedError): ErrorCategory | undefined {
-  const category = (error as Record<string, unknown> | undefined)?.claudeCodeExitCategory
-  return isErrorCategory(category) ? category : undefined
-}
-
-/** Display payload for a Claude Code exit; absent unless the reference that logs it survived. */
-export function getClaudeCodeExitInfo(error?: SerializedError): ClaudeCodeExitInfo | undefined {
-  const category = getClaudeCodeExitCategory(error)
-  const errorBag = error as Record<string, unknown> | undefined
-  const reference = errorBag?.diagnosticReference
-  if (!category || typeof reference !== 'string' || !reference) return undefined
-
-  return {
-    category,
-    reference,
-    ...(typeof errorBag?.processExitCode === 'number' ? { exitCode: errorBag.processExitCode } : {}),
-    ...(typeof errorBag?.processExitSignal === 'string' ? { exitSignal: errorBag.processExitSignal } : {})
   }
 }
 
@@ -94,9 +62,6 @@ export function classifyError(error?: SerializedError, providerId?: string): Err
   })
 
   if (!error) return classify('unknown')
-
-  const claudeCodeExitCategory = getClaudeCodeExitCategory(error)
-  if (claudeCodeExitCategory) return classify(claudeCodeExitCategory)
 
   const errorBag = error as Record<string, unknown>
   if (isErrorCategory(errorBag.providerErrorCategory) && errorBag.providerErrorCategory !== 'unknown') {

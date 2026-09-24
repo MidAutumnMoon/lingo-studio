@@ -6,7 +6,6 @@ sources:
   - src/main/data/db/schemas/agentSession.ts
   - src/main/ai/agents/runAgentTask.ts
   - src/main/ai/runtime/types.ts
-  - src/main/ai/runtime/claudeCode
   - src/main/ai/runtime/pi
   - src/main/ai/runtime/dsh
   - src/main/ai/runtime/agentPrompt.ts
@@ -22,15 +21,15 @@ sources:
 
 Agent-session streams need a stable host for UI turns, persistence, live
 follow-ups (steers), and recovery. The host must not know whether the
-underlying agent uses a long-lived process, a websocket, one HTTP request
-per turn, or Claude Code's SDK `query`.
+underlying agent runs in-process, a long-lived child process, a websocket,
+or one HTTP request per turn.
 
 The boundary is:
 
 - `AgentSessionRuntimeService` owns Cherry's UI/session lifecycle.
 - `AgentSessionRuntimeDriver` owns the concrete agent-session runtime lifecycle.
 
-The built-in drivers are Claude Code, Pi, and DeepSeek Harness (DSH). Their
+The built-in drivers are Pi and DeepSeek Harness (DSH). Their
 query/session transports, tool surfaces, approval gates, and resume formats are
 driver internals behind the same host contract.
 
@@ -95,16 +94,16 @@ The common materializer owns Cherry policy content, semantic authority, and the 
 8. final-deliverable declaration through `mcp__cherry-tools__report_artifacts`;
 9. the effective agent reply language (global `agent.language` default + per-agent `configuration.language` override, when set — otherwise no language constraint; `getEffectiveAgentLanguage` with `AgentLanguageSchema` single-line validation).
 
-Built-in Agent resolution and provisioning are part of this common path: an empty DB instruction field resolves the current localized bundled definition, the Assistant has a minimal fail-safe role if that bundle is unavailable, and persona/memory files are initialized under the Agent data directory before `PromptBuilder` reads them. A non-empty DB instruction remains user-owned. Prompt variables such as `{{username}}` and `{{model_name}}` are resolved identically for every runtime.
+A blank DB instruction stays blank: the `<agent_instructions>` wrapper and precedence hierarchy are omitted, and the legacy role-bearing `SOUL.md` fallback applies. A non-empty DB instruction is user-owned. Prompt variables such as `{{username}}` and `{{model_name}}` are resolved identically for every runtime.
 
 Runtime adapters own only native mechanics:
 
 | Runtime-neutral Cherry policy | Runtime-specific carrier |
 |---|---|
-| `system.md` selects native vs custom base; Cherry append survives either choice | Claude maps into its preset/custom prompt, Pi uses system/append overrides, and DSH composes base plus append into its generated persona. |
-| Common append text and block order | Claude uses the preset's `append`; Pi uses `appendSystemPromptOverride`; DSH places it in composition persona text. |
-| Workspace instruction authority | Claude uses `AgentsMdLoader`; Pi permits native context files; DSH enables bounded workspace context. Physical placement differs while semantic precedence stays common. |
-| Enabled managed skill content | Claude injects plugin/config representation; Pi uses `additionalSkillPaths`; DSH writes `skillDirs` into the generated composition. |
+| `system.md` selects native vs custom base; Cherry append survives either choice | Pi uses system/append overrides, and DSH composes base plus append into its generated persona. |
+| Common append text and block order | Pi uses `appendSystemPromptOverride`; DSH places it in composition persona text. |
+| Workspace instruction authority | Pi permits native context files; DSH enables bounded workspace context. Physical placement differs while semantic precedence stays common. |
+| Enabled managed skill content | Pi uses `additionalSkillPaths`; DSH writes `skillDirs` into the generated composition. |
 | Current workspace guarantee | Each driver supplies cwd/workspace context through its native base or the common custom-base compensation block. |
 | Coding/runtime handbook and native tool snippets | Owned by each runtime's native base, never copied into the common materializer. |
 
@@ -157,9 +156,8 @@ Stop is now the only abort source). `enqueueUserMessage()`:
 
 1. **Open normal user turn + a driver that can steer** — calls
    `connection.redirect({ message, systemReminder: true })`. The driver
-   stashes the steer and injects it into the running turn (Claude Code
-   does this via a `PreToolUse` hook, as `additionalContext` before the
-   next tool runs). The message is folded into the current turn — no new
+   stashes the steer and injects it into the running turn before the model
+   continues. The message is folded into the current turn — no new
    turn, no queue entry. If the turn ends before the steer is injected
    (it called no tool after the steer arrived), the connection emits
    `steer-undelivered` and the host queues it as the next turn.
@@ -171,8 +169,7 @@ Stop is now the only abort source). `enqueueUserMessage()`:
 A receive-only autonomous generation never accepts a redirect. Follow-ups
 remain in `pendingTurns` until terminal persistence releases runtime ownership.
 The runtime's `autonomous-turn-state: started` event names why it opened the turn
-(`AutonomousTurnOrigin`: a dsh goal round with its round number, or Claude Code
-waking after background work). `startReceiveOnlyTurn` publishes it to the shared
+(`AutonomousTurnOrigin`: a dsh goal round with its round number). `startReceiveOnlyTurn` publishes it to the shared
 cache under `agent.session.turn_origin.${sessionId}.${messageId}` — live session
 status like the api-retry state, not conversation content — so the transcript can
 label a turn that has no user message above it while the session is open.
@@ -430,13 +427,6 @@ execution is not exactly-once. There is no automatic replay after an ambiguous i
 there is no finite result-latency bound while the caller is blocked on interaction, and caller-side
 resubmission without a future idempotency key may create a distinct request.
 
-The Claude Code adapter prepends a versioned delivery envelope to the current SDK user input. Stable
-delivery/content markers carry an unpredictable per-materialization boundary and an explicit notice
-that only the metadata is host-authored while the body is untrusted. Literal `system-reminder` tags
-are defanged without otherwise rewriting model-authored Unicode content. The envelope is
-informational context, not authority: database metadata remains the source of truth, and the random
-boundary prevents model text that imitates an envelope from changing trusted routing fields.
-
 ## Starting the next runtime turn
 
 A queued successor may start only after the current execution reaches
@@ -456,8 +446,8 @@ When a completed runtime turn still has queued follow-ups (or a
    - seed messages containing the user row and empty assistant row.
 
 The runtime connection may stay on the entry. What that means is driver
-specific: Claude Code keeps its SDK query/input queue, while another
-driver could keep a websocket or reconnect per turn.
+specific: one driver could keep a long-lived session or connection, while
+another could reconnect per turn.
 
 If a queued successor or steer continuation cannot save its assistant
 placeholder, the host explicitly terminates the held topic stream with
@@ -484,20 +474,18 @@ connection can recover from the newest driver-known state.
 User rows do not need a resume token. The durable recovery anchor is the
 latest assistant row with `runtimeResumeToken`.
 
-For Claude Code, the resume token is the SDK `session_id`. The driver
-maps it to `options.resume`. This is separate from the SDK's file
-checkpointing / `rewindFiles()` feature, which uses user-message UUIDs
-to restore files.
+For Pi, the resume token is the pi session id; for DSH it is the harness
+session id. Each driver resolves the token against its own session store
+when reconnecting.
 
 ## Native user-data SQLite guard
 
 `userDataSqliteGuard.ts` is the single policy source that protects Cherry Studio's SQLite files
-across Claude Code, Pi, and DSH. Native structured write tools cannot bypass it through a permission
-mode: Claude calls it from the common `PreToolUse` guard table, Pi calls it in the shared native and
-code-mode authorizer before Full Access handling, and DSH asks Main over the authenticated bridge
-before local approval or bypass policy. DSH root agents and delegated subagents use the same check;
-an unavailable bridge or invalid cwd fails closed. This does not add to or change DSH's existing
-sandbox configuration.
+across Pi and DSH. Native structured write tools cannot bypass it through a permission
+mode: Pi calls it in the shared native and code-mode authorizer before Full Access handling,
+and DSH asks Main over the authenticated bridge before local approval or bypass policy. DSH root
+agents and delegated subagents use the same check; an unavailable bridge or invalid cwd fails
+closed. This does not add to or change DSH's existing sandbox configuration.
 
 The main application database and its `-wal`, `-shm`, and `-journal` sidecars are always protected.
 Existing symlink and hard-link aliases to those files are protected by canonical path and file
@@ -520,97 +508,6 @@ It does not inspect third-party MCP argument schemas, constrain child processes,
 against a same-user local process replacing a checked path before use (TOCTOU). A stronger guarantee
 requires enforcement at the execution or sandbox boundary.
 
-## Claude Code driver
-
-Normal multi-turn chat does not use `continue: true` and does not rely
-on cwd-based session discovery.
-
-When `ClaudeCodeRuntimeDriver.connect()` needs to create a query, it
-asks `buildClaudeCodeQueryRequestForAgentSession(sessionId, resumeToken)`.
-The builder uses the first available value:
-
-1. explicit resume token from the host;
-2. latest persisted agent-session resume token from
-   `agentSessionMessageService.getLastRuntimeResumeToken(session.id)`;
-3. no resume id for a brand-new SDK session.
-
-The query may come from `ClaudeCodeWarmQueryManager.consume(...)` if a
-prewarmed query is available. Otherwise the driver starts a new SDK
-query with `createClaudeQuery({ prompt: driverSdkInputQueue, options })`.
-
-Starting a query (warm or cold) registers the agent's MCP servers and lists
-their tools. That listing is **cache-only** — it never connects to an upstream
-MCP server — so a dead or slow server cannot block startup. See
-[Tool Registry → Tool catalog reads never block on MCP](./tool-registry.md#tool-catalog-reads-never-block-on-mcp).
-
-The driver converts Claude SDK messages into runtime events:
-
-- `stream_event` / assistant/user messages -> `chunk`;
-- direct/external `stream_event` messages establish one invocation per
-  message id and provide terminal usage plus per-request timing; complete
-  `assistant` messages are a whole-snapshot usage candidate when the terminal
-  delta omits usage. Gateway-owned connections do not emit this record input;
-- `system/init` -> `resume-token`;
-- a top-level `message_start` -> a live `context-usage` projected from the
-  request's input usage (the occupancy at that provider call), so the usage
-  indicator advances mid-turn; the host's post-turn `getContextUsage()` pull
-  stays the authoritative reading;
-- a successful `result` -> flush pending per-request usage, then `resume-token`, a
-  cumulative usage metadata `chunk` for live UI, `context-usage`, and `turn-complete`;
-- a `result` stamped `origin.kind === 'task-notification'` -> resume token only, never
-  turn settlement. A resumed CLI replays pending background-task notifications as their
-  own zero-turn query before it pulls the host's input
-  ([claude-agent-sdk#383](https://github.com/anthropics/claude-agent-sdk-typescript/issues/383)),
-  so that result belongs to the task, not to the open turn, which keeps waiting for the
-  user query's own result (a CLI death in between surfaces through the normal error path);
-- a failed `result` -> preserve its final usage and resume token, then emit `error` and
-  tear down the connection. This includes SDK envelopes whose subtype is `success` but
-  whose `is_error`, `terminal_reason: 'api_error'`, or `api_error_status` fields report
-  an API failure;
-- a `PreToolUse` steer injection (armed by `redirect()`) -> `steer-boundary`
-  before the post-steer assistant message; a steer the turn never injected
-  -> `steer-undelivered`;
-- `system/status status: 'compacting'` -> `compaction-start`;
-  `system/compact_boundary` -> `compaction-complete` (with anchor);
-  `system/status compact_result: 'success'` with no boundary ->
-  `compaction-complete` (no anchor, idempotent settle);
-  `compact_result: 'failed'` / `compact_error` -> `compaction-error`;
-- thrown errors -> `error` (or a salvaged `turn-complete` for a truncated stream).
-
-The settings builder also installs `PostToolUse` and
-`PostToolUseFailure` hooks. Their SDK-reported `duration_ms` is forwarded to
-the active message's `AiStreamManager` timing collector. It is not inferred
-from assistant/user chunks and it excludes the permission prompt. A hook that
-fires with no active UI turn is not attached to the last message.
-
-The result's cumulative `modelUsage`, duration, and total cost are
-reconciliation-only and are never divided across requests. For direct/external
-calls, `SDKPartialAssistantMessage.ttft_ms` supplies per-request TTFT.
-Completion is TTFT plus the monotonic interval from `message_start` to the
-terminal delta/stop; reasoning duration is measured between reasoning and the
-first non-reasoning output. If a step omits `ttft_ms`, TTFT and completion stay
-null rather than treating stream-only duration as the whole provider call.
-Before a steer boundary the driver flushes pending usage, so the host binds
-that invocation to the pre-steer assistant row; the next invocation binds to
-the continuation row. Gateway-backed connections additionally reserve the
-continuation message id synchronously at injection time, before the SDK can
-issue that invocation through the local gateway; A2 later reuses the reserved
-id when the boundary arrives. See
-[AI Usage Records](./ai-usage-records.md#agent-runtime-ownership).
-
-Tool timing and provider usage have separate owners: the post-tool hooks never
-write `ai_usage_record`, and SDK assistant usage never manufactures a tool
-span. The message performance view joins both read models only in the
-renderer.
-
-`reconcile()` carries live agent edits onto the warm connection: a
-`permission-mode` change awaits the SDK `setPermissionMode` before mutating
-the snapshot (short-circuiting an unchanged mode), and a `tool-policy`
-change refreshes the snapshot's disabled set in place. Concurrent push/pull
-reconciles are serialized per connection. A rejected update is failed closed
-by the host (the connection is torn down) rather than left running under the
-old policy.
-
 ## pi driver resource boundary
 
 pi runs in-process through the SDK, but Cherry still owns the runtime boundary.
@@ -630,7 +527,7 @@ Allowed in v1:
   through `systemPromptOverride` and `appendSystemPromptOverride`. The materializer uses
   `PromptBuilder` for workspace `system.md` and the current agent data directory's `SOUL.md`,
   `USER.md`, and `memory/FACT.md`, and adds the same instruction authority, channel security,
-  citation, artifact-reporting, and language contracts as the Claude Code runtime.
+  citation, artifact-reporting, and language contracts as every other runtime.
   These files are a **connection-lifetime snapshot**: editing them deliberately
   does not invalidate a warm connection or its provider prompt cache. Changes
   apply when that connection is naturally rebuilt or the session is reopened.
@@ -647,13 +544,16 @@ Allowed in v1:
   The approval extension still distinguishes Cherry-owned
   safe tools, Cherry tools that always require approval, and third-party MCP
   tools; `disabledTools` hard-blocks every class.
-- New pi agents start in `acceptEdits`: reads and writes inside the selected
-  workspace and current agent data directory do not prompt repeatedly. Shell,
-  third-party MCP, Cherry approval-required mutations, external paths, and
-  symlink escapes remain gated. `bypassPermissions` does not override the
-  runtime-neutral Cherry approval-required policy. Pi exposes neither `plan`
-  nor `auto`: the latter depends on Claude's model-side approval classifier,
-  which the Pi approval gate does not implement.
+- New pi agents start in `auto`. Pi's `auto` is Cherry's own rule-based gate in
+  the approval extension, not a model-side classifier: it runs unattended and
+  stops only for file tools reaching outside the allowed roots (workspace,
+  agent data directory, read-only roots) and shell commands that look
+  destructive. Lower modes gate reads and writes inside the selected workspace
+  and current agent data directory by the same path containment, so they do
+  not prompt repeatedly there; shell, third-party MCP, Cherry
+  approval-required mutations, external paths, and symlink escapes remain
+  gated. `bypassPermissions` does not override the runtime-neutral Cherry
+  approval-required policy, and Pi has no `plan` mode.
 - The agent's enabled Cherry-managed skills, passed explicitly as
   `additionalSkillPaths` (their canonical `{dataPath}/Skills/<folderName>` dirs).
   These load even under `noSkills` because the paths are Cherry-owned and
@@ -661,7 +561,7 @@ Allowed in v1:
 - Workspace context files discovered from the cwd ancestry (`AGENTS.md`,
   `AGENTS.MD`, `CLAUDE.md`, `CLAUDE.MD`). The workspace is trusted because the
   user picked it by hand in Cherry — there is no separate "do you trust this
-  project?" prompt, matching the claude driver's `project` context source.
+  project?" prompt.
   Context files are workspace **text**, a different trust class than executable
   extensions (which stay off). This is the only project-discovered resource pi
   loads; everything else below is still disabled.
@@ -686,7 +586,7 @@ Disallowed in v1 unless Cherry adds an explicit trust/import flow:
 
 The implementation enforces this by creating pi `SettingsManager` with
 `projectTrusted: true` (the user-selected workspace is trusted, so its context
-files load — parity with the claude driver), then constructing
+files load), then constructing
 `DefaultResourceLoader` with `noExtensions`, `noSkills`,
 `noPromptTemplates`, and `noThemes` — but `noContextFiles: false`, the one
 project-discovered surface pi is allowed. Cherry's prompt overrides suppress
@@ -787,25 +687,11 @@ to retry using its current permissions. This validation does not terminate the
 conversation or add a general retry limit. No setup is required; repeated invalid
 requests can be corrected by removing those fields or stopping the run.
 
-## Internal Agent continuation normalization
-
-When a Cherry-internal Agent Session request enters the API gateway in Anthropic
-Messages format and its converted UIMessage list ends with a text-only assistant
-attachment, the gateway appends an ephemeral user continuation after conversion.
-The Agent request itself proves that Claude Code's standard loop intends another
-sample, so this normalization is independent of the target provider, endpoint,
-and model. The original assistant attachment is preserved and the caller's params
-are not mutated. The continuation is never written to the database, the SDK
-transcript's user-visible history, or the renderer. Direct Anthropic requests do
-not enter the gateway, and external gateway requests remain unchanged so their
-callers can intentionally use assistant prefill.
-
 ## Native resume failures
 
-Claude Code surfaces native resume failures, including missing conversations and
-duplicate tool-use IDs. The adapter does not discard the resume token and replay
-the pending input into a fresh conversation. Native history and its recovery
-semantics belong to the harness.
+A driver surfaces native resume failures instead of silently discarding the
+resume token and replaying the pending input into a fresh conversation.
+Native history and its recovery semantics belong to the harness.
 
 Forked sessions use the same persisted native resume-token path as other Agent
 sessions. Cherry does not rebuild their context from visible messages when native
@@ -827,8 +713,7 @@ entry and only swaps the current UI turn plus the UI pending queue.
 When the idle timer expires, the runtime closes the entry:
 
 - clears `pendingTurns`;
-- closes the runtime connection;
-- prewarms Claude Code when a latest resume token is known.
+- closes the runtime connection.
 
 Service stop and destroy close all runtime entries.
 Repeated `closeSession()` calls join the in-flight close; if a replacement entry was created meanwhile,
@@ -837,26 +722,6 @@ An immediate retry may create its entry while that close is still draining, but 
 the predecessor has closed. Teardown also joins an in-flight `driver.connect()` and closes any stale
 connection it produces before releasing the successor; the predecessor's observed resume token is handed
 to that successor directly.
-
-`ClaudeCodeProcessManager` owns every CLI handle this app spawns. Every SDK `Options` object routes
-through its host spawn wrapper, which fixes the stdio contract and records each `ChildProcess`,
-dropping it on `exit`. Both consuming services `@DependsOn` it, so it initialises first and therefore
-stops last — after their queries are closed — instead of relying on registry order.
-
-Graceful cleanup is the close path: warm handles use their async-dispose contract, live queries call
-`close()` and await `return()`, and the shared `AbortController` signals the child. Its own `onStop()`
-then synchronously sends `SIGTERM` to whatever handle is still registered — a best-effort sweep for
-children the connection and warm-query abstractions lost track of. It waits for nothing and escalates
-to nothing: shutdown can be cut short by the OS at any point, so a child that must not outlive the app
-cannot depend on this running. No process-name lookup or machine-wide kill is used.
-
-Survival past an abrupt exit is the CLI's own responsibility, and it honours it. Holding its stdin as
-a pipe is what arms this: when the app dies the write end closes and the CLI sees EOF. Measured on
-macOS arm64 with SDK 0.3.220 — `SIGKILL` on the parent leaves the CLI reparented to PID 1 and it exits
-by itself ~240ms later; closing only its stdin while the parent stays alive exits it cleanly (code 0)
-within ~2s. So the sweep above is an accelerator and a net for lost handles, never the mechanism that
-keeps a CLI from outliving the app. Never spawn the CLI with `detached` or with stdin redirected away
-from the app — either would disarm this.
 
 ## Write quiesce
 
@@ -895,10 +760,7 @@ Focused tests:
 - `src/main/ai/streamManager/context/__tests__/AgentChatContextProvider.test.ts`
 - `src/main/ai/agentSession/__tests__/AgentSessionRuntimeService.test.ts`
 - `src/main/ai/agentSession/__tests__/AgentSessionDeliveryService.test.ts`
-- `src/main/ai/runtime/claudeCode/__tests__/ClaudeCodeRuntimeDriver.test.ts`
 - `src/main/ai/__tests__/AiService.test.ts`
-- `src/main/ai/runtime/claudeCode/__tests__/streamAdapter.test.ts`
-- `src/main/ai/runtime/claudeCode/__tests__/ClaudeCodeWarmQueryManager.test.ts`
 - `src/main/ai/runtime/pi/PiRuntimeConnection.test.ts`
 - `src/main/ai/runtime/dsh/DshRuntimeDriver.test.ts`
 - `src/main/ai/runtime/dsh/__tests__/DshRuntimeConnection.trace.test.ts`

@@ -12,7 +12,6 @@ import type * as ForkDataModule from '@data/services/AgentSessionForkService'
 import { agentWorkspaceService } from '@data/services/AgentWorkspaceService'
 import type { AgentSessionForkResources } from '@main/ai/agentSession/fork/resources'
 import { BaseService } from '@main/core/lifecycle/BaseService'
-import { ServiceContainer } from '@main/core/lifecycle/ServiceContainer'
 import { AGENT_SESSION_API_RETRY_CACHE_KEY } from '@shared/ai/agentSessionApiRetry'
 
 import type * as ForkResourcesModule from '../fork/resources'
@@ -42,8 +41,6 @@ const mocks = vi.hoisted(() => ({
   cacheSetShared: vi.fn(),
   cacheGetShared: vi.fn(),
   cacheDeleteShared: vi.fn(),
-  closeWarmQueries: vi.fn(),
-  closeAgentSessionWarm: vi.fn(),
   getSessionById: vi.fn(),
   getAgent: vi.fn(),
   ensureTraceId: vi.fn(),
@@ -135,12 +132,12 @@ const baseTurnInput = {
   topicId: 'agent-session:session-1',
   agentId: 'agent-1',
   agentType: 'test-runtime',
-  modelId: 'claude-code::claude-sonnet-4-5' as any,
+  modelId: 'anthropic::claude-sonnet-4-5' as any,
   assistantMessageId: 'assistant-1',
   // Container-level session trace id (cached on the entry, drives the connection traceparent).
   traceId: 'a'.repeat(32)
 }
-const switchedModelId = 'claude-code::claude-opus-4-5' as any
+const switchedModelId = 'anthropic::claude-opus-4-5' as any
 
 function userMessage(id: string, knowledgeBaseIds: string[] = []) {
   return {
@@ -496,7 +493,6 @@ describe('AgentSessionRuntimeService', () => {
     mocks.resolveCrashOrphanedMessages.mockReturnValue(undefined)
     mocks.ensureTraceId.mockReturnValue('b'.repeat(32))
     mocks.recordUsage.mockReturnValue(undefined)
-    mocks.closeWarmQueries.mockResolvedValue(undefined)
     // A live agent with a model — the drain re-reads this to bail on a deleted model. Tests exercising
     // the deleted-model path override it with `{ model: null }`.
     mocks.getAgent.mockReturnValue({ id: 'agent-1', type: 'test-runtime', model: baseTurnInput.modelId })
@@ -518,8 +514,6 @@ describe('AgentSessionRuntimeService', () => {
           getShared: mocks.cacheGetShared,
           deleteShared: mocks.cacheDeleteShared
         }
-      if (name === 'ClaudeCodeWarmQueryManager')
-        return { closeAll: mocks.closeWarmQueries, closeAgentSessionWarm: mocks.closeAgentSessionWarm }
       if (name === 'AnalyticsService') return { trackTokenUsage: mocks.trackTokenUsage }
       throw new Error(`Unexpected application.get(${name})`)
     })
@@ -764,7 +758,7 @@ describe('AgentSessionRuntimeService', () => {
       id: 'agent-1',
       name: 'Original Agent',
       emoji: '🧠',
-      model: { id: 'claude-sonnet-4-5', name: 'Claude Sonnet', provider: 'claude-code' }
+      model: { id: 'claude-sonnet-4-5', name: 'Claude Sonnet', provider: 'anthropic' }
     }
     const service = new AgentSessionRuntimeService()
     service.beginTurn({ ...baseTurnInput, messageSnapshot })
@@ -792,7 +786,7 @@ describe('AgentSessionRuntimeService', () => {
       usageCapture: {
         owner: 'agent-sdk',
         credentialReceipt: { attribution: 'explicit', id: 'key-a', masked: 'key-***' },
-        providerId: 'claude-code',
+        providerId: 'anthropic',
         providerName: 'Claude Code',
         source: {
           type: 'agent',
@@ -827,7 +821,7 @@ describe('AgentSessionRuntimeService', () => {
         id: 'agent-1',
         name: 'Original Agent',
         emoji: '🧠',
-        model: { id: 'claude-sonnet-4-5', name: 'Claude Sonnet', provider: 'claude-code' }
+        model: { id: 'claude-sonnet-4-5', name: 'Claude Sonnet', provider: 'anthropic' }
       }
     })
     const reader = service
@@ -863,7 +857,7 @@ describe('AgentSessionRuntimeService', () => {
         expect.objectContaining({
           requestId: 'claude-agent:sdk-request-1',
           context: {
-            providerId: 'claude-code',
+            providerId: 'anthropic',
             providerName: 'Claude Code',
             modelId: 'configured-sonnet',
             modelName: 'Claude Sonnet',
@@ -892,7 +886,7 @@ describe('AgentSessionRuntimeService', () => {
       )
     )
     expect(mocks.trackTokenUsage).toHaveBeenCalledWith({
-      provider: 'claude-code',
+      provider: 'anthropic',
       model: 'claude-sonnet-4-5',
       input_tokens: 10,
       output_tokens: 5,
@@ -935,7 +929,7 @@ describe('AgentSessionRuntimeService', () => {
       )
     )
     expect(mocks.trackTokenUsage).toHaveBeenLastCalledWith({
-      provider: 'claude-code',
+      provider: 'anthropic',
       model: 'claude-sonnet-4-5',
       input_tokens: 4,
       output_tokens: 2,
@@ -1127,7 +1121,7 @@ describe('AgentSessionRuntimeService', () => {
         name: 'New',
         // Model matches the entry's running model — no mid-queue model switch here, so the drain-time
         // reconcile is a no-op and the frozen author (name 'New') is preserved verbatim.
-        model: { id: 'claude-sonnet-4-5', name: 'New', provider: 'claude-code' }
+        model: { id: 'claude-sonnet-4-5', name: 'New', provider: 'anthropic' }
       } as any
 
       // Turn 1 sets the entry snapshot; the follow-up queues with a fresh snapshot (agent renamed/model swapped).
@@ -1156,7 +1150,7 @@ describe('AgentSessionRuntimeService', () => {
         name: 'New',
         // Model matches the entry's running model — no mid-queue model switch here, so the drain-time
         // reconcile is a no-op and the frozen author (name 'New') is preserved verbatim.
-        model: { id: 'claude-sonnet-4-5', name: 'New', provider: 'claude-code' }
+        model: { id: 'claude-sonnet-4-5', name: 'New', provider: 'anthropic' }
       } as any
 
       service.beginTurn({ ...baseTurnInput, userMessage: userMessage('user-1'), messageSnapshot: priorSnapshot })
@@ -1237,7 +1231,7 @@ describe('AgentSessionRuntimeService', () => {
         name: 'New',
         // Model matches the entry's running model — no mid-queue model switch here, so the drain-time
         // reconcile is a no-op and the frozen author (name 'New') is preserved verbatim.
-        model: { id: 'claude-sonnet-4-5', name: 'New', provider: 'claude-code' }
+        model: { id: 'claude-sonnet-4-5', name: 'New', provider: 'anthropic' }
       } as any
 
       service.beginTurn({ ...baseTurnInput, messageSnapshot: priorSnapshot })
@@ -2679,7 +2673,7 @@ describe('AgentSessionRuntimeService', () => {
           toolName: 'AskUserQuestion',
           input,
           presentation: 'message',
-          providerMetadata: { cherry: { transport: 'claude-agent' } }
+          providerMetadata: { cherry: { transport: 'pi-agent' } }
         }
       })
 
@@ -3723,14 +3717,6 @@ describe('AgentSessionRuntimeService', () => {
     expect(onIdle).toHaveBeenCalledWith({ sessionId: 'session-1' })
   })
 
-  it('declares ClaudeCodeProcessManager so the CLI owner stops last', () => {
-    ServiceContainer.reset()
-    const container = ServiceContainer.getInstance()
-    container.register(AgentSessionRuntimeService)
-
-    expect(container.getMetadata('AgentSessionRuntimeService')?.dependencies).toContain('ClaudeCodeProcessManager')
-  })
-
   it('waits for every graceful connection close before service stop resolves', async () => {
     vi.useFakeTimers()
     try {
@@ -3964,7 +3950,7 @@ describe('AgentSessionRuntimeService', () => {
           role: 'assistant',
           status: 'success',
           data: { parts: [{ type: 'text', text: 'hi' }] },
-          modelId: 'claude-code::claude-sonnet-4-5'
+          modelId: 'anthropic::claude-sonnet-4-5'
         }
       },
       { publishDataChange: true }
@@ -4010,7 +3996,7 @@ describe('AgentSessionRuntimeService', () => {
           role: 'assistant',
           status: 'paused',
           data: { parts: [] },
-          modelId: 'claude-code::claude-sonnet-4-5'
+          modelId: 'anthropic::claude-sonnet-4-5'
         }
       },
       { publishDataChange: true }
@@ -4168,9 +4154,8 @@ describe('AgentSessionRuntimeService', () => {
     })
   })
 
-  describe('primeConnection — eager command load on session open', () => {
-    it('opens the connection without a turn and caches the slash-command catalog', async () => {
-      const commands = [{ name: 'clear', description: 'Clear conversation' }]
+  describe('primeConnection — eager connection open on session open', () => {
+    it('opens the connection without a turn so the first message skips runtime startup', async () => {
       const events = createAsyncQueue<any>()
       const getContextUsage = vi.fn()
       const refreshTraceContext = vi.fn()
@@ -4181,7 +4166,7 @@ describe('AgentSessionRuntimeService', () => {
         reconcile: vi.fn().mockResolvedValue('current'),
         refreshTraceContext,
         getContextUsage,
-        getSupportedCommands: vi.fn().mockResolvedValue(commands)
+        getSupportedCommands: vi.fn().mockResolvedValue([])
       }
       const connect = vi.fn().mockResolvedValue(connection)
       runtimeDriverRegistry.register({
@@ -4202,9 +4187,6 @@ describe('AgentSessionRuntimeService', () => {
       // subprocess spans join the session trace tree — not a trace-less connection reused by turn 1.
       expect(connect).toHaveBeenCalledWith(
         expect.objectContaining({ trace: expect.objectContaining({ traceId: 'b'.repeat(32) }) })
-      )
-      await vi.waitFor(() =>
-        expect(mocks.cacheSetShared).toHaveBeenCalledWith('agent.session.slash_commands.session-1', commands)
       )
       // No turn was admitted — the entry sits idle and the stream manager was never asked to start one.
       expect(service.inspect('session-1')?.status).toBe('idle')
@@ -4242,59 +4224,6 @@ describe('AgentSessionRuntimeService', () => {
       const service = new AgentSessionRuntimeService()
       await service.primeConnection('session-1')
       expect(service.inspect('session-1')).toBeUndefined()
-    })
-
-    it('re-priming a live session republishes the catalog without rebuilding the connection', async () => {
-      const commands = [{ name: 'clear', description: 'Clear conversation' }]
-      const connection = {
-        events: createAsyncQueue<any>().iterable,
-        send: vi.fn(),
-        close: vi.fn(),
-        reconcile: vi.fn().mockResolvedValue('current'),
-        getSupportedCommands: vi.fn().mockResolvedValue(commands)
-      }
-      const connect = vi.fn().mockResolvedValue(connection)
-      runtimeDriverRegistry.register({
-        type: 'test-runtime',
-        capabilities: ['agent-session'],
-        connect,
-        validateSession: vi.fn(),
-        listAvailableTools: vi.fn().mockResolvedValue([])
-      })
-      mocks.getSessionById.mockReturnValue({ id: 'session-1', agentId: 'agent-1' })
-      mocks.getAgent.mockReturnValue({ id: 'agent-1', type: 'test-runtime', model: baseTurnInput.modelId })
-
-      const service = new AgentSessionRuntimeService()
-      await service.primeConnection('session-1')
-      await vi.waitFor(() =>
-        expect(mocks.cacheSetShared).toHaveBeenCalledWith('agent.session.slash_commands.session-1', commands)
-      )
-
-      mocks.cacheSetShared.mockClear()
-      connection.getSupportedCommands.mockClear()
-
-      // Second prime hits the existing-entry branch — it must re-read and republish (so a window
-      // mounting late still gets the catalog), not early-return on the live connection.
-      await service.primeConnection('session-1')
-      await vi.waitFor(() => {
-        expect(connection.getSupportedCommands).toHaveBeenCalled()
-        expect(mocks.cacheSetShared).toHaveBeenCalledWith('agent.session.slash_commands.session-1', commands)
-      })
-      // The existing connection is reused — no second connect.
-      expect(connect).toHaveBeenCalledTimes(1)
-    })
-
-    it('replaces the cached catalog when the runtime pushes a commands_changed event', () => {
-      const service = new AgentSessionRuntimeService()
-      service.beginTurn(baseTurnInput)
-      const updated = [
-        { name: 'clear', description: 'Clear conversation' },
-        { name: 'deploy', description: 'Custom project command discovered mid-session' }
-      ]
-
-      ;(service as any).handleRuntimeEvent(getEntry(service), { type: 'supported-commands', commands: updated })
-
-      expect(mocks.cacheSetShared).toHaveBeenCalledWith('agent.session.slash_commands.session-1', updated)
     })
 
     it('releaseIdleConnection closes an idle session but leaves a busy one running', () => {
@@ -4622,7 +4551,7 @@ describe('AgentSessionRuntimeService', () => {
       expect(connect).toHaveBeenCalledWith({
         sessionId: 'session-1',
         agentId: 'agent-1',
-        modelId: 'claude-code::claude-sonnet-4-5',
+        modelId: 'anthropic::claude-sonnet-4-5',
         reasoningEffort: 'default',
         serviceTier: 'standard',
         knowledgeBaseIds: [],
@@ -4649,65 +4578,62 @@ describe('AgentSessionRuntimeService', () => {
     await reader.cancel().catch(() => undefined)
   })
 
-  it.each(['pi', 'claude-code', 'dsh'])(
-    'resumes a native %s fork and sends only the new user messages',
-    async (agentType) => {
-      mocks.getAgent.mockReturnValue({ id: 'agent-1', type: agentType, model: baseTurnInput.modelId })
-      mocks.getLastRuntimeResumeToken.mockReturnValue('native-child-token')
-      const events = createAsyncQueue<any>()
-      const connection = {
-        events: events.iterable,
-        send: vi.fn(),
-        close: vi.fn(),
-        reconcile: vi.fn().mockResolvedValue('current')
-      }
-      const connect = vi.fn().mockResolvedValue(connection)
-      runtimeDriverRegistry.register({
-        type: agentType,
-        capabilities: ['agent-session'],
-        connect,
-        validateSession: vi.fn(),
-        listAvailableTools: vi.fn().mockResolvedValue([])
-      })
-      const service = new AgentSessionRuntimeService()
-      const firstMessage = userMessage('first-user')
-      const first = service.beginTurn({ ...baseTurnInput, agentType, userMessage: firstMessage })
-      const reader = service
-        .openTurnStream({
-          sessionId: 'session-1',
-          turnId: first.turnId,
-          signal: new AbortController().signal
-        })
-        .getReader()
-      await reader.read()
-      await vi.waitFor(() => expect(connection.send).toHaveBeenCalledOnce())
-      expect(connect).toHaveBeenCalledWith(expect.objectContaining({ resumeToken: 'native-child-token' }))
-      expect(connection.send.mock.calls[0][0]).toEqual({ message: firstMessage, systemReminder: false })
-      expect(connection.send.mock.calls[0][0].message.data.parts).toEqual([{ type: 'text', text: 'hello' }])
-      events.push({ type: 'turn-complete' })
-      await reader.read()
-      await terminalListener(first).onDone({ status: 'success', isTopicDone: true })
-      const secondMessage = userMessage('second-user')
-      const second = service.beginTurn({
-        ...baseTurnInput,
-        agentType,
-        assistantMessageId: 'assistant-2',
-        userMessage: secondMessage
-      })
-      const secondReader = service
-        .openTurnStream({
-          sessionId: 'session-1',
-          turnId: second.turnId,
-          signal: new AbortController().signal
-        })
-        .getReader()
-      await secondReader.read()
-      await vi.waitFor(() => expect(connection.send).toHaveBeenCalledTimes(2))
-      expect(connection.send.mock.calls[1][0].message).toEqual(secondMessage)
-      void service.closeSession('session-1')
-      await secondReader.cancel().catch(() => undefined)
+  it.each(['pi', 'dsh'])('resumes a native %s fork and sends only the new user messages', async (agentType) => {
+    mocks.getAgent.mockReturnValue({ id: 'agent-1', type: agentType, model: baseTurnInput.modelId })
+    mocks.getLastRuntimeResumeToken.mockReturnValue('native-child-token')
+    const events = createAsyncQueue<any>()
+    const connection = {
+      events: events.iterable,
+      send: vi.fn(),
+      close: vi.fn(),
+      reconcile: vi.fn().mockResolvedValue('current')
     }
-  )
+    const connect = vi.fn().mockResolvedValue(connection)
+    runtimeDriverRegistry.register({
+      type: agentType,
+      capabilities: ['agent-session'],
+      connect,
+      validateSession: vi.fn(),
+      listAvailableTools: vi.fn().mockResolvedValue([])
+    })
+    const service = new AgentSessionRuntimeService()
+    const firstMessage = userMessage('first-user')
+    const first = service.beginTurn({ ...baseTurnInput, agentType, userMessage: firstMessage })
+    const reader = service
+      .openTurnStream({
+        sessionId: 'session-1',
+        turnId: first.turnId,
+        signal: new AbortController().signal
+      })
+      .getReader()
+    await reader.read()
+    await vi.waitFor(() => expect(connection.send).toHaveBeenCalledOnce())
+    expect(connect).toHaveBeenCalledWith(expect.objectContaining({ resumeToken: 'native-child-token' }))
+    expect(connection.send.mock.calls[0][0]).toEqual({ message: firstMessage, systemReminder: false })
+    expect(connection.send.mock.calls[0][0].message.data.parts).toEqual([{ type: 'text', text: 'hello' }])
+    events.push({ type: 'turn-complete' })
+    await reader.read()
+    await terminalListener(first).onDone({ status: 'success', isTopicDone: true })
+    const secondMessage = userMessage('second-user')
+    const second = service.beginTurn({
+      ...baseTurnInput,
+      agentType,
+      assistantMessageId: 'assistant-2',
+      userMessage: secondMessage
+    })
+    const secondReader = service
+      .openTurnStream({
+        sessionId: 'session-1',
+        turnId: second.turnId,
+        signal: new AbortController().signal
+      })
+      .getReader()
+    await secondReader.read()
+    await vi.waitFor(() => expect(connection.send).toHaveBeenCalledTimes(2))
+    expect(connection.send.mock.calls[1][0].message).toEqual(secondMessage)
+    void service.closeSession('session-1')
+    await secondReader.cancel().catch(() => undefined)
+  })
 
   it('hydrates the persisted resume token before connecting a cold historical session', async () => {
     mocks.getLastRuntimeResumeToken.mockReturnValue('resume-db')
@@ -4739,7 +4665,7 @@ describe('AgentSessionRuntimeService', () => {
       expect(connect).toHaveBeenCalledWith({
         sessionId: 'session-1',
         agentId: 'agent-1',
-        modelId: 'claude-code::claude-sonnet-4-5',
+        modelId: 'anthropic::claude-sonnet-4-5',
         reasoningEffort: 'default',
         serviceTier: 'standard',
         knowledgeBaseIds: [],
@@ -5375,7 +5301,7 @@ describe('AgentSessionRuntimeService', () => {
           id: 'agent-1',
           name: 'Original Agent',
           emoji: '🧠',
-          model: { id: 'claude-sonnet-4-5', name: 'Claude Sonnet', provider: 'claude-code' }
+          model: { id: 'claude-sonnet-4-5', name: 'Claude Sonnet', provider: 'anthropic' }
         }
       })
       const stream = service.openTurnStream({
@@ -5393,7 +5319,7 @@ describe('AgentSessionRuntimeService', () => {
         id: 'agent-1',
         name: 'Renamed Before Steer',
         emoji: '🧭',
-        model: { id: 'claude-sonnet-4-5', name: 'Claude Sonnet', provider: 'claude-code' }
+        model: { id: 'claude-sonnet-4-5', name: 'Claude Sonnet', provider: 'anthropic' }
       }
       service.enqueueUserMessage('session-1', steerMessage, { messageSnapshot: continuationSnapshot })
       service.enqueueUserMessage('session-1', secondSteerMessage, { messageSnapshot: continuationSnapshot })
@@ -5511,7 +5437,7 @@ describe('AgentSessionRuntimeService', () => {
         usageCapture: {
           owner: 'agent-sdk',
           credentialReceipt: { attribution: 'explicit', id: 'key-a', masked: 'key-***' },
-          providerId: 'claude-code',
+          providerId: 'anthropic',
           providerName: 'Claude Code',
           source: null,
           frozenModels: [
@@ -5758,7 +5684,7 @@ describe('AgentSessionRuntimeService', () => {
           role: 'assistant',
           status: 'error',
           data: { parts: [{ type: 'data-error', data: { name: 'Error', message: 'boom' } }] },
-          modelId: 'claude-code::claude-sonnet-4-5'
+          modelId: 'anthropic::claude-sonnet-4-5'
         }
       },
       { publishDataChange: true }
@@ -5790,7 +5716,7 @@ describe('AgentSessionRuntimeService', () => {
           role: 'assistant',
           status: 'success',
           data: { parts: [] },
-          modelId: 'claude-code::claude-sonnet-4-5'
+          modelId: 'anthropic::claude-sonnet-4-5'
         }
       },
       { publishDataChange: true }
@@ -5814,12 +5740,12 @@ describe('AgentSessionRuntimeService', () => {
         role: 'assistant',
         status: 'pending',
         data: { parts: [] },
-        modelId: 'claude-code::claude-sonnet-4-5'
+        modelId: 'anthropic::claude-sonnet-4-5'
       }
     })
     expect(mocks.startRuntimeTurn).toHaveBeenCalledWith({
       topicId: 'agent-session:session-1',
-      modelId: 'claude-code::claude-sonnet-4-5',
+      modelId: 'anthropic::claude-sonnet-4-5',
       rootSpan: expect.anything(),
       request: {
         conversation: { id: 'session-1', topicId: 'agent-session:session-1' },
@@ -5882,7 +5808,7 @@ describe('AgentSessionRuntimeService', () => {
       id: 'agent-1',
       name: 'My Agent',
       emoji: '🤖',
-      model: { id: 'claude-sonnet-4-5', name: 'Claude Sonnet', provider: 'claude-code' }
+      model: { id: 'claude-sonnet-4-5', name: 'Claude Sonnet', provider: 'anthropic' }
     } as any
 
     service.beginTurn(baseTurnInput)
@@ -5916,7 +5842,7 @@ describe('AgentSessionRuntimeService', () => {
       id: 'agent-1',
       name: 'My Agent',
       emoji: '🤖',
-      model: { id: 'claude-opus-4-5', name: 'Claude Opus', provider: 'claude-code' }
+      model: { id: 'claude-opus-4-5', name: 'Claude Opus', provider: 'anthropic' }
     })
     expect(mocks.startRuntimeTurn).toHaveBeenCalledWith(expect.objectContaining({ modelId: switchedModelId }))
   })
@@ -6094,12 +6020,10 @@ describe('AgentSessionRuntimeService', () => {
 
       service.releaseWarmLease('session-1', asSender(windowA))
       vi.runAllTimers()
-      expect(mocks.closeAgentSessionWarm).not.toHaveBeenCalled()
       expect(releaseIdle).not.toHaveBeenCalled()
 
       service.releaseWarmLease('session-1', asSender(windowB))
       vi.runAllTimers()
-      expect(mocks.closeAgentSessionWarm).toHaveBeenCalledWith('session-1')
       expect(releaseIdle).toHaveBeenCalledWith('session-1')
     })
 
@@ -6112,7 +6036,6 @@ describe('AgentSessionRuntimeService', () => {
       expect(releaseIdle).not.toHaveBeenCalled()
 
       vi.advanceTimersByTime(1)
-      expect(mocks.closeAgentSessionWarm).toHaveBeenCalledWith('session-1')
       expect(releaseIdle).toHaveBeenCalledWith('session-1')
     })
 
@@ -6126,7 +6049,6 @@ describe('AgentSessionRuntimeService', () => {
       service.acquireWarmLease('session-1', asSender(windowA))
 
       vi.runAllTimers()
-      expect(mocks.closeAgentSessionWarm).not.toHaveBeenCalled()
       expect(releaseIdle).not.toHaveBeenCalled()
       expect(prime).toHaveBeenCalledTimes(1)
     })
@@ -6152,7 +6074,6 @@ describe('AgentSessionRuntimeService', () => {
 
       windowB.destroy()
       vi.runAllTimers()
-      expect(mocks.closeAgentSessionWarm).toHaveBeenCalledWith('session-1')
       expect(releaseIdle).toHaveBeenCalledWith('session-1')
     })
 

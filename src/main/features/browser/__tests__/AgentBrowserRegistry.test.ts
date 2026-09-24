@@ -40,10 +40,7 @@ describe('Agent browser authority and control lifetime', () => {
       events.removeListener(event, listener)
       return app
     })
-    dbh.db
-      .insert(agentTable)
-      .values({ id: agentId, name: 'Agent', type: 'claude-code', instructions: '', orderKey: 'a0' })
-      .run()
+    dbh.db.insert(agentTable).values({ id: agentId, name: 'Agent', type: 'pi', instructions: '', orderKey: 'a0' }).run()
     dbh.db
       .insert(agentWorkspaceTable)
       .values({ id: 'workspace', name: 'Workspace', path: '/browser-test', orderKey: 'a0' })

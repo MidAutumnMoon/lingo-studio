@@ -1,5 +1,5 @@
 /**
- * Ephemeral, session-scoped status for a Claude Agent SDK `system/api_retry` event: the SDK is
+ * Ephemeral, session-scoped status for a `system/api_retry` event: the runtime is
  * backing off before re-issuing a failed API request. It rides shared cache (never persisted as
  * conversation content) and is cleared the moment content resumes, the turn ends, errors, is
  * cancelled, or the connection closes — mirroring the agent compaction status path.

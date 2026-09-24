@@ -1,6 +1,5 @@
 import { lazy, type ReactNode } from 'react'
 
-import { isClaudeCodeProviderId } from '@shared/data/presets/claudeCode'
 import { isCodexProviderId } from '@shared/data/presets/codex'
 import { isGrokCliProviderId } from '@shared/data/presets/grokCli'
 import type { Provider } from '@shared/data/types/provider'
@@ -10,7 +9,6 @@ import type { useProviderMeta } from '../hooks/providerSetting/useProviderMeta'
 
 const AwsBedrockSettings = lazy(() => import('./AwsBedrockSettings'))
 const CherryInOauth = lazy(() => import('./CherryInOauth'))
-const ClaudeCodeSettings = lazy(() => import('./ClaudeCodeSettings'))
 const DmxapiSettings = lazy(() => import('./DmxapiSettings'))
 const GithubCopilotSettings = lazy(() => import('./GithubCopilotSettings'))
 const GpuStackSettings = lazy(() => import('./GpuStackSettings'))
@@ -54,11 +52,6 @@ export const PROVIDER_SPECIFIC_SETTINGS_REGISTRY: Record<ProviderSpecificPlaceme
       key: 'dmxapi-settings',
       when: ({ meta }) => meta.isDmxapi,
       render: (providerId) => <DmxapiSettings providerId={providerId} />
-    },
-    {
-      key: 'claude-code-settings',
-      when: ({ provider }) => isClaudeCodeProviderId(provider.id),
-      render: (providerId) => <ClaudeCodeSettings providerId={providerId} />
     },
     {
       key: 'codex-oauth',

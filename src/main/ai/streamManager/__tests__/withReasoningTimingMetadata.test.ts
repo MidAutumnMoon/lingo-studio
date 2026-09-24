@@ -102,8 +102,8 @@ describe('withReasoningTimingMetadata', () => {
             type: 'reasoning-start',
             id: 'r1',
             providerMetadata: {
-              'claude-code': { parentToolCallId: 'parent-tool' },
-              cherry: { transport: 'claude-agent' }
+              anthropic: { parentToolCallId: 'parent-tool' },
+              cherry: { transport: 'pi-agent' }
             }
           },
           {
@@ -120,15 +120,15 @@ describe('withReasoningTimingMetadata', () => {
 
     const reasoningEnd = chunks[1] as UIMessageChunk & {
       providerMetadata: {
-        'claude-code': Record<string, unknown>
+        anthropic: Record<string, unknown>
         openai: Record<string, unknown>
         cherry: Record<string, unknown>
       }
     }
-    expect(reasoningEnd.providerMetadata['claude-code']).toEqual({ parentToolCallId: 'parent-tool' })
+    expect(reasoningEnd.providerMetadata['anthropic']).toEqual({ parentToolCallId: 'parent-tool' })
     expect(reasoningEnd.providerMetadata.openai).toEqual({ itemId: 'provider-item' })
     expect(reasoningEnd.providerMetadata.cherry).toEqual({
-      transport: 'claude-agent',
+      transport: 'pi-agent',
       existing: true,
       thinkingMs: 25,
       startedAt: expect.any(Number)
@@ -262,8 +262,8 @@ describe('withReasoningTimingMetadata', () => {
             type: 'reasoning-start',
             id: 'r1',
             providerMetadata: {
-              'claude-code': { parentToolCallId: 'parent-tool' },
-              cherry: { transport: 'claude-agent' }
+              anthropic: { parentToolCallId: 'parent-tool' },
+              cherry: { transport: 'pi-agent' }
             }
           },
           { type: 'reasoning-delta', id: 'r1', delta: 'steady thought' },
@@ -279,9 +279,9 @@ describe('withReasoningTimingMetadata', () => {
       | { providerMetadata?: Record<string, unknown> }
       | undefined
 
-    expect(finalReasoningPart?.providerMetadata?.['claude-code']).toEqual({ parentToolCallId: 'parent-tool' })
+    expect(finalReasoningPart?.providerMetadata?.['anthropic']).toEqual({ parentToolCallId: 'parent-tool' })
     expect(finalReasoningPart?.providerMetadata?.cherry).toEqual({
-      transport: 'claude-agent',
+      transport: 'pi-agent',
       thinkingMs: 350,
       startedAt: expect.any(Number)
     })

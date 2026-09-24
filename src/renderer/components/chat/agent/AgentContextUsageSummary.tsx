@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ContextUsageSummary } from '@renderer/components/chat/contextUsage'
 import type { AgentSessionContextUsage } from '@shared/ai/agentSessionContextUsage'
 
-// Category names are free-form English strings produced by the Claude Code CLI
+// Category names are free-form English strings produced by the agent runtimes
 // (SDKControlGetContextUsageResponse); unknown names fall back to the raw value.
 const CATEGORY_NAME_KEYS: Record<string, string> = {
   'Autocompact buffer': 'agent.right_pane.info.context_categories.autocompact_buffer',

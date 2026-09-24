@@ -104,7 +104,7 @@ export function useResourceLibrary({
         id: a.id,
         type: 'agent',
         name: a.name ?? '',
-        description: getAgentDescriptionForDisplay(a, t),
+        description: getAgentDescriptionForDisplay(a),
         avatar: getAgentAvatarFromConfiguration(a.configuration),
         model: a.modelName ?? undefined,
         createdAt: a.createdAt,

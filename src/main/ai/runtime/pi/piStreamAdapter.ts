@@ -1,7 +1,7 @@
 /**
  * Translate pi `AgentSessionEvent`s into Cherry `UIMessageChunk`s (plan D3).
  *
- * pi's event vocabulary differs from Claude Code's, so this is a fresh, smaller
+ * pi's event vocabulary differs from the other runtimes', so this is a fresh, smaller
  * adapter (not a reuse of the Claude `streamAdapter`). It maps only the
  * content/tool/usage surface; turn lifecycle (`agent_end` → `turn-complete`,
  * resume tokens, errors) is owned by `PiRuntimeConnection`.
@@ -225,7 +225,7 @@ function projectPiToolOutput(toolName: string, result: unknown): unknown {
 
 /**
  * `tool_call` returns the target tool's MCP result verbatim, hiding an all-text payload inside a
- * JSON string. Unwrap it the way the Claude Code / dsh adapters do, so tool cards and citation
+ * JSON string. Unwrap it the same way the dsh adapter does, so tool cards and citation
  * resolution see one shape across runtimes.
  */
 function unwrapMcpContent({ content }: AgentToolResult<unknown>): unknown {

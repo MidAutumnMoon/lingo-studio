@@ -29,7 +29,6 @@ on:
           - openclaw
           - cherryin-chat
           - image-generation
-          - claude-agent-runtime
           - pi-runtime
           - deepseek-harness-runtime
           - agent-basic-task
@@ -164,8 +163,7 @@ jobs:
         env:
           npm_config_cache: ${{ runner.temp }}/cherry-code-tools-npm
         run: |
-          npm install --global @anthropic-ai/claude-code@2.1.239 @openai/codex@0.149.0 openclaw@2026.6.11
-          claude --version
+          npm install --global @openai/codex@0.149.0 openclaw@2026.6.11
           codex --version
           openclaw --version
 

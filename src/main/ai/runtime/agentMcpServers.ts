@@ -5,16 +5,14 @@ import { agentChannelService as channelService } from '@data/services/AgentChann
 import { agentService } from '@data/services/AgentService'
 import { mcpServerService } from '@data/services/McpServerService'
 import { loggerService } from '@logger'
-import { resolveAgentCapabilities, resolveHostTools } from '@main/ai/agents/builtin/builtinAgentCapabilities'
 import { createMcpBridgeServer } from '@main/ai/mcp/createMcpBridgeServer'
 import AgentMemoryServer from '@main/ai/mcp/servers/agentMemory'
-import AssistantServer from '@main/ai/mcp/servers/assistant'
-import { AssistantFileToolsServer } from '@main/ai/mcp/servers/AssistantFileToolsServer'
 import CherryBuiltinToolsServer from '@main/ai/mcp/servers/cherryBuiltinTools'
 import McpManagerServer from '@main/ai/mcp/servers/mcpManager'
 import SkillsServer from '@main/ai/mcp/servers/skills'
 import { CHERRY_MCP_SERVER } from '@main/ai/toolApproval/builtinToolPolicy'
 import { resolveKnowledgeBaseScope } from '@main/ai/utils/knowledgeScope'
+import { BROWSER_TOOL_GROUP } from '@shared/ai/browserTools'
 import type { AgentChannelEntity } from '@shared/data/api/schemas/agentChannels'
 import type { AgentEntity } from '@shared/data/api/schemas/agents'
 import type { AgentSessionEntity } from '@shared/data/api/schemas/agentSessions'
@@ -44,6 +42,22 @@ export interface AgentMcpServer {
   instance: McpServer
 }
 
+/**
+ * The Cherry-owned MCP servers this session mounts — the one place that decides, so the server set
+ * and the tool-approval policy derived from it cannot disagree.
+ */
+export function resolveMountedMcpServers(
+  agent: Pick<AgentEntity, 'disabledTools'>,
+  { channelLinked, browserEnabled = false }: { channelLinked: boolean; browserEnabled?: boolean }
+): ReadonlySet<string> {
+  const mounted = new Set<string>([CHERRY_MCP_SERVER.CHERRY_TOOLS, CHERRY_MCP_SERVER.AGENT_MEMORY])
+  if (browserEnabled && !channelLinked && !agent.disabledTools?.includes(BROWSER_TOOL_GROUP))
+    mounted.add(CHERRY_MCP_SERVER.BROWSER)
+  mounted.add(CHERRY_MCP_SERVER.SKILLS)
+  mounted.add(CHERRY_MCP_SERVER.MCP_MANAGER)
+  return mounted
+}
+
 /** Build the complete MCP server set exposed by an agent session, independent of runtime transport. */
 export function buildAgentMcpServers(
   session: AgentSessionEntity,
@@ -56,9 +70,6 @@ export function buildAgentMcpServers(
   notificationContext = resolveAgentNotificationContext(session.id, agent.id, linkedChannelSnapshot)
 ): Record<string, AgentMcpServer> {
   const servers: Record<string, AgentMcpServer> = {}
-  const channelLinked =
-    linkedChannelSnapshot === undefined ? notificationContext.sourceChannel !== null : linkedChannelSnapshot !== null
-  const hostTools = resolveHostTools(agent, { channelLinked })
 
   for (const mcpId of agent.mcps ?? []) {
     try {
@@ -99,7 +110,6 @@ export function buildAgentMcpServers(
       workspacePath: session.workspace.path,
       trustedNotifyChannels: notificationContext.channels,
       allowAnyOwnedNotifyChannel: notificationContext.allowAnyOwnedChannel,
-      canAccessAllKnowledgeBases: () => resolveAgentCapabilities(agentService.getAgent(agent.id)).allKnowledgeBases,
       getKnowledgeBaseIds: () => {
         const liveAgent = agentService.getAgent(agent.id)
         return liveAgent ? resolveKnowledgeBaseScope(liveAgent.knowledgeBaseIds, selectedKnowledgeBaseIds) : []
@@ -117,22 +127,6 @@ export function buildAgentMcpServers(
     servers['mcp-manager'] = {
       name: CHERRY_MCP_SERVER.MCP_MANAGER,
       instance: new McpManagerServer(agent.id).mcpServer
-    }
-  }
-
-  if (mountedServers.has(CHERRY_MCP_SERVER.ASSISTANT)) {
-    servers.assistant = {
-      name: CHERRY_MCP_SERVER.ASSISTANT,
-      instance: new AssistantServer(agent.model ?? undefined, hostTools?.tools).mcpServer
-    }
-  }
-  if (mountedServers.has(CHERRY_MCP_SERVER.ASSISTANT_FILES)) {
-    servers['assistant-files'] = {
-      name: CHERRY_MCP_SERVER.ASSISTANT_FILES,
-      instance: new AssistantFileToolsServer({
-        sessionId: session.id,
-        workspacePath: session.workspace.path
-      }).mcpServer
     }
   }
 

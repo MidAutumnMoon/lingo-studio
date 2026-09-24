@@ -1,5 +1,4 @@
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
-import { v4 as uuidv4 } from 'uuid'
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lt, or, type SQL, sql } from 'drizzle-orm'
 
 import { application } from '@application'
 import { notifyDataApiDataChange } from '@data/dataApiDataChange'
@@ -21,8 +20,6 @@ import { applyMoves, insertWithOrderKey } from '@data/services/utils/orderKey'
 import { nullsToUndefined, timestampToISO } from '@data/services/utils/rowMappers'
 import { loggerService } from '@logger'
 import { Emitter, type Event } from '@main/core/lifecycle'
-import { t } from '@main/i18n'
-import { BUILTIN_AGENT_ROLE, type BuiltinAgentRole, CHERRY_SUPPORT_AGENT_ID } from '@shared/ai/builtinAgent'
 import { resolveReasoningEffortForModel } from '@shared/ai/reasoning'
 import { DataApiErrorFactory } from '@shared/data/api/errors'
 import type { OrderRequest } from '@shared/data/api/schemas/_endpointHelpers'
@@ -38,7 +35,6 @@ import type { EntitySearchItem } from '@shared/data/api/schemas/search'
 import type { ListOptions } from '@shared/data/api/types'
 import type { AgentType } from '@shared/data/types/agent'
 import type { UniqueModelId } from '@shared/data/types/model'
-import { isGatewayRoutableModel } from '@shared/utils/model'
 
 const logger = loggerService.withContext('AgentService')
 
@@ -68,74 +64,17 @@ type AgentCreateInput = AgentBase & {
   skillIds?: string[]
 }
 
-interface EnsureBuiltinAgentInput {
-  builtinRole: BuiltinAgentRole
-  configuration: AgentConfiguration
-  name: string
-  preferredModelId: UniqueModelId | null
-  type: AgentType
-}
-
-export interface EnsureBuiltinAgentResult {
-  agent: AgentEntity
-  created: boolean
-  /** A soft-deleted builtin row was restored (deletedAt cleared) by this call. */
-  restored: boolean
-}
-
-function getAgentDescription(id: string, description: string, configuration: unknown): string {
-  if (description) return description
-  if (typeof configuration === 'object' && configuration !== null) {
-    const builtinRole = (configuration as { builtin_role?: unknown }).builtin_role
-    if (builtinRole === BUILTIN_AGENT_ROLE.ASSISTANT) {
-      return t('agent.builtin.cherry_assistant.description')
-    }
-    if (id === CHERRY_SUPPORT_AGENT_ID && builtinRole === BUILTIN_AGENT_ROLE.SUPPORT) {
-      return t('agent.builtin.cherry_support.description')
-    }
-  }
-  return ''
-}
-
 function buildAgentSearchPredicate(search: string): SQL {
   const pattern = `%${search.replace(/[\\%_]/g, '\\$&')}%`
   const nameMatch = sql`${agentsTable.name} LIKE ${pattern} ESCAPE '\\'`
   const descriptionMatch = sql`${agentsTable.description} LIKE ${pattern} ESCAPE '\\'`
-  // The builtin description is an i18n-owned fallback when the database value is blank, so include
-  // its localized main-process fallback in SQL rather than limiting search to a renderer page.
-  const assistantDescriptionMatch = sql`${agentsTable.description} = '' AND json_extract(${agentsTable.configuration}, '$.builtin_role') = ${BUILTIN_AGENT_ROLE.ASSISTANT} AND ${t('agent.builtin.cherry_assistant.description')} LIKE ${pattern} ESCAPE '\\'`
-  const supportDescriptionMatch = sql`${agentsTable.id} = ${CHERRY_SUPPORT_AGENT_ID} AND ${agentsTable.description} = '' AND json_extract(${agentsTable.configuration}, '$.builtin_role') = ${BUILTIN_AGENT_ROLE.SUPPORT} AND ${t('agent.builtin.cherry_support.description')} LIKE ${pattern} ESCAPE '\\'`
-  return or(nameMatch, descriptionMatch, assistantDescriptionMatch, supportDescriptionMatch)!
-}
-
-/**
- * `builtin_role` is a capability identity, not user data. Support additionally requires its
- * reserved ID, so historical configuration cannot grant an ordinary Agent system capabilities.
- * Only internal seeding (`createAgentTx`) may write the role; public DataApi cannot forge it.
- */
-function getBuiltinRole(configuration: unknown): unknown {
-  if (!configuration || typeof configuration !== 'object') return undefined
-  return (configuration as { builtin_role?: unknown }).builtin_role
-}
-
-function removeUntrustedSupportRole(id: string, configuration: unknown): Record<string, unknown> {
-  const next =
-    configuration && typeof configuration === 'object' && !Array.isArray(configuration)
-      ? { ...(configuration as Record<string, unknown>) }
-      : {}
-  if (id === CHERRY_SUPPORT_AGENT_ID || getBuiltinRole(configuration) !== BUILTIN_AGENT_ROLE.SUPPORT) {
-    return next
-  }
-  delete next.builtin_role
-  return next
+  return or(nameMatch, descriptionMatch)!
 }
 
 /**
  * Apply the public first-level configuration PATCH to the persisted JSON.
  *
  * Object-valued keys (for example `env_vars`) remain whole-value replacements.
- * `builtin_role` is deliberately skipped because it is owned by Main; callers
- * are validated separately before this helper runs.
  */
 function applyAgentConfigurationPatch(
   persisted: unknown,
@@ -147,7 +86,6 @@ function applyAgentConfigurationPatch(
       : {}
 
   for (const [key, value] of Object.entries(patch ?? {})) {
-    if (key === 'builtin_role') continue
     if (value === undefined) {
       delete next[key]
     } else {
@@ -158,13 +96,10 @@ function applyAgentConfigurationPatch(
   return next
 }
 
-function parseConfiguration(raw: unknown, agentId: string): AgentConfiguration | undefined {
+function parseConfiguration(raw: unknown): AgentConfiguration | undefined {
   const { data, invalidKeys } = sanitizeAgentConfiguration(raw)
   if (invalidKeys.length > 0) {
     logger.warn('Agent configuration drift detected; dropping invalid keys', { invalidKeys })
-  }
-  if (agentId !== CHERRY_SUPPORT_AGENT_ID && data?.builtin_role === BUILTIN_AGENT_ROLE.SUPPORT) {
-    delete data.builtin_role
   }
   return data
 }
@@ -186,11 +121,11 @@ function rowToAgent(
     ...clean,
     mcps,
     knowledgeBaseIds,
-    type: (row.type === 'cherry-claw' ? 'claude-code' : row.type) as AgentType,
+    type: row.type as AgentType,
     model: (clean.model ?? null) as UniqueModelId | null,
     planModel: clean.planModel as UniqueModelId | undefined,
     smallModel: clean.smallModel as UniqueModelId | undefined,
-    configuration: parseConfiguration(row.configuration, row.id),
+    configuration: parseConfiguration(row.configuration),
     createdAt: timestampToISO(row.createdAt),
     updatedAt: timestampToISO(row.updatedAt),
     deletedAt: row.deletedAt != null ? timestampToISO(row.deletedAt) : undefined,
@@ -290,13 +225,6 @@ export class AgentService {
    * non-data side effects and supplies the already-reserved id.
    */
   createAgentWithId(id: string, req: AgentCreateInput): AgentEntity {
-    // Reserved capability identity — see getBuiltinRole. Seeding writes via createAgentTx.
-    if (getBuiltinRole(req.configuration) !== undefined) {
-      throw DataApiErrorFactory.invalidOperation(
-        'create agent',
-        'configuration.builtin_role is reserved for system agents'
-      )
-    }
     const mcps = req.mcps ?? []
     const knowledgeBaseIds = req.knowledgeBaseIds ?? []
     const globalSkillService = getDataService('AgentGlobalSkillService')
@@ -376,12 +304,6 @@ export class AgentService {
     insertData: Omit<InsertAgentRow, 'orderKey'>,
     position: 'first' | 'last' = 'last'
   ): { agent: AgentRow; modelName: string | null } | null {
-    if (getBuiltinRole(insertData.configuration) === BUILTIN_AGENT_ROLE.SUPPORT && id !== CHERRY_SUPPORT_AGENT_ID) {
-      throw DataApiErrorFactory.invalidOperation(
-        'create built-in Agent',
-        'Cherry Support must use its reserved system identity'
-      )
-    }
     insertWithOrderKey(tx, agentsTable, insertData, { pkColumn: agentsTable.id, position })
     const [agent] = tx.select().from(agentsTable).where(eq(agentsTable.id, id)).limit(1).all()
     if (!agent) return null
@@ -389,164 +311,6 @@ export class AgentService {
       ? (modelService.getNamesByUniqueIdsTx(tx, [agent.model]).get(agent.model) ?? null)
       : null
     return { agent, modelName }
-  }
-
-  /**
-   * Find a built-in Agent by its server-owned capability identity.
-   *
-   * Seeders use `includeDeleted` so a prior user deletion remains durable, while
-   * runtime restore flows look only for an active row.
-   */
-  findBuiltinAgentByRoleTx(
-    tx: DbOrTx,
-    builtinRole: string,
-    options: { includeDeleted?: boolean } = {}
-  ): AgentRow | null {
-    const roleCondition =
-      builtinRole === BUILTIN_AGENT_ROLE.SUPPORT
-        ? and(
-            eq(agentsTable.id, CHERRY_SUPPORT_AGENT_ID),
-            sql`json_extract(${agentsTable.configuration}, '$.builtin_role') = ${builtinRole}`
-          )
-        : sql`json_extract(${agentsTable.configuration}, '$.builtin_role') = ${builtinRole}`
-    const [agent] = tx
-      .select()
-      .from(agentsTable)
-      .where(options.includeDeleted ? roleCondition : and(isNull(agentsTable.deletedAt), roleCondition))
-      .limit(1)
-      .all()
-    return agent ?? null
-  }
-
-  /** Remove legacy Support markers from non-system IDs without changing other Agent data. */
-  clearUntrustedBuiltinSupportRolesTx(tx: DbOrTx): void {
-    const rows = tx
-      .select({ id: agentsTable.id, configuration: agentsTable.configuration })
-      .from(agentsTable)
-      .where(
-        and(
-          ne(agentsTable.id, CHERRY_SUPPORT_AGENT_ID),
-          sql`json_extract(${agentsTable.configuration}, '$.builtin_role') = ${BUILTIN_AGENT_ROLE.SUPPORT}`
-        )
-      )
-      .all()
-    for (const row of rows) {
-      tx.update(agentsTable)
-        .set({ configuration: removeUntrustedSupportRole(row.id, row.configuration) })
-        .where(eq(agentsTable.id, row.id))
-        .run()
-    }
-  }
-
-  /** Claim the reserved Support ID without replacing user-owned fields or relations. */
-  claimBuiltinSupportIdentityTx(tx: DbOrTx, options: { restoreDeleted?: boolean } = {}): AgentRow | null {
-    const [existing] = tx.select().from(agentsTable).where(eq(agentsTable.id, CHERRY_SUPPORT_AGENT_ID)).limit(1).all()
-    if (!existing) return null
-
-    const shouldRestore = options.restoreDeleted === true && existing.deletedAt !== null
-    if (getBuiltinRole(existing.configuration) === BUILTIN_AGENT_ROLE.SUPPORT && !shouldRestore) {
-      return existing
-    }
-    const configuration =
-      existing.configuration && typeof existing.configuration === 'object' && !Array.isArray(existing.configuration)
-        ? { ...existing.configuration, builtin_role: BUILTIN_AGENT_ROLE.SUPPORT }
-        : { builtin_role: BUILTIN_AGENT_ROLE.SUPPORT }
-    tx.update(agentsTable)
-      .set({
-        configuration,
-        ...(shouldRestore ? { deletedAt: null } : {})
-      })
-      .where(eq(agentsTable.id, CHERRY_SUPPORT_AGENT_ID))
-      .run()
-
-    const [claimed] = tx.select().from(agentsTable).where(eq(agentsTable.id, CHERRY_SUPPORT_AGENT_ID)).limit(1).all()
-    return claimed ?? null
-  }
-
-  /**
-   * Return the active built-in Agent or restore one inside the caller's transaction.
-   *
-   * The reserved role is injected here, inside the table-owning service, so no
-   * renderer or generic Agent create path can forge the built-in identity. The
-   * read-before-write transaction makes repeated or concurrent ensure commands
-   * converge on one active system Agent.
-   */
-  ensureBuiltinAgentTx(tx: DbOrTx, input: EnsureBuiltinAgentInput): EnsureBuiltinAgentResult {
-    let restored = false
-    if (input.builtinRole === BUILTIN_AGENT_ROLE.SUPPORT) {
-      this.clearUntrustedBuiltinSupportRolesTx(tx)
-      // Detect the restore before claiming: claimBuiltinSupportIdentityTx
-      // clears deletedAt but does not report whether it did.
-      const [preClaim] = tx
-        .select({ deletedAt: agentsTable.deletedAt })
-        .from(agentsTable)
-        .where(eq(agentsTable.id, CHERRY_SUPPORT_AGENT_ID))
-        .limit(1)
-        .all()
-      this.claimBuiltinSupportIdentityTx(tx, { restoreDeleted: true })
-      restored = preClaim?.deletedAt != null
-    }
-    const existing = this.findBuiltinAgentByRoleTx(tx, input.builtinRole)
-
-    if (existing) {
-      const mcps = fetchMcpsForAgents(tx, [existing.id]).get(existing.id) ?? []
-      const knowledgeBaseIds = fetchKnowledgeBasesForAgents(tx, [existing.id]).get(existing.id) ?? []
-      const modelName = existing.model
-        ? (modelService.getNamesByUniqueIdsTx(tx, [existing.model]).get(existing.model) ?? null)
-        : null
-      return {
-        agent: rowToAgent(existing, modelName, mcps, knowledgeBaseIds),
-        created: false,
-        restored
-      }
-    }
-
-    const preferredModel = input.preferredModelId ? modelService.findByIdTx(tx, input.preferredModelId) : null
-    const model = preferredModel && isGatewayRoutableModel(preferredModel) ? input.preferredModelId : null
-    const agentId = input.builtinRole === BUILTIN_AGENT_ROLE.SUPPORT ? CHERRY_SUPPORT_AGENT_ID : uuidv4()
-    const created = this.createAgentTx(tx, agentId, {
-      id: agentId,
-      type: input.type,
-      name: input.name.trim() || 'Built-in Agent',
-      description: '',
-      instructions: '',
-      model,
-      configuration: {
-        ...input.configuration,
-        builtin_role: input.builtinRole
-      }
-    })
-
-    if (!created) {
-      throw DataApiErrorFactory.invalidOperation(
-        'restore built-in Agent',
-        'insert succeeded but select returned no row'
-      )
-    }
-
-    return {
-      agent: rowToAgent(created.agent, created.modelName, [], []),
-      created: true,
-      restored: false
-    }
-  }
-
-  /** Publish an Agent creation/restore only after the caller-owned transaction commits. */
-  emitAgentCreated(agent: AgentEntity): void {
-    notifyDataApiDataChange([{ endpoint: '/agents', kind: 'membership', entityIds: [agent.id] }])
-    this._onAgentCreated.fire({ agentId: agent.id, agent })
-  }
-
-  /** Return the active built-in Agent or restore one from trusted package defaults. */
-  ensureBuiltinAgent(input: EnsureBuiltinAgentInput): AgentEntity {
-    const result = application.get('DbService').withWriteTx((tx) => this.ensureBuiltinAgentTx(tx, input))
-
-    // A restored builtin re-fires the creation event: post-commit
-    // provisioning subscribers (heartbeat schedule sync) must cover both.
-    if (result.created || result.restored) {
-      this.emitAgentCreated(result.agent)
-    }
-    return result.agent
   }
 
   private findAgentRow(id: string, options: { includeDeleted?: boolean } = {}): AgentRow | undefined {
@@ -688,7 +452,7 @@ export class AgentService {
       type: 'agent',
       id: row.id,
       title: row.name,
-      subtitle: getAgentDescription(row.id, row.description, row.configuration) || undefined,
+      subtitle: row.description || undefined,
       emoji: getAgentAvatar(row.configuration),
       updatedAt: timestampToISO(row.updatedAt),
       target: { agentId: row.id }
@@ -756,22 +520,12 @@ export class AgentService {
           const reasoningEffortRemoved = reasoningEffortPatched && configurationPatch?.reasoning_effort === undefined
 
           if (configurationPatch !== undefined || modelChanged) {
-            const persistedConfiguration = removeUntrustedSupportRole(current.id, current.configuration)
-            const existingRole = getBuiltinRole(persistedConfiguration)
-            const incomingRole = getBuiltinRole(configurationPatch)
-            if (incomingRole !== undefined && incomingRole !== existingRole) {
-              throw DataApiErrorFactory.invalidOperation(
-                'update agent',
-                'configuration.builtin_role is reserved for system agents'
-              )
-            }
-
-            const nextConfiguration = applyAgentConfigurationPatch(persistedConfiguration, configurationPatch)
+            const nextConfiguration = applyAgentConfigurationPatch(current.configuration, configurationPatch)
             const effectiveModelId = updates.model !== undefined ? updates.model : current.model
             if (!reasoningEffortRemoved && effectiveModelId && (modelChanged || reasoningEffortPatched)) {
               const nextModel = modelService.findByIdTx(tx, effectiveModelId)
               if (nextModel) {
-                const currentEffort = parseConfiguration(nextConfiguration, current.id)?.reasoning_effort ?? 'default'
+                const currentEffort = parseConfiguration(nextConfiguration)?.reasoning_effort ?? 'default'
                 nextConfiguration.reasoning_effort =
                   resolveReasoningEffortForModel(nextModel, currentEffort) ?? 'default'
               }

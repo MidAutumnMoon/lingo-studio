@@ -71,7 +71,6 @@ function getCleanupPaths() {
   return {
     legacyCliInstall: application.getPath('v1.cli.install'),
     legacyDatabase: application.getPath('v1.database.file'),
-    legacyClaude: application.getPath('v1.agents.claude'),
     knowledge: application.getPath('feature.knowledgebase.data'),
     homeConfig: application.getPath('cherry.config', 'config.json'),
     legacyConfig: application.getPath('app.userdata', 'config.json'),
@@ -410,8 +409,7 @@ async function collectLegacyCleanupPlan(): Promise<LegacyCleanupPlan> {
         path: `${paths.legacyDatabase}${suffix}`,
         kind: 'file'
       })
-    ),
-    { item: 'legacy_claude_config', path: paths.legacyClaude, kind: 'directory' }
+    )
   ])
 
   await Promise.all([

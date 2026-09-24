@@ -20,7 +20,6 @@ export type ResourceCatalogViewProps = {
   className?: string
   onOpenAssistantChat?: (assistantId: string) => void
   onOpenSkill?: (skill: InstalledSkill) => void
-  onLaunchSkill?: (skill: InstalledSkill) => Promise<void>
   resourceType: ResourceCatalogViewType
   toolbarLeading?: ReactNode
   /** `settings` swaps the full-bleed toolbar for a settings page header (title + add button + search row). */
@@ -36,7 +35,6 @@ export function ResourceCatalogView({
   className,
   onOpenAssistantChat,
   onOpenSkill,
-  onLaunchSkill,
   resourceType,
   toolbarLeading,
   variant = 'library',
@@ -48,8 +46,7 @@ export function ResourceCatalogView({
 }: ResourceCatalogViewProps) {
   const { t } = useTranslation()
   const { resourceError, refetch, gridProps, dialogs } = useResourceCatalogController(resourceType, {
-    onOpenSkill,
-    onLaunchSkill
+    onOpenSkill
   })
   const hasActiveDialog = Boolean(
     dialogs.assistantImportOpen ||

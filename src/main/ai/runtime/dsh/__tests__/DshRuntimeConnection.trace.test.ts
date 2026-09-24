@@ -169,7 +169,10 @@ vi.mock('@main/ai/agents/agentDataDirectory', () => ({
 vi.mock('@main/ai/runtime/agentPrompt', () => ({
   buildAgentRuntimePrompt: vi.fn().mockResolvedValue({ base: { kind: 'native' }, append: '' })
 }))
-vi.mock('@main/ai/runtime/agentMcpServers', () => ({ buildAgentMcpServers: vi.fn(() => []) }))
+vi.mock('@main/ai/runtime/agentMcpServers', () => ({
+  buildAgentMcpServers: vi.fn(() => []),
+  resolveMountedMcpServers: vi.fn(() => new Set(['cherry-tools', 'agent-memory', 'skills', 'mcp-manager']))
+}))
 vi.mock('@main/ai/runtime/citationsGuidance', () => ({ buildCitationsGuidance: vi.fn(() => '') }))
 vi.mock('@main/ai/steerReminder', () => ({ wrapSteerReminder: vi.fn((text: string) => text) }))
 

@@ -72,11 +72,7 @@ function createSchemaInfo() {
 function createMigrationContext(overrides: Record<string, unknown> = {}) {
   return {
     paths: {
-      legacyAgentDbFile: '/mock/Data/agents.db',
-      legacyClaudeConfigDir: '/mock/.claude',
-      legacyClaudeProjectsDir: '/mock/.claude/projects',
-      claudeConfigDir: '/mock/Data/Agents/.claude',
-      claudeProjectsDir: '/mock/Data/Agents/.claude/projects'
+      legacyAgentDbFile: '/mock/Data/agents.db'
     },
     sharedData: new Map(),
     ...overrides
@@ -120,11 +116,7 @@ describe('AgentsMigrator', () => {
     const dbPath = join(dataDir, 'agents.db')
     const context = createMigrationContext({
       paths: {
-        legacyAgentDbFile: dbPath,
-        legacyClaudeConfigDir: join(tempRoot, '.claude'),
-        legacyClaudeProjectsDir: join(tempRoot, '.claude', 'projects'),
-        claudeConfigDir: join(dataDir, 'Agents', '.claude'),
-        claudeProjectsDir: join(dataDir, 'Agents', '.claude', 'projects')
+        legacyAgentDbFile: dbPath
       }
     })
     await mkdir(dataDir)
@@ -157,49 +149,6 @@ describe('AgentsMigrator', () => {
     await expect(migrator.prepare(createMigrationContext())).rejects.toMatchObject({ code: 'SQLITE_BUSY' })
   })
 
-  it('copies the legacy Claude config even when no legacy agents db exists', async () => {
-    vi.spyOn(LegacyAgentsDbReader.prototype, 'resolvePath').mockReturnValue(null)
-    const tempRoot = await mkdtemp(join(tmpdir(), 'agents-migrator-claude-config-'))
-    const source = join(tempRoot, '.claude')
-    const destination = join(tempRoot, 'Data', 'Agents', '.claude')
-    const progressKeys: string[] = []
-    const progressValues: number[] = []
-    migrator.setProgressCallback((progress, message) => {
-      progressValues.push(progress)
-      if (message.i18nMessage) progressKeys.push(message.i18nMessage.key)
-    })
-    await mkdir(source)
-    await writeFile(join(source, 'settings.json'), '{"migrated":true}')
-
-    try {
-      await migrator.execute(
-        createMigrationContext({
-          paths: {
-            legacyAgentDbFile: join(tempRoot, 'Data', 'agents.db'),
-            legacyClaudeConfigDir: source,
-            legacyClaudeProjectsDir: join(source, 'projects'),
-            claudeConfigDir: destination,
-            claudeProjectsDir: join(destination, 'projects')
-          }
-        })
-      )
-
-      expect(await readFile(join(destination, 'settings.json'), 'utf8')).toBe('{"migrated":true}')
-      expect(await readFile(join(source, 'settings.json'), 'utf8')).toBe('{"migrated":true}')
-      expect(progressKeys).toEqual(
-        expect.arrayContaining([
-          'migration.progress.agents_claude_config_scanning',
-          'migration.progress.agents_claude_config_copying',
-          'migration.progress.agents_claude_config_verifying'
-        ])
-      )
-      expect(progressValues).toEqual(expect.arrayContaining([15, 30, 44, 45]))
-      expect(progressValues.every((progress, index) => index === 0 || progress >= progressValues[index - 1])).toBe(true)
-    } finally {
-      await rm(tempRoot, { recursive: true, force: true })
-    }
-  })
-
   it('reports monotonic Agent subphase progress through validation', async () => {
     vi.spyOn(LegacyAgentsDbReader.prototype, 'resolvePath').mockReturnValue(null)
     const progressValues: number[] = []
@@ -209,7 +158,7 @@ describe('AgentsMigrator', () => {
     await migrator.execute(context)
     await migrator.validate(context)
 
-    expect(progressValues).toEqual([1, 45, 98, 99, 100])
+    expect(progressValues).toEqual([98, 99, 100])
     expect(progressValues.every((progress, index) => index === 0 || progress >= progressValues[index - 1])).toBe(true)
   })
 

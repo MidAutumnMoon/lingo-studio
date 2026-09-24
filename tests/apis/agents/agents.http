@@ -14,7 +14,7 @@ Content-Type: application/json
 
 {
   "name": "Claude Code",
-  "type": "claude-code",
+  "type": "pi",
   "model": "anthropic:claude-sonnet-4",
   "description": "An AI assistant specialized in code review and debugging",
   "instructions": "You are a helpful coding assistant. Focus on writing clean, maintainable code and providing constructive feedback.",
@@ -43,7 +43,7 @@ Content-Type: application/json
 
 {
   "name": "Claude Code",
-  "type": "claude-code",
+  "type": "pi",
   "model": "anthropic:claude-sonnet-4",
   "description": "An AI assistant specialized in code review and debugging",
   "instructions": "You are a helpful coding assistant. Focus on writing clean, maintainable code and providing constructive feedback.",

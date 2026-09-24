@@ -4,7 +4,6 @@ import { resolveIconRef, resolveModelIconRef, resolveModelToProviderIconRef, res
 
 describe('resolveProviderIconRef', () => {
   const testCases = [
-    { providerId: 'claude-code', expectedToExist: true },
     { providerId: 'github-copilot-openai-compatible', expectedToExist: true },
     { providerId: 'copilot', expectedToExist: true },
     { providerId: 'yi', expectedToExist: true },

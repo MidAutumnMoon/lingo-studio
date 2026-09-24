@@ -761,7 +761,7 @@ describe('AgentChat settings panel', () => {
             ]
           },
           providerExecuted: true,
-          callProviderMetadata: { 'claude-code': { parentToolCallId: null } },
+          callProviderMetadata: { anthropic: { parentToolCallId: null } },
           approval: { id: 'approval-1' }
         }
       ]
@@ -789,7 +789,7 @@ describe('AgentChat settings panel', () => {
           input: { file_path: '/tmp/file.ts' },
           approval: { id: 'approval-read' },
           callProviderMetadata: {
-            'claude-code': {
+            anthropic: {
               rawInput: { file_path: '/tmp/file.ts' },
               parentToolCallId: null
             }
@@ -811,7 +811,7 @@ describe('AgentChat settings panel', () => {
             ]
           },
           providerExecuted: true,
-          callProviderMetadata: { 'claude-code': { parentToolCallId: null } },
+          callProviderMetadata: { anthropic: { parentToolCallId: null } },
           approval: { id: 'approval-ask' }
         }
       ]
@@ -835,7 +835,7 @@ describe('AgentChat settings panel', () => {
           input: { command: 'pnpm test' },
           approval: { id: 'approval-1' },
           callProviderMetadata: {
-            'claude-code': {
+            anthropic: {
               rawInput: { command: 'pnpm test' },
               parentToolCallId: null
             }
@@ -863,7 +863,7 @@ describe('AgentChat settings panel', () => {
           input: { command: 'pnpm test' },
           approval: { id: 'approval-1' },
           callProviderMetadata: {
-            'claude-code': {
+            anthropic: {
               rawInput: { command: 'pnpm test' },
               parentToolCallId: null
             }
@@ -895,7 +895,7 @@ describe('AgentChat settings panel', () => {
           input: { command: 'pnpm test' },
           approval: { id: 'approval-1' },
           callProviderMetadata: {
-            'claude-code': {
+            anthropic: {
               rawInput: { command: 'pnpm test' },
               parentToolCallId: null
             }

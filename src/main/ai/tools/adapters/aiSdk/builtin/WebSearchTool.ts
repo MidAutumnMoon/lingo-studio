@@ -3,7 +3,7 @@
  *
  * The model picks search queries and may call multiple times with refined
  * terms. The actual lookup (provider resolution, mapping, error handling)
- * lives in the shared `webLookup` core so the Claude Code MCP bridge runs the
+ * lives in the shared `webLookup` core so the agent MCP bridge runs the
  * exact same logic; this file is just the AI-SDK `tool()` wrapper.
  */
 

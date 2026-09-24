@@ -276,28 +276,6 @@ describe('model connectivity against an HTTP provider', () => {
     expect(result(await confirm(started), 'provider-model-conversation')?.status).toBe('pass')
   })
 
-  it('skips registry-only listings without requesting models', async () => {
-    dbh.db.update(userProviderTable).set({ presetProviderId: 'claude-code' }).run()
-    const started = await start()
-    expect(result(started.report, 'provider-model-list')).toMatchObject({
-      status: 'skip',
-      detail: { variant: 'unsupported' }
-    })
-    expect(paths).not.toContain('GET /v1/models')
-    expect(requests).toEqual([])
-  })
-
-  it('skips API conversation checks for providers using external CLI authentication', async () => {
-    dbh.db.update(userProviderTable).set({ presetProviderId: 'claude-code' }).run()
-    const started = await start()
-    expect(started.report.pendingChecks).toEqual([])
-    expect(result(started.report, 'provider-model-conversation')).toMatchObject({
-      status: 'skip',
-      detail: { variant: 'external_cli' }
-    })
-    expect(requests).toEqual([])
-  })
-
   it('does not ask for confirmation or generate for an image-only model', async () => {
     dbh.db
       .update(userModelTable)
@@ -470,7 +448,7 @@ describe('model connectivity against an HTTP provider', () => {
         id: 'agent',
         name: 'Agent',
         instructions: '',
-        type: 'claude-code',
+        type: 'pi',
         model: 'connectivity::wire-model',
         orderKey: 'a0'
       })

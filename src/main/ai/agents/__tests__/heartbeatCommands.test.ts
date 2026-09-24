@@ -66,7 +66,7 @@ describe('heartbeat commands', () => {
       .values({
         id: 'a1',
         name: 'Test',
-        type: 'claude-code',
+        type: 'pi',
         instructions: '',
         orderKey: 'a0',
         configuration: { heartbeat_enabled: true }

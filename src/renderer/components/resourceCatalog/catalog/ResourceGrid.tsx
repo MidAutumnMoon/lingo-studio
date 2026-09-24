@@ -1,6 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
-  Bot,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -76,8 +75,6 @@ interface Props {
   onOpenAssistantLibrary?: () => void
   onOpenSkillMarketplace: () => void
   onOpenSystemSkills?: () => void
-  onCreateSkillWithAgent?: () => void
-  onLaunchSkill?: (resource: ResourceItem) => void
   groups: GroupItem[]
   activeGroupId: string | null
   onGroupFilter: (groupId: string | null) => void
@@ -161,18 +158,12 @@ function AssistantAddActions({ onNew, onImport, onOpenLibrary }: AssistantAddAct
 }
 
 interface SkillAddActionsProps {
-  onCreateWithAgent?: () => void
   onSearchMarketplace: () => void
   onSearchSystem?: () => void
   onImportLocal: () => void
 }
 
-function SkillAddActions({
-  onCreateWithAgent,
-  onSearchMarketplace,
-  onSearchSystem,
-  onImportLocal
-}: SkillAddActionsProps) {
+function SkillAddActions({ onSearchMarketplace, onSearchSystem, onImportLocal }: SkillAddActionsProps) {
   const { t } = useTranslation()
 
   return (
@@ -185,12 +176,6 @@ function SkillAddActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
-        {onCreateWithAgent ? (
-          <DropdownMenuItem onSelect={onCreateWithAgent} className="gap-2">
-            <Bot size={13} />
-            <span>{t('library.skill_add.create_with_agent')}</span>
-          </DropdownMenuItem>
-        ) : null}
         <DropdownMenuItem onSelect={onSearchMarketplace} className="gap-2">
           <Search size={13} />
           <span>{t('library.skill_add.online_search')}</span>
@@ -225,8 +210,6 @@ export const ResourceGrid: FC<Props> = ({
   onOpenAssistantLibrary,
   onOpenSkillMarketplace,
   onOpenSystemSkills,
-  onCreateSkillWithAgent,
-  onLaunchSkill,
   groups,
   activeGroupId,
   onGroupFilter,
@@ -352,7 +335,6 @@ export const ResourceGrid: FC<Props> = ({
       />
     ) : activeResourceType === 'skill' ? (
       <SkillAddActions
-        onCreateWithAgent={onCreateSkillWithAgent}
         onSearchMarketplace={onOpenSkillMarketplace}
         onSearchSystem={onOpenSystemSkills}
         onImportLocal={() => onCreate('skill')}
@@ -568,7 +550,6 @@ export const ResourceGrid: FC<Props> = ({
             onDuplicate={onDuplicate}
             onEdit={onEdit}
             onExport={onExport}
-            onLaunchSkill={onLaunchSkill}
           />
         )}
       </Scrollbar>
@@ -614,7 +595,6 @@ interface VirtualizedResourceGridProps {
   onDuplicate: (r: ResourceItem) => void
   onEdit: (r: ResourceItem) => void
   onExport: (r: ResourceItem) => void
-  onLaunchSkill?: (r: ResourceItem) => void
 }
 
 function VirtualizedResourceGrid({
@@ -626,8 +606,7 @@ function VirtualizedResourceGrid({
   onDelete,
   onDuplicate,
   onEdit,
-  onExport,
-  onLaunchSkill
+  onExport
 }: VirtualizedResourceGridProps) {
   const rows = useMemo(() => {
     const nextRows: ResourceItem[][] = []
@@ -673,7 +652,6 @@ function VirtualizedResourceGrid({
                 onDuplicate={onDuplicate}
                 onEdit={onEdit}
                 onExport={onExport}
-                onLaunchSkill={onLaunchSkill}
               />
             ))}
           </div>

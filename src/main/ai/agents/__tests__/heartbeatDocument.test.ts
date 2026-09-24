@@ -18,10 +18,7 @@ describe('heartbeatDocument', () => {
   beforeEach(async () => {
     root = await mkdtemp(path.join(tmpdir(), 'heartbeat-editor-'))
     vi.mocked(application.getPath).mockReturnValue(root)
-    dbh.db
-      .insert(agentTable)
-      .values({ id: 'a1', name: 'Test', type: 'claude-code', instructions: '', orderKey: 'a0' })
-      .run()
+    dbh.db.insert(agentTable).values({ id: 'a1', name: 'Test', type: 'pi', instructions: '', orderKey: 'a0' }).run()
   })
   afterEach(async () => {
     await rm(root, { recursive: true, force: true })

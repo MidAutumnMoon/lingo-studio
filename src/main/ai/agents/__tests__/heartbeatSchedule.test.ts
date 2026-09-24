@@ -22,6 +22,10 @@ import { application } from '@application'
 import { agentTable } from '@data/db/schemas/agent'
 import { agentWorkspaceTable } from '@data/db/schemas/agentWorkspace'
 import { jobScheduleTable } from '@data/db/schemas/job'
+import { userModelTable } from '@data/db/schemas/userModel'
+import { userProviderTable } from '@data/db/schemas/userProvider'
+// createAgentWithId resolves this through the data-service registry, so it must self-register.
+import '@data/services/AgentGlobalSkillService'
 import { agentService } from '@data/services/AgentService'
 import { agentSessionService } from '@data/services/AgentSessionService'
 import '@data/services/AgentSessionMessageService'
@@ -96,7 +100,7 @@ describe('heartbeatSchedule', () => {
   const repairHeartbeatSchedules = () => repairSchedules(syncHeartbeatSchedule, new AbortController().signal)
 
   /** Insert an agent row and its data directory — what createAgent provisions in production. */
-  function seedAgent(id: string, configuration: AgentConfiguration = {}, type: string = 'claude-code'): void {
+  function seedAgent(id: string, configuration: AgentConfiguration = {}, type: string = 'pi'): void {
     mkdirSync(path.join(agentsRoot, id), { recursive: true })
     dbh.db
       .insert(agentTable)
@@ -1335,10 +1339,31 @@ describe('heartbeatSchedule', () => {
   })
 
   it('joins creation-event provisioning without a duplicate file pass', async () => {
-    seedAgent(AGENT_ID)
-    const agent = agentService.getAgent(AGENT_ID)!
     const ensure = vi.spyOn(await import('../heartbeat'), 'ensureHeartbeatFile')
-    agentService.emitAgentCreated(agent)
+    dbh.db
+      .insert(userProviderTable)
+      .values({ providerId: 'anthropic', name: 'Anthropic', orderKey: 'p0' })
+      .onConflictDoNothing()
+      .run()
+    dbh.db
+      .insert(userModelTable)
+      .values({
+        id: 'anthropic::claude-sonnet',
+        providerId: 'anthropic',
+        modelId: 'claude-sonnet',
+        name: 'claude-sonnet',
+        capabilities: [],
+        supportsStreaming: true,
+        orderKey: 'm0'
+      })
+      .onConflictDoNothing()
+      .run()
+    agentService.createAgentWithId(AGENT_ID, {
+      type: 'pi',
+      name: `Agent ${AGENT_ID}`,
+      model: 'anthropic::claude-sonnet',
+      configuration: { heartbeat_enabled: true }
+    })
     await service.waitForHeartbeat(AGENT_ID)
     expect(heartbeatRows(AGENT_ID)).toHaveLength(1)
     expect(ensure).toHaveBeenCalledTimes(1)

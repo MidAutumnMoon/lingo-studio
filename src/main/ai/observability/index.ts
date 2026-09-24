@@ -1,8 +1,5 @@
 export { AdapterTracer } from './adapters/aiSdk/adapterTracer'
 export { AiSdkSpanAdapter } from './adapters/aiSdk/aiSdkSpanAdapter'
-export type { ClaudeCodeTraceContext } from './adapters/claudeCode/ClaudeCodeOtlpAdapter'
-export { ClaudeCodeOtlpAdapter } from './adapters/claudeCode/ClaudeCodeOtlpAdapter'
-export { ClaudeCodeTraceBridgeService } from './adapters/claudeCode/ClaudeCodeTraceBridgeService'
 export { TRACER_NAME } from './constants'
 export type { AiTurnTraceHandle, AiTurnTraceMeta } from './core/AiTurnTrace'
 export {

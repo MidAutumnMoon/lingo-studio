@@ -2,7 +2,7 @@
  * Image generation/editing core — runtime-agnostic.
  *
  * Single source of truth for producing an image from a prompt and optional image references, shared by the
- * AI-SDK builtin tool (`generate_image`) and the Claude Code in-process MCP
+ * AI-SDK builtin tool (`generate_image`) and the agent in-process MCP
  * bridge. Both runtimes are thin wrappers over `generateImageFromPrompt`; the
  * painting model is resolved from the `feature.paintings.default_model_id` preference,
  * and generation is delegated to `AiService.generateImage`, which owns

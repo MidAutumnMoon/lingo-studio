@@ -42,7 +42,7 @@ describe('importLegacySessionMessages', () => {
     await dbh.db.delete(agentTable)
     await dbh.db.insert(agentTable).values({
       id: 'a1',
-      type: 'claude_code',
+      type: 'pi',
       name: 'a1',
       instructions: '',
       model: null,

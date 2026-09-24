@@ -13,7 +13,7 @@
  * changing it takes a connection rebuild, not a re-listing. The generic builtin
  * pipeline (`cherryBuiltinTools.ts`) stays unaware of knowledge authorization — it only
  * aggregates providers and dispatches by protocol, mirroring how `CherryAutonomyTools`
- * owns the autonomy domain. The destructive `kb_manage` tool relies on Claude Code's own
+ * owns the autonomy domain. The destructive `kb_manage` tool relies on the runtime's own
  * per-call permission prompt for approval (the AI-SDK path uses `needsApproval` instead).
  *
  * Scope is modelled as an explicit {@link KnowledgeScope} rather than a bare id array so

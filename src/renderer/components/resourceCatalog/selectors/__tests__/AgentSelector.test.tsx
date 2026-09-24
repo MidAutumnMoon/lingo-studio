@@ -215,7 +215,7 @@ const AGENTS_RESPONSE = {
   items: [
     {
       id: ALPHA_AGENT_ID,
-      type: 'claude-code',
+      type: 'pi',
       name: 'Alpha Agent',
       description: 'First test agent',
       instructions: 'Original alpha instructions',
@@ -236,7 +236,7 @@ const AGENTS_RESPONSE = {
     },
     {
       id: BETA_AGENT_ID,
-      type: 'claude-code',
+      type: 'pi',
       name: 'Beta Agent',
       description: 'Second test agent',
       instructions: 'Original beta instructions',
@@ -308,7 +308,7 @@ beforeEach(() => {
   })
   createAgentMock.mockResolvedValue({
     id: 'created-agent',
-    type: 'claude-code',
+    type: 'pi',
     name: 'Created Agent',
     description: 'Created from selector',
     accessiblePaths: [],
@@ -521,11 +521,9 @@ describe('AgentSelector', () => {
 
     await waitFor(() =>
       expect(createAgentMock).toHaveBeenCalledWith({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Created Agent',
         model: MODEL.id,
-        planModel: MODEL.id,
-        smallModel: MODEL.id,
         description: 'Created from selector',
         instructions: '',
         knowledgeBaseIds: [],

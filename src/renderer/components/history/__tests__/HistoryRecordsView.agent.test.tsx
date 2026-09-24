@@ -380,7 +380,7 @@ function createSession(overrides: Partial<AgentSessionEntity> = {}): AgentSessio
 function createAgent(overrides: Partial<AgentEntity> = {}): AgentEntity {
   return {
     id: 'agent-alpha',
-    type: 'claude-code',
+    type: 'pi',
     model: 'provider-alpha::model-alpha',
     modelName: 'Claude',
     name: 'Alpha agent',

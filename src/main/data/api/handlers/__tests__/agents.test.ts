@@ -63,7 +63,7 @@ const AGENT_ID = 'agent_1234567890_abcdefghi'
 const TASK_ID = 'task_1234567890_abcdefghi'
 const SKILL_ID = 'skill-abc-123'
 
-const mockAgent = { id: AGENT_ID, name: 'Test', type: 'claude-code', model: 'claude-3-5-sonnet' }
+const mockAgent = { id: AGENT_ID, name: 'Test', type: 'pi', model: 'claude-3-5-sonnet' }
 const mockTask = { id: TASK_ID, agentId: AGENT_ID, name: 'Daily', prompt: 'Hello' }
 const mockSkill = { id: SKILL_ID, name: 'my-skill', isEnabled: true }
 

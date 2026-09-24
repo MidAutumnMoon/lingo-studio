@@ -56,7 +56,6 @@ export async function resolveApiGatewayRuntime(sessionId: string): Promise<{
   baseUrl: string
   apiKey: string
   usageHeaders: Record<string, string>
-  internalRequestToken: string
 }> {
   const apiGatewayService = application.get('ApiGatewayService')
   const config = apiGatewayService.getCurrentConfig()
@@ -76,7 +75,6 @@ export async function resolveApiGatewayRuntime(sessionId: string): Promise<{
   return {
     baseUrl: gatewayClientOrigin(host, port),
     apiKey,
-    usageHeaders: apiGatewayService.getAgentSessionUsageHeaders(sessionId),
-    internalRequestToken: apiGatewayService.getInternalRequestToken()
+    usageHeaders: apiGatewayService.getAgentSessionUsageHeaders(sessionId)
   }
 }

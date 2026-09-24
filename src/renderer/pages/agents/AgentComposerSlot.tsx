@@ -30,7 +30,6 @@ interface AgentComposerSlotProps {
   agentChanging?: boolean
   onCreateEmptySession?: () => void | Promise<unknown>
   composerContext: ComposerContextValue
-  composerLaunchOptions?: AgentComposerLaunchOptions
   editing?: AgentChatRuntimeState['editing']
   editBusy?: boolean
   cancelEditing: () => void
@@ -53,7 +52,6 @@ function AgentComposerSlot({
   agentChanging,
   onCreateEmptySession,
   composerContext,
-  composerLaunchOptions,
   editing,
   editBusy,
   cancelEditing,
@@ -94,7 +92,7 @@ function AgentComposerSlot({
         sendDisabled={sendDisabled || (isEditing && (isStreaming || editBusy))}
         onCreateEmptySession={isEditing ? undefined : onCreateEmptySession}
         compactWhenSingleLine={compactWhenSingleLine}
-        launchOptions={isEditing ? editLaunchOptions : composerLaunchOptions}
+        launchOptions={isEditing ? editLaunchOptions : undefined}
       />
     ) : (
       <MissingAgentHomeComposer onAgentChange={onAgentChange} agentChanging={agentChanging} />

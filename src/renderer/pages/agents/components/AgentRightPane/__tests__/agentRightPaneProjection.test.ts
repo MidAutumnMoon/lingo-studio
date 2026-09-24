@@ -36,7 +36,7 @@ const toolPart = (
     input,
     output,
     callProviderMetadata: {
-      'claude-code': {
+      cherry: {
         parentToolCallId: parentToolCallId ?? null
       }
     }
@@ -62,7 +62,7 @@ const textPart = (text: string, parentToolCallId?: string): CherryMessagePart =>
     text,
     providerMetadata: parentToolCallId
       ? {
-          'claude-code': {
+          cherry: {
             parentToolCallId
           }
         }
@@ -136,7 +136,7 @@ describe('agent right pane projections', () => {
         type: 'reasoning',
         text: 'child reasoning',
         providerMetadata: {
-          'claude-code': {
+          cherry: {
             parentToolCallId: 'child'
           }
         }

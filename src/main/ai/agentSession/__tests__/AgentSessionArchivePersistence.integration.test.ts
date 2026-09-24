@@ -52,7 +52,7 @@ describe('Agent Session archive persistence', () => {
 
     await dbh.db.insert(agentTable).values({
       id: AGENT_ID,
-      type: 'claude-code',
+      type: 'pi',
       name: 'Archive persistence Agent',
       instructions: 'Test instructions',
       orderKey: 'a0'

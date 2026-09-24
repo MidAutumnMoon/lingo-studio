@@ -83,7 +83,7 @@ function isGoalRoundSource(source: MessageSource): source is Extract<MessageSour
 
 function toolProviderMetadata(toolName: string, extra: Record<string, unknown> = {}) {
   // Bridged MCP tools keep their `mcp__server__tool` wire name; report the MCP identity behind it
-  // so the renderer routes them to the same cards it gives Claude Code's MCP results.
+  // so the renderer routes them to the same cards as other runtimes' MCP results.
   const mcp = parseFunctionCallToolName(toolName)
   return {
     cherry: {
@@ -616,7 +616,7 @@ function parseToolArguments(raw: string): Record<string, unknown> {
 
 /**
  * dsh wraps every tool result in MCP content blocks, so an all-text result hides its payload
- * inside a JSON string. Unwrap it the way the Claude Code adapter does, so downstream consumers
+ * inside a JSON string. Unwrap it consistently, so downstream consumers
  * (tool cards, citation resolution, persisted projection) see one shape across runtimes.
  */
 function normalizeToolOutput(output: ContentBlock[]): unknown {

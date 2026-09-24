@@ -71,7 +71,7 @@ describe('AgentSessionMessageService', () => {
   async function seedAgent(id: string, name: string, deletedAt?: number) {
     await dbh.db.insert(agentTable).values({
       id,
-      type: 'claude-code',
+      type: 'pi',
       name,
       instructions: 'test',
       orderKey: id,
@@ -103,7 +103,7 @@ describe('AgentSessionMessageService', () => {
   })
 
   describe('native fork persistence', () => {
-    it.each(['cherry-claw', 'claude-code', 'pi'])(
+    it.each(['claude-code', 'pi'])(
       'matches a Claude checkpoint against the effective runtime of a stored %s agent',
       async (storedType) => {
         await seedAgent('fork-agent', 'Fork Agent')
@@ -1321,7 +1321,7 @@ describe('AgentSessionMessageService', () => {
           id: 'agent-a',
           updatedAt: new Date(agent.updatedAt).toISOString(),
           model: 'provider::validated-model',
-          type: 'claude-code'
+          type: 'pi'
         }
       )
     ).toThrow("Agent 'agent-a' was modified by another user")
@@ -1329,54 +1329,6 @@ describe('AgentSessionMessageService', () => {
     expect(
       await dbh.db.select().from(agentSessionMessageTable).where(eq(agentSessionMessageTable.sessionId, SESSION_ID))
     ).toEqual([])
-  })
-
-  it('compares legacy cherry-claw rows by their normalized runtime type', async () => {
-    dbh.db.insert(userProviderTable).values({ providerId: 'legacy', name: 'Legacy', orderKey: 'p0' }).run()
-    dbh.db
-      .insert(userModelTable)
-      .values({
-        id: 'legacy::model',
-        providerId: 'legacy',
-        modelId: 'model',
-        presetModelId: 'model',
-        name: 'Legacy model',
-        isEnabled: true,
-        isHidden: false,
-        orderKey: 'm0'
-      })
-      .run()
-    dbh.db
-      .insert(agentTable)
-      .values({
-        id: 'legacy-agent',
-        type: 'cherry-claw',
-        name: 'Legacy Agent',
-        instructions: '',
-        model: 'legacy::model',
-        orderKey: 'a0'
-      })
-      .run()
-    dbh.db.update(agentSessionTable).set({ agentId: 'legacy-agent' }).where(eq(agentSessionTable.id, SESSION_ID)).run()
-    const [agent] = dbh.db.select().from(agentTable).where(eq(agentTable.id, 'legacy-agent')).all()
-
-    expect(() =>
-      agentSessionMessageService.saveMessages(
-        {
-          sessionId: SESSION_ID,
-          messages: [
-            { id: USER_MESSAGE_ID, role: 'user', status: 'success', data: { parts: [{ type: 'text', text: 'run' }] } },
-            { id: ASSISTANT_MESSAGE_ID, role: 'assistant', status: 'pending', data: { parts: [] } }
-          ]
-        },
-        {
-          id: 'legacy-agent',
-          updatedAt: new Date(agent.updatedAt).toISOString(),
-          model: 'legacy::model',
-          type: 'claude-code'
-        }
-      )
-    ).not.toThrow()
   })
 
   it('terminalizes a pending assistant after live persistence fails', () => {
@@ -2063,7 +2015,7 @@ describe('AgentSessionMessageService', () => {
   it('searches session message parts text', async () => {
     await dbh.db.insert(agentTable).values({
       id: 'agent-search',
-      type: 'claude-code',
+      type: 'pi',
       name: 'Search Agent',
       instructions: 'Search instructions',
       model: null,

@@ -1,4 +1,4 @@
-import { Play, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import type { KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -34,7 +34,6 @@ interface ResourceCardProps {
   onDuplicate: (resource: ResourceItem) => void
   onEdit: (resource: ResourceItem) => void
   onExport: (resource: ResourceItem) => void
-  onLaunchSkill?: (resource: ResourceItem) => void
 }
 
 function hasOverflowActions(resource: ResourceItem) {
@@ -72,8 +71,7 @@ export function ResourceCard({
   onDelete,
   onDuplicate,
   onEdit,
-  onExport,
-  onLaunchSkill
+  onExport
 }: ResourceCardProps) {
   const { t } = useTranslation()
   const cfg = RESOURCE_TYPE_META[r.type]
@@ -151,16 +149,6 @@ export function ResourceCard({
           <div className={cn('shrink-0', isSkillGrid && 'col-start-2')} onClick={(e) => e.stopPropagation()}>
             {r.type === 'skill' && isSettings ? (
               <div className={cn('flex items-center gap-1', isSkillGrid && 'justify-end')}>
-                {onLaunchSkill ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onLaunchSkill(r)}
-                    className={cn('gap-1.5', isSkillGrid && 'mr-auto -ml-2.5 pl-1.5')}>
-                    <Play size={12} aria-hidden />
-                    {t('settings.skills.tryNow')}
-                  </Button>
-                ) : null}
                 <SkillGlobalToggle resource={r} />
                 <ResourceCardMenu
                   resource={r}

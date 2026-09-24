@@ -72,6 +72,7 @@ const mocks = vi.hoisted(() => ({
   captureConnectionSnapshot: vi.fn(),
   ensureAgentDataDirectory: vi.fn(),
   buildAgentMcpServers: vi.fn(),
+  resolveMountedMcpServers: vi.fn(() => new Set(['cherry-tools', 'agent-memory', 'skills', 'mcp-manager'])),
   warmMcpToolCatalogs: vi.fn(),
   buildMcpToolDefinitions: vi.fn(),
   createPiCodeModeTools: vi.fn(),
@@ -154,7 +155,10 @@ vi.mock('@main/utils/commandResolver', () => ({
   autoDiscoverGitBash: mocks.autoDiscoverGitBash,
   validateGitBashPath: mocks.validateGitBashPath
 }))
-vi.mock('@main/ai/runtime/agentMcpServers', () => ({ buildAgentMcpServers: mocks.buildAgentMcpServers }))
+vi.mock('@main/ai/runtime/agentMcpServers', () => ({
+  buildAgentMcpServers: mocks.buildAgentMcpServers,
+  resolveMountedMcpServers: mocks.resolveMountedMcpServers
+}))
 vi.mock('@main/ai/runtime/citationsGuidance', () => ({ buildCitationsGuidance: mocks.buildCitationsGuidance }))
 // PromptBuilder and tool adapters are exercised in their own suites; this is a wiring test.
 vi.mock('@main/ai/agents/prompt', () => ({
@@ -1821,10 +1825,14 @@ describe('PiRuntimeConnection', () => {
       const conn = await new PiRuntimeConnection(knowledgeInput).start()
 
       expect(mocks.buildCitationsGuidance).toHaveBeenCalledWith({ web: true, kb: true })
+      expect(mocks.resolveMountedMcpServers).toHaveBeenCalledWith(expect.anything(), {
+        browserEnabled: expect.any(Boolean),
+        channelLinked: false
+      })
       expect(mocks.buildAgentMcpServers).toHaveBeenCalledWith(
         expect.anything(),
         expect.anything(),
-        new Set(['cherry-tools', 'agent-memory', 'browser', 'skills', 'mcp-manager']),
+        expect.any(Set),
         expect.any(Map),
         null,
         AGENT_DATA_PATH,
@@ -1923,7 +1931,7 @@ describe('PiRuntimeConnection', () => {
       expect(mocks.buildAgentMcpServers).toHaveBeenCalledWith(
         agentSession,
         expect.objectContaining({ id: 'agent-1' }),
-        new Set(['cherry-tools', 'agent-memory', 'browser', 'skills', 'mcp-manager']),
+        expect.any(Set),
         expect.any(Map),
         null,
         AGENT_DATA_PATH,
@@ -1965,25 +1973,6 @@ describe('PiRuntimeConnection', () => {
 
       expect(mocks.replacePromptVariables).toHaveBeenCalledWith('Use {{model_name}}.', 'Pi Model')
       expect(appendedSystemPrompt()).toContain('<agent_instructions>\nUse Pi Model.\n</agent_instructions>')
-    })
-
-    it('resolves and provisions the bundled definition for a built-in Agent', async () => {
-      mocks.getAgent.mockReturnValue({
-        id: 'agent-1',
-        model: 'p::m',
-        instructions: '',
-        configuration: { builtin_role: 'assistant' }
-      })
-      mocks.getById.mockReturnValue(agentSession)
-      mocks.loadBuiltinAgentDefinition.mockReturnValue({ instructions: 'Bundled Assistant instructions.' })
-
-      await new PiRuntimeConnection(input).start()
-
-      expect(mocks.loadBuiltinAgentDefinition).toHaveBeenCalledWith('assistant')
-      expect(mocks.provisionBuiltinAgent).toHaveBeenCalledWith(AGENT_DATA_PATH, 'assistant')
-      expect(appendedSystemPrompt()).toContain(
-        '<agent_instructions>\nBundled Assistant instructions.\n</agent_instructions>'
-      )
     })
 
     it('scopes cron/notify default delivery to the channel linked to this session', async () => {

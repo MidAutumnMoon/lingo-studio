@@ -35,10 +35,10 @@ describe('regression execution plan', () => {
     expect(cache.with.key).toContain("hashFiles('.github/workflows/e2e-regression-test.yml')")
     expect(install.if).toBeUndefined()
     expect(install.run).toMatch(/^npm install --global /)
-    for (const tool of ['@anthropic-ai/claude-code', '@openai/codex', 'openclaw']) {
+    for (const tool of ['@openai/codex', 'openclaw']) {
       expect(install.run).toMatch(new RegExp(`${tool}@\\d+\\.\\d+\\.\\d+(?:\\s|$)`))
     }
-    for (const command of ['claude --version', 'codex --version', 'openclaw --version']) {
+    for (const command of ['codex --version', 'openclaw --version']) {
       expect(install.run.split('\n')).toContain(command)
     }
   })
@@ -65,7 +65,7 @@ describe('regression execution plan', () => {
 
   it('selects only the requested task within its workflow phase', () => {
     expect(selectCases('knowledge', '06-knowledge').map(({ id }) => id)).toEqual(['K-01'])
-    expect(selectCases('code-cli', '08-code-tools').map(({ id }) => id)).toEqual(['CODE-01', 'CODE-02'])
+    expect(selectCases('code-cli', '08-code-tools').map(({ id }) => id)).toEqual(['CODE-02'])
     expect(selectCases('notes', '03-models-and-assistants')).toEqual([])
     expect(selectCases('notes', '02-basic-features').map(({ id }) => id)).toEqual(['N-01'])
     expect(() => getCase('missing')).toThrow('Unknown regression case')

@@ -7,7 +7,7 @@
  *   - pass `baseId` → outline that one base's folder/document structure, surfacing each readable
  *     document's `conceptId` for `kb_read`.
  *
- * Both modes live in the shared `knowledgeLookup` core so the Claude Code MCP bridge runs identical
+ * Both modes live in the shared `knowledgeLookup` core so the agent MCP bridge runs identical
  * logic; this file is just the AI-SDK `tool()` wrapper.
  *
  * Scope: when the effective scope (the assistant's static binding narrowed by the composer's per-turn

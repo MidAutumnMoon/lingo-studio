@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, FolderOpen, MoreHorizontal, Play, RefreshCw, Trash2 } from 'lucide-react'
+import { ArrowLeft, FolderOpen, MoreHorizontal, RefreshCw, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import useSWR from 'swr'
@@ -21,7 +21,6 @@ import { SkillSourceBadge } from '@renderer/components/resourceCatalog/catalog'
 import { SettingDescription, SettingsContentBody } from '@renderer/components/SettingsPrimitives'
 import { useDataChange, useQuery } from '@renderer/data/hooks/useDataApi'
 import { useSkillMutationsById } from '@renderer/hooks/resourceCatalog'
-import { useSkillLauncher } from '@renderer/hooks/useSkillLauncher'
 import { ipcApi } from '@renderer/ipc'
 import { toast } from '@renderer/services/toast'
 import { IpcError } from '@shared/ipc/errors/IpcError'
@@ -35,7 +34,6 @@ const logger = loggerService.withContext('SkillDetails')
 export function SkillDetails({ skillId }: { skillId: string }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const launchSkill = useSkillLauncher()
   const { data: skill, isLoading, error, refetch } = useQuery('/skills/:skillId', { params: { skillId } })
   const { updateGlobalEnabled, uninstallSkill, isUpdating } = useSkillMutationsById(skillId)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -207,10 +205,6 @@ export function SkillDetails({ skillId }: { skillId: string }) {
         <div
           data-ui="skill-detail-actions"
           className="col-start-2 flex shrink-0 items-center gap-1.5 lg:col-start-3 lg:row-start-1">
-          <Button size="sm" onClick={() => void launchSkill(skill)} className="gap-1.5">
-            <Play size={13} />
-            {t('settings.skills.tryNow')}
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon-sm" aria-label={t('common.more')}>

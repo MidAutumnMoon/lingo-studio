@@ -209,7 +209,7 @@ const createControlledAgent = (): NonNullable<ControlledComposerProps['resolvedA
   ({
     id: 'agent-1',
     name: 'Agent',
-    type: 'claude-code',
+    type: 'pi',
     model: 'anthropic::claude-sonnet-4-5',
     modelName: 'Claude Sonnet 4.5',
     instructions: 'Follow instructions',
@@ -1316,7 +1316,7 @@ describe('AgentComposer', () => {
     const resolvedAgent = {
       id: 'agent-1',
       name: 'Agent',
-      type: 'claude-code',
+      type: 'pi',
       model: model.id,
       configuration: {}
     } as any

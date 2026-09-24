@@ -169,7 +169,7 @@ function makeCtx(overrides: TestJobContextOverrides = {}) {
 function makeAgent(config: Record<string, unknown> = { heartbeat_enabled: true }): AgentEntity {
   return {
     id: 'a1',
-    type: 'claude-code',
+    type: 'pi',
     name: 'Agent A',
     model: 'sonnet' as never,
     configuration: config,

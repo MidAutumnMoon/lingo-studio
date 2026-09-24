@@ -97,7 +97,7 @@ describe('AgentJobsService', () => {
   function seedAgent(id: string): void {
     dbh.db
       .insert(agentTable)
-      .values({ id, type: 'claude-code', name: `Agent ${id}`, instructions: '', orderKey: id })
+      .values({ id, type: 'pi', name: `Agent ${id}`, instructions: '', orderKey: id })
       .run()
   }
 

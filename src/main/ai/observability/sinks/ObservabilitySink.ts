@@ -8,5 +8,4 @@ export interface ObservabilitySink {
   writeReadableSpans?(spans: ReadableSpan[]): void | Promise<void>
   writeSpanEntity?(span: SpanEntity): void | Promise<void>
   writeSpanEvent?(traceId: string, spanId: string, event: TimedEvent): void | Promise<void>
-  writeRawOtlpPayload?(path: '/v1/traces' | '/v1/logs', payload: unknown): void | Promise<void>
 }

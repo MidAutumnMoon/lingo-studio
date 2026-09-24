@@ -84,7 +84,7 @@ type InputParams = InputParamsMap[InputFormat]
 export interface MessageConfig {
   provider?: Provider
   modelId?: string
-  /** Internal Agent-session hint carried by the Claude Code SDK gateway route. */
+  /** Internal Agent-session hint carried by the gateway's agent route. */
   fastMode?: boolean
   /**
    * The loosely-validated gateway request body. Routes validate only the fields

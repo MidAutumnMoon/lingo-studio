@@ -313,23 +313,11 @@ describe('catalog invariants (data/*.json)', () => {
     expect(orderDependent).toEqual([])
   })
 
-  // `[1m]` is a Claude Code CLI suffix that raises the session's context budget: it never reaches an
-  // API, so it may only appear as an apiModelId, only on that provider, only paired with the plain
-  // row users pick when they don't want the extended window, and only on a model that has 1M to give.
-  it('every [1m] apiModelId is a claude-code twin of a plain 1M-context row', () => {
-    const contextWindowById = new Map(models.map((m) => [m.id, m.contextWindow]))
-    const plainRows = new Set(
-      overrides.filter((o) => (o.apiModelId ?? o.modelId) === o.modelId).map((o) => `${o.providerId}::${o.modelId}`)
-    )
+  // `[1m]` was a Claude Code CLI suffix that raised the session's context budget; it never reaches
+  // an API. With that provider gone, no override may carry the suffix at all.
+  it('no apiModelId carries a [1m] suffix', () => {
     const broken = overrides
       .filter((o) => (o.apiModelId ?? '').endsWith('[1m]'))
-      .filter(
-        (o) =>
-          o.providerId !== 'claude-code' ||
-          o.apiModelId !== `${o.modelId}[1m]` ||
-          !plainRows.has(`${o.providerId}::${o.modelId}`) ||
-          (contextWindowById.get(o.modelId) ?? 0) < 1_000_000
-      )
       .map((o) => `${o.providerId}/${o.apiModelId}`)
     expect(broken).toEqual([])
   })
@@ -409,13 +397,13 @@ describe('catalog invariants (data/*.json)', () => {
     expect(r.success && r.data.overrides.length).toBe(providerModelsRaw.overrides.length)
   })
 
-  it('Fast transports belong only to Codex, Claude Code, and Ark', () => {
+  it('Fast transports belong only to Codex and Ark', () => {
     expect(
       providers
         .filter((provider) => provider.fastMode)
         .map((provider) => provider.id)
         .sort()
-    ).toEqual(['claude-code', 'doubao', 'openai-codex'])
+    ).toEqual(['doubao', 'openai-codex'])
   })
 
   it('Fast provider-model declarations require a provider transport', () => {

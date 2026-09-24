@@ -7,7 +7,6 @@ sources:
   - src/main/data/services/AgentSessionForkService.ts
   - src/main/data/services/AgentSessionMessageService.ts
   - src/main/ai/runtime/fork
-  - src/main/ai/runtime/claudeCode
   - src/main/ai/runtime/pi
   - src/main/ai/runtime/dsh
   - packages/dsh-bridge/src/fork.ts
@@ -19,7 +18,7 @@ sources:
 
 ## Behavior
 
-Pi, Claude Code, and DSH support **Fork** on completed assistant messages.
+Pi and DSH support **Fork** on completed assistant messages.
 The operation creates an independent Agent session containing the visible
 history through the selected turn and a native runtime resume reference.
 It does not start or interrupt the source connection. The source can continue
@@ -53,7 +52,7 @@ flowchart TD
   Op --> Registry[Runtime driver registry]
   Registry --> Adapter[Selected runtime adapter]
   Adapter --> SDK[Native harness APIs and history]
-  Adapter --> Worker[Adapter-owned Claude or DSH worker]
+  Adapter --> Worker[Adapter-owned DSH worker]
   Adapter --> Wait[Shared worker wait and termination helper]
   Worker --> SDK
 ```
@@ -108,7 +107,6 @@ compression settings to Agent forks.
 | Adapter | Native boundary | Fork implementation |
 |---|---|---|
 | Pi | Runtime session ID and leaf ID | Stages the newest matching native file, as normal resume does, then branches with `SessionManager` and maps checkpoints to the child session ID |
-| Claude Code | Runtime session ID, main assistant UUID, and config directory | Its private worker calls the SDK fork API and maps assistant UUIDs into the child's transcript |
 | DSH | Runtime session ID and completed `turn/end` boundary | Its private worker calls the bundled bridge fork entry with a live snapshot or stored native history; the bridge creates and persists a seeded child |
 
 DSH waits for an existing connection to finish startup before requesting a snapshot. Failure
@@ -117,7 +115,7 @@ history. A cold fork reads stored history without starting the source Agent loop
 A closing connection remains registered until teardown finishes before Fork reads
 its persisted history. Startup and shutdown waits are cancellable and limited to 60 seconds each.
 
-Claude and DSH create their own workers and pass them to `runForkWorker`. The
+DSH creates its own worker and passes it to `runForkWorker`. The
 shared helper returns an opaque result and waits for termination on success,
 failure, cancellation, or timeout before the coordinator can clean up files.
 Adapters validate the returned native result before publication.
@@ -144,7 +142,7 @@ recovery handles incomplete publication, not missing harness history.
 
 Missing anchors (`legacy_history`), unsupported checkpoints, missing or corrupt
 native history, and changed source/workspace data produce explicit fork errors.
-For an unflushed Claude transcript, retry after the runtime writes it. There is no
+There is no
 UI-history import or empty-session fallback when native history is unavailable.
 
 ## Related references

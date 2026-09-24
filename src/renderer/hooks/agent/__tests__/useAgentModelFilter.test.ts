@@ -73,13 +73,6 @@ const providers = {
 } as const satisfies Record<string, Partial<Provider>>
 
 describe('useAgentModelFilter', () => {
-  it('allows Gemini provider models for Claude Code agents', () => {
-    const { result } = renderHook(() => useAgentModelFilter('claude-code'))
-
-    expect(result.current({ ...model(), providerId: 'gemini', id: 'gemini::gemini-2.5-pro' })).toBe(true)
-    expect(result.current({ ...model(), providerId: 'google-custom', id: 'google-custom::gemini-2.5-pro' })).toBe(true)
-  })
-
   it('continues to reject non-chat model classes for regular agents', () => {
     const { result } = renderHook(() => useAgentModelFilter(undefined))
 

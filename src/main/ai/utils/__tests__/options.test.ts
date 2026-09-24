@@ -51,10 +51,6 @@ describe('applyFastModeToProviderOptions', () => {
       )
     ).toEqual({ openai: { serviceTier: 'fast' } })
   })
-
-  it('sends no service tier for SDK-carried transports (claude-code)', () => {
-    expect(applyFastModeToProviderOptions({ fastMode: { transport: 'claude-code' } }, model, {}, true)).toEqual({})
-  })
 })
 
 describe('service tier provider options', () => {

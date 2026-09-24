@@ -9,8 +9,8 @@ function getMetadataRecord(part: CherryMessagePart, field: string): Record<strin
   return isRecord(value) ? value : undefined
 }
 
-/** Metadata namespaces that may carry parent linkage: claude's own, then the runtime-neutral one. */
-const PARENT_METADATA_NAMESPACES = ['claude-code', 'cherry'] as const
+/** Metadata namespace that may carry parent linkage (runtime-neutral). */
+const PARENT_METADATA_NAMESPACES = ['cherry'] as const
 
 function getParentMetadata(part: CherryMessagePart): Record<string, unknown> | undefined {
   for (const field of ['providerMetadata', 'callProviderMetadata', 'resultProviderMetadata']) {

@@ -19,7 +19,7 @@ renderer-side transport that connects to them.
 |---|---|
 | [Core Architecture](./core-architecture.md) | End-to-end call flow: `ai.stream.open` IpcApi route → context provider → AiStreamManager → runtime → broadcast / persist |
 | [Stream Manager](./stream-manager.md) | Active-stream registry, listeners, reconnect, abort, queue/yield/continuation steering, persistence backends |
-| [Agent Session Runtime](./agent-session-runtime.md) | Agent-session host/driver split, follow-up admission, resume persistence, and the registered Claude Code, Pi, and DSH drivers |
+| [Agent Session Runtime](./agent-session-runtime.md) | Agent-session host/driver split, follow-up admission, resume persistence, and the registered Pi and DSH drivers |
 | [Agent Session Fork](./agent-session-fork.md) | Native fork behavior, service ownership, opaque checkpoints, workspace handling, publication, and recovery |
 | [Agent Lifecycle](./agent-lifecycle.md) | Archive, restore, purge, schedule recovery, ownership boundaries, and Agent-side backup quiescing |
 | [Adding an Agent Runtime](./adding-a-runtime.md) | Operational checklist for a new runtime: capability descriptor, driver package, registration points, design rules |
@@ -64,12 +64,11 @@ src/main/ai/
 ├── AiService.ts                  ← provider operations, built-in tool init, approval decisions
 ├── runtime/                      ← AI execution backends + agent-session runtime registry
 │   ├── aiSdk/                    ← Agent class, loop, observers, params/features
-│   ├── claudeCode/               ← Claude Code driver, warm query, SDK adapter
 │   ├── pi/                       ← Pi runtime connection and approval extension
 │   └── dsh/                      ← DeepSeek Harness runtime connection
 ├── agentSession/                 ← agent-session topic host
 │   └── AgentSessionRuntimeService.ts
-├── agents/                       ← AgentLifecycleService, AgentJobsService, runAgentTask, prompt, heartbeat, builtin/
+├── agents/                       ← AgentLifecycleService, AgentJobsService, runAgentTask, prompt, heartbeat
 ├── channels/                     ← ChannelManager + IM adapters (discord/qq/slack/telegram/wechat) + security/
 ├── streamManager/                ← AiStreamManager + listeners + persistence backends
 │   ├── AiStreamManager.ts        ← active-stream registry and dispatch owner
@@ -91,11 +90,10 @@ src/main/ai/
 ├── tokens/                       ← token estimation and modality profiles
 ├── tools/                        ← unified tool registry
 │   └── adapters/
-│       ├── aiSdk/                ← registry.ts, repair.ts; builtin/ (web_search/web_fetch/kb_*),
-│       │                            mcp/ (server → ToolEntry sync), meta/ (tool_search/inspect/invoke;
-│       │                            tool_exec defined but not injected), exposition/ (shouldDefer + applyDefer)
-│       └── claudeCode/           ← agentTools.ts (registry → Claude Code runtime)
-├── observability/                ← AI trace adapters (aiSdk / claudeCode), local projection, sinks
+│       └── aiSdk/                ← registry.ts, repair.ts; builtin/ (web_search/web_fetch/kb_*),
+│                                    mcp/ (server → ToolEntry sync), meta/ (tool_search/inspect/invoke;
+│                                    tool_exec defined but not injected), exposition/ (shouldDefer + applyDefer)
+├── observability/                ← AI trace adapters (aiSdk), local projection, sinks
 ├── messages/                     ← UI part → AI SDK part conversion
 ├── types/                        ← AppProviderId, merged extension types, request types
 └── utils/                        ← reasoning / model parameters / options / websearch helpers

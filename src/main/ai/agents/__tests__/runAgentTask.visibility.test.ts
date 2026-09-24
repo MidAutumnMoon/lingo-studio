@@ -35,7 +35,7 @@ describe('scheduled session visibility', () => {
       .insert(agentTable)
       .values({
         id: 'agent',
-        type: 'claude-code',
+        type: 'pi',
         name: 'Agent',
         instructions: '',
         orderKey: 'a0',

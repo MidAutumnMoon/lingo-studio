@@ -28,7 +28,7 @@ const { createAgent } = await import('../createAgent')
 
 describe('createAgent', () => {
   const request = {
-    type: 'claude-code' as const,
+    type: 'pi' as const,
     name: 'Test',
     model: 'anthropic::claude-sonnet' as const
   }

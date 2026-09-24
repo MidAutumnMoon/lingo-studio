@@ -363,7 +363,7 @@ describe('DoctorService scopes', () => {
         id: 'a1',
         name: 'Agent',
         instructions: '',
-        type: 'claude-code',
+        type: 'pi',
         model: 'openai::gpt-4o',
         orderKey: 'a0'
       })
@@ -421,7 +421,7 @@ describe('DoctorService scopes', () => {
         id: 'a-pin',
         name: 'Pinned',
         instructions: '',
-        type: 'claude-code',
+        type: 'pi',
         model: 'openai::gpt-4o',
         orderKey: 'a0'
       })

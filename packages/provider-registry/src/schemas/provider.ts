@@ -30,7 +30,7 @@ export type ProviderEdition = z.infer<typeof ProviderEditionSchema>
  * Ark's `fast`), so a new vendor never has to expand this enum: enum expansion
  * is a breaking wire change, an optional field is not.
  */
-export const FastModeTransportSchema = z.enum(['openai-priority', 'claude-code'])
+export const FastModeTransportSchema = z.enum(['openai-priority'])
 
 export const ServiceTierSelectionSchema = z.enum(['standard', 'auto', 'fast', 'flex'])
 

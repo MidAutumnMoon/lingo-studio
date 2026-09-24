@@ -7,17 +7,12 @@ import type { ResourceItem } from '@renderer/types/resourceCatalog'
 
 import { SkillsSettings } from '../SkillsSettings'
 
-const { launchSkillMock, navigateMock, resourceCatalogViewMock } = vi.hoisted(() => ({
-  launchSkillMock: vi.fn(),
+const { navigateMock, resourceCatalogViewMock } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   resourceCatalogViewMock: vi.fn()
 }))
 
 vi.mock('@cherrystudio/ui', () => vi.importActual('@cherrystudio/ui'))
-
-vi.mock('@renderer/hooks/useSkillLauncher', () => ({
-  useSkillLauncher: () => launchSkillMock
-}))
 
 vi.mock('@renderer/components/resourceCatalog/catalog', () => ({
   ResourceCatalogView: (props: ResourceCatalogViewProps) => {
@@ -69,11 +64,10 @@ describe('SkillsSettings', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(5)
   })
 
-  it('opens the dedicated Skill route and exposes the shared launch action', () => {
+  it('opens the dedicated Skill route', () => {
     render(<SkillsSettings />)
 
     const props = resourceCatalogViewMock.mock.calls.at(-1)?.[0] as ResourceCatalogViewProps
-    expect(props.onLaunchSkill).toBe(launchSkillMock)
     expect(props.allowColumnToggle).toBe(true)
 
     props.onOpenSkill?.({ id: 'skill-1' } as Parameters<NonNullable<ResourceCatalogViewProps['onOpenSkill']>>[0])

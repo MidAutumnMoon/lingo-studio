@@ -944,7 +944,6 @@ describe('BackupManager direct v2 data compatibility', () => {
     vi.mocked(fs.lstat).mockResolvedValue(createStats('file') as never)
     vi.mocked(fs.pathExists).mockImplementation(async (entryPath) => String(entryPath).startsWith('/mock/userData/'))
     vi.spyOn(backupManager as any, 'stageArchiveDirectory').mockResolvedValue(undefined)
-    vi.spyOn(backupManager as any, 'copyClaudeState').mockResolvedValue(undefined)
     vi.spyOn(backupManager as any, 'validateStagedDatabase').mockReturnValue([
       { folderMillis: 1, hash: 'migration-hash' }
     ])
@@ -1016,12 +1015,7 @@ describe('BackupManager direct v2 data compatibility', () => {
             stagingPath: 'restore-staging/operation-id/resources/cache.json'
           }),
           expect.objectContaining({ kind: 'overwrite', livePath: 'IndexedDB' }),
-          expect.objectContaining({ kind: 'overwrite', livePath: 'Local Storage' }),
-          expect.objectContaining({
-            kind: 'overwrite',
-            livePath: 'Data/Agents/.claude',
-            asidePath: 'restore-staging/operation-id/aside/Data/Agents/.claude'
-          })
+          expect.objectContaining({ kind: 'overwrite', livePath: 'Local Storage' })
         ])
       })
     )
@@ -1365,7 +1359,6 @@ describe('BackupManager direct v2 data compatibility', () => {
       '/extract/cherrystudio.sqlite',
       '/mock/userData/restore-staging/operation-id/work.sqlite'
     )
-    expect((backupManager as any).copyClaudeState).not.toHaveBeenCalled()
     expect(createDataResources).toHaveBeenCalledWith(
       '/mock/userData/restore-staging/operation-id',
       '/mock/userData/restore-staging/operation-id/resources/Data'
@@ -1450,10 +1443,6 @@ describe('BackupManager direct v2 data compatibility', () => {
     expect(dataResourcePaths).not.toContain('Data/cherrystudio.sqlite')
     expect(dataResourcePaths).not.toContain('Data/restore-journal.json')
     expect(dataResourcePaths).not.toContain('Data/Agents/.claude')
-    expect((backupManager as any).copyClaudeState).toHaveBeenCalledWith(
-      '/extract/.claude',
-      '/mock/userData/restore-staging/operation-id/resources/Data/Agents/.claude'
-    )
     expect(fs.ensureDir).toHaveBeenCalledWith(
       '/mock/userData/restore-staging/operation-id/resources/Data/KnowledgeBase'
     )
@@ -1574,37 +1563,6 @@ describe('BackupManager direct v2 data compatibility', () => {
     expect(direct).toHaveBeenCalledTimes(1)
     releaseFirst()
     await expect(first).resolves.toBe('/backups/first.zip')
-  })
-
-  it('restores legacy standalone .claude state but excludes the generated skills mirror', async () => {
-    vi.mocked(fs.lstat).mockImplementation(async (entryPath) => {
-      return createStats(String(entryPath).endsWith('settings.json') ? 'file' : 'directory') as never
-    })
-    vi.mocked(fs.readdir).mockResolvedValue([
-      createDirent('skills'),
-      createDirent('projects'),
-      createDirent('settings.json')
-    ] as never)
-    const copyDirectory = vi.spyOn(backupManager as any, 'copyDirWithProgress').mockResolvedValue(undefined)
-
-    await (backupManager as any).copyClaudeState('/mock/userData/Data/Agents/.claude', '/archive/.claude')
-
-    expect(copyDirectory).toHaveBeenCalledWith(
-      '/mock/userData/Data/Agents/.claude/projects',
-      '/archive/.claude/projects',
-      expect.any(Function),
-      { dereferenceSymlinks: false }
-    )
-    expect(fs.copy).toHaveBeenCalledWith(
-      '/mock/userData/Data/Agents/.claude/settings.json',
-      '/archive/.claude/settings.json'
-    )
-    expect(copyDirectory).not.toHaveBeenCalledWith(
-      expect.stringContaining('/skills'),
-      expect.anything(),
-      expect.anything(),
-      expect.anything()
-    )
   })
 })
 

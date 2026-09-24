@@ -660,7 +660,7 @@ describe('TopicNamingService', () => {
   })
 
   it('falls back when the quick model points to an external-CLI (agent-only) provider', async () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('feature.quick_assistant.model_id', 'claude-code::haiku')
+    MockMainPreferenceServiceUtils.setPreferenceValue('feature.quick_assistant.model_id', 'cli-login::haiku')
     mocks.getProviderByProviderId.mockReturnValue({ authMethods: ['external-cli'] })
     mocks.getSession.mockReturnValue({
       id: 'session-1',
@@ -674,7 +674,7 @@ describe('TopicNamingService', () => {
       parts: [{ type: 'text', text: 'Agent response' }]
     } as never)
 
-    expect(mocks.getModelByKey).not.toHaveBeenCalledWith('claude-code', 'haiku')
+    expect(mocks.getModelByKey).not.toHaveBeenCalledWith('cli-login', 'haiku')
     expect(mocks.generateText).toHaveBeenCalledWith(
       expect.objectContaining({
         uniqueModelId: CHERRYAI_DEFAULT_UNIQUE_MODEL_ID
@@ -682,7 +682,7 @@ describe('TopicNamingService', () => {
     )
     expect(mockMainLoggerService.warn).toHaveBeenCalledWith(
       'Quick assistant model is not usable for topic naming; falling back to managed CherryAI default',
-      { configured: 'claude-code::haiku' }
+      { configured: 'cli-login::haiku' }
     )
   })
 

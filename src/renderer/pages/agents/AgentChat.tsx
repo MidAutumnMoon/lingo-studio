@@ -23,11 +23,7 @@ import {
   AgentConversationControls,
   type AgentConversationControlsProps
 } from '@renderer/components/composer/variants/agent/AgentConversationControls'
-import {
-  type AgentComposerLaunchOptions,
-  MissingAgentHomeComposer
-} from '@renderer/components/composer/variants/AgentComposer'
-import { DoctorPopup } from '@renderer/components/doctor'
+import { MissingAgentHomeComposer } from '@renderer/components/composer/variants/AgentComposer'
 import { useCache, useSharedCache } from '@renderer/data/hooks/useCache'
 import { useUpdateAgent } from '@renderer/hooks/agent/useAgent'
 import { useAgentModelDisabled, useAgentModelFilter } from '@renderer/hooks/agent/useAgentModelFilter'
@@ -41,7 +37,6 @@ import { getAgentAvatarFromConfiguration } from '@renderer/utils/agent'
 import { buildAgentSessionTopicId } from '@renderer/utils/agentSession'
 import { cn } from '@renderer/utils/style'
 import { BROWSER_TOOL_GROUP } from '@shared/ai/browserTools'
-import { BUILTIN_AGENT_ROLE } from '@shared/ai/builtinAgent'
 import type { AgentSessionEntity } from '@shared/data/api/schemas/agentSessions'
 import type { CherryMessagePart, CherryUIMessage } from '@shared/data/types/message'
 import type { Model } from '@shared/data/types/model'
@@ -117,7 +112,6 @@ interface AgentChatProps {
   sessionPaneOpen?: boolean
   onSessionPaneOpenChange?: (open: boolean) => void
   sessionPaneUserOpenIntentSeq?: number
-  composerLaunchOptions?: AgentComposerLaunchOptions
 }
 
 interface AgentChatLayoutProps {
@@ -180,8 +174,7 @@ const AgentChat = ({
   resourcePaneRevealRequest,
   sessionPaneOpen,
   onSessionPaneOpenChange,
-  sessionPaneUserOpenIntentSeq,
-  composerLaunchOptions
+  sessionPaneUserOpenIntentSeq
 }: AgentChatProps) => {
   const { t } = useTranslation()
   const [messageStyle] = usePreference('chat.message.style')
@@ -202,10 +195,6 @@ const AgentChat = ({
   const visibleWorkspaceId = sessionSnapshot?.workspaceId ?? null
   const visibleWorkspace = sessionSnapshot?.workspace ?? null
   const activeAgent = conversationBootstrap.resources.agent
-  const isSupportAgent = activeAgent?.configuration?.builtin_role === BUILTIN_AGENT_ROLE.SUPPORT
-  const isAssistantAgent = activeAgent?.configuration?.builtin_role === BUILTIN_AGENT_ROLE.ASSISTANT
-  // Assistant now exposes prepare_diagnostic_report, so it needs the same review dialog as Support.
-  const canReviewDiagnosticReport = isSupportAgent || isAssistantAgent
   const isActiveAgentLoading = conversationBootstrap.resources.agentLoading
   const activeModel = conversationBootstrap.resources.model
   const isActiveModelLoading = conversationBootstrap.resources.modelLoading
@@ -263,13 +252,6 @@ const AgentChat = ({
     sessionId: runtimeSessionId,
     uiMessages: runtimeUiMessages
   } = runtime
-  const openDiagnosticReport = useCallback(
-    (description = '') => {
-      if (!currentSessionId) return
-      void DoctorPopup.show({ initialPanel: 'report', initialDescription: description })
-    },
-    [currentSessionId]
-  )
   const isEmptyConversation = Boolean(
     sessionSnapshot &&
     sessionMessagesEnabled &&
@@ -501,8 +483,6 @@ const AgentChat = ({
         agentChanging={sessionAgentChanging}
         onOpenCitationsPanel={handleOpenCitationsPanel}
         onCreateEmptySession={sessionAgentId && onCreateEmptySession ? handleCreateEmptySession : undefined}
-        composerLaunchOptions={composerLaunchOptions}
-        openDiagnosticReport={canReviewDiagnosticReport ? openDiagnosticReport : undefined}
       />
     )
   }
@@ -602,8 +582,6 @@ interface AgentChatSessionCenterProps {
   agentChanging?: boolean
   onOpenCitationsPanel: (payload: { citations: Citation[] }) => void
   onCreateEmptySession?: () => void | Promise<unknown>
-  composerLaunchOptions?: AgentComposerLaunchOptions
-  openDiagnosticReport?: (description?: string) => void
 }
 
 const AgentChatSessionCenter = ({
@@ -621,9 +599,7 @@ const AgentChatSessionCenter = ({
   onAgentChange,
   agentChanging,
   onOpenCitationsPanel,
-  onCreateEmptySession,
-  composerLaunchOptions,
-  openDiagnosticReport
+  onCreateEmptySession
 }: AgentChatSessionCenterProps) => {
   const composer = (
     <div className="flex w-full flex-col">
@@ -645,7 +621,6 @@ const AgentChatSessionCenter = ({
         agentChanging={agentChanging}
         onCreateEmptySession={onCreateEmptySession}
         composerContext={runtime.composerContext}
-        composerLaunchOptions={composerLaunchOptions}
         editing={runtime.editing}
         cancelEditing={runtime.cancelEditing}
         resendEditedMessage={runtime.resendEditedMessage}
@@ -668,7 +643,6 @@ const AgentChatSessionCenter = ({
       loadOlder={runtime.loadOlder}
       selectAllPagination={runtime.selectAllPagination}
       onOpenCitationsPanel={onOpenCitationsPanel}
-      openDiagnosticReport={openDiagnosticReport}
       deleteMessage={runtime.deleteMessage}
       startEditing={runtime.startEditing}
       editBusy={runtime.editBusy}

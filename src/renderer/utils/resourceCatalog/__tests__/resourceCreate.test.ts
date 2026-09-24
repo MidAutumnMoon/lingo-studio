@@ -5,8 +5,8 @@ import type { ResourceCreateValues } from '@renderer/types/resourceCatalog'
 import { buildCreateAgentCommand, buildCreateAssistantDto } from '../resourceCreate'
 
 const values: ResourceCreateValues = {
-  agentType: 'claude-code',
-  permissionMode: 'auto',
+  agentType: 'dsh',
+  permissionMode: 'bypassPermissions',
   avatar: '🤖',
   name: 'Researcher',
   modelId: 'provider::model',
@@ -30,18 +30,16 @@ describe('resource create DTO mapping', () => {
 
   it('maps every agent-specific field', () => {
     expect(buildCreateAgentCommand(values)).toEqual({
-      type: 'claude-code',
+      type: 'dsh',
       name: 'Researcher',
       model: 'provider::model',
-      planModel: 'provider::model',
-      smallModel: 'provider::model',
       description: 'Investigates a topic',
       instructions: 'Use cited sources',
       knowledgeBaseIds: ['kb-1'],
       skillIds: ['skill-1'],
       configuration: {
         avatar: '🤖',
-        permission_mode: 'auto'
+        permission_mode: 'bypassPermissions'
       }
     })
   })

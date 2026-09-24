@@ -87,7 +87,7 @@ export class McpCatalogService extends BaseService {
   /**
    * Fires when a server's `mcp.tools.<serverId>` shared-cache **content** actually changes
    * (see `writeToolsCache`). This is the push-invalidation channel that keeps per-session
-   * tool snapshots consistent with the cache: the Claude Agent SDK snapshots each MCP bridge
+   * tool snapshots consistent with the cache: runtimes snapshot each MCP bridge
    * server's tools once per session and never re-reads on its own, so the bridge
    * (`createMcpBridgeServer`) subscribes here and relays every cache change as an MCP
    * `tools/list_changed` notification, prompting the SDK to re-list against the fresh cache.
@@ -286,7 +286,7 @@ export class McpCatalogService extends BaseService {
    * (`undefined`) or warmed-but-empty (`[]`); a populated cache resolves immediately.
    * Never rejects — a dead server degrades to a warmed-but-empty cache.
    *
-   * Consumer: the bounded pre-warm in `buildClaudeCodeSessionSettings`, which needs the
+   * Consumer: runtime connection builders, which need the
    * cache-only session-build reads (approval descriptors, tool-card metadata) to see the
    * agent's tools. This is also the only path that re-probes a warmed-but-empty cache
    * after its retry window —

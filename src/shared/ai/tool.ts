@@ -4,7 +4,7 @@ export const ToolApprovalSchema = z.enum(['auto', 'prompt'])
 export const ToolOriginSchema = z.enum(['builtin', 'mcp', 'internal'])
 
 export const ToolSchema = z.strictObject({
-  /** UI key and write-back value. For Claude Code this is the runtime-native tool rule/name. */
+  /** UI key and write-back value. This is the runtime-native tool rule/name. */
   id: z.string(),
   name: z.string(),
   description: z.string().optional(),

@@ -48,15 +48,6 @@ class ObservabilitySinkRegistry {
     }
   }
 
-  writeRawOtlpPayload(
-    otlpPath: Parameters<NonNullable<ObservabilitySink['writeRawOtlpPayload']>>[0],
-    payload: unknown
-  ): void {
-    for (const sink of this.sinks.values()) {
-      this.callSink(sink, 'writeRawOtlpPayload', () => sink.writeRawOtlpPayload?.(otlpPath, payload))
-    }
-  }
-
   private callSink(sink: ObservabilitySink, operation: string, fn: () => void | Promise<void> | undefined): void {
     try {
       const result = fn()

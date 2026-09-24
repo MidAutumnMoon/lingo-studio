@@ -26,7 +26,7 @@ describe('workspace visibility', () => {
     (kind) => {
       dbh.db
         .insert(agentTable)
-        .values({ id: 'agent', type: 'claude-code', name: 'Agent', instructions: '', orderKey: 'a0' })
+        .values({ id: 'agent', type: 'pi', name: 'Agent', instructions: '', orderKey: 'a0' })
         .run()
       const workspace = seedBackgroundWorkspace()
       let visible = agentWorkspaceService.list().map((row) => row.id)

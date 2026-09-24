@@ -3,7 +3,6 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-import { MockMainCacheServiceUtils } from '@test-mocks/main/CacheService'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { agentChannelService as channelService } from '@data/services/AgentChannelService'
@@ -11,7 +10,6 @@ import { agentService } from '@data/services/AgentService'
 import { agentSessionService } from '@data/services/AgentSessionService'
 import { buildAgentSessionTopicId } from '@main/ai/agentSession/topic'
 import { AgentSessionWorkspaceError } from '@main/ai/runtime/agentSessionWorkspace'
-import { AGENT_SESSION_SLASH_COMMANDS_CACHE_KEY } from '@shared/ai/agentSessionSlashCommands'
 
 import type { ChannelMessageEvent } from '../ChannelAdapter'
 import { channelMessageHandler } from '../ChannelMessageHandler'
@@ -201,7 +199,7 @@ describe('ChannelMessageHandler', () => {
     const session = {
       id: 'session-1',
       agentId: 'agent-1',
-      agentType: 'claude-code',
+      agentType: 'pi',
       model: 'openai::gpt-4',
       workspace: { path: '/tmp/test-workspace' },
       configuration: {}
@@ -234,7 +232,7 @@ describe('ChannelMessageHandler', () => {
     const session = {
       id: 'session-1',
       agentId: 'agent-1',
-      agentType: 'claude-code',
+      agentType: 'pi',
       model: 'openai::gpt-4',
       workspace: { path: '/tmp/test-workspace' },
       configuration: {}
@@ -275,7 +273,7 @@ describe('ChannelMessageHandler', () => {
     const session = {
       id: 'session-1',
       agentId: 'agent-1',
-      agentType: 'claude-code',
+      agentType: 'pi',
       model: 'openai::gpt-4',
       workspace: { path: '/tmp/test-workspace' },
       configuration: {}
@@ -311,7 +309,7 @@ describe('ChannelMessageHandler', () => {
     const session = {
       id: 'session-1',
       agentId: 'agent-1',
-      agentType: 'claude-code',
+      agentType: 'pi',
       model: 'openai::gpt-4',
       workspace: { path: '/tmp/test-workspace' },
       configuration: {}
@@ -335,7 +333,7 @@ describe('ChannelMessageHandler', () => {
     const session = {
       id: 'session-1',
       agentId: 'agent-1',
-      agentType: 'claude-code',
+      agentType: 'pi',
       model: 'openai::gpt-4',
       workspaceId: 'workspace-1',
       workspace: {
@@ -376,7 +374,7 @@ describe('ChannelMessageHandler', () => {
       const session = {
         id: 'session-1',
         agentId: 'agent-1',
-        agentType: 'claude-code',
+        agentType: 'pi',
         model: 'openai::gpt-4',
         workspace: { path: workDir },
         configuration: {}
@@ -407,7 +405,7 @@ describe('ChannelMessageHandler', () => {
     const session = {
       id: 'session-1',
       agentId: 'agent-1',
-      agentType: 'claude-code',
+      agentType: 'pi',
       model: 'openai::gpt-4',
       workspace: { path: '/tmp/test-workspace' },
       configuration: {}
@@ -433,7 +431,7 @@ describe('ChannelMessageHandler', () => {
     const session = {
       id: 'session-1',
       agentId: 'agent-1',
-      agentType: 'claude-code',
+      agentType: 'pi',
       model: 'openai::gpt-4',
       workspace: { path: '/tmp/test-workspace' },
       configuration: {}
@@ -495,7 +493,7 @@ describe('ChannelMessageHandler', () => {
     const session = {
       id: 'session-1',
       agentId: 'agent-1',
-      agentType: 'claude-code',
+      agentType: 'pi',
       model: 'openai::gpt-4',
       workspace: { path: '/tmp/test-workspace' },
       configuration: {}
@@ -596,60 +594,6 @@ describe('ChannelMessageHandler', () => {
     expect(helpText).toContain('/whoami')
   })
 
-  it('handleCommand /help merges the bound session slash commands (control wins on collision)', async () => {
-    const adapter = createMockAdapter()
-    vi.mocked(agentService.getAgent).mockResolvedValueOnce({ name: 'TestAgent', description: '' } as any)
-    persistedChannelSessions.bindings.set('channel-1:chat-merge', 'session-xyz')
-    persistedChannelSessions.sessions.set('session-xyz', { id: 'session-xyz', agentId: 'agent-1' })
-    MockMainCacheServiceUtils.setSharedCacheValue(AGENT_SESSION_SLASH_COMMANDS_CACHE_KEY('session-xyz'), [
-      { name: 'deploy', description: 'Deploy the app', argumentHint: '' },
-      // Collides with the control command — control description must win, session dup dropped.
-      { name: 'compact', description: 'session dup', argumentHint: '' }
-    ])
-
-    try {
-      await channelMessageHandler.handleCommand(adapter, {
-        chatId: 'chat-merge',
-        userId: 'user-1',
-        userName: 'User',
-        command: 'help'
-      })
-
-      const helpText = adapter.sendMessage.mock.calls[0][1] as string
-      expect(helpText).toContain('/deploy - Deploy the app')
-      expect(helpText).toContain('/compact - Compact conversation history')
-      expect(helpText).not.toContain('session dup')
-    } finally {
-      MockMainCacheServiceUtils.setSharedCacheValue(AGENT_SESSION_SLASH_COMMANDS_CACHE_KEY('session-xyz'), null)
-    }
-  })
-
-  it('handleCommand /help ignores a channel session that belongs to another agent', async () => {
-    const adapter = createMockAdapter()
-    vi.mocked(agentService.getAgent).mockResolvedValueOnce({ name: 'TestAgent', description: '' } as any)
-    persistedChannelSessions.bindings.set('channel-1:chat-stale', 'stale-session')
-    persistedChannelSessions.sessions.set('stale-session', { id: 'stale-session', agentId: 'other-agent' })
-    MockMainCacheServiceUtils.setSharedCacheValue(AGENT_SESSION_SLASH_COMMANDS_CACHE_KEY('stale-session'), [
-      { name: 'leak', description: 'commands from the wrong agent', argumentHint: '' }
-    ])
-
-    try {
-      await channelMessageHandler.handleCommand(adapter, {
-        chatId: 'chat-stale',
-        userId: 'user-1',
-        userName: 'User',
-        command: 'help'
-      })
-
-      const helpText = adapter.sendMessage.mock.calls[0][1] as string
-      expect(helpText).not.toContain('/leak')
-      // Control commands are still listed — only the foreign session catalog is withheld.
-      expect(helpText).toContain('/new')
-    } finally {
-      MockMainCacheServiceUtils.setSharedCacheValue(AGENT_SESSION_SLASH_COMMANDS_CACHE_KEY('stale-session'), null)
-    }
-  })
-
   it('handleCommand /whoami sends the current chat ID', async () => {
     const adapter = createMockAdapter()
 
@@ -672,7 +616,7 @@ describe('ChannelMessageHandler', () => {
     const newSession = {
       id: 'new-session',
       agentId: 'agent-1',
-      agentType: 'claude-code',
+      agentType: 'pi',
       model: 'openai::gpt-4',
       workspace: { path: '/tmp/test-workspace' },
       configuration: {}
@@ -705,7 +649,7 @@ describe('ChannelMessageHandler', () => {
     const session1 = {
       id: 'session-1',
       agentId: 'agent-1',
-      agentType: 'claude-code',
+      agentType: 'pi',
       model: 'openai::gpt-4',
       workspace: { path: '/tmp/test-workspace' },
       configuration: {}

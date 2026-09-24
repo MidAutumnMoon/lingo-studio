@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'node:crypto'
 import { hostname, networkInterfaces } from 'node:os'
 
 import { Mutex } from 'async-mutex'
@@ -31,7 +30,6 @@ export class ApiGatewayService extends BaseService implements Activatable {
   /** Process-local proof that a gateway request originated from Cherry's agent runtime. */
   private readonly internalUsageToken = uuidv4()
   /** Never persisted or exposed through the public API; authenticates Cherry-internal gateway metadata. */
-  private readonly internalRequestToken = uuidv4()
   /** Latest persistent desired state. Its only source is the `enabled` preference. */
   private desiredEnabled = false
   /**
@@ -365,17 +363,6 @@ export class ApiGatewayService extends BaseService implements Activatable {
     return result
   }
 
-  getInternalRequestToken(): string {
-    return this.internalRequestToken
-  }
-
-  isInternalRequestToken(candidate: string | undefined): boolean {
-    if (!candidate) return false
-    const expected = Buffer.from(this.internalRequestToken)
-    const received = Buffer.from(candidate)
-    return expected.length === received.length && timingSafeEqual(expected, received)
-  }
-
   getCurrentConfig(): ApiGatewayConfig {
     const config = application.get('PreferenceService').getMultiple({
       enabled: 'feature.api_gateway.enabled',
@@ -399,7 +386,7 @@ export class ApiGatewayService extends BaseService implements Activatable {
   }
 
   /**
-   * Headers injected only into the Claude Agent SDK subprocess that Cherry
+   * Headers injected only into agent-session subprocesses that Cherry
    * launches for this session. They let the HTTP gateway retain per-provider
    * request records while attaching them to the owning agent.
    */

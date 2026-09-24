@@ -41,14 +41,6 @@ describe('buildPathRegistry', () => {
     )
   })
 
-  it('keeps the Claude config under the Agents data directory', () => {
-    const registry = buildPathRegistry()
-    const claudeRoot = path.join('/mock/userData', 'Data', 'Agents', '.claude')
-
-    expect(registry['feature.agents.claude.root']).toBe(claudeRoot)
-    expect(registry['feature.agents.claude.skills']).toBe(path.join(claudeRoot, 'skills'))
-  })
-
   it('keeps conditional Code Mate skill templates in read-only app resources', () => {
     const registry = buildPathRegistry()
 
@@ -99,13 +91,11 @@ describe('buildPathRegistry', () => {
     expect(shouldAutoEnsure('v1.cli.install')).toBe(false)
   })
 
-  it('keeps the root database and Claude config cleanup-only', () => {
+  it('keeps the root database cleanup-only', () => {
     const registry = buildPathRegistry()
 
     expect(registry['v1.database.file']).toBe(path.join('/mock/userData', 'cherrystudio.sqlite'))
-    expect(registry['v1.agents.claude']).toBe(path.join('/mock/userData', '.claude'))
     expect(shouldAutoEnsure('v1.database.file')).toBe(false)
-    expect(shouldAutoEnsure('v1.agents.claude')).toBe(false)
   })
 
   it('falls back when Electron cannot resolve an optional user system path', () => {

@@ -96,17 +96,6 @@ describe('AgentComposerSlot', () => {
     expect(agentComposerPropsMock.last?.onWorkspaceChange).toBeUndefined()
   })
 
-  it('forwards one-shot launch options to the real composer', () => {
-    const launchOptions = {
-      initialDraft: { text: 'Use the cherry-studio-feedback skill.', tokens: [] },
-      onSent: vi.fn()
-    }
-
-    render(<AgentComposerSlot {...baseProps} composerLaunchOptions={launchOptions} />)
-
-    expect(agentComposerPropsMock.last?.launchOptions).toBe(launchOptions)
-  })
-
   it.each([true, false])('uses the shared right-panel presentation state when maximized is %s', (maximized) => {
     rightPanelPresentationMock.maximized = maximized
 

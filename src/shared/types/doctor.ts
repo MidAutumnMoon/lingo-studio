@@ -18,7 +18,6 @@ export type DoctorDomain =
   | 'provider'
   | 'network'
   | 'mcp'
-  | 'runtime'
   | 'health'
   | 'logs'
 
@@ -104,7 +103,6 @@ export const DOCTOR_CHECK_IDS = [
   'network-provider-endpoint',
   'mcp-servers-connected',
   'mcp-launch-commands',
-  'runtime-claude-login',
   'logs-recent-findings'
 ] as const
 export type DoctorCheckId = (typeof DOCTOR_CHECK_IDS)[number]
@@ -337,14 +335,6 @@ export const DOCTOR_CHECK_CATALOG = {
     details: ['unresolved', 'query_failed'],
     requires: []
   },
-  'runtime-claude-login': {
-    domain: 'runtime',
-    tier: 'quick',
-    scope: 'global',
-    fixes: [],
-    details: ['not_logged_in'],
-    requires: []
-  },
   'logs-recent-findings': {
     domain: 'logs',
     tier: 'quick',
@@ -388,7 +378,6 @@ export type DoctorNavigateTarget =
   | '/settings/general'
   | '/settings/mcp'
   | '/settings/provider'
-  | '/settings/provider?id=claude-code'
 
 export type DoctorAction<Id extends DoctorCheckId = DoctorCheckId> =
   | DoctorFixAction<Id>

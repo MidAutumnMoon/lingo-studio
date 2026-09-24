@@ -116,7 +116,7 @@ describe('ai.stream.open IPC schema', () => {
 describe('ai.agent.create IPC schema', () => {
   const createAgent = aiRequestSchemas['ai.agent.create'].input
   const base = {
-    type: 'claude-code',
+    type: 'pi',
     name: 'Agent',
     model: 'openai::gpt-4'
   }
@@ -174,40 +174,5 @@ describe('ai.agent.session.restore IPC schema', () => {
     expect(restoreSession.safeParse({ sessionId: 'session-1' }).success).toBe(true)
     expect(restoreSession.safeParse({ sessionId: '' }).success).toBe(false)
     expect(restoreSession.safeParse({ sessionId: 'session-1', extra: true }).success).toBe(false)
-  })
-})
-
-describe('ai.agent.support_session.create IPC schema', () => {
-  const createSupportSession = aiRequestSchemas['ai.agent.support_session.create'].input
-  const createSupportSessionResult = aiRequestSchemas['ai.agent.support_session.create'].output
-
-  it('accepts only a void command payload', () => {
-    expect(createSupportSession.safeParse(undefined).success).toBe(true)
-    expect(createSupportSession.safeParse({}).success).toBe(false)
-  })
-
-  it('returns only the created session id', () => {
-    expect(createSupportSessionResult.parse({ sessionId: 'feedback-session' })).toEqual({
-      sessionId: 'feedback-session'
-    })
-    expect(
-      createSupportSessionResult.safeParse({ sessionId: 'feedback-session', agentId: 'cherry-support' }).success
-    ).toBe(false)
-  })
-})
-
-describe('ai.agent.skill_session.create IPC schema', () => {
-  const createSkillSession = aiRequestSchemas['ai.agent.skill_session.create'].input
-  const createSkillSessionResult = aiRequestSchemas['ai.agent.skill_session.create'].output
-
-  it('requires one non-empty Skill id and rejects unrelated fields', () => {
-    expect(createSkillSession.parse({ skillId: 'skill-1' })).toEqual({ skillId: 'skill-1' })
-    expect(createSkillSession.safeParse({ skillId: '' }).success).toBe(false)
-    expect(createSkillSession.safeParse({ skillId: 'skill-1', agentId: 'agent-1' }).success).toBe(false)
-  })
-
-  it('returns only the prepared Session id', () => {
-    expect(createSkillSessionResult.parse({ sessionId: 'session-1' })).toEqual({ sessionId: 'session-1' })
-    expect(createSkillSessionResult.safeParse({ sessionId: 'session-1', skillId: 'skill-1' }).success).toBe(false)
   })
 })

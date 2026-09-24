@@ -11,14 +11,6 @@ export const agentRules: readonly ScanRule[] = [
     anchors: [/AgentRuntimeError[\s\S]{0,120}No response|No response (?:received|from (?:model|provider))/i]
   },
   {
-    id: 'agent-claude-code-failed',
-    domain: 'agent',
-    attribution: 'app-bug',
-    devMessage:
-      'The embedded Claude Code runtime reported a terminal failure (ClaudeCodeResultError); inspect the wrapped result for the upstream cause.',
-    anchors: [/ClaudeCodeResultError/]
-  },
-  {
     id: 'agent-tool-loop-terminated',
     domain: 'agent',
     attribution: 'app-bug',

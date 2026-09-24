@@ -64,9 +64,9 @@ describe('useAgentSessionContextUsage', () => {
     expect(result.current.usage).toBeNull()
   })
 
-  // Both claude-code rows for Sonnet 4.6 resolve to the same 1M catalog entry, so a plain 200K
-  // session would otherwise read 5x low. Claude Code applies its own window, and reports it.
-  it('defers to the runtime window for a model Claude Code sizes itself', () => {
+  // Claude models report their effective per-plan window in the usage payload, so a plain 200K
+  // session against the 1M catalog entry would otherwise read 5x low.
+  it('defers to the reported window for a Claude model that sizes itself', () => {
     cacheService.setShared(KEY, {
       categories: [],
       totalTokens: 100_000,
@@ -76,7 +76,7 @@ describe('useAgentSessionContextUsage', () => {
     })
 
     const { result } = renderHook(() =>
-      useAgentSessionContextUsage(SESSION_ID, model('claude-code::claude-sonnet-4-6', 1_000_000))
+      useAgentSessionContextUsage(SESSION_ID, model('anthropic::claude-sonnet-4-6', 1_000_000))
     )
 
     expect(result.current.maxTokens).toBe(200_000)

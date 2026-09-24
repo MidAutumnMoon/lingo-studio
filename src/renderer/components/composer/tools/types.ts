@@ -8,7 +8,6 @@ import type {
 } from '@renderer/components/composer/toolLauncher'
 import type { Assistant } from '@renderer/types/assistant'
 import { TopicType } from '@renderer/types/topic'
-import type { SlashCommand } from '@shared/ai/slashCommands'
 import type { Model } from '@shared/data/types/model'
 import type { AbsoluteFilePath } from '@shared/types/file'
 
@@ -60,15 +59,13 @@ export interface ToolContext {
   model: Model
   // Session data for Agent Session scope (only available when scope is TopicType.Session).
   // Note: config fields (model/instructions/...) live on the parent agent — fetch via
-  // useAgent(session.agentId). agentType drives the builtin slash command fallback; slashCommands
-  // carries the live SDK catalog (custom commands included) when the runtime has reported it.
+  // useAgent(session.agentId). agentType drives the builtin slash command list.
   session?: {
     agentId?: string
     sessionId?: string
     agentType?: string
     tools?: Array<{ id: string; name: string; type: string; description?: string }>
     accessiblePaths?: readonly AbsoluteFilePath[]
-    slashCommands?: SlashCommand[]
     /** Knowledge bases statically bound to the Agent. */
     knowledgeBaseIds?: readonly string[]
   }

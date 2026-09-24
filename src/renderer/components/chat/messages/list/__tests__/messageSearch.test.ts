@@ -110,7 +110,7 @@ describe('computeMessageSearchMatches', () => {
     const nestedToolText = {
       type: 'text',
       text: 'hidden apple',
-      providerMetadata: { 'claude-code': { parentToolCallId: 'parent' } }
+      providerMetadata: { cherry: { parentToolCallId: 'parent' } }
     } as CherryMessagePart
     const messages = [message('a1', 'assistant')]
     const parts = { a1: [nestedToolText, textPart('visible apple')] }

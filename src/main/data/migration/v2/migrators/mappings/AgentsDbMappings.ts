@@ -141,7 +141,12 @@ export const AGENTS_TABLE_MIGRATION_SPECS: readonly AgentsTableMigrationSpec[] =
         expr: "CAST(strftime('%s', updated_at) AS INTEGER) * 1000",
         sourceColumn: 'updated_at'
       }
-    ]
+    ],
+    // Claude Code runtime agents (both spellings v1 used) cannot run on any
+    // remaining runtime, so they are not migrated; child specs filter on
+    // `agent_id IN (SELECT id FROM agent)` and drop their sessions with them.
+    whereClause: "type NOT IN ('claude-code', 'claude_code', 'cherry-claw')",
+    validateWhereClause: "type NOT IN ('claude-code', 'claude_code', 'cherry-claw')"
   },
   {
     sourceTable: 'sessions',

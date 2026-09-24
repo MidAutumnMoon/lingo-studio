@@ -133,7 +133,7 @@ interface TextReadResult {
 
 /** cat -n shape: 6-pad line numbers + tab. Lines are returned in full — there
  *  is no per-line truncation; the per-call output is bounded by
- *  READ_OUTPUT_CHAR_CAP as a whole (see executeFsRead), matching Claude Code's
+ *  READ_OUTPUT_CHAR_CAP as a whole (see executeFsRead), matching the runtime's
  *  Read (whole lines, output gated in aggregate, never chopped mid-line).
  *  Format ported from #14916's readers/text.ts — the model pattern-matches it. */
 function formatLines(content: string, offset: number | undefined, limit: number | undefined): TextReadResult {

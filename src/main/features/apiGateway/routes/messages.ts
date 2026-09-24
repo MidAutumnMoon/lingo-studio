@@ -1,9 +1,6 @@
 import type { MessageCreateParams } from '@anthropic-ai/sdk/resources'
 import { Elysia } from 'elysia'
 
-import { application } from '@application'
-import { CHERRY_FAST_MODE_HEADER, CHERRY_INTERNAL_REQUEST_TOKEN_HEADER } from '@main/ai/constants'
-
 import { DOC_DESCRIPTIONS, DOC_TAGS } from '../openapiDocs'
 import { processMessage } from '../proxyStream'
 import { estimateAnthropicRequestTokens } from '../tokens/estimateAnthropicRequestTokens'
@@ -27,15 +24,11 @@ export const messagesRoutes = new Elysia({ prefix: '/messages' })
   .post(
     '/',
     // `model` is "providerId:apiModelId"; ProxyStreamService resolves it.
-    ({ body, request, headers }) => {
-      const isInternalRequest = application
-        .get('ApiGatewayService')
-        .isInternalRequestToken(headers[CHERRY_INTERNAL_REQUEST_TOKEN_HEADER.toLowerCase()])
+    ({ body, request }) => {
       return processMessage({
         params: body,
         inputFormat: 'anthropic',
         outputFormat: 'anthropic',
-        fastMode: isInternalRequest && headers[CHERRY_FAST_MODE_HEADER.toLowerCase()] === 'true',
         signal: request.signal,
         requestHeaders: request.headers
       })

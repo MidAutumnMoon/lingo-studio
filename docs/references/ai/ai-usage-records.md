@@ -74,7 +74,7 @@ invoices remain authoritative.
   before the provider call. Completion never consults current configuration or
   rotation state.
 - Every runtime route has one capture owner. Gateway-backed Agent traffic uses
-  provider-call capture; direct/external Agent traffic uses Agent SDK messages.
+  provider-call capture; direct Agent traffic is captured by the runtime driver.
 
 There is deliberately no operation table or persistence compensation layer.
 
@@ -151,10 +151,6 @@ identifies provider-level OAuth/CLI/IAM authentication and cannot carry a key.
 `unknown` carries neither. An unmatched override is `unknown`; it is never
 attributed to a rotation pointer after the fact.
 
-If a prewarmed Claude process is consumed, the connection uses that process's
-stored receipt because it selected the credential that actually serves the
-request.
-
 ## Record model
 
 The table stores:
@@ -188,7 +184,8 @@ Request id namespaces are:
 
 - language middleware: `ai-sdk:<providerId>:<uuid>`
 - aiCore provider handlers: `ai-core:<modality>:<uuid>`
-- Agent SDK: `claude-agent:<assistant-message-id>`
+- Pi runtime: `pi-agent:<session-id>:<response-id>`
+- DSH runtime: `dsh-agent:<session-id>:<turn>:<sequence>`
 - custom async image: `custom-image:<job-id>`
 - migration: `legacy:<message-kind>:<message-id>`
 
@@ -212,9 +209,9 @@ If TTFT is absent or is not before completion, the denominator is
 `timeCompletionMs`. Missing/non-positive output or duration produces no value.
 
 Embedding, image, and rerank completion time is measured by the owner around
-the actual provider call. Direct/external Agent calls use the SDK's per-step
-`ttft_ms` plus the monotonic `message_start` to terminal delta/stop interval;
-steps without `ttft_ms` keep TTFT and completion null. Gateway-backed Agent
+the actual provider call. Direct Agent calls use the driver's own stream
+timing, measured at the provider stream boundary; metrics the driver cannot
+observe stay null. Gateway-backed Agent
 calls pass through the language middleware and have normal per-call metrics.
 Legacy record metrics are also null; their historical message-level timings
 stay in `MessageStats`.
@@ -327,9 +324,7 @@ lacks absolute timestamps and tool/approval intervals.
 
 `AiStreamManager` owns one runtime timing collector per message execution. AI
 SDK tools report their exact execute interval through the existing loop hooks.
-Direct/external Claude Agent tools use the SDK's
-`PostToolUse`/`PostToolUseFailure.duration_ms`, which excludes approval and hook
-time. Approval spans begin when the approval request is emitted and end on
+Approval spans begin when the approval request is emitted and end on
 approve, deny, abort, or error.
 
 A continuation's context provider includes the persisted timing snapshot in
@@ -356,33 +351,12 @@ serial.
 
 ## Agent runtime ownership
 
-### Direct and external CLI
+### Direct runtime capture
 
 The connection carries `{ owner: 'agent-sdk', credentialReceipt, frozenModels }`.
-Every emitted invocation id is globally namespaced by its driver (`claude-agent:`
-`pi-agent:`, or `dsh-agent:`) before it crosses the runtime contract; the host persists that id
+Every emitted invocation id is globally namespaced by its driver (`pi-agent:`
+or `dsh-agent:`) before it crosses the runtime contract; the host persists that id
 verbatim for cross-runtime idempotency.
-
-Each Claude SDK assistant message supplies provider request id, actual nested
-model, and usage:
-
-- consecutive updates with the same id merge by maximum field value;
-- a new id, steer boundary, or successful result commits pending invocations;
-- abort, error, query close, or connection close commits only steps with
-  provider completion evidence and discards the current in-flight step;
-- a committed id is immutable; a late repeat logs an anomaly and is ignored;
-- the driver freezes message association when the SDK assistant event arrives:
-  an active adapter means the current turn, while no adapter means stateless;
-- the host resolves current-turn events to the active assistant message.
-  Stateless events keep `messageRef: null` and the connection's frozen source;
-- primary/plan/small nested models resolve independently against the frozen
-  model map;
-- result-level `modelUsage`, duration, and total cost are reconciliation data,
-  not record inputs.
-
-The driver commits pending usage before emitting a steer boundary, so the old
-provider call attaches to the pre-steer message and the next call attaches to
-the continuation.
 
 Pi records one invocation when each provider stream completes, including the
 streams used by compaction. Provider `responseId` is preferred; session id plus
@@ -399,13 +373,14 @@ available. Duplicate completed invocation ids are ignored.
 
 ### Gateway-backed Agent
 
-The connection carries `{ owner: 'provider-calls' }`; SDK usage events are
+The connection carries `{ owner: 'provider-calls' }`; driver-native usage events are
 ignored. Trusted in-process gateway context supplies the active assistant
 message id (or a reserved steer continuation id) and frozen source to the
 normal AiService language middleware.
-When a `PreToolUse` hook actually injects a steer, the driver synchronously
-asks the host to reserve the continuation message id and frozen source before
-the hook returns. The next gateway request therefore captures that reservation;
+A driver that injects steers asks the host (through the `onSteerInjected`
+connect hook) to reserve the continuation message id and frozen source
+synchronously, before its next provider request. The next gateway request
+therefore captures that reservation;
 the later `steer-boundary` persists A2 with the same id. A turn that ends
 without reaching the boundary discards the unused reservation. If no active
 turn or reservation can be resolved, the provider invocation is still recorded
@@ -469,7 +444,7 @@ global SWR focus/reconnect revalidation is disabled.
 - A crash after a provider succeeds but before the best-effort SQLite insert
   can lose a record.
 - Provider-internal retries invisible to Cherry Studio are not separate calls.
-- Direct Agent SDK steps that omit `ttft_ms`, and all legacy rows, have no
+- Direct Agent runtime steps the driver cannot time, and all legacy rows, have no
   honest per-call latency.
 - Individual provider steps with missing duration are omitted from the
   duration distribution and excluded from model TPS rather than estimated
@@ -494,7 +469,6 @@ global SWR focus/reconnect revalidation is disabled.
 | `src/main/ai/runtime/types.ts` | Agent runtime capture-owner contract |
 | `src/main/ai/hooks/billingHook.ts` | Language middleware and operation coverage |
 | `packages/aiCore/src/core/runtime/` | Embedding/image/rerank provider-call events |
-| `src/main/ai/runtime/claudeCode/ClaudeCodeRuntimeDriver.ts` | Direct Agent SDK capture |
 | `src/main/ai/runtime/pi/PiRuntimeConnection.ts` | Pi provider-stream capture |
 | `src/main/ai/runtime/dsh/DshRuntimeConnection.ts` | DSH main/child invocation capture |
 | `src/main/data/migration/v2/migrators/AiUsageRecordMigrator.ts` | v1 aggregate migration |

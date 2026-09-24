@@ -7,7 +7,7 @@ import { createNeutralToolMcpServer } from './neutralToolMcpServer'
 
 const logger = loggerService.withContext('McpServer:AgentMemory')
 
-/** Claude SDK wrapper for the runtime-neutral, agent-data-backed memory tool. */
+/** In-process MCP wrapper for the runtime-neutral, agent-data-backed memory tool. */
 class AgentMemoryServer {
   public mcpServer: McpServer
 

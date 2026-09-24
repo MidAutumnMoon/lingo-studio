@@ -560,7 +560,7 @@ const ASSISTANT: Assistant = {
 
 const AGENT: AgentDetail = {
   id: 'agent-1',
-  type: 'claude-code',
+  type: 'pi',
   name: 'Alpha Agent',
   description: 'Original agent description',
   instructions: 'Original instructions',
@@ -1628,7 +1628,7 @@ describe('edit dialogs', () => {
     expect(screen.queryByRole('tab', { name: 'Permission' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('combobox', { name: 'Permission mode' }))
     // Name matches loosely: each option renders its title and its description.
-    fireEvent.click(await screen.findByRole('option', { name: /Plan Only/ }))
+    fireEvent.click(await screen.findByRole('option', { name: /Auto-accept Edits/ }))
 
     selectTab('Advanced')
     expectHelpTrigger('Environment variables', 'One KEY=VALUE per line')
@@ -1640,7 +1640,7 @@ describe('edit dialogs', () => {
     expect(body.configuration).toEqual(
       expect.objectContaining({
         env_vars: { FOO: 'bar' },
-        permission_mode: 'plan'
+        permission_mode: 'acceptEdits'
       })
     )
   })
@@ -1655,7 +1655,7 @@ describe('edit dialogs', () => {
 
     selectTab('Built-in tools')
     expect(screen.getByRole('tab', { name: 'Built-in tools' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByText('Read')).toBeInTheDocument()
+    expect(screen.getAllByText('Read files').length).toBeGreaterThan(0)
 
     selectTab('MCP')
     expect(screen.getByText('MCP One')).toBeInTheDocument()
@@ -1664,7 +1664,7 @@ describe('edit dialogs', () => {
     expect(screen.getByText('Skill One')).toBeInTheDocument()
   })
 
-  it('projects pi capabilities without exposing Claude-only fields', async () => {
+  it('projects pi capabilities without exposing model-tier fields', async () => {
     render(<AgentEditDialog open resource={PI_AGENT} onOpenChange={vi.fn()} />)
 
     expect(screen.queryByText('Plan model')).not.toBeInTheDocument()
@@ -1683,7 +1683,8 @@ describe('edit dialogs', () => {
   })
 
   it('removes deleted knowledge bases from an open agent form', async () => {
-    const boundAgent = { ...AGENT, knowledgeBaseIds: ['kb-1'] }
+    // kb_* builtin tools exist only on runtimes that bridge the cherry MCP set (dsh).
+    const boundAgent = { ...AGENT, type: 'dsh' as const, knowledgeBaseIds: ['kb-1'] }
     const { rerender } = render(<AgentEditDialog open resource={boundAgent} onOpenChange={vi.fn()} />)
 
     selectTab('Built-in tools')
@@ -1704,7 +1705,7 @@ describe('edit dialogs', () => {
           resolveFirstSave = () => resolve({ ...AGENT, knowledgeBaseIds: [] })
         })
     )
-    const boundAgent = { ...AGENT, knowledgeBaseIds: ['kb-1'] }
+    const boundAgent = { ...AGENT, type: 'dsh' as const, knowledgeBaseIds: ['kb-1'] }
     const props = { open: true, onOpenChange: vi.fn(), initialTab: 'tools.knowledge' }
     const { rerender } = render(<AgentEditDialog {...props} resource={boundAgent} />)
 

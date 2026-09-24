@@ -32,7 +32,6 @@ The main-process observability boundary is `src/main/ai/observability`:
 
 - `core/` creates Cherry-owned turn roots and common `cs.*` attributes.
 - `adapters/aiSdk/` interprets AI SDK child spans.
-- `adapters/claudeCode/` interprets Claude Code OTLP spans and logs.
 - `storage/` keeps the in-memory span projection and JSONL-compatible history.
 - `sinks/` defines the extension point for local and future external export.
 
@@ -93,9 +92,6 @@ by the global provider. On every `startSpan` / `startActiveSpan` it:
   `ai.usage.totalTokens`, `ai.usage.cachedInputTokens`, and `ai.usage.reasoningTokens` (emitted as
   `completion_tokens_details.reasoning_tokens`).
 
-Claude Code Agent SDK spans do not go through `AiSdkSpanAdapter`; they are
-converted by `src/main/ai/observability/adapters/claudeCode/ClaudeCodeOtlpAdapter.ts`.
-
 Pi has no native OTel exporter. Its runtime connection creates Cherry-owned
 `pi.generate_content` spans at the provider stream boundary and
 `pi.execute_tool` spans from Pi's tool lifecycle events. These spans use the
@@ -107,28 +103,6 @@ DSH likewise uses Cherry-owned spans instead of an external OTLP adapter.
 `DshTraceRecorder` records `dsh.generate_content`, tool, compaction, and child
 runtime spans under the agent-session trace root, refreshes its trace context
 between turns, and closes unfinished spans when the connection ends.
-
-## Sensitive data capture & redaction
-
-> Cross-referenced from `ClaudeCodeTraceBridgeService.prepareTrace`.
-
-The Claude Code OTLP bridge runs **only when developer mode is enabled**. When
-it does, it intentionally turns on verbose Claude Code telemetry:
-
-- `OTEL_LOG_USER_PROMPTS` — user prompt text
-- `OTEL_LOG_TOOL_DETAILS` / `OTEL_LOG_TOOL_CONTENT` — tool calls and their content
-- `OTEL_LOG_RAW_API_BODIES` — raw API request/response bodies
-
-These payloads land in span attributes that `TraceStorageService` persists as
-**plaintext JSONL trace files on disk**, so a trace can contain secrets
-(authorization headers, API keys embedded in raw bodies) alongside the prompt
-and tool content.
-
-**Redaction is deliberately not done.** Stripping secrets would mean parsing
-arbitrary OTLP attribute structures across the ingest path and would risk
-dropping legitimate trace data. The accepted tradeoff is that capture is
-**local-only and developer-gated**; turning that into a redaction/threat-model
-guarantee is a deferred decision. Treat exported trace files as sensitive.
 
 ## Developer-mode gating
 

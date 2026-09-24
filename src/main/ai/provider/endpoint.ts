@@ -43,7 +43,7 @@ export function resolveWireModelId(model: Model, endpointType: EndpointType | un
  * model id for multi-backend gateways (AiHubMix, …) whose models carry no explicit `endpointTypes`
  * (see `gatewayRouting`). `getBaseUrl` applies its own fallback among `endpointConfigs`.
  *
- * `preferredEndpointType` serves callers that speak exactly one dialect — the Claude Agent SDK speaks
+ * `preferredEndpointType` serves callers that speak exactly one dialect — external Anthropic-dialect
  * Anthropic Messages and nothing else, so it asks for that rather than the in-app-chat default
  * `endpointTypes[0]` expresses. It wins only when the model declares that endpoint AND the provider
  * configures a base URL for it; otherwise the normal order applies and the caller sees the declined

@@ -120,7 +120,7 @@ describe('readConversation', () => {
       .insert(agentTable)
       .values({
         id: 'agent-read-test',
-        type: 'claude-code',
+        type: 'pi',
         name: 'Reader',
         instructions: '',
         orderKey: 'read-agent'
@@ -184,7 +184,7 @@ describe('readConversation', () => {
       .insert(agentTable)
       .values({
         id: 'agent-ambiguous',
-        type: 'claude-code',
+        type: 'pi',
         name: 'Ambiguous Agent',
         instructions: '',
         orderKey: 'ambiguous-agent'
@@ -270,7 +270,7 @@ describe('readConversation', () => {
       .insert(agentTable)
       .values({
         id: 'agent-prefixed-read',
-        type: 'claude-code',
+        type: 'pi',
         name: 'Prefixed Reader',
         instructions: '',
         orderKey: 'prefixed-read'
@@ -333,7 +333,7 @@ describe('readConversation', () => {
     const agentId = `handoff-agent-${Date.now()}`
     dbh.db
       .insert(agentTable)
-      .values({ id: agentId, type: 'claude-code', name: 'Handoff Agent', instructions: '', orderKey: agentId })
+      .values({ id: agentId, type: 'pi', name: 'Handoff Agent', instructions: '', orderKey: agentId })
       .run()
     const workspace = agentWorkspaceService.findOrCreateByPath(`/tmp/cherry-handoff-${Date.now()}`)
     const session = agentSessionService.create({

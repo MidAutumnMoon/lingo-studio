@@ -100,7 +100,7 @@ vi.mock('@data/services/AgentChannelService', () => ({
 const SESSION = {
   id: 'session-1',
   agentId: 'agent-1',
-  agentType: 'claude-code',
+  agentType: 'pi',
   model: 'openai::gpt-4',
   workspace: { path: '/tmp/test-workspace' },
   configuration: {}

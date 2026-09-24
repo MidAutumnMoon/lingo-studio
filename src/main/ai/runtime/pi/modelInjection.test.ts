@@ -546,9 +546,9 @@ describe('buildPiProviderInjection', () => {
   })
 
   it('throws PiUnsupportedProviderError for a login-based external-CLI provider even with no key', () => {
-    // Unsupported beats missing-key: claude-code has no adapter and no app-side key by design.
+    // Unsupported beats missing-key: an external-CLI provider has no adapter and no app-side key by design.
     const provider = makeProvider({
-      id: 'claude-code',
+      id: 'cli-login',
       authMethods: ['external-cli'],
       defaultChatEndpoint: 'anthropic-messages',
       endpointConfigs: { 'anthropic-messages': { adapterFamily: 'anthropic', baseUrl: 'https://api.anthropic.com' } }

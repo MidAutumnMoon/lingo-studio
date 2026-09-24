@@ -399,11 +399,10 @@ export class AiService extends BaseService {
     // would otherwise overwrite (see installProviderUserAgentInterceptor).
     this.registerDisposable(installProviderUserAgentInterceptor())
     application.get('JobManager').registerHandler('image-generation.generate', imageGenerationJobHandler)
-    // Install built-in skills, then heal the CLAUDE_CONFIG_DIR/skills mirror once at
-    // startup — chained (not two independent fire-and-forgets) so the mirror reconcile
-    // always runs after builtin skills have synced to agent_global_skill this boot,
-    // regardless of whether the install succeeded. Fire-and-forget as a pair so
-    // neither blocks init.
+    // Install built-in skills, then reconcile the managed library with the DB catalog once at
+    // startup — chained (not two independent fire-and-forgets) so the reconcile always runs
+    // after builtin skills have synced to agent_global_skill this boot, regardless of whether
+    // the install succeeded. Fire-and-forget as a pair so neither blocks init.
     void installBuiltinSkills()
       .catch((error) => {
         logger.error('Failed to install built-in skills', error as Error)
@@ -426,7 +425,7 @@ export class AiService extends BaseService {
     payload: AiToolApprovalRespondRequest,
     senderWc: Electron.WebContents | undefined
   ): Promise<AiToolApprovalRespondResponse> {
-    // Claude-Agent path: the runtime settles any persisted interaction card, then unblocks
+    // Agent-session path: the runtime settles any persisted interaction card, then unblocks
     // the exact `canUseTool` invocation that issued this approval id.
     const dispatched = application.get('AgentSessionRuntimeService').respondToolApproval(
       payload.approvalId,

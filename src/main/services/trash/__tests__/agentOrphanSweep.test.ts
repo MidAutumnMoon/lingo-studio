@@ -71,7 +71,7 @@ describe('sweepAgentOrphans', () => {
   async function seedAgent(id: string, deletedAt: number | null = null) {
     await dbh.db.insert(agentTable).values({
       id,
-      type: 'claude-code',
+      type: 'pi',
       name: id,
       instructions: 'i',
       orderKey: 'a0',

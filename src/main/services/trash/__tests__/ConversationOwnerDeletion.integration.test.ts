@@ -57,10 +57,7 @@ describe('conversation owner permanent deletion', () => {
         { id: 'unrelated-topic', name: 'Unrelated', orderKey: 'a2' }
       ])
       .run()
-    dbh.db
-      .insert(agentTable)
-      .values({ id: 'agent', type: 'claude-code', name: 'Agent', instructions: '', orderKey: 'a0' })
-      .run()
+    dbh.db.insert(agentTable).values({ id: 'agent', type: 'pi', name: 'Agent', instructions: '', orderKey: 'a0' }).run()
     dbh.db
       .insert(agentWorkspaceTable)
       .values({ id: 'workspace', type: 'user', name: 'Workspace', path: '/tmp/owner-deletion', orderKey: 'a0' })

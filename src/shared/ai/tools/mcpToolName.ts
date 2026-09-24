@@ -115,7 +115,7 @@ function hashServerName(serverName: string): string {
 
 /**
  * Builds the legacy name-based MCP tool id used by persisted source-policy
- * rules and the Claude Code adapter. AI SDK catalog identities must use the
+ * rules and the agent adapters. AI SDK catalog identities must use the
  * main-process `buildMcpToolWireId`, which includes stable server identity.
  *
  * Format: `mcp__{server}__{tool}` (camelCase), max 63 chars.
@@ -150,7 +150,7 @@ export type McpFunctionCallToolNameParts = {
  * `mcp__{server}__{tool}`.
  *
  * Callers feed this raw provider payloads, where a tool name typed as `string`
- * can still be absent at runtime (see `ClaudeCodeStreamAdapter`), so a missing
+ * can still be absent at runtime, so a missing
  * name parses as "not an MCP name" rather than throwing.
  */
 export function parseFunctionCallToolName(toolName: string | undefined): McpFunctionCallToolNameParts | null {

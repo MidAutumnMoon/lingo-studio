@@ -17,15 +17,6 @@ interface ToolBinding {
 }
 
 const TOOL_BINDINGS = {
-  'claude-code': {
-    pathFields: {
-      Write: 'file_path',
-      Edit: 'file_path',
-      MultiEdit: 'file_path',
-      NotebookEdit: 'notebook_path'
-    },
-    shellFields: { Bash: 'command' }
-  },
   pi: {
     pathFields: { write: 'path', edit: 'path' },
     shellFields: { bash: 'command' },

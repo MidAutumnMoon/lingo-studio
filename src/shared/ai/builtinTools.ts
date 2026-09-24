@@ -36,7 +36,7 @@ export const CITATION_SNIPPET_MAX_CHARS = 300
 // shape: strict mode requires every property in `required`, so optional fields had to become
 // required primitives (`''` / `0` / `-1` / `'none'`) that adapters translated back. Plain
 // `.optional()` is both what the model reads more easily and what the shared cores already expect,
-// so one schema now serves the AI-SDK tools and the Claude Code / MCP bridge alike.
+// so one schema now serves the AI-SDK tools and the MCP bridge alike.
 //
 // Nothing goes unvalidated: the AI SDK still checks every tool call against these schemas, and
 // `createAiRepair` re-asks the model on a mismatch — the fallback `strict` was buying us out of.
@@ -62,7 +62,7 @@ export const KB_LIST_MAX_LIMIT = 50
 //                       optionally capped by `maxDepth`. Each readable leaf carries a `conceptId`
 //                       for kb_read.
 //
-// One shape for both consumers (AI-SDK tool + MCP / Claude Code bridge): unused fields are simply
+// One shape for both consumers (AI-SDK tool + MCP bridge): unused fields are simply
 // omitted. See the `kb_*` note at the top of this file.
 export const kbListInputSchema = z.object({
   query: z

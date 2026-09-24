@@ -30,7 +30,6 @@ export const DOCTOR_DOMAIN_LABEL_KEYS = {
   provider: 'settings.doctor.domains.provider',
   network: 'settings.doctor.domains.network',
   mcp: 'settings.doctor.domains.mcp',
-  runtime: 'settings.doctor.domains.runtime',
   logs: 'settings.doctor.domains.logs'
 } as const satisfies Record<DisplayedDoctorDomain, string>
 
@@ -49,8 +48,7 @@ export const DOCTOR_NAVIGATION_LABEL_KEYS = {
   '/settings/dependencies': 'settings.doctor.actions.open_dependencies',
   '/settings/general': 'settings.doctor.actions.open_general',
   '/settings/mcp': 'settings.doctor.actions.open_mcp',
-  '/settings/provider': 'settings.doctor.actions.open_provider',
-  '/settings/provider?id=claude-code': 'settings.doctor.actions.open_claude_code'
+  '/settings/provider': 'settings.doctor.actions.open_provider'
 } as const satisfies Record<DoctorNavigateTarget, string>
 
 const DOCTOR_FIX_LABEL_DECLARATIONS = {

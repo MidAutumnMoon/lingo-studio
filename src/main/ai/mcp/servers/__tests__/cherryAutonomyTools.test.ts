@@ -221,7 +221,7 @@ describe('CherryAutonomyTools', () => {
     it('lists public Agent identity and runtime readiness without configuration', async () => {
       mockListAgents.mockReturnValue({
         agents: [
-          { id: 'agent-a', name: 'Builder', description: 'Builds things', type: 'claude-code', model: 'p::m' },
+          { id: 'agent-a', name: 'Builder', description: 'Builds things', type: 'pi', model: 'p::m' },
           { id: 'agent-b', name: 'Unconfigured', description: '', type: 'pi', model: null }
         ],
         total: 2
@@ -235,7 +235,7 @@ describe('CherryAutonomyTools', () => {
             id: 'agent-a',
             name: 'Builder',
             description: 'Builds things',
-            runtime: { type: 'claude-code', available: false },
+            runtime: { type: 'pi', available: false },
             modelConfigured: true
           },
           {

@@ -34,7 +34,6 @@ import { meta as bytedanceMeta } from './bytedance/meta'
 import { meta as cephalonMeta } from './cephalon/meta'
 import { meta as cerebrasMeta } from './cerebras/meta'
 import { meta as cherryinMeta } from './cherryin/meta'
-import { meta as claudeCodeMeta } from './claude-code/meta'
 import { meta as cloudflareMeta } from './cloudflare/meta'
 import { meta as cohereMeta } from './cohere/meta'
 import { meta as composioMeta } from './composio/meta'
@@ -198,7 +197,6 @@ export const PROVIDER_ICON_META_CATALOG = {
   cephalon: cephalonMeta,
   cerebras: cerebrasMeta,
   cherryin: cherryinMeta,
-  'claude-code': claudeCodeMeta,
   cloudflare: cloudflareMeta,
   cohere: cohereMeta,
   composio: composioMeta,

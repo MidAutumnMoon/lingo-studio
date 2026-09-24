@@ -69,8 +69,3 @@ export const ATTACHMENT_INPUT_SAFETY_RATIO = 0.9
  * non-positive — the shape of #18318.
  */
 export const MIN_INPUT_ROOM_RATIO = 0.2
-
-/** Internal Claude Agent SDK → Cherry API Gateway bridge for Codex priority requests. */
-export const CHERRY_FAST_MODE_HEADER = 'X-Cherry-Fast-Mode'
-/** Process-local credential proving that a gateway request originated inside Cherry. */
-export const CHERRY_INTERNAL_REQUEST_TOKEN_HEADER = 'X-Cherry-Internal-Request-Token'

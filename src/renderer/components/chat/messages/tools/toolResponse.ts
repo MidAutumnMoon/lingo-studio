@@ -15,7 +15,6 @@ import { AgentToolsType } from './shared/agentToolTypes'
 /** AI-SDK-v6 ToolUIPart approval-state string literals. */
 export const APPROVAL_REQUESTED = 'approval-requested'
 export const APPROVAL_RESPONDED = 'approval-responded'
-export const CLAUDE_AGENT_TRANSPORT = AGENT_RUNTIME_CAPABILITIES['claude-code'].transport
 export const PI_AGENT_TRANSPORT = AGENT_RUNTIME_CAPABILITIES.pi.transport
 const CHERRY_AGENT_TRANSPORTS = new Set<string>(Object.values(AGENT_RUNTIME_CAPABILITIES).map((caps) => caps.transport))
 const PI_RUNTIME_BUILTIN_TOOL_NAMES = new Set<string>(
@@ -90,10 +89,6 @@ function mapPartStateToStatus(state: string | undefined, approved?: boolean): Mc
   }
 }
 
-function hasProviderMetadata(part: ToolResponsePart, provider: string): boolean {
-  return isRecord(part.callProviderMetadata) && provider in part.callProviderMetadata
-}
-
 function isLegacyAgentToolName(toolName: string): boolean {
   return AGENT_TOOL_NAMES.has(toolName) || toolName.startsWith(AGENT_MCP_TOOLS_PREFIX)
 }
@@ -124,12 +119,9 @@ function extractCherryToolMetadata(part: ToolResponsePart): ToolMetadata | undef
 
 function extractParentToolCallIdFrom(metadata: ProviderMetadata | undefined): string | undefined {
   if (!isRecord(metadata)) return undefined
-  // claude's own namespace first, then the runtime-neutral one (dsh et al.).
-  for (const namespace of ['claude-code', 'cherry'] as const) {
-    const entry = isRecord(metadata[namespace]) ? metadata[namespace] : undefined
-    const parentToolCallId = entry?.parentToolCallId ?? entry?.parentToolUseId
-    if (typeof parentToolCallId === 'string' && parentToolCallId) return parentToolCallId
-  }
+  const entry = isRecord(metadata.cherry) ? metadata.cherry : undefined
+  const parentToolCallId = entry?.parentToolCallId ?? entry?.parentToolUseId
+  if (typeof parentToolCallId === 'string' && parentToolCallId) return parentToolCallId
   return undefined
 }
 
@@ -152,7 +144,6 @@ function resolveToolType(part: ToolResponsePart, toolName: string, metadata?: To
   if (parseFunctionCallToolName(toolName)) return 'mcp'
   if (toolName === GENERATE_IMAGE_TOOL_NAME) return 'builtin'
   if (toolPartWasProviderExecuted(part)) return 'provider'
-  if (hasProviderMetadata(part, 'claude-code')) return 'provider'
   if (hasCherryTransport(part.callProviderMetadata)) return 'provider'
   if (part.type === 'dynamic-tool' && isLegacyAgentToolName(toolName)) return 'provider'
   if (part.type === 'dynamic-tool') return 'mcp'

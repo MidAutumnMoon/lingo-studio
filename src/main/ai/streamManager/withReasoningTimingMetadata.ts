@@ -11,7 +11,7 @@
  *    when writing metadata onto reasoning-end. The AI SDK accumulator overwrites (not merges)
  *    the reasoning part's metadata on end:
  *      reasoningPart.providerMetadata = chunk.providerMetadata ?? reasoningPart.providerMetadata
- *    Without this re-merge, start-only metadata (e.g. claude-code.parentToolCallId) and
+ *    Without this re-merge, start-only metadata (e.g. cherry.parentToolCallId) and
  *    delta-only metadata (e.g. anthropic.signature, which arrives on an empty-delta
  *    reasoning-delta) are dropped from the final persisted message — a lost signature then makes
  *    convertToAnthropicMessages silently drop the whole thinking block from follow-up requests.

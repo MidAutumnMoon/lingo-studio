@@ -188,27 +188,6 @@ describe('providerToAiSdkConfig — builder dispatch matrix', () => {
     expect(resolveApiKeyMock).not.toHaveBeenCalled()
   })
 
-  it('does not infer external CLI auth from registry metadata outside its runtime owner', async () => {
-    resolveApiKeyMock.mockReturnValue({ value: '', apiKeySelection: { attribution: 'unknown' } })
-    const provider = makeProvider({
-      id: 'claude-code',
-      authMethods: ['external-cli'],
-      defaultChatEndpoint: ENDPOINT_TYPE.ANTHROPIC_MESSAGES,
-      endpointConfigs: {
-        [ENDPOINT_TYPE.ANTHROPIC_MESSAGES]: { adapterFamily: 'anthropic' }
-      }
-    })
-    const model = makeModel({
-      id: 'claude-code::claude-sonnet-4',
-      apiModelId: 'claude-sonnet-4',
-      providerId: 'claude-code'
-    })
-
-    const resolved = await resolveProviderAiSdkConfig(provider, model)
-
-    expect(resolved.credentialReceipt).toEqual({ attribution: 'unknown' })
-  })
-
   it('merges Copilot extra headers over defaults case-insensitively', async () => {
     const provider = makeProvider({
       id: 'copilot',

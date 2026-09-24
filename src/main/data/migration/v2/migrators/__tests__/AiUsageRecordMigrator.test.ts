@@ -46,7 +46,7 @@ describe('AiUsageRecordMigrator', () => {
       .insert(agentTable)
       .values({
         id: 'agent-1',
-        type: 'claude_code',
+        type: 'pi',
         name: 'Current Agent Name',
         instructions: '',
         model: null,

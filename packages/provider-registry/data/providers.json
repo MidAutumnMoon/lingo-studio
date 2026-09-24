@@ -852,36 +852,6 @@
       ]
     },
     {
-      "authMethods": ["external-cli"],
-      "availableInEditions": ["global"],
-      "defaultChatEndpoint": "anthropic-messages",
-      "description": "Claude Code - AI model provider",
-      "endpointConfigs": {
-        "anthropic-messages": {
-          "adapterFamily": "anthropic",
-          "baseUrl": "https://api.anthropic.com"
-        }
-      },
-      "fastMode": {
-        "transport": "claude-code"
-      },
-      "id": "claude-code",
-      "metadata": {
-        "website": {
-          "docs": "https://docs.claude.com/en/docs/claude-code/overview",
-          "official": "https://www.anthropic.com/claude-code"
-        }
-      },
-      "modelListSource": "registry",
-      "name": "Claude Code",
-      "serverTools": [
-        {
-          "id": "url-context",
-          "modelScope": "model-dependent"
-        }
-      ]
-    },
-    {
       "authMethods": ["oauth"],
       "availableInEditions": ["global"],
       "defaultChatEndpoint": "openai-responses",
@@ -2636,5 +2606,5 @@
       "presetProviderId": "minimax"
     }
   ],
-  "version": "2707d81b155c6c98"
+  "version": "74b4d5e2a697aae1"
 }

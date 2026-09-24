@@ -56,7 +56,7 @@ function Harness({
       avatar: '💬',
       name: '',
       description: '',
-      agentType: 'claude-code',
+      agentType: 'pi',
       permissionMode: 'auto',
       modelId,
       prompt: '',
@@ -113,13 +113,12 @@ describe('BasicInfoStep', () => {
 
     expect(screen.getByText('library.config.agent.field.runtime.immutable_hint')).toBeVisible()
     expect(screen.queryByRole('img', { name: /runtime\.immutable_hint/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: /runtime.option.claude_code/ })).toBeChecked()
-    expect(screen.getByRole('radio', { name: /runtime.option.pi/ })).not.toBeChecked()
+    expect(screen.getByRole('radio', { name: /runtime.option.pi/ })).toBeChecked()
     expect(screen.getByRole('radio', { name: /runtime.option.dsh/ })).not.toBeChecked()
     expect(screen.queryByText('library.config.agent.field.runtime.pi_hint')).not.toBeInTheDocument()
   })
 
-  it('uses smart approval for Claude and Pi while DSH auto-accepts edits', async () => {
+  it('uses smart approval for Pi while DSH auto-accepts edits', async () => {
     const user = userEvent.setup()
     render(<Harness runtimeSelectable />)
 

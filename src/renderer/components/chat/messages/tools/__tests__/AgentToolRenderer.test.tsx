@@ -4,7 +4,7 @@ import { parse as parsePartialJson } from 'partial-json'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as CherryUi from '@cherrystudio/ui'
-import type { McpToolResponse, NormalToolResponse } from '@renderer/types/mcpTool'
+import type { NormalToolResponse } from '@renderer/types/mcpTool'
 
 import { ToolBlockGroup } from '../../blocks/ToolBlockGroup'
 import { AgentToolRenderer, isValidAgentToolsType } from '../agent'
@@ -923,140 +923,6 @@ describe('AgentToolRenderer', () => {
 
     expect(screen.getByText('Denied')).toBeInTheDocument()
     expect(screen.getByText('use a copy instead')).toBeInTheDocument()
-  })
-
-  describe('assistant create_agent tool rendering', () => {
-    it('opens the newly created Agent conversation from the success action', async () => {
-      const user = userEvent.setup()
-      const navigateToRoute = vi.fn()
-      mockMessageListActions.mockReturnValue({ navigateToRoute })
-      const result = {
-        ok: true,
-        agentId: 'agent-created',
-        name: 'Reviewer',
-        model: 'anthropic::claude-sonnet'
-      }
-      const toolResponse: McpToolResponse = {
-        id: 'call-create-agent',
-        tool: {
-          id: 'assistant__mcp__assistant__create_agent',
-          name: 'create_agent',
-          description: 'Create Agent',
-          type: 'mcp',
-          serverId: 'assistant',
-          serverName: 'assistant',
-          inputSchema: { type: 'object', properties: {}, required: [] }
-        },
-        arguments: undefined,
-        status: 'done',
-        response: {
-          content: [{ type: 'text', text: JSON.stringify(result) }],
-          structuredContent: result
-        },
-        toolCallId: 'call-create-agent'
-      }
-
-      render(<MessageTools toolResponse={toolResponse} />)
-
-      await user.click(screen.getByRole('button', { name: 'Go to chat: Reviewer' }))
-      expect(navigateToRoute).toHaveBeenCalledWith({
-        path: '/app/agents',
-        query: { agentId: 'agent-created' }
-      })
-    })
-  })
-
-  describe('assistant prepare_diagnostic_report tool rendering', () => {
-    const preparedResponse: McpToolResponse = {
-      id: 'call-prepare-report',
-      tool: {
-        id: 'assistant__mcp__assistant__prepare_diagnostic_report',
-        name: 'prepare_diagnostic_report',
-        description: 'Prepare diagnostic report',
-        type: 'mcp',
-        serverId: 'assistant',
-        serverName: 'assistant',
-        inputSchema: { type: 'object', properties: {}, required: [] }
-      },
-      arguments: undefined,
-      status: 'done',
-      response: {
-        content: [{ type: 'text', text: 'Diagnostic report draft prepared.' }],
-        structuredContent: { ok: true, description: 'Draft from this tool call' }
-      },
-      toolCallId: 'call-prepare-report'
-    }
-
-    it('opens the report launcher with this tool call draft', async () => {
-      const user = userEvent.setup()
-      const openReport = vi.fn()
-      const navigateToRoute = vi.fn()
-      mockMessageListActions.mockReturnValue({ navigateToRoute, openDiagnosticReport: openReport })
-
-      render(<MessageTools toolResponse={preparedResponse} />)
-
-      expect(screen.getByText('Cherry Support prepared an editable description.')).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'Review diagnostic report' }))
-      expect(openReport).toHaveBeenCalledWith('Draft from this tool call')
-      expect(navigateToRoute).not.toHaveBeenCalled()
-      expect(mockGetToolResult).not.toHaveBeenCalled()
-    })
-
-    it('shows the prepared state without a dead action when no launcher is available', () => {
-      render(<MessageTools toolResponse={preparedResponse} />)
-
-      expect(screen.getByText('Cherry Support prepared an editable description.')).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Review diagnostic report' })).not.toBeInTheDocument()
-    })
-  })
-
-  describe('navigate tool rendering', () => {
-    it('routes navigate tool clicks through message list action', () => {
-      const navigateToRoute = vi.fn()
-      mockMessageListActions.mockReturnValue({ navigateToRoute })
-      const toolResponse = createToolResponse({
-        tool: {
-          id: 'mcp__assistant__navigate',
-          name: 'mcp__assistant__navigate',
-          description: 'Navigate',
-          type: 'provider'
-        },
-        status: 'done',
-        arguments: {
-          path: '/app/agents',
-          query: { sessionId: 'session-1' }
-        },
-        response: 'Navigate link created: /app/agents'
-      })
-
-      render(<AgentToolRenderer toolResponse={toolResponse} />)
-
-      expect(screen.getByText(/Agents/)).toBeInTheDocument()
-      fireEvent.click(screen.getByRole('button'))
-
-      expect(navigateToRoute).toHaveBeenCalledWith({
-        path: '/app/agents',
-        query: { sessionId: 'session-1' }
-      })
-    })
-
-    it('uses the document processing feature title for the file-processing route', () => {
-      const toolResponse = createToolResponse({
-        tool: {
-          id: 'mcp__assistant__navigate',
-          name: 'mcp__assistant__navigate',
-          description: 'Navigate',
-          type: 'provider'
-        },
-        status: 'done',
-        arguments: { path: '/settings/file-processing' },
-        response: 'Navigate link created: /settings/file-processing'
-      })
-
-      render(<AgentToolRenderer toolResponse={toolResponse} />)
-
-      expect(screen.getByText(/Document Processing/)).toBeInTheDocument()
-    })
   })
 
   describe('meta tool rendering', () => {

@@ -71,8 +71,8 @@ function evaluate(
   overrides: Partial<Parameters<typeof evaluateUserDataSqliteGuard>[0]> = {}
 ): ReturnType<typeof evaluateUserDataSqliteGuard> {
   return evaluateUserDataSqliteGuard({
-    runtime: 'claude-code',
-    toolName: 'Write',
+    runtime: 'dsh',
+    toolName: 'write',
     args: { file_path: databaseFile },
     cwd: workspacePath,
     workspacePath,
@@ -111,7 +111,7 @@ describe('evaluateUserDataSqliteGuard', () => {
     await expect(
       evaluate({ cwd: outsideWorkspace, workspacePath: outsideWorkspace, args: { file_path: outsideDatabase } })
     ).resolves.toBeUndefined()
-    await expect(evaluate({ toolName: 'Read' })).resolves.toBeUndefined()
+    await expect(evaluate({ toolName: 'read' })).resolves.toBeUndefined()
     await expect(evaluate({ runtime: 'pi', toolName: 'read', args: { path: databaseFile } })).resolves.toBeUndefined()
     await expect(
       evaluate({ runtime: 'dsh', toolName: 'read', args: { file_path: databaseFile } })
@@ -119,10 +119,6 @@ describe('evaluateUserDataSqliteGuard', () => {
   })
 
   it.each([
-    ['claude-code', 'Write', 'file_path'],
-    ['claude-code', 'Edit', 'file_path'],
-    ['claude-code', 'MultiEdit', 'file_path'],
-    ['claude-code', 'NotebookEdit', 'notebook_path'],
     ['pi', 'write', 'path'],
     ['pi', 'edit', 'path'],
     ['dsh', 'write', 'file_path'],
@@ -153,7 +149,6 @@ describe('evaluateUserDataSqliteGuard', () => {
   })
 
   it('does not apply Pi path spelling rules to other runtimes', async () => {
-    await expect(evaluate({ args: { file_path: `@${databaseFile}` } })).resolves.toBeUndefined()
     await expect(
       evaluate({ runtime: 'dsh', toolName: 'write', args: { file_path: `@${databaseFile}` } })
     ).resolves.toBeUndefined()
@@ -184,7 +179,7 @@ describe('evaluateUserDataSqliteGuard', () => {
     await link(source, databaseLink)
 
     await expect(evaluate({ args: { file_path: databaseLink } })).resolves.toEqual(DENIAL)
-    await expect(evaluate({ toolName: 'Bash', args: { command: `cat > "${databaseLink}"` } })).resolves.toEqual(DENIAL)
+    await expect(evaluate({ toolName: 'bash', args: { command: `cat > "${databaseLink}"` } })).resolves.toEqual(DENIAL)
   })
 
   it.runIf(process.platform !== 'win32')('fails closed for dangling and cyclic symlinks', async () => {
@@ -211,7 +206,6 @@ describe('evaluateUserDataSqliteGuard', () => {
 
   describe('literal shell scanning', () => {
     it.each([
-      ['claude-code', 'Bash'],
       ['pi', 'bash'],
       ['dsh', 'bash'],
       ['dsh', 'pwsh']
@@ -228,12 +222,11 @@ describe('evaluateUserDataSqliteGuard', () => {
         `echo done | sqlite3 "${databaseFile}-wal"`,
         `sqlite3 ${relativeDatabase} && echo done`
       ]) {
-        await expect(evaluate({ toolName: 'Bash', args: { command } })).resolves.toEqual(DENIAL)
+        await expect(evaluate({ toolName: 'bash', args: { command } })).resolves.toEqual(DENIAL)
       }
     })
 
     it.each([
-      ['claude-code', 'Bash', (target: string) => `python -c "import sqlite3; sqlite3.connect('${target}')"`],
       ['pi', 'bash', (target: string) => `node -e "require('better-sqlite3')('${target}')"`],
       ['dsh', 'bash', (target: string) => `echo ready; bun -e "new Database('${target}')"`],
       ['dsh', 'pwsh', (target: string) => `python3.12 -c "open('${target}', 'wb')"`]
@@ -252,7 +245,7 @@ describe('evaluateUserDataSqliteGuard', () => {
         'bun run test',
         `python -c "import sqlite3; sqlite3.connect('${localDatabase}')"`
       ]) {
-        await expect(evaluate({ toolName: 'Bash', args: { command } })).resolves.toBeUndefined()
+        await expect(evaluate({ toolName: 'bash', args: { command } })).resolves.toBeUndefined()
       }
     })
 
@@ -266,13 +259,13 @@ describe('evaluateUserDataSqliteGuard', () => {
         `sqlite3 "${uri}?mode=rw"`,
         `sqlite3 --database="${databaseFile}"`
       ]) {
-        await expect(evaluate({ toolName: 'Bash', args: { command } })).resolves.toEqual(DENIAL)
+        await expect(evaluate({ toolName: 'bash', args: { command } })).resolves.toEqual(DENIAL)
       }
     })
 
     it('checks the full token so equals signs in filenames are preserved', async () => {
       const equalsDatabase = path.join(userDataPath, 'Data', 'name=value.sqlite')
-      await expect(evaluate({ toolName: 'Bash', args: { command: `sqlite3 "${equalsDatabase}"` } })).resolves.toEqual(
+      await expect(evaluate({ toolName: 'bash', args: { command: `sqlite3 "${equalsDatabase}"` } })).resolves.toEqual(
         DENIAL
       )
     })
@@ -287,7 +280,7 @@ describe('evaluateUserDataSqliteGuard', () => {
       const ordinary = path.join(outsideWorkspace, 'project.sqlite?mode=rw')
       await expect(
         evaluate({
-          toolName: 'Bash',
+          toolName: 'bash',
           cwd: outsideWorkspace,
           workspacePath: outsideWorkspace,
           args: { command: `sqlite3 "${ordinary}"` }

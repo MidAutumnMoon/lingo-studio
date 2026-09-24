@@ -8,7 +8,6 @@
 
 import * as z from 'zod'
 
-import { BUILTIN_AGENT_ROLE } from '@shared/ai/builtinAgent'
 import { AgentLanguageSchema } from '@shared/data/types/agentLanguage'
 import { ServiceTierSelectionSchema, UniqueModelIdSchema } from '@shared/data/types/model'
 import { ReasoningEffortOptionSchema } from '@shared/types/aiSdk'
@@ -41,7 +40,7 @@ export type AgentSkillUpdateDto = z.infer<typeof AgentSkillUpdateSchema>
 
 export const AgentPermissionModeSchema = z.enum(['default', 'acceptEdits', 'bypassPermissions', 'plan', 'auto'])
 export type AgentPermissionMode = z.infer<typeof AgentPermissionModeSchema>
-export const AGENT_TYPES = ['claude-code', 'pi', 'dsh'] as const
+export const AGENT_TYPES = ['pi', 'dsh'] as const
 export const AgentTypeSchema = z.enum(AGENT_TYPES)
 export type AgentType = z.infer<typeof AgentTypeSchema>
 export const AgentSchedulerTypeSchema = z.enum(['cron', 'interval', 'one-time'])
@@ -63,7 +62,6 @@ export const AgentConfigurationSchema = z
     scheduler_last_run: z.string().optional(),
     heartbeat_enabled: z.boolean().optional(),
     heartbeat_interval: z.number().optional(),
-    builtin_role: z.enum([BUILTIN_AGENT_ROLE.ASSISTANT, BUILTIN_AGENT_ROLE.SUPPORT]).optional(),
     language: AgentLanguageSchema.nullable().optional()
   })
   // .loose() (passthrough) is intentional: the configuration object is stored as a JSON blob
@@ -257,14 +255,13 @@ export const AGENTS_MAX_LIMIT = 500
 /**
  * Query parameters for `GET /agents`.
  * - `search` LIKEs against `name` OR `description` (case-insensitive,
- *   wildcards in the raw input are escaped server-side), including the localized
- *   builtin Cherry Assistant fallback when its stored description is blank.
+ *   wildcards in the raw input are escaped server-side).
  */
 export const ListAgentsQuerySchema = z.strictObject({
   ids: z.array(z.string().min(1)).min(1).max(AGENTS_MAX_LIMIT).optional(),
   /** `true` lists only trashed agents; omitted/false lists active agents. */
   inTrash: z.boolean().optional(),
-  /** Free-text match against name OR description, including builtin fallback text (case-insensitive LIKE). */
+  /** Free-text match against name OR description (case-insensitive LIKE). */
   search: z.string().trim().min(1).optional(),
   /** Positive integer, defaults to {@link AGENTS_DEFAULT_PAGE}. */
   page: z.int().positive().default(AGENTS_DEFAULT_PAGE),

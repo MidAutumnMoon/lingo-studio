@@ -385,7 +385,7 @@ describe('TraceStorageService', () => {
     expect(names.at(-1)).toBe('event-249')
   })
 
-  // ClaudeCodeTraceBridgeService delivers one OTLP batch as a separate addSpanEvent call per event,
+  // OTLP-style delivery may call addSpanEvent separately per event,
   // so the retained window must be measured incrementally: rescanning it on every append is
   // quadratic in the events a span receives, and a measured span received 4,427 of them.
   it('measures each appended event once instead of rescanning the retained window', async () => {

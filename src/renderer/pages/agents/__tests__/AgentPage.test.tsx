@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { cacheService } from '@data/CacheService'
 import { WindowFrameProvider } from '@renderer/components/chat/shell/WindowFrameContext'
-import { getAgentDraftCacheKey } from '@renderer/components/composer/variants/agent/agentDraftCache'
 import { useCommandHandler } from '@renderer/hooks/command'
 import { DataApiErrorFactory } from '@shared/data/api/errors'
 import { AGENT_WORKSPACE_TYPE } from '@shared/data/api/schemas/agentWorkspaces'
@@ -83,7 +82,6 @@ const agentPageMocks = vi.hoisted(() => ({
   showSidebar: false,
   routeSearch: { sessionId: 'session-initial' } as Record<string, unknown>,
   navigate: vi.fn(),
-  composerLaunchOptions: undefined as any,
   dataApiGet: vi.fn(),
   dataApiPost: vi.fn(),
   dataApiDelete: vi.fn(),
@@ -348,13 +346,10 @@ vi.mock('react-i18next', () => ({
     type: '3rdParty'
   },
   useTranslation: () => ({
-    t: (key: string, options?: { name?: string }) =>
+    t: (key: string) =>
       ({
         'agent.manage.title': '管理智能体',
-        'agent.session.list.title': '任务',
-        'settings.about.feedback.agent.description': '使用内置的问题反馈 Agent 获取使用帮助或提交反馈。',
-        'settings.skills.intentInvalid': 'Skill unavailable',
-        'settings.skills.launchDraft': `Use ${options?.name ?? ''} Skill to help me.`
+        'agent.session.list.title': '任务'
       })[key] ?? key
   })
 }))
@@ -383,8 +378,7 @@ vi.mock('../AgentChat', () => ({
     onPaneCollapse,
     onPaneAutoCollapseChange,
     onFileNavigationRequestChange,
-    paneManualToggle,
-    composerLaunchOptions
+    paneManualToggle
   }: {
     centerSurface?: { content?: ReactNode } | null
     conversationBootstrap: {
@@ -415,12 +409,10 @@ vi.mock('../AgentChat', () => ({
     onPaneAutoCollapseChange?: (collapsed: boolean) => void
     onFileNavigationRequestChange?: (request: ((transition: () => void) => void) | null) => void
     paneManualToggle?: { seq: number; open: boolean }
-    composerLaunchOptions?: unknown
   }) => (
     <section
       data-testid="agent-chat"
       ref={(node) => {
-        agentPageMocks.composerLaunchOptions = composerLaunchOptions
         onFileNavigationRequestChange?.(node ? agentPageMocks.fileNavigationRequest : null)
       }}>
       <output data-testid="active-session">{conversationBootstrap.session?.id ?? ''}</output>
@@ -715,7 +707,6 @@ describe('AgentPage', () => {
     agentPageMocks.routeSearch = { sessionId: 'session-initial' }
     agentPageMocks.navigate.mockReset()
     agentPageMocks.navigate.mockResolvedValue(undefined)
-    agentPageMocks.composerLaunchOptions = undefined
     agentPageMocks.agents = [{ id: 'agent-a', model: 'model-a', name: 'Agent A' }]
     agentPageMocks.agentsLoading = false
     agentPageMocks.classicLayoutSessions = []
@@ -801,167 +792,6 @@ describe('AgentPage', () => {
 
     ipcMocks.request.mockReset()
     ipcMocks.request.mockResolvedValue(undefined)
-  })
-
-  it('uses a prepared feedback session as a transient launch and skips the normal resume path', async () => {
-    // Opening must not depend on Cherry Support already being present in the renderer's stale Agent list.
-    agentPageMocks.agents = []
-    const previousSession = {
-      ...agentPageMocks.persistedSession,
-      id: 'session-previous',
-      agentId: 'cherry-support',
-      name: '',
-      workspaceId: undefined,
-      workspace: { type: AGENT_WORKSPACE_TYPE.SYSTEM }
-    }
-    const feedbackSession = {
-      ...agentPageMocks.persistedSession,
-      id: 'session-feedback',
-      agentId: 'cherry-support',
-      workspaceId: undefined,
-      workspace: { type: AGENT_WORKSPACE_TYPE.SYSTEM }
-    }
-    agentPageMocks.routeSearch = { intent: 'feedback', sessionId: feedbackSession.id }
-    agentPageMocks.lastUsedSessionId = previousSession.id
-    agentPageMocks.classicLayoutSessions = [previousSession]
-    activeSessionMocks.session = feedbackSession
-    activeSessionMocks.sessionSource = 'query'
-
-    const view = render(<AgentPage />)
-
-    await waitFor(() => expect(agentPageMocks.composerLaunchOptions).toBeDefined())
-    expect(agentPageMocks.activeSessionOptions?.activeSessionId).toBe('session-feedback')
-    expect(agentPageMocks.dataApiPost).not.toHaveBeenCalled()
-    expect(agentPageMocks.dataApiGet).not.toHaveBeenCalledWith(
-      `/agent-sessions/${previousSession.id}/messages`,
-      expect.anything()
-    )
-    expect(agentPageMocks.composerLaunchOptions).toMatchObject({
-      initialDraft: {
-        text: 'Use the cherry-studio-feedback skill.',
-        tokens: [
-          expect.objectContaining({
-            description: '使用内置的问题反馈 Agent 获取使用帮助或提交反馈。',
-            id: 'skill:cherry-studio-feedback',
-            kind: 'skill',
-            promptText: 'Use the cherry-studio-feedback skill.'
-          })
-        ]
-      }
-    })
-    expect(agentPageMocks.navigate).toHaveBeenCalledWith({
-      to: '/app/agents',
-      search: { sessionId: 'session-feedback' },
-      replace: true
-    })
-    expect(cacheService.has(getAgentDraftCacheKey('session-feedback'))).toBe(false)
-
-    agentPageMocks.routeSearch = { sessionId: 'session-feedback' }
-    view.unmount()
-    agentPageMocks.composerLaunchOptions = undefined
-    render(<AgentPage />)
-
-    await waitFor(() => expect(agentPageMocks.composerLaunchOptions).toBeUndefined())
-  })
-
-  it('consumes a prepared Skill intent once and creates a composer token from the installed Skill', async () => {
-    agentPageMocks.agents = []
-    const skillSession = {
-      ...agentPageMocks.persistedSession,
-      id: 'session-skill',
-      agentId: 'cherry-assistant',
-      workspaceId: undefined,
-      workspace: { type: AGENT_WORKSPACE_TYPE.SYSTEM }
-    }
-    agentPageMocks.routeSearch = { intent: 'skill', sessionId: skillSession.id, skillId: 'skill-1' }
-    activeSessionMocks.session = skillSession
-    activeSessionMocks.sessionSource = 'query'
-    agentPageMocks.dataApiGet.mockImplementation(async (path: string) => {
-      if (path === '/skills/skill-1') {
-        return {
-          id: 'skill-1',
-          name: 'Writer',
-          description: 'Draft clear prose',
-          folderName: 'writer',
-          source: 'local',
-          sourceUrl: null,
-          namespace: null,
-          author: null,
-          version: null,
-          sourceTags: [],
-          contentHash: 'hash',
-          isGlobalEnabled: true,
-          isEnabled: true,
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z'
-        }
-      }
-      return agentPageMocks.workspace
-    })
-
-    const view = render(<AgentPage />)
-
-    await waitFor(() => expect(agentPageMocks.composerLaunchOptions).toBeDefined())
-    expect(agentPageMocks.composerLaunchOptions).toMatchObject({
-      initialDraft: {
-        text: 'Use Writer Skill to help me.',
-        tokens: [
-          expect.objectContaining({
-            description: 'Draft clear prose',
-            id: 'skill:writer',
-            kind: 'skill',
-            promptText: 'Use the writer skill.'
-          })
-        ]
-      }
-    })
-    expect(agentPageMocks.invalidateCache).toHaveBeenCalledWith([
-      '/agents',
-      '/skills',
-      '/agent-sessions',
-      '/agent-sessions/session-skill'
-    ])
-    expect(agentPageMocks.navigate).toHaveBeenCalledWith({
-      to: '/app/agents',
-      search: { sessionId: 'session-skill' },
-      replace: true
-    })
-    expect(cacheService.has(getAgentDraftCacheKey('session-skill'))).toBe(false)
-
-    agentPageMocks.routeSearch = { sessionId: 'session-skill' }
-    view.unmount()
-    agentPageMocks.composerLaunchOptions = undefined
-    render(<AgentPage />)
-
-    await waitFor(() => expect(agentPageMocks.composerLaunchOptions).toBeUndefined())
-  })
-
-  it('clears an invalid Skill intent without creating a composer draft', async () => {
-    const skillSession = {
-      ...agentPageMocks.persistedSession,
-      id: 'session-missing-skill',
-      agentId: 'cherry-assistant',
-      workspaceId: undefined,
-      workspace: { type: AGENT_WORKSPACE_TYPE.SYSTEM }
-    }
-    agentPageMocks.routeSearch = {
-      intent: 'skill',
-      sessionId: skillSession.id,
-      skillId: 'missing-skill'
-    }
-    activeSessionMocks.session = skillSession
-    activeSessionMocks.sessionSource = 'query'
-    agentPageMocks.dataApiGet.mockRejectedValueOnce(new Error('missing'))
-
-    render(<AgentPage />)
-
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Skill unavailable'))
-    expect(agentPageMocks.composerLaunchOptions).toBeUndefined()
-    expect(agentPageMocks.navigate).toHaveBeenCalledWith({
-      to: '/app/agents',
-      search: { sessionId: 'session-missing-skill' },
-      replace: true
-    })
   })
 
   it('starts the model read from the visible list agent hint', async () => {

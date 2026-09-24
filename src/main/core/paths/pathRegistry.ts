@@ -155,11 +155,6 @@ export function buildPathRegistry() {
     'feature.agents.skills.builtin': path.join(appRootResources, 'skills'), // bundled skill templates (read-only)
     'feature.agents.skills': path.join(appUserDataData, 'Skills'), // installed skills storage
     'feature.agents.skills.install.temp': path.join(appTemp, 'skill-install'),
-    'feature.agents.claude.root': path.join(appUserDataData, 'Agents', '.claude'), // v1 userData/.claude is copied here during v2 migration
-    'feature.agents.claude.skills': path.join(appUserDataData, 'Agents', '.claude', 'skills'), // symlinks → feature.agents.skills
-    // Claude Code's own session transcripts under Cherry's config dir. A registry key
-    // (not a joined path) so the orphan sweep can never be pointed at the user's ~/.claude.
-    'feature.agents.claude.projects': path.join(appUserDataData, 'Agents', '.claude', 'projects'),
     'feature.agents.channels': path.join(appUserDataData, 'Channels'),
     // NOTE(app-managed-dirs): pi dirs are new in this PR and freely relocatable —
     // pi resume tokens persist the pi session id, never a filesystem path.
@@ -241,10 +236,8 @@ export function buildPathRegistry() {
     'v1.trace': path.join(CHERRY_HOME, 'trace'),
     'v1.cli.install': path.join(CHERRY_HOME, 'install'),
     'v1.database.file': path.join(appUserData, 'cherrystudio.sqlite'),
-    'v1.agents.claude': path.join(appUserData, '.claude'),
 
     // -- F. external.* — third-party tool paths (Cherry reads/writes, does NOT own) --
-    'external.claude.config': path.join(sysHome, '.claude'),
     'external.browser.chrome': isMac
       ? path.join(sysHome, 'Library/Application Support/Google/Chrome')
       : isWin
@@ -348,9 +341,7 @@ const NO_ENSURE = [
   'feature.mini_app.builtin',
   // AgentSessionService stores this path through DataApi. The runtime creates
   // the concrete session directory later, keeping database writes filesystem-free.
-  'feature.agents.system_workspaces',
-  // Claude Code owns materialization of its transcript store.
-  'feature.agents.claude.projects'
+  'feature.agents.system_workspaces'
 ] as const satisfies readonly NoEnsureEntry[]
 
 /** Whether Application.getPath() should auto-create the directory for this key. */

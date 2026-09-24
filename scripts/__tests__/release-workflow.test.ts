@@ -647,15 +647,6 @@ describe('prepared release validation', () => {
     const fixture = createPreparedReleaseFixture('1.1.0-rc.1')
     expect(() => validatePreparedRelease({ cwd: fixture.repo, targetVersion: '1.1.0-rc.1' })).not.toThrow()
   })
-
-  it('revalidates prepared metadata after the trusted product manifest is generated', () => {
-    const fixture = createPreparedReleaseFixture()
-    write(fixture.repo, 'resources/builtin-agents/cherry-assistant/product-manifest.json', '{"version":"1.1.0"}\n')
-
-    expect(() =>
-      validatePreparedRelease({ cwd: fixture.repo, includeGeneratedManifest: true, targetVersion: '1.1.0' })
-    ).not.toThrow()
-  })
 })
 
 describe('release preparation state', () => {
@@ -1344,7 +1335,8 @@ describe('release workflow gates', () => {
     expect(validationStep.run.indexOf('fs.copyFileSync')).toBeLessThan(
       validationStep.run.indexOf('validate-prepared-release.js')
     )
-    expect(validationStep.run).toContain('--include-generated-manifest')
+    expect(validationStep.run).not.toContain('--include-generated-manifest')
+    expect(validationStep.run).not.toContain('builtin-agents')
     expect(validationStep.run).not.toContain('function walk')
     expect(validationStep.run).not.toContain('unexpected file set')
     expect(validationStep.run).not.toContain('git status')

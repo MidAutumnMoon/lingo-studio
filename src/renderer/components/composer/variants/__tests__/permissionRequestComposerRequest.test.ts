@@ -14,7 +14,7 @@ function makePart(overrides: Partial<Record<string, unknown>> = {}): CherryMessa
     approval: { id: 'approval-1' },
     providerExecuted: true,
     callProviderMetadata: {
-      'claude-code': {
+      anthropic: {
         rawInput: { file_path: '/tmp/file.ts' },
         parentToolCallId: null
       }
@@ -90,7 +90,7 @@ describe('findNextPendingPermissionRequest', () => {
     expect(result?.title).toBe('/managed-skills/find-skills/SKILL.md')
   })
 
-  it('uses Claude Code MCP metadata for the tool preview', () => {
+  it('uses migrated cherry MCP metadata for the tool preview', () => {
     const result = findNextPendingPermissionRequest({
       'message-1': [
         makePart({
@@ -101,7 +101,7 @@ describe('findNextPendingPermissionRequest', () => {
           approval: { id: 'mcp-approval-1' },
           callProviderMetadata: {
             cherry: {
-              transport: 'claude-agent',
+              transport: 'pi-agent',
               toolName: 'mcp__8171b5f3-c666-4ead-b2ab-bb9ac244af57__resolve-library-id',
               tool: {
                 type: 'mcp',
@@ -111,7 +111,7 @@ describe('findNextPendingPermissionRequest', () => {
                 description: 'Resolve a package name into a Context7 library ID.'
               }
             },
-            'claude-code': {
+            anthropic: {
               rawInput: { query: 'composer' },
               parentToolCallId: null
             }

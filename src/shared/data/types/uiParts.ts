@@ -16,7 +16,7 @@
  * - data-video (video blocks)
  * - data-compact (compact/summary blocks)
  * - data-compaction-anchor (timeline anchor for completed runtime compaction)
- * - data-agent-task-event (Claude Agent SDK task lifecycle event)
+ * - data-agent-task-event (agent runtime task lifecycle event)
  * - data-knowledge-scope (knowledge bases available to this user turn)
  * - data-clear (context boundary marker)
  * - data-code (code blocks)
@@ -66,7 +66,7 @@ export interface CompactPartData {
 /** Compaction anchor data — marks where a runtime context compaction completed. */
 export type CompactionAnchorPartData = CompactionAnchorData
 
-/** Claude Agent SDK task lifecycle event data. Hidden inline state consumed by agent status panels. */
+/** Agent runtime task lifecycle event data. Hidden inline state consumed by agent status panels. */
 export interface AgentTaskEventPartData {
   event: 'started' | 'progress' | 'updated' | 'notification'
   taskId: string

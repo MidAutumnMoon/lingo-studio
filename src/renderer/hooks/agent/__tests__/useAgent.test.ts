@@ -46,7 +46,7 @@ describe('useAgent', () => {
       id: 'agent-1',
       name: 'Test Agent',
       model: 'claude-3',
-      type: 'claude-code',
+      type: 'pi',
       configuration: { permission_mode: 'default', env_vars: {} },
       createdAt: '2024-01-01T00:00:00Z',
       updatedAt: '2024-01-01T00:00:00Z'
@@ -74,7 +74,7 @@ describe('useAgent', () => {
       id: 'agent-1',
       name: 'Test Agent',
       model: 'claude-3',
-      type: 'claude-code',
+      type: 'pi',
       configuration: { avatar: '🤖', reasoning_effort: 'high' },
       createdAt: '2024-01-01T00:00:00Z',
       updatedAt: '2024-01-01T00:00:00Z'
@@ -94,7 +94,7 @@ describe('useAgent', () => {
       id: 'agent-1',
       name: 'Test Agent',
       model: 'claude-3',
-      type: 'claude-code',
+      type: 'pi',
       // permission_mode/reasoning_effort 'invalid' fail enum checks; env_vars/null fails record check.
       // heartbeat_interval/200 is well-typed and must survive.
       configuration: {
@@ -189,7 +189,7 @@ describe('useAgents', () => {
       const form = {
         name: 'New Agent',
         model: 'anthropic::claude-3' as const,
-        type: 'claude-code' as const
+        type: 'pi' as const
       }
       const addResult = await act(async () => result.current.addAgent(form))
 
@@ -212,7 +212,7 @@ describe('useAgents', () => {
         result.current.addAgent({
           name: 'New Agent',
           model: 'anthropic::claude-3',
-          type: 'claude-code'
+          type: 'pi'
         })
       )
 
@@ -232,7 +232,7 @@ describe('useAgents', () => {
         result.current.addAgent({
           name: 'New Agent',
           model: 'anthropic::claude-3',
-          type: 'claude-code'
+          type: 'pi'
         })
       )
 
@@ -309,7 +309,7 @@ describe('useUpdateAgent', () => {
         id: 'agent-1',
         name: 'Updated',
         model: 'claude-3',
-        type: 'claude-code',
+        type: 'pi',
         configuration: { avatar: '🤖' },
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-01T00:00:00Z'
@@ -331,7 +331,7 @@ describe('useUpdateAgent', () => {
         id: 'agent-1',
         name: 'Updated',
         model: 'claude-3',
-        type: 'claude-code',
+        type: 'pi',
         configuration: {},
         createdAt: '',
         updatedAt: ''
@@ -363,7 +363,7 @@ describe('useUpdateAgent', () => {
         id: 'agent-1',
         name: 'A',
         model: 'anthropic::new-model',
-        type: 'claude-code',
+        type: 'pi',
         configuration: { avatar: '🤖', reasoning_effort: 'default' },
         createdAt: '',
         updatedAt: ''
@@ -394,7 +394,7 @@ describe('useUpdateAgent', () => {
         id: 'agent-1',
         name: 'A',
         model: 'anthropic::new-model',
-        type: 'claude-code',
+        type: 'pi',
         configuration: { avatar: '🤖', reasoning_effort: 'default' },
         createdAt: '',
         updatedAt: ''

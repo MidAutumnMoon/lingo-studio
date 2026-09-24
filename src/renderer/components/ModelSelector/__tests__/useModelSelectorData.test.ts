@@ -338,8 +338,8 @@ describe('useModelSelectorData', () => {
 
   it('hides Agent-only providers generally and includes them when explicitly requested', () => {
     wireDeps({
-      providers: [makeProvider('openai'), makeProvider('claude-code', { authMethods: ['external-cli'] })],
-      models: [makeModel('gpt-4', 'openai'), makeModel('claude-sonnet', 'claude-code')]
+      providers: [makeProvider('openai'), makeProvider('cli-login', { authMethods: ['external-cli'] })],
+      models: [makeModel('gpt-4', 'openai'), makeModel('claude-sonnet', 'cli-login')]
     })
 
     const general = renderHook(() => useModelSelectorData({ searchText: '' }))
@@ -349,7 +349,7 @@ describe('useModelSelectorData', () => {
     const agent = renderHook(() => useModelSelectorData({ searchText: '', includeAgentOnlyModels: true }))
 
     expect(agent.result.current.modelItems.map((item) => item.modelId).sort()).toEqual([
-      'claude-code::claude-sonnet',
+      'cli-login::claude-sonnet',
       'openai::gpt-4'
     ])
     expect(mockUseModels).toHaveBeenLastCalledWith({ enabled: true }, { fetchEnabled: true })

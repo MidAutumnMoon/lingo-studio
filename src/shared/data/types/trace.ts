@@ -71,7 +71,7 @@ export const TraceIdSchema = z.string().regex(/^[0-9a-f]{32}$/, 'traceId must be
  * Deterministic synthetic root span id for a container trace: the first 16 hex of the
  * traceId (a span id is 16 hex; a trace id is 32). Falls back to a fixed non-zero id when
  * those happen to be all-zero. Stable across reconnects / restarts, so once the wiring emits
- * per-turn child spans under it, every turn span and the Claude Code subprocess parent to the
+ * per-turn child spans under it, every runtime subprocess parent to the
  * same container root.
  *
  * Lives in `shared` because both the main-process trace producers and the renderer trace

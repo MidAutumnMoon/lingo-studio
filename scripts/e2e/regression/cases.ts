@@ -53,13 +53,6 @@ export const REGRESSION_CASES = [
     task: 'skill-import'
   },
   {
-    id: 'CODE-01',
-    capabilities: ['desktopAutomation'],
-    phase: '08-code-tools',
-    title: 'Launch Claude Code',
-    task: 'code-cli'
-  },
-  {
     id: 'CODE-02',
     capabilities: ['desktopAutomation'],
     phase: '08-code-tools',
@@ -80,13 +73,6 @@ export const REGRESSION_CASES = [
     phase: '09-cherryin-and-images',
     title: 'Generate an image using an image model',
     task: 'image-generation'
-  },
-  {
-    id: 'A-03',
-    capabilities: ['desktopAutomation'],
-    phase: '10-agent-runtimes',
-    title: 'Claude Agent Runtime',
-    task: 'claude-agent-runtime'
   },
   {
     id: 'A-04',

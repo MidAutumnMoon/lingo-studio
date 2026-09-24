@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => ({
   },
   ipcRequest: vi.fn(),
   flushBrowser: vi.fn(),
-  launchSkill: vi.fn(),
   navigate: vi.fn(),
   query: { data: undefined, error: undefined, isLoading: false } as {
     data?: InstalledSkill
@@ -37,7 +36,6 @@ vi.mock('@renderer/hooks/resourceCatalog', () => ({
     updateGlobalEnabled: mocks.updateGlobalEnabled
   })
 }))
-vi.mock('@renderer/hooks/useSkillLauncher', () => ({ useSkillLauncher: () => mocks.launchSkill }))
 vi.mock('@renderer/ipc', () => ({ ipcApi: { request: mocks.ipcRequest } }))
 vi.mock('@renderer/components/resourceCatalog/catalog/SkillSourceBadge', () => ({
   SkillSourceBadge: ({ source, sourceUrl }: { source: string; sourceUrl?: string | null }) => (
@@ -216,14 +214,10 @@ describe('SkillDetails', () => {
     expect(screen.getByTestId('skill-file-browser')).toHaveAttribute('data-root-path', '/managed/skills/writer')
   })
 
-  it('launches, toggles, opens, and removes the current Skill from explicit actions', async () => {
-    const skill = createSkill()
-    mocks.query = { data: skill, error: undefined, isLoading: false }
+  it('toggles, opens, and removes the current Skill from explicit actions', async () => {
+    mocks.query = { data: createSkill(), error: undefined, isLoading: false }
     mocks.ipcRequest.mockResolvedValue(undefined)
     render(<SkillDetails skillId="skill-1" />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'settings.skills.tryNow' }))
-    expect(mocks.launchSkill).toHaveBeenCalledExactlyOnceWith(skill)
 
     fireEvent.click(screen.getByRole('button', { name: 'library.skill_detail.open_folder' }))
     await waitFor(() =>

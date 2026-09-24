@@ -240,7 +240,7 @@ describe('AgentSessionDeliveryService', () => {
       sessionId: 'target',
       agentId: 'agent-1',
       agentUpdatedAt: now,
-      agentType: 'claude-code',
+      agentType: 'pi',
       uniqueModelId: 'provider::model'
     })
     mocks.persistDispatchTx.mockReturnValue({
@@ -330,7 +330,7 @@ describe('AgentSessionDeliveryService', () => {
       id: 'agent-1',
       updatedAt: now,
       model: 'provider::model',
-      type: 'claude-code'
+      type: 'pi'
     })
     expect(mocks.claim).toHaveBeenCalledWith({}, 'target', 'delivery-1', 'assistant-1')
     expect(mocks.publishDispatchChanges).toHaveBeenCalledWith('target', [accepted, assistant])
@@ -547,7 +547,7 @@ describe('AgentSessionDeliveryService', () => {
       sessionId: 'target',
       agentId: 'agent-1',
       agentUpdatedAt: now,
-      agentType: 'claude-code',
+      agentType: 'pi',
       uniqueModelId: 'provider::model'
     })
     await service.drainInFlight({ timeoutMs: 100 })
@@ -583,7 +583,7 @@ describe('AgentSessionDeliveryService', () => {
       sessionId: 'target',
       agentId: 'agent-1',
       agentUpdatedAt: now,
-      agentType: 'claude-code',
+      agentType: 'pi',
       uniqueModelId: 'provider::model'
     })
     await service.drainInFlight({ timeoutMs: 100 })
@@ -676,7 +676,7 @@ describe('AgentSessionDeliveryService', () => {
         sessionId: 'target',
         agentId: 'agent-1',
         agentUpdatedAt: now,
-        agentType: 'claude-code',
+        agentType: 'pi',
         uniqueModelId: 'provider::model'
       })
       expect(vi.getTimerCount()).toBeGreaterThan(0)
@@ -964,7 +964,7 @@ describe('AgentSessionDeliveryService', () => {
           sessionId: 'expired-session',
           agentId: 'agent-1',
           agentUpdatedAt: now,
-          agentType: 'claude-code',
+          agentType: 'pi',
           uniqueModelId: 'provider::model'
         })
     })

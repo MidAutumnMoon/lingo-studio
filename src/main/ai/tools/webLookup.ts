@@ -2,7 +2,7 @@
  * Web search / fetch core — runtime-agnostic.
  *
  * Single source of truth for "look something up on the web" shared by the
- * AI-SDK builtin tools (`web_search` / `web_fetch`) and the Claude Code
+ * AI-SDK builtin tools (`web_search` / `web_fetch`) and the agent
  * in-process MCP bridge. Both runtimes are thin formatters over these
  * functions; the provider is resolved inside `WebSearchService` from the
  * user's configured default for each capability.

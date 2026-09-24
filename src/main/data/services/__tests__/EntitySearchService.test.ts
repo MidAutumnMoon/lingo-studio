@@ -60,7 +60,7 @@ describe('EntitySearchService', () => {
     })
     await dbh.db.insert(agentTable).values({
       id: '22222222-2222-4222-8222-222222222222',
-      type: 'claude-code',
+      type: 'pi',
       name: 'Needle Agent',
       description: 'Agent result',
       instructions: 'Help',

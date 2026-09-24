@@ -157,7 +157,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
-          claude_args: '--model ${{ vars.ANTHROPIC_MODEL }} --allowed-tools "Bash(git:*),Bash(gh release list:*),Bash(node:*),Bash(cat:*),Bash(pnpm build:builtin-knowledge),Edit,Read,Write,Glob,Grep"'
+          claude_args: '--model ${{ vars.ANTHROPIC_MODEL }} --allowed-tools "Bash(git:*),Bash(gh release list:*),Bash(node:*),Bash(cat:*),Edit,Read,Write,Glob,Grep"'
           prompt: |
             Run the prepare-release skill with exact version argument: ${{ steps.release-version.outputs.version }}
 
@@ -169,7 +169,7 @@ jobs:
 
             Use the verified published baseline tag ${{ steps.release-baseline.outputs.tag }} and collect release-note commits from ${{ steps.release-baseline.outputs.collection-base }}..HEAD. The package version may be ahead after a release withdrawal; do not use it as the release-note baseline.
 
-            Stop after updating package.json and electron-builder.yml. Do not edit release-history.json or the generated product manifest. The next workflow steps derive the release history from your electron-builder.yml notes, validate the contents, generate the manifest, and own release branch creation and the signed commit.
+            Stop after updating package.json and electron-builder.yml. Do not edit release-history.json. The next workflow steps derive the release history from your electron-builder.yml notes, validate the contents, and own release branch creation and the signed commit.
             You may create temporary helper files if needed; the workflow discards every change except those two release metadata files.
         env:
           ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL }}
@@ -204,9 +204,6 @@ jobs:
         run: |
           node scripts/release/validate-prepared-release.js --target-version "$REQUESTED_VERSION"
 
-      - name: Generate product manifest
-        run: pnpm build:builtin-knowledge
-
       - name: Stage prepared release files
         uses: actions/upload-artifact@v7
         with:
@@ -215,7 +212,6 @@ jobs:
             package.json
             electron-builder.yml
             resources/cherry-studio/release-history.json
-            resources/builtin-agents/cherry-assistant/product-manifest.json
           if-no-files-found: error
           retention-days: 1
 
@@ -265,7 +261,6 @@ jobs:
           const releaseFiles = [
             'electron-builder.yml',
             'package.json',
-            'resources/builtin-agents/cherry-assistant/product-manifest.json',
             'resources/cherry-studio/release-history.json'
           ]
 
@@ -278,7 +273,7 @@ jobs:
           }
           NODE
 
-          node scripts/release/validate-prepared-release.js --target-version "$REQUESTED_VERSION" --include-generated-manifest
+          node scripts/release/validate-prepared-release.js --target-version "$REQUESTED_VERSION"
 
           node <<'NODE'
           const { execFileSync } = require('node:child_process')
@@ -288,7 +283,6 @@ jobs:
           const releaseFiles = [
             'electron-builder.yml',
             'package.json',
-            'resources/builtin-agents/cherry-assistant/product-manifest.json',
             'resources/cherry-studio/release-history.json'
           ]
           const changedFiles = execFileSync(

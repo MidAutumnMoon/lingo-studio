@@ -53,18 +53,6 @@ async function launchWithWorkspace(app: RegressionApp, page: Page): Promise<void
   }
 }
 
-test(...caseDefinition('CODE-01'), async ({ app, mainWindow: page }) => {
-  await ensureCustomChatProvider(app, page)
-  await closeSettings(page)
-  const baseline = new Set(listOwnedProcessIds(app.record))
-  await openCodeTool(page, 'Claude Code')
-  await configureTool(page, app.config.customProvider.chatModel, 'Unified Gateway')
-  await launchWithWorkspace(app, page)
-  await expect
-    .poll(() => observeOwnedProcess(app.record, 'claude', true, baseline).passed, { timeout: 60_000 })
-    .toBe(true)
-})
-
 test(...caseDefinition('CODE-02'), async ({ app, mainWindow: page }) => {
   await ensureCustomChatProvider(app, page)
   await closeSettings(page)

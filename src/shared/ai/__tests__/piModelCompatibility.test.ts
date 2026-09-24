@@ -110,9 +110,9 @@ describe('resolvePiApi', () => {
     expect(resolvePiApi(provider, makeModel({ apiModelId: 'claude-sonnet-4' }))).toBe('anthropic-messages')
   })
 
-  it('rejects an external-CLI provider (claude-code) even on a pi-speakable endpoint', () => {
+  it('rejects an external-CLI provider even on a pi-speakable endpoint', () => {
     const provider = makeProvider({
-      id: 'claude-code',
+      id: 'cli-login',
       authMethods: ['external-cli'],
       defaultChatEndpoint: 'anthropic-messages',
       endpointConfigs: { 'anthropic-messages': { adapterFamily: 'anthropic' } }

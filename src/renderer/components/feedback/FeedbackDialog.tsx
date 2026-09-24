@@ -1,4 +1,4 @@
-import { Bot, ChevronRight, FileArchive, Github } from 'lucide-react'
+import { ChevronRight, FileArchive, Github } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -18,8 +18,6 @@ import {
 } from '@cherrystudio/ui'
 import { loggerService } from '@logger'
 import { DoctorPopup } from '@renderer/components/doctor'
-import { ipcApi } from '@renderer/ipc'
-import { openRoute } from '@renderer/services/mainWindowNavigation'
 import { POPUP_EXIT_MS } from '@renderer/services/popup'
 import { toast } from '@renderer/services/toast'
 import { openExternalWebsite } from '@renderer/services/website'
@@ -27,10 +25,6 @@ import { openExternalWebsite } from '@renderer/services/website'
 export const FEEDBACK_GITHUB_URL = 'https://github.com/CherryHQ/cherry-studio/issues/new/choose'
 
 const logger = loggerService.withContext('FeedbackDialog')
-
-export function getFeedbackAgentRoute(sessionId: string): string {
-  return `/app/agents?intent=feedback&sessionId=${encodeURIComponent(sessionId)}`
-}
 
 interface FeedbackDialogProps {
   open: boolean
@@ -87,16 +81,6 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
     }, delay)
   }
 
-  const openAgentFeedback = async () => {
-    try {
-      const { sessionId } = await ipcApi.request('ai.agent.support_session.create')
-      openRoute(getFeedbackAgentRoute(sessionId))
-    } catch (error) {
-      logger.error('Failed to create Cherry Support feedback session', error as Error)
-      toast.error(t('settings.about.feedback.agent_error'))
-    }
-  }
-
   const openGitHubIssue = async () => {
     try {
       await openExternalWebsite(FEEDBACK_GITHUB_URL)
@@ -120,12 +104,6 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
             description={t('settings.about.feedback.diagnostics.description')}
             recommended
             onSelect={() => selectOption(() => void DoctorPopup.show({ initialPanel: 'report' }), POPUP_EXIT_MS)}
-          />
-          <FeedbackOption
-            icon={<Bot className="size-5" />}
-            title={t('settings.about.feedback.agent.title')}
-            description={t('settings.about.feedback.agent.description')}
-            onSelect={() => selectOption(openAgentFeedback)}
           />
           <FeedbackOption
             icon={<Github className="size-5" />}

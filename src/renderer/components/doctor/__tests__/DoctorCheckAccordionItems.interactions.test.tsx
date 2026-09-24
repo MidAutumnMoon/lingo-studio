@@ -89,24 +89,24 @@ function createController(overrides: ControllerOverrides = {}) {
       problemCount: 1,
       rows: [
         {
-          domain: 'runtime',
+          domain: 'storage',
           status: 'warn',
-          id: 'runtime-claude-login',
+          id: 'storage-userdata-location',
           result: {
-            id: 'runtime-claude-login',
+            id: 'storage-userdata-location',
             status: 'warn',
             durationMs: 1,
             attribution: 'user-fixable',
-            detail: { variant: 'not_logged_in' },
+            detail: { variant: 'fallback_to_default' },
             evidence: [{ key: 'request-body', value: 'private Doctor evidence', dataClass: 'consent_required' }],
             actions: [
-              { kind: 'navigate', target: '/settings/provider?id=claude-code' },
+              { kind: 'navigate', target: '/settings/provider' },
               { kind: 'navigate', target: '/settings/mcp' },
               { kind: 'navigate', target: '/settings/general' }
             ]
           },
           actions: [
-            { kind: 'navigate', target: '/settings/provider?id=claude-code' },
+            { kind: 'navigate', target: '/settings/provider' },
             { kind: 'navigate', target: '/settings/mcp' },
             { kind: 'navigate', target: '/settings/general' }
           ],
@@ -156,7 +156,7 @@ function createCompletedPanelController() {
         scope: 'global',
         runId: 'run-1',
         tier: 'quick',
-        selectedCheckIds: ['config-boot-config-valid', 'storage-disk-space'],
+        selectedCheckIds: ['config-boot-config-valid', 'storage-userdata-location'],
         startedAt: '2026-09-05T00:00:00.000Z',
         finishedAt: '2026-09-05T00:00:01.000Z',
         expiresAt: '2026-09-05T00:10:00.000Z',
@@ -175,7 +175,7 @@ function createCompletedPanelController() {
         summary: { pass: 0, warn: 1, fail: 0, skip: 0, error: 0 }
       },
       rows: [row],
-      groups: [{ domain: 'runtime', status: 'warn', rows: [row] }],
+      groups: [{ domain: 'storage', status: 'warn', rows: [row] }],
       status: 'completed',
       summary: { appBug: 0, error: 0, skip: 0, transient: 0, userFixable: 1 }
     }
@@ -207,7 +207,7 @@ function createSecondaryEvidencePanelController() {
     viewModel: {
       ...controller.viewModel,
       rows,
-      groups: [{ domain: 'runtime', status: 'warn', rows }]
+      groups: [{ domain: 'storage', status: 'warn', rows }]
     }
   })
 }
@@ -279,7 +279,12 @@ describe('DoctorCheckAccordionItems interactions', () => {
 
     expect(screen.queryByRole('region', { name: 'error.diagnostics.result' })).not.toBeInTheDocument()
     const otherChecks = screen.getByRole('region', { name: 'settings.doctor.copy.checks_heading' })
-    for (const id of ['install-version-channel', 'runtime-claude-login', 'logs-recent-findings', 'network-online']) {
+    for (const id of [
+      'install-version-channel',
+      'storage-userdata-location',
+      'logs-recent-findings',
+      'network-online'
+    ]) {
       expect(
         within(otherChecks).getByRole('button', { name: new RegExp(`settings.doctor.checks.${id}.title`) })
       ).toBeVisible()
@@ -300,7 +305,7 @@ describe('DoctorCheckAccordionItems interactions', () => {
               status: 'completed',
               report: {
                 ...report,
-                results: [{ id: 'runtime-claude-login', status: 'pass', durationMs: 1 }],
+                results: [{ id: 'storage-userdata-location', status: 'pass', durationMs: 1 }],
                 summary: { pass: 1, warn: 0, fail: 0, skip: 0, error: 0 }
               }
             },
@@ -312,7 +317,7 @@ describe('DoctorCheckAccordionItems interactions', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /settings\.doctor\.checks\.runtime-claude-login\.title.*settings\.doctor\.status\.pass/
+        name: /settings\.doctor\.checks\.storage-userdata-location\.title.*settings\.doctor\.status\.pass/
       })
     ).toBeVisible()
   })
@@ -320,7 +325,7 @@ describe('DoctorCheckAccordionItems interactions', () => {
   it('exposes local evidence through an accessible accordion trigger', async () => {
     const user = userEvent.setup()
     render(
-      <Accordion type="single" collapsible defaultValue="doctor-runtime-claude-login">
+      <Accordion type="single" collapsible defaultValue="doctor-storage-userdata-location">
         <DoctorCheckAccordionItems controller={createController()} />
       </Accordion>
     )
@@ -351,7 +356,7 @@ describe('DoctorCheckAccordionItems interactions', () => {
       }
     })
     render(
-      <Accordion type="single" collapsible defaultValue="doctor-runtime-claude-login">
+      <Accordion type="single" collapsible defaultValue="doctor-storage-userdata-location">
         <DoctorCheckAccordionItems controller={controller} />
       </Accordion>
     )
@@ -364,11 +369,11 @@ describe('DoctorCheckAccordionItems interactions', () => {
   it('masks a previous run evidence grant when a replacement report arrives', () => {
     const completed = createCompletedPanelController()
     const runOneSession = {
-      evidenceGrant: { runId: 'run-1', checkIds: ['runtime-claude-login'] as const }
+      evidenceGrant: { runId: 'run-1', checkIds: ['storage-userdata-location'] as const }
     }
     const runOneViewModel = { ...completed.viewModel, runId: 'run-1' }
     const { rerender } = render(
-      <Accordion type="single" collapsible defaultValue="doctor-runtime-claude-login">
+      <Accordion type="single" collapsible defaultValue="doctor-storage-userdata-location">
         <DoctorCheckAccordionItems
           controller={createController({ session: runOneSession, viewModel: runOneViewModel })}
         />
@@ -380,7 +385,7 @@ describe('DoctorCheckAccordionItems interactions', () => {
     const replacementReport = completed.viewModel.report
     if (!replacementReport) throw new Error('Expected a completed Doctor report')
     rerender(
-      <Accordion type="single" collapsible defaultValue="doctor-runtime-claude-login">
+      <Accordion type="single" collapsible defaultValue="doctor-storage-userdata-location">
         <DoctorCheckAccordionItems
           controller={createController({
             session: runOneSession,
@@ -438,7 +443,7 @@ describe('DoctorCheckAccordionItems interactions', () => {
       <Dialog defaultOpen>
         <DialogContent>
           <DialogTitle>Error details</DialogTitle>
-          <Accordion type="single" collapsible defaultValue="doctor-runtime-claude-login">
+          <Accordion type="single" collapsible defaultValue="doctor-storage-userdata-location">
             <DoctorCheckAccordionItems controller={createController()} />
           </Accordion>
         </DialogContent>
@@ -491,7 +496,7 @@ describe('DoctorCheckAccordionItems interactions', () => {
 
     expect(screen.queryByText('private Doctor evidence')).not.toBeInTheDocument()
     const checkTrigger = screen.getByRole('button', {
-      name: /settings\.doctor\.checks\.runtime-claude-login\.title/
+      name: /settings\.doctor\.checks\.storage-userdata-location\.title/
     })
     if (checkTrigger.getAttribute('aria-expanded') === 'false') await user.click(checkTrigger)
     const localDetails = screen.getByRole('button', { name: 'settings.doctor.evidence.local_details' })
@@ -521,7 +526,7 @@ describe('DoctorCheckAccordionItems interactions', () => {
     )
 
     const checkTrigger = screen.getByRole('button', {
-      name: /settings\.doctor\.checks\.runtime-claude-login\.title/
+      name: /settings\.doctor\.checks\.storage-userdata-location\.title/
     })
     if (checkTrigger.getAttribute('aria-expanded') === 'false') await user.click(checkTrigger)
     const localDetails = screen.getByRole('button', { name: 'settings.doctor.evidence.local_details' })

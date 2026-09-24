@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { application } from '@application'
 import { SESSION_SEND_TOOL_NAME } from '@shared/ai/agentSessionDelivery'
-import { KB_MANAGE_TOOL_NAME } from '@shared/ai/builtinTools'
+import { KB_MANAGE_TOOL_NAME, WEB_SEARCH_TOOL_NAME } from '@shared/ai/builtinTools'
 
 import { getAutoApprovedBrowserTools } from '../browserToolPolicy'
 import {
@@ -13,7 +13,6 @@ import {
 } from '../builtinToolPolicy'
 
 const WITHOUT_HOST_TOOLS: ReadonlySet<string> = new Set(['cherry-tools', 'agent-memory', 'skills', 'mcp-manager'])
-const WITH_HOST_TOOLS: ReadonlySet<string> = new Set([...WITHOUT_HOST_TOOLS, 'assistant', 'assistant-files'])
 
 describe('builtinToolPolicy', () => {
   it('queries static policies before preferences are available', () => {
@@ -21,7 +20,9 @@ describe('builtinToolPolicy', () => {
       throw new Error('Preferences are not initialized')
     })
     try {
-      expect(listBuiltinToolPolicies({ approval: 'auto' }).map(toMcpRuntimeName)).toContain('mcp__assistant__navigate')
+      expect(listBuiltinToolPolicies({ approval: 'auto' }).map(toMcpRuntimeName)).toContain(
+        `mcp__cherry-tools__${WEB_SEARCH_TOOL_NAME}`
+      )
       expect(findBuiltinToolPolicy('mcp__browser__click', WITHOUT_HOST_TOOLS)).toBeUndefined()
     } finally {
       get.mockRestore()
@@ -58,22 +59,6 @@ describe('builtinToolPolicy', () => {
         bypassApproval: 'enforce'
       }
     )
-  })
-
-  it('filters Assistant-only entries when their MCP servers are not mounted', () => {
-    expect(findBuiltinToolPolicy('mcp__assistant__diagnose', WITHOUT_HOST_TOOLS)).toBeUndefined()
-    expect(findBuiltinToolPolicy('mcp__assistant__diagnose', WITH_HOST_TOOLS)?.approval).toBe('required')
-    expect(
-      listBuiltinToolPolicies({ mountedServers: WITHOUT_HOST_TOOLS }).every((entry) =>
-        WITHOUT_HOST_TOOLS.has(entry.serverName)
-      )
-    ).toBe(true)
-  })
-
-  it('auto-approves preparing a diagnostic draft because it has no side effects', () => {
-    expect(findBuiltinToolPolicy('mcp__assistant__prepare_diagnostic_report', WITH_HOST_TOOLS)).toMatchObject({
-      approval: 'auto'
-    })
   })
 
   it('does not auto-approve an undeclared future tool', () => {

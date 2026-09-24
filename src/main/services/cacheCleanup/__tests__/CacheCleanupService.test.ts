@@ -141,7 +141,6 @@ describe('CacheCleanupService', () => {
         'v1.trace': rootPath('Home', 'trace'),
         'v1.cli.install': rootPath('Home', 'install'),
         'v1.database.file': path.join(userDataPath, 'cherrystudio.sqlite'),
-        'v1.agents.claude': path.join(userDataPath, '.claude'),
         'feature.backup.restore.file': path.join(userDataPath, 'restore-journal.json'),
         'feature.files.data': path.join(userDataPath, 'Data', 'Files'),
         'feature.knowledgebase.data': path.join(userDataPath, 'Data', 'KnowledgeBase'),
@@ -540,32 +539,28 @@ describe('CacheCleanupService', () => {
     await expectExisting(activeDatabase)
   })
 
-  it('counts and removes the root legacy database and Claude config without touching v2 data', async () => {
+  it('counts and removes the root legacy database without touching v2 data', async () => {
     const legacyDatabase = rootPath('cherrystudio.sqlite')
-    const legacyClaude = rootPath('.claude')
     const legacyFiles = [
       [legacyDatabase, 3],
       [`${legacyDatabase}-wal`, 5],
       [`${legacyDatabase}-shm`, 7],
-      [`${legacyDatabase}-journal`, 11],
-      [path.join(legacyClaude, 'settings.json'), 13]
+      [`${legacyDatabase}-journal`, 11]
     ] as const
     const v2Database = rootPath('Data', 'cherrystudio.sqlite')
-    const v2ClaudeSettings = rootPath('Data', 'Agents', '.claude', 'settings.json')
 
     for (const [targetPath, size] of legacyFiles) {
       await writeTestFile(targetPath, Buffer.alloc(size))
     }
     await writeTestFile(v2Database, 'keep-v2-database')
-    await writeTestFile(v2ClaudeSettings, 'keep-v2-claude')
 
     const inspection = await cacheCleanupService.inspect(['legacy_v1'])
     const cleanup = await cacheCleanupService.run(['legacy_v1'])
 
-    expect(inspection.results[0]?.size.bytes).toBe(39)
+    expect(inspection.results[0]?.size.bytes).toBe(26)
     expect(cleanup.results[0]?.status).toBe('cleared')
-    await expectMissing(...legacyFiles.map(([targetPath]) => targetPath), legacyClaude)
-    await expectExisting(v2Database, v2ClaudeSettings)
+    await expectMissing(...legacyFiles.map(([targetPath]) => targetPath))
+    await expectExisting(v2Database)
   })
 
   it('removes only schema-validated legacy knowledge databases and preserves Memory data', async () => {

@@ -893,7 +893,7 @@ const omlxFetcher: ModelFetcher = {
           // dialect. Derive the first entry from the provider's declaration so
           // discovery inherits it — including a user who changes the default.
           //
-          // The Anthropic endpoint stays declared for the Claude Agent SDK, which
+          // The Anthropic endpoint stays declared for external CLI gateways, which
           // speaks only Messages and asks for it explicitly.
           //
           // MarkItDown is the exception: the server special-cases that virtual

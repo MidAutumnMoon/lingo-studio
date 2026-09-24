@@ -184,8 +184,8 @@ describe('trashPurgeJobHandler', () => {
 
     // --- agents + sessions + session messages ---
     await dbh.db.insert(agentTable).values([
-      { id: 'agent-live', type: 'claude-code', name: 'live', instructions: 'i', orderKey: 'a0' },
-      { id: 'agent-expired', type: 'claude-code', name: 'expired', instructions: 'i', orderKey: 'a1', deletedAt: OLD }
+      { id: 'agent-live', type: 'pi', name: 'live', instructions: 'i', orderKey: 'a0' },
+      { id: 'agent-expired', type: 'pi', name: 'expired', instructions: 'i', orderKey: 'a1', deletedAt: OLD }
     ])
     await dbh.db.insert(agentWorkspaceTable).values([
       { id: 'ws-expired', name: 'ws-expired', path: '/tmp/trash-purge-test/ws-expired', orderKey: 'a0' },
@@ -457,7 +457,7 @@ describe('trashPurgeJobHandler', () => {
   it('publishes session and channel projections detached by an Agent retention batch', async () => {
     await dbh.db.insert(agentTable).values({
       id: 'agent-impact-expired',
-      type: 'claude-code',
+      type: 'pi',
       name: 'expired',
       instructions: 'i',
       orderKey: 'a0',

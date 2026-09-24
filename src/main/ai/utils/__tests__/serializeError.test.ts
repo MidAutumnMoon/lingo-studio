@@ -119,14 +119,6 @@ describe('serializeError', () => {
       expect(serializeError(error).i18nKey).toBe('tool_call_limit_reached')
     })
 
-    it('does not forward an unknown Claude Code exit category', () => {
-      const error = Object.assign(new Error('Claude Code process exited'), {
-        claudeCodeExitCategory: 'future-category'
-      })
-
-      expect(serializeError(error).claudeCodeExitCategory).toBeUndefined()
-    })
-
     it('preserves only safe details from a direct APICallError', () => {
       const providerError = new APICallError({
         message: 'Forbidden',

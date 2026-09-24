@@ -25,12 +25,6 @@ export const entries: SettingsSearchEntry[] = [
     titleKey: 'settings.models.list_title'
   },
   {
-    anchorId: 'auth-claude-code',
-    titleKey: 'provider.claude-code',
-    providerId: 'claude-code',
-    aliases: ['claude code', 'cli', 'oauth', '登录']
-  },
-  {
     anchorId: 'auth-openai-codex',
     titleKey: 'provider.openai-codex',
     descriptionKey: 'settings.provider.codex.description',

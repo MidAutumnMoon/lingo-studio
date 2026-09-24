@@ -35,10 +35,9 @@ import { ProviderSettingsPage, useProviderModelSync } from '@renderer/pages/sett
 import { oauthWithCherryIn } from '@renderer/services/oauth'
 import { toast } from '@renderer/services/toast'
 import { getAppEdition } from '@renderer/utils/appEdition'
-import { isProtectedBuiltinAgentRole } from '@shared/ai/builtinAgent'
 import type { OnboardingProviderSetupStatus } from '@shared/data/preference/preferenceTypes'
 import { CHERRYAI_DEFAULT_UNIQUE_MODEL_ID, isManagedCherryProviderId } from '@shared/data/presets/cherryai'
-import type { Model, UniqueModelId } from '@shared/data/types/model'
+import type { Model } from '@shared/data/types/model'
 import type { CherryCloudStatus } from '@shared/ipc/schemas/cherryCloud'
 import { LATEST_PRIVACY_POLICY_VERSION } from '@shared/utils/constants'
 import { defaultLanguage } from '@shared/utils/languages'
@@ -137,41 +136,18 @@ export default function OnboardingPage({
       : defaultLanguage
   const displayLanguageLabel = appLanguageOptions.find((option) => option.value === displayLanguage)?.label
 
-  const updateSeededAgentModels = useCallback(async (modelId: UniqueModelId) => {
-    const limit = 500
-    let page = 1
-    let total = 0
+  const updateSeededResourceModels = useCallback(async (model: Model) => {
+    const assistantUpdate = dataApiService
+      .get('/assistants', { query: { limit: 2 } })
+      .then(async ({ items, total }) => {
+        const assistant = total === 1 ? items[0] : undefined
+        if (assistant?.modelId === CHERRYAI_DEFAULT_UNIQUE_MODEL_ID) {
+          await dataApiService.patch(`/assistants/${assistant.id}`, { body: { modelId: model.id } })
+        }
+      })
 
-    do {
-      const response = await dataApiService.get('/agents', { query: { limit, page } })
-      const officialAgents = response.items.filter(
-        (agent) =>
-          isProtectedBuiltinAgentRole(agent.configuration?.builtin_role) &&
-          (agent.model === null || agent.model === CHERRYAI_DEFAULT_UNIQUE_MODEL_ID)
-      )
-      await Promise.all(
-        officialAgents.map((agent) => dataApiService.patch(`/agents/${agent.id}`, { body: { model: modelId } }))
-      )
-      total = response.total
-      page += 1
-    } while ((page - 1) * limit < total)
+    await assistantUpdate
   }, [])
-
-  const updateSeededResourceModels = useCallback(
-    async (model: Model) => {
-      const assistantUpdate = dataApiService
-        .get('/assistants', { query: { limit: 2 } })
-        .then(async ({ items, total }) => {
-          const assistant = total === 1 ? items[0] : undefined
-          if (assistant?.modelId === CHERRYAI_DEFAULT_UNIQUE_MODEL_ID) {
-            await dataApiService.patch(`/assistants/${assistant.id}`, { body: { modelId: model.id } })
-          }
-        })
-
-      await Promise.all([assistantUpdate, updateSeededAgentModels(model.id)])
-    },
-    [updateSeededAgentModels]
-  )
 
   const handleLanguageChange = (value: string) => {
     if (!isAppLanguage(value)) return
@@ -252,13 +228,11 @@ export default function OnboardingPage({
     [defaultModel, persistPrivacyChoice, t, updateOnboardingPreferences, updateSeededResourceModels]
   )
 
-  const completeWithCloudAgentModel = useCallback(
-    async (modelId: UniqueModelId, expectedStatus: CherryCloudStatus) => {
+  const completeWithCloudModel = useCallback(
+    async (expectedStatus: CherryCloudStatus) => {
       setIsCompleting(true)
       try {
         if (!(await persistPrivacyChoice()) || expectedStatus !== cloudStatusRef.current) return
-        await updateSeededAgentModels(modelId)
-        if (expectedStatus !== cloudStatusRef.current) return
         await updateOnboardingPreferences({ providerSetupStatus: 'skipped' })
       } catch {
         if (expectedStatus === cloudStatusRef.current) {
@@ -268,7 +242,7 @@ export default function OnboardingPage({
         setIsCompleting(false)
       }
     },
-    [persistPrivacyChoice, t, updateOnboardingPreferences, updateSeededAgentModels]
+    [persistPrivacyChoice, t, updateOnboardingPreferences]
   )
 
   const openProviderSetupAfterCloudModelUnavailable = () => {
@@ -292,9 +266,9 @@ export default function OnboardingPage({
         if (expectedStatus !== cloudStatusRef.current) return
 
         const exhaustedModelIds = new Set(quotaExhaustedModelIds)
-        const agentModelId = entitledModelIds.find((modelId) => !exhaustedModelIds.has(modelId))
-        if (agentModelId) {
-          void completeWithCloudAgentModel(agentModelId, expectedStatus)
+        const usableModelId = entitledModelIds.find((modelId) => !exhaustedModelIds.has(modelId))
+        if (usableModelId) {
+          void completeWithCloudModel(expectedStatus)
         } else {
           setShowNoCloudModelsDialog(true)
         }
@@ -307,7 +281,7 @@ export default function OnboardingPage({
   }, [
     canContinueProviderSetup,
     cloudStatus,
-    completeWithCloudAgentModel,
+    completeWithCloudModel,
     isProviderSetupLoading,
     shouldUseCherryAccountLogin
   ])

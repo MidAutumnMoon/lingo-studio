@@ -202,20 +202,20 @@ describe('api gateway model listing', () => {
     expect(response.data.map((model) => model.id)).toEqual(['openai:gpt-4o'])
   })
 
-  // Reviewer A1: an external-cli provider (e.g. claude-code) authenticates via its own CLI login,
+  // Reviewer A1: an external-cli provider authenticates via its own CLI login,
   // not an app-side key, so the proxy's AI-SDK path cannot call it. Its chat models pass the routable
   // predicate but must never be advertised, or a client that picks them from /v1/models fails auth.
   it('does not expose models of an external-cli provider (authMethods: ["external-cli"])', async () => {
     mocks.listProviders.mockReturnValue([
-      { id: 'claude-code', name: 'Claude Code', authMethods: ['external-cli'] },
+      { id: 'cli-login', name: 'CLI Login', authMethods: ['external-cli'] },
       { id: 'openai', name: 'OpenAI' }
     ])
     mocks.listModels.mockImplementation(({ providerId }: { providerId: string }) => {
-      if (providerId === 'claude-code') {
+      if (providerId === 'cli-login') {
         return [
           {
-            id: 'claude-code::sonnet',
-            providerId: 'claude-code',
+            id: 'cli-login::claude-sonnet',
+            providerId: 'cli-login',
             apiModelId: 'sonnet',
             ownedBy: 'Anthropic',
             capabilities: []

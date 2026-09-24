@@ -203,7 +203,7 @@ jobs:
             --prefix-colors "blue,yellow,cyan,green" \
             "pnpm test:lint" \
             "pnpm typecheck --max-processes 1 && pnpm i18n:hardcoded:strict" \
-            "pnpm format:check && pnpm build:builtin-knowledge:check && pnpm skills:check" \
+            "pnpm format:check && pnpm skills:check" \
             "pnpm docs:check"
 
       - name: DB Migrations Check

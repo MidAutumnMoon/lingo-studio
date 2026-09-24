@@ -188,7 +188,7 @@ describe('ResourceCreateWizard', () => {
     expect(onSubmit).toHaveBeenCalledWith({
       avatar: '💬',
       name: 'My Resource',
-      agentType: 'claude-code',
+      agentType: 'pi',
       permissionMode: 'auto',
       modelId: 'provider::default',
       description: '',
@@ -275,7 +275,7 @@ describe('ResourceCreateWizard', () => {
     expect(onSubmit).toHaveBeenCalledWith({
       avatar: '💬',
       name: 'My Resource',
-      agentType: 'claude-code',
+      agentType: 'pi',
       permissionMode: 'auto',
       modelId: 'provider::model',
       description: '',
@@ -379,22 +379,27 @@ describe('ResourceCreateWizard', () => {
     expect(await screen.findByTestId('model-id')).toHaveTextContent('empty')
   })
 
-  it.each(['pi', 'dsh'] as const)(
-    'reselects a compatible default model after switching an agent to the %s runtime',
+  it.each(['dsh', 'pi'] as const)(
+    'reselects a compatible default model after a runtime switch away and back to %s',
     async (agentType) => {
       const user = userEvent.setup()
       modelHook.defaultModel = makeModel()
       modelHook.defaultProvider = { id: 'provider', name: 'Provider', isEnabled: true } as Provider
-      modelHook.agentModelFilter.mockImplementation(
-        (agentType, _model, provider) => agentType === 'claude-code' || Boolean(provider)
-      )
+      modelHook.agentModelFilter.mockImplementation((_agentType, _model, provider) => Boolean(provider))
 
       render(<ResourceCreateWizard kind="agent" open onOpenChange={vi.fn()} onSubmit={vi.fn()} />)
 
       expect(await screen.findByTestId('model-id')).toHaveTextContent('provider::default')
-      await user.click(screen.getByRole('button', { name: `switch to ${agentType}` }))
+      // The wizard defaults to pi, so leave it first to make the switch back a real change.
+      await user.click(screen.getByRole('button', { name: 'switch to dsh' }))
 
       await waitFor(() => expect(screen.getByTestId('model-id')).toHaveTextContent('provider::default'))
+
+      if (agentType === 'pi') {
+        await user.click(screen.getByRole('button', { name: 'switch to pi' }))
+
+        await waitFor(() => expect(screen.getByTestId('model-id')).toHaveTextContent('provider::default'))
+      }
     }
   )
 })

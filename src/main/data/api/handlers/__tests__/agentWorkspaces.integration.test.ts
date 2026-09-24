@@ -26,7 +26,7 @@ describe('agentWorkspaceHandlers integration', () => {
     ;(application.get('DbService').withWriteTx as Mock).mockImplementation((fn) => dbh.db.transaction(fn as never))
     await dbh.db.insert(agentTable).values({
       id: agentId,
-      type: 'claude-code',
+      type: 'pi',
       name: 'Workspace Handler Agent',
       instructions: 'Test instructions',
       model: null,

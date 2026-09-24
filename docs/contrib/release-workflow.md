@@ -70,14 +70,13 @@ An administrator must create the `release` Environment before this flow is enabl
    - An exact version such as `2.1.0`, `2.1.0-rc.1`, or `2.1.0-beta.1`.
 4. Run the workflow and wait for it to finish.
 
-The workflow freezes the selected `main` commit as the release source and verifies that it records the latest published version. If that published baseline is `v<baseline-version>`, its release-note collection base is that tag when it is an ancestor; otherwise it requires the latest commit whose full message contains the exact line `release-metadata-boundary: v<baseline-version>`. This marker always names the last published version already represented on `main`, not the requested target version. Only metadata sync commits created before that marker existed may use the legacy exact subject `chore(release): sync v<baseline-version> metadata`, optionally followed by GitHub's ` (#<number>)` squash suffix. The requested version must be strictly greater than that baseline. It then collects release notes, extracts only the three source metadata changes from the temporary preparation workspace, restores the frozen source SHA, validates the intended version, bilingual sections, and stable history, and regenerates the product manifest itself without a write token. A fresh job copies only those metadata files from the workflow artifact and creates `release/v<version>` from the frozen source commit through the GitHub API. A later `main` change does not alter or invalidate that release source. Neither the target branch nor a GitHub Release for the target tag may already exist, and the commit must be both Verified and DCO-signed off.
+The workflow freezes the selected `main` commit as the release source and verifies that it records the latest published version. If that published baseline is `v<baseline-version>`, its release-note collection base is that tag when it is an ancestor; otherwise it requires the latest commit whose full message contains the exact line `release-metadata-boundary: v<baseline-version>`. This marker always names the last published version already represented on `main`, not the requested target version. Only metadata sync commits created before that marker existed may use the legacy exact subject `chore(release): sync v<baseline-version> metadata`, optionally followed by GitHub's ` (#<number>)` squash suffix. The requested version must be strictly greater than that baseline. It then collects release notes, extracts only the two source metadata changes from the temporary preparation workspace, restores the frozen source SHA, and validates the intended version, bilingual sections, and stable history without a write token. A fresh job copies only those metadata files from the workflow artifact and creates `release/v<version>` from the frozen source commit through the GitHub API. A later `main` change does not alter or invalidate that release source. Neither the target branch nor a GitHub Release for the target tag may already exist, and the commit must be both Verified and DCO-signed off.
 
 Release preparation may change only these files:
 
 - `package.json`
 - `electron-builder.yml`
 - `resources/cherry-studio/release-history.json`
-- `resources/builtin-agents/cherry-assistant/product-manifest.json`
 
 Stable releases update release history. Prereleases leave `release-history.json` unchanged.
 
@@ -221,7 +220,6 @@ The pull request may contain only:
 - `package.json`
 - `electron-builder.yml`
 - `resources/cherry-studio/release-history.json`
-- `resources/builtin-agents/cherry-assistant/product-manifest.json`
 
 To finish the release:
 

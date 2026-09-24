@@ -216,28 +216,6 @@ describe('toolResponse adapter', () => {
     expect(response?.tool.name).toBe('read')
   })
 
-  it('keeps real Claude Code dynamic tool calls on the provider renderer path', () => {
-    const part = {
-      type: 'dynamic-tool',
-      toolName: 'CustomTool',
-      toolCallId: 'call-4',
-      state: 'approval-requested',
-      input: { command: 'pnpm test' },
-      approval: { id: 'approval-4' },
-      callProviderMetadata: {
-        'claude-code': {
-          rawInput: { command: 'pnpm test' },
-          parentToolCallId: null
-        }
-      }
-    } as unknown as CherryMessagePart
-
-    const response = buildToolResponseFromPart(part)
-    expect(response?.status).toBe('pending')
-    expect(response?.tool.type).toBe('provider')
-    expect(response?.tool.name).toBe('CustomTool')
-  })
-
   it('projects a persisted denial and its reason into cancelled tool history', () => {
     const part = {
       type: 'dynamic-tool',
@@ -370,7 +348,7 @@ describe('toolResponse adapter', () => {
     expect(response?.tool.name).toBe('WebSearch')
   })
 
-  it('parses Claude Code MCP tool ids as MCP tools without display metadata', () => {
+  it('parses UUID-server MCP tool ids as MCP tools without display metadata', () => {
     const part = {
       type: 'dynamic-tool',
       toolName: 'mcp__8171b5f3-c666-4ead-b2ab-bb9ac244af57__resolve-library-id',
@@ -379,7 +357,7 @@ describe('toolResponse adapter', () => {
       input: { libraryName: 'React' },
       approval: { id: 'approval-mcp' },
       callProviderMetadata: {
-        'claude-code': {
+        anthropic: {
           parentToolCallId: null
         }
       }
@@ -423,25 +401,6 @@ describe('toolResponse adapter', () => {
     expect((response.tool as any).description).toBe('Search desktop docs')
     expect((response.tool as any).serverId).toBe('search-server')
     expect((response.tool as any).serverName).toBe('Search')
-  })
-
-  it('extracts parent tool id from Claude Code provider metadata', () => {
-    const part = {
-      type: 'dynamic-tool',
-      toolName: 'Read',
-      toolCallId: 'child-call',
-      state: 'output-available',
-      input: { file_path: '/tmp/a.ts' },
-      output: 'ok',
-      callProviderMetadata: {
-        'claude-code': {
-          parentToolCallId: 'parent-call'
-        }
-      }
-    } as unknown as CherryMessagePart
-
-    const response = buildToolResponseFromPart(part)
-    expect(response?.parentToolUseId).toBe('parent-call')
   })
 
   it('extracts parent tool id from the runtime-neutral cherry metadata (dsh subagents)', () => {

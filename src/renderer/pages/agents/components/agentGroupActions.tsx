@@ -15,7 +15,6 @@ import type { AssistantIconType } from '@shared/data/preference/preferenceTypes'
 export interface AgentGroupActionContext {
   agentId: string
   assistantIconType: AssistantIconType
-  deleteSessionsOnly?: boolean
   deleteAgentDisabled?: boolean
   onEdit: (agentId: string) => void
   onDeleteAgent: (agentId: string) => void | Promise<void>
@@ -108,8 +107,7 @@ agentGroupActionRegistry.registerAction(
   buildResourceEntityMenuActionDescriptor({
     id: 'agent-group.archive-agent',
     commandId: 'agent-group.archive-agent',
-    label: ({ deleteSessionsOnly, t }) =>
-      t(deleteSessionsOnly ? 'agent.session.agent.delete.trigger' : 'common.archive'),
+    label: ({ t }) => t('common.archive'),
     icon: () => <Archive size={14} />,
     group: 'danger',
     order: 40

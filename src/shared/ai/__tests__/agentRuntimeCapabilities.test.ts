@@ -45,22 +45,18 @@ describe('AGENT_RUNTIME_CAPABILITIES', () => {
   })
 
   it('keeps permission choices aligned with each runtime approval implementation', () => {
-    expect(AGENT_RUNTIME_CAPABILITIES['claude-code'].permissionModes).toContain('plan')
-    expect(AGENT_RUNTIME_CAPABILITIES['claude-code'].permissionModes).toContain('auto')
     expect(AGENT_RUNTIME_CAPABILITIES.pi.permissionModes).not.toContain('plan')
     // pi implements `auto` itself in the approval extension, so it offers it.
     expect(AGENT_RUNTIME_CAPABILITIES.pi.permissionModes).toContain('auto')
     // dsh plan mode is enforced by the bridge policy (its own plan mode is guidance-only).
     expect(AGENT_RUNTIME_CAPABILITIES.dsh.permissionModes).toContain('plan')
     expect(AGENT_RUNTIME_CAPABILITIES.dsh.permissionModes).not.toContain('auto')
-    expect(AGENT_RUNTIME_CAPABILITIES['claude-code'].createDefaults.permissionMode).toBe('auto')
     expect(AGENT_RUNTIME_CAPABILITIES.pi.createDefaults.permissionMode).toBe('auto')
     expect(AGENT_RUNTIME_CAPABILITIES.dsh.createDefaults.permissionMode).toBe('acceptEdits')
   })
 
   describe('isModelCompatible — managed CherryAI default model', () => {
     const piIsCompatible = AGENT_RUNTIME_CAPABILITIES.pi.isModelCompatible
-    const claudeIsCompatible = AGENT_RUNTIME_CAPABILITIES['claude-code'].isModelCompatible
 
     // A CherryAI provider whose endpoint pi can drive, hosting the managed free-quota default model.
     const cherryProvider = makeProvider({ id: CHERRYAI_PROVIDER_ID })
@@ -76,11 +72,6 @@ describe('AGENT_RUNTIME_CAPABILITIES', () => {
     it('pi still accepts a normal pi-compatible model', () => {
       const provider = makeProvider({})
       expect(piIsCompatible(provider, makeModel({}))).toBe(true)
-    })
-
-    it('claude behavior is unchanged: it also bars the managed default and accepts a normal model', () => {
-      expect(claudeIsCompatible(cherryProvider, managedDefaultModel)).toBe(false)
-      expect(claudeIsCompatible(makeProvider({}), makeModel({}))).toBe(true)
     })
 
     it('dsh rejects the managed CherryAI default model and accepts a normal compatible model', () => {
@@ -101,7 +92,6 @@ describe('AGENT_RUNTIME_CAPABILITIES', () => {
       maxOutputTokens: 8_192
     })
 
-    expect(AGENT_RUNTIME_CAPABILITIES['claude-code'].isModelCompatible(provider, cloudModel)).toBe(true)
     expect(AGENT_RUNTIME_CAPABILITIES.pi.isModelCompatible(provider, cloudModel)).toBe(true)
     expect(AGENT_RUNTIME_CAPABILITIES.dsh.isModelCompatible(provider, cloudModel)).toBe(true)
   })

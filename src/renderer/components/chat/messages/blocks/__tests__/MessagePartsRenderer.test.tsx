@@ -1490,12 +1490,12 @@ describe('MessagePartsRenderer', () => {
         toolPart('parent', 'output-available', 'Agent'),
         {
           ...toolPart('child', 'output-available', 'Read'),
-          callProviderMetadata: { 'claude-code': { parentToolCallId: 'parent' } }
+          callProviderMetadata: { cherry: { parentToolCallId: 'parent' } }
         },
         {
           type: 'text',
           text: 'child text',
-          providerMetadata: { 'claude-code': { parentToolCallId: 'parent' } }
+          providerMetadata: { cherry: { parentToolCallId: 'parent' } }
         }
       ] as unknown as CherryMessagePart[])
 
@@ -2188,28 +2188,6 @@ describe('MessagePartsRenderer', () => {
           .getAllByTestId('mock-message-tools')
           .filter((node) => node.getAttribute('data-tool-name') === 'mcp__cherry-tools__config')
       ).toHaveLength(1)
-    })
-
-    it('keeps a prepared diagnostic report action outside collapsed process history', () => {
-      renderParts([
-        toolPart('read'),
-        {
-          type: 'dynamic-tool',
-          toolCallId: 'prepare-report',
-          toolName: 'mcp__assistant__prepare_diagnostic_report',
-          state: 'output-available',
-          output: {
-            content: [{ type: 'text', text: 'Diagnostic report draft prepared.' }],
-            structuredContent: { ok: true, description: 'Editable diagnostic report draft' },
-            metadata: { type: 'mcp', serverId: 'assistant', serverName: 'assistant' }
-          }
-        }
-      ] as unknown as CherryMessagePart[])
-
-      expect(screen.getByTestId('completed-process-trigger')).toHaveAttribute('aria-expanded', 'false')
-      const visibleDiagnosticAction = screen.getByTestId('mock-message-tools')
-      expect(visibleDiagnosticAction).toHaveAttribute('data-tool-name', 'mcp__assistant__prepare_diagnostic_report')
-      expect(visibleDiagnosticAction.closest('[data-testid="tool-history-content"]')).toBeNull()
     })
 
     it('does not show an empty completed process group for a non-renderable provider tool', () => {

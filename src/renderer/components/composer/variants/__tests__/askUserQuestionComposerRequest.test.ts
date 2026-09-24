@@ -24,7 +24,7 @@ function makePart(overrides: Partial<Record<string, unknown>> = {}): CherryMessa
     input,
     approval: { id: 'approval-1' },
     providerExecuted: true,
-    callProviderMetadata: { 'claude-code': { parentToolCallId: null } },
+    callProviderMetadata: { anthropic: { parentToolCallId: null } },
     ...overrides
   } as unknown as CherryMessagePart
 }

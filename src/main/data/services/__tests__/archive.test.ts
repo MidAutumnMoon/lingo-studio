@@ -36,7 +36,7 @@ function seedArchive() {
     .run()
   dbh.db
     .insert(agentTable)
-    .values({ id: 'same', name: 'Agent', type: 'claude-code', instructions: '', orderKey: 'a0', deletedAt: 400 })
+    .values({ id: 'same', name: 'Agent', type: 'pi', instructions: '', orderKey: 'a0', deletedAt: 400 })
     .run()
   dbh.db
     .insert(agentWorkspaceTable)

@@ -8,7 +8,6 @@ import { type CommandContextMenuExtraItem, CommandPopupMenu } from '@renderer/co
 import { useAssistantMutationsById } from '@renderer/hooks/resourceCatalog'
 import { toast } from '@renderer/services/toast'
 import type { ResourceItem } from '@renderer/types/resourceCatalog'
-import { isProtectedBuiltinAgentRole } from '@shared/ai/builtinAgent'
 import type { Group } from '@shared/data/types/group'
 
 const logger = loggerService.withContext('ResourceCardMenu')
@@ -155,13 +154,11 @@ function useResourceCardMenuItems({
     }
 
     const isOwner = resource.type === 'assistant' || resource.type === 'agent'
-    const protectedAgent =
-      resource.type === 'agent' && isProtectedBuiltinAgentRole(resource.raw.configuration?.builtin_role)
     if (isOwner)
       items.push({
         type: 'item',
         id: 'archive',
-        label: t(protectedAgent ? 'agent.session.agent.delete.trigger' : 'common.archive'),
+        label: t('common.archive'),
         icon: <Archive size={14} />,
         onSelect: () => {
           onDelete(resource)

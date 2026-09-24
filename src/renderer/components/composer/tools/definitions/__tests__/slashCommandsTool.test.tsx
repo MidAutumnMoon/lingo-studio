@@ -20,7 +20,7 @@ describe('slashCommandsTool', () => {
 
     const launchers = slashCommandsTool.composer?.menuItems?.createItems({
       actions: { onTextChange: vi.fn() },
-      session: { agentType: 'claude-code' },
+      session: { agentType: 'pi' },
       t: (key: string, fallback?: string) => fallback || key
     } as any)
 
@@ -50,7 +50,7 @@ describe('slashCommandsTool', () => {
 
     const launchers = slashCommandsTool.composer?.menuItems?.createItems({
       actions: { onTextChange: vi.fn() },
-      session: { agentType: 'claude-code' },
+      session: { agentType: 'pi' },
       t
     } as any)
 
@@ -61,39 +61,16 @@ describe('slashCommandsTool', () => {
     expect(t).toHaveBeenCalledWith('chat.input.slash_commands.commands.clear', 'Clear conversation history')
   })
 
-  it('prefers the live session slash commands over the builtin fallback', () => {
+  it('renders the builtin list for the session runtime', () => {
     mockGetBuiltinSlashCommands.mockReturnValue([{ command: '/clear', description: 'builtin clear' }])
 
     const launchers = slashCommandsTool.composer?.menuItems?.createItems({
       actions: { onTextChange: vi.fn() },
-      session: {
-        agentType: 'claude-code',
-        slashCommands: [
-          { command: '/deploy', description: 'Deploy the app' },
-          { command: '/review', description: 'Review the diff' }
-        ]
-      },
+      session: { agentType: 'pi' },
       t: (key: string, fallback?: string) => fallback || key
     } as any)
 
-    // Live catalog wins — the builtin fallback is never consulted.
-    expect(mockGetBuiltinSlashCommands).not.toHaveBeenCalled()
-    expect(launchers).toEqual([
-      expect.objectContaining({ id: 'slash-command:/deploy', label: '/deploy', description: 'Deploy the app' }),
-      expect.objectContaining({ id: 'slash-command:/review', label: '/review', description: 'Review the diff' })
-    ])
-  })
-
-  it('falls back to the builtin list when the live session catalog is empty', () => {
-    mockGetBuiltinSlashCommands.mockReturnValue([{ command: '/clear', description: 'builtin clear' }])
-
-    const launchers = slashCommandsTool.composer?.menuItems?.createItems({
-      actions: { onTextChange: vi.fn() },
-      session: { agentType: 'claude-code', slashCommands: [] },
-      t: (key: string, fallback?: string) => fallback || key
-    } as any)
-
-    expect(mockGetBuiltinSlashCommands).toHaveBeenCalledWith('claude-code')
+    expect(mockGetBuiltinSlashCommands).toHaveBeenCalledWith('pi')
     expect(launchers).toEqual([expect.objectContaining({ id: 'slash-command:/clear', label: '/clear' })])
   })
 
@@ -103,7 +80,7 @@ describe('slashCommandsTool', () => {
 
     const launchers = slashCommandsTool.composer?.menuItems?.createItems({
       actions: { onTextChange: vi.fn() },
-      session: { agentType: 'claude-code' },
+      session: { agentType: 'pi' },
       t
     } as any)
 

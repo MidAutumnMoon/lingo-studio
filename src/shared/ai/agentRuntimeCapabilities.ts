@@ -9,7 +9,6 @@ import type { AgentType } from '@shared/data/types/agent'
 import type { Model } from '@shared/data/types/model'
 import { parseUniqueModelId } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
-import { isGatewayRoutableModel } from '@shared/utils/model'
 
 import type { SlashCommand } from './slashCommands'
 
@@ -25,10 +24,6 @@ export interface AgentRuntimeCapabilities {
   knowledgeBases: boolean
   mcp: boolean
   skills: boolean
-  /** Runtime's built-in tools are surfaced in the agent-tools access list (`useAgentTools`) through
-   *  the Claude tool-registry pipeline. claude-only today — pi's built-ins come from `builtinTools`
-   *  and are not access-controlled ClaudeToolDescriptors, so pi sets this false. */
-  claudeRegistryTools: boolean
   slashCommands: readonly SlashCommand[]
   createDefaults: { permissionMode: AgentPermissionMode }
   /** Extra restriction on top of the base agent-friendly filter; null = none. `provider` is
@@ -55,16 +50,6 @@ const ALL_PERMISSION_MODES = [
   'bypassPermissions'
 ] as const satisfies readonly AgentPermissionMode[]
 
-// Fallback shown only until the runtime reports the session's real catalog via
-// `query.supportedCommands()`. Keep it to current Claude Code built-ins (see
-// https://code.claude.com/docs/en/commands).
-const CLAUDE_CODE_BUILTIN_COMMANDS = [
-  { command: '/clear', description: 'Start a new conversation with empty context' },
-  { command: '/compact', description: 'Free up context by summarizing the conversation so far' },
-  { command: '/context', description: 'Visualize current context usage as a colored grid' },
-  { command: '/usage', description: 'Show session cost, plan usage limits, and activity stats' }
-] as const satisfies readonly SlashCommand[]
-
 const PI_BUILTIN_COMMANDS = [
   { command: '/compact', description: 'Compact conversation with optional focus instructions' }
 ] as const satisfies readonly SlashCommand[]
@@ -89,32 +74,6 @@ const dshCherryTools = () =>
     }))
 
 export const AGENT_RUNTIME_CAPABILITIES = {
-  'claude-code': {
-    labelKey: 'library.config.agent.field.runtime.option.claude_code',
-    labelFallback: 'Claude Agent',
-    permissionModes: ALL_PERMISSION_MODES,
-    modelTiers: true,
-    heartbeat: true,
-    knowledgeBases: true,
-    mcp: true,
-    skills: true,
-    claudeRegistryTools: true,
-    slashCommands: CLAUDE_CODE_BUILTIN_COMMANDS,
-    createDefaults: { permissionMode: 'auto' },
-    // Claude Code reaches non-native providers through the local API Gateway, so its picker must use
-    // the same routability rule as the gateway model catalog.
-    isModelCompatible: (_provider, model) => isGatewayRoutableModel(model),
-    transport: 'claude-agent',
-    builtinTools: () =>
-      claudeUserFacingTools().map((tool) => ({
-        id: tool.name,
-        labelKey: `agent.tools.builtin.${tool.key}.label`,
-        descriptionKey: `agent.tools.builtin.${tool.key}.description`,
-        labelFallback: tool.label,
-        descriptionFallback: tool.description,
-        category: tool.category
-      }))
-  },
   pi: {
     labelKey: 'library.config.agent.field.runtime.option.pi',
     labelFallback: 'Pi',
@@ -127,7 +86,6 @@ export const AGENT_RUNTIME_CAPABILITIES = {
     // The complete session MCP set is bridged into approval-gated Pi custom tools.
     mcp: true,
     skills: true,
-    claudeRegistryTools: false,
     slashCommands: PI_BUILTIN_COMMANDS,
     createDefaults: { permissionMode: 'auto' },
     // Orphan models are rejected (pre-descriptor behavior): pi needs the provider's endpoint
@@ -159,7 +117,6 @@ export const AGENT_RUNTIME_CAPABILITIES = {
     mcp: true,
     // Enabled Cherry-managed skills mount as the composition's only skill roots (customSkillDirs).
     skills: true,
-    claudeRegistryTools: false,
     slashCommands: DSH_BUILTIN_COMMANDS,
     createDefaults: { permissionMode: 'acceptEdits' },
     // Orphan models are rejected: dsh needs the provider's endpoint config to resolve a wire

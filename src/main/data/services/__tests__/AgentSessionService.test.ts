@@ -47,7 +47,7 @@ describe('AgentSessionService', () => {
     notifyDataApiDataChangeMock.mockClear()
     await dbh.db.insert(agentTable).values({
       id: 'agent-session-test',
-      type: 'claude-code',
+      type: 'pi',
       name: 'Session Test Agent',
       instructions: 'Test instructions',
       model: null,
@@ -165,7 +165,7 @@ describe('AgentSessionService', () => {
     const workspace = await createWorkspace('search-agent-filter')
     await dbh.db.insert(agentTable).values({
       id: 'agent-search-target',
-      type: 'claude-code',
+      type: 'pi',
       name: 'Search Target',
       instructions: '',
       model: null,
@@ -258,7 +258,7 @@ describe('AgentSessionService', () => {
     const workspace = await createWorkspace('trashed-owner-visibility')
     await dbh.db.insert(agentTable).values({
       id: 'agent-trashed-owner',
-      type: 'claude-code',
+      type: 'pi',
       name: 'Trashed Owner',
       instructions: '',
       orderKey: 'trashed-owner',
@@ -317,7 +317,7 @@ describe('AgentSessionService', () => {
     const workspace = await createWorkspace('addressable')
     await dbh.db.insert(agentTable).values({
       id: 'agent-deleted',
-      type: 'claude-code',
+      type: 'pi',
       name: 'Deleted Agent',
       instructions: '',
       orderKey: 'deleted',
@@ -401,7 +401,7 @@ describe('AgentSessionService', () => {
       await dbh.db.insert(agentTable).values([
         {
           id: 'agent-other-scope',
-          type: 'claude-code',
+          type: 'pi',
           name: 'Other Agent',
           instructions: 'Other instructions',
           model: null,
@@ -409,7 +409,7 @@ describe('AgentSessionService', () => {
         },
         {
           id: 'agent-deleted-scope',
-          type: 'claude-code',
+          type: 'pi',
           name: 'Deleted Agent',
           instructions: 'Deleted instructions',
           model: null,
@@ -1224,7 +1224,7 @@ describe('AgentSessionService', () => {
   it('clears the task relation atomically when a session is reassigned', async () => {
     await dbh.db.insert(agentTable).values({
       id: 'agent-session-reassigned',
-      type: 'claude-code',
+      type: 'pi',
       name: 'Reassigned Agent',
       instructions: '',
       orderKey: 'z0'
@@ -1248,7 +1248,7 @@ describe('AgentSessionService', () => {
   it('does not clear a task relation when updating a trashed session fails', async () => {
     await dbh.db.insert(agentTable).values({
       id: 'agent-session-reassigned',
-      type: 'claude-code',
+      type: 'pi',
       name: 'Reassigned Agent',
       instructions: '',
       orderKey: 'z0'
@@ -1274,7 +1274,7 @@ describe('AgentSessionService', () => {
   it('rejects reassignment to a trashed agent', async () => {
     await dbh.db.insert(agentTable).values({
       id: 'agent-session-trashed-target',
-      type: 'claude-code',
+      type: 'pi',
       name: 'Trashed target',
       instructions: '',
       orderKey: 'z0',
@@ -1482,7 +1482,7 @@ describe('AgentSessionService', () => {
   it('deletes sessions for one agent without deleting the agent', async () => {
     await dbh.db.insert(agentTable).values({
       id: 'other-agent',
-      type: 'claude-code',
+      type: 'pi',
       name: 'Other Agent',
       instructions: 'Test instructions',
       model: null,
@@ -1530,7 +1530,7 @@ describe('AgentSessionService', () => {
   it('throws not found when deleting sessions for a soft-deleted agent', async () => {
     await dbh.db.insert(agentTable).values({
       id: 'soft-deleted-agent',
-      type: 'claude-code',
+      type: 'pi',
       name: 'Soft Deleted Agent',
       instructions: 'Test instructions',
       model: null,

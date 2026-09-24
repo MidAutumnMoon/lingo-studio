@@ -7,7 +7,6 @@ import type * as ReactI18next from 'react-i18next'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as ChatPrimitives from '@renderer/components/chat/primitives'
-import { BUILTIN_AGENT_ROLE } from '@shared/ai/builtinAgent'
 
 import AgentChat from '../AgentChat'
 
@@ -760,47 +759,17 @@ describe('AgentChat artifact pane', () => {
     })
   })
 
-  it('opens Support diagnostic drafts only from inline result actions', async () => {
-    const user = userEvent.setup()
-    const supportBootstrap = createConversationBootstrap()
-    supportBootstrap.resources.agent = {
-      id: 'agent-1',
-      model: 'provider::model-1',
-      configuration: { builtin_role: BUILTIN_AGENT_ROLE.SUPPORT }
-    } as unknown as typeof supportBootstrap.resources.agent
-    supportBootstrap.resources.model = undefined
-
-    const view = renderAgentChat({ conversationBootstrap: supportBootstrap })
-
-    expect(screen.queryByRole('button', { name: 'Report a problem' })).not.toBeInTheDocument()
-    expect(showDoctorMock).not.toHaveBeenCalled()
-
-    await user.click(screen.getByRole('button', { name: 'Open inline diagnostic draft' }))
-    expect(showDoctorMock).toHaveBeenCalledWith({
-      initialPanel: 'report',
-      initialDescription: 'Inline draft from this message'
-    })
-
-    rerenderAgentChat(view.rerender)
-    expect(screen.queryByRole('button', { name: 'Open inline diagnostic draft' })).not.toBeInTheDocument()
-  })
-
-  it('preserves message subtree state while Support capability resolves', async () => {
+  it('preserves message subtree state while the agent capability resolves', async () => {
     const user = userEvent.setup()
     const loadingBootstrap = createConversationBootstrap()
     loadingBootstrap.resources.agent = undefined
     loadingBootstrap.resources.agentLoading = true
-    const supportBootstrap = createConversationBootstrap()
-    supportBootstrap.resources.agent = {
-      id: 'agent-1',
-      model: 'provider::model-1',
-      configuration: { builtin_role: BUILTIN_AGENT_ROLE.SUPPORT }
-    } as unknown as typeof supportBootstrap.resources.agent
+    const resolvedBootstrap = createConversationBootstrap()
 
     const view = renderAgentChat({ conversationBootstrap: loadingBootstrap })
     await user.type(screen.getByRole('textbox', { name: 'Message subtree state' }), 'keep local state')
 
-    rerenderAgentChat(view.rerender, { conversationBootstrap: supportBootstrap })
+    rerenderAgentChat(view.rerender, { conversationBootstrap: resolvedBootstrap })
 
     expect(screen.getByRole('textbox', { name: 'Message subtree state' })).toHaveValue('keep local state')
   })

@@ -42,7 +42,6 @@ vi.mock('react-i18next', () => ({
           'library.assistant_catalog.go_to_chat': '去对话',
           'library.create_menu.create': '新建助手',
           'library.skill_add.add': '添加技能',
-          'library.skill_add.create_with_agent': '通过 Agent 创建',
           'library.skill_add.local_import': '本地导入',
           'library.skill_add.online_search': '在线搜索',
           'library.skill_add.system_search': '系统搜索',
@@ -52,7 +51,6 @@ vi.mock('react-i18next', () => ({
           'library.type.skill': '技能',
           'settings.skills.globalToggle': '全局启用技能',
           'settings.skills.source.local': '本地',
-          'settings.skills.tryNow': '立即试用',
           'settings.skills.toggleFailed': '更新技能全局状态失败'
         }) satisfies Record<string, string>
       )[key] ?? key
@@ -658,17 +656,6 @@ describe('ResourceGrid skill add actions', () => {
 
     expect(screen.queryByRole('menuitem', { name: '系统搜索' })).not.toBeInTheDocument()
   })
-
-  it('offers Agent creation when the builtin creator is available', async () => {
-    const user = userEvent.setup()
-    const onCreateSkillWithAgent = vi.fn()
-
-    renderResourceGrid({ activeResourceType: 'skill', onCreateSkillWithAgent })
-    await user.click(screen.getByRole('button', { name: '添加技能' }))
-    await user.click(screen.getByRole('menuitem', { name: '通过 Agent 创建' }))
-
-    expect(onCreateSkillWithAgent).toHaveBeenCalledOnce()
-  })
 })
 
 describe('ResourceGrid group toolbar management', () => {
@@ -869,22 +856,6 @@ describe('ResourceGrid card actions', () => {
     rerender(<ResourceCard resource={createSkillResource()} {...getResourceCardProps()} />)
 
     expect(screen.queryByText('1.2.3')).not.toBeInTheDocument()
-  })
-
-  it('keeps Try Now and More visible on every settings Skill card', async () => {
-    const user = userEvent.setup()
-    const skill = createSkillResource()
-    const onLaunchSkill = vi.fn()
-    const onDelete = vi.fn()
-
-    render(<ResourceCard resource={skill} variant="settings" {...getResourceCardProps({ onDelete, onLaunchSkill })} />)
-
-    expect(screen.getByText('本地')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '立即试用' }))
-    expect(onLaunchSkill).toHaveBeenCalledExactlyOnceWith(skill)
-
-    expect(screen.getByRole('button', { name: /common.more/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '删除' })).not.toBeInTheDocument()
   })
 
   it.each([createAssistantResource, createAgentResource])(

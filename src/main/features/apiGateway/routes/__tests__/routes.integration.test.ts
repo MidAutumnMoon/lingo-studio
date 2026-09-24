@@ -446,36 +446,6 @@ describe('API gateway routes (integration)', () => {
       expect(mockProcessMessage).toHaveBeenCalledOnce()
     })
 
-    it('ignores the internal Fast header from a public API-key client', async () => {
-      await read(
-        await post(
-          app,
-          '/v1/messages',
-          { model: 'anthropic:claude', messages: [{ role: 'user', content: 'hi' }] },
-          { ...AUTH, 'x-cherry-fast-mode': 'true' }
-        )
-      )
-
-      expect(mockProcessMessage).toHaveBeenLastCalledWith(expect.objectContaining({ fastMode: false }))
-    })
-
-    it('accepts Fast only with the process-local internal request token', async () => {
-      await read(
-        await post(
-          app,
-          '/v1/messages',
-          { model: 'anthropic:claude', messages: [{ role: 'user', content: 'hi' }] },
-          {
-            ...AUTH,
-            'x-cherry-fast-mode': 'true',
-            'x-cherry-internal-request-token': 'internal-request-token'
-          }
-        )
-      )
-
-      expect(mockProcessMessage).toHaveBeenLastCalledWith(expect.objectContaining({ fastMode: true }))
-    })
-
     it('GET /v1/models returns the model list', async () => {
       const { status, body } = await read(await get(app, '/v1/models'))
       expect(status).toBe(200)

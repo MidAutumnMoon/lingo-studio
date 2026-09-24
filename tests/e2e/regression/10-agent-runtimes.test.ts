@@ -2,7 +2,6 @@ import { caseDefinition } from '../../../scripts/e2e/regression/cases'
 import { createAgent, runAgentFileTask, selectAgentWorkspace, startNewAgentTask } from './agents'
 import { expect, test } from './fixture'
 import { ensureCustomChatProvider, selectVisibleModel } from './models'
-import { dismissOnboarding, selectSidebarApp } from './navigation'
 import { closeSettings } from './settings'
 
 async function ensureAgentModel(
@@ -13,26 +12,6 @@ async function ensureAgentModel(
   await closeSettings(page)
   return app.config.customProvider.chatModel
 }
-
-test(...caseDefinition('A-03'), async ({ app, mainWindow: page }) => {
-  test.setTimeout(15 * 60_000)
-  const model = await ensureAgentModel(app, page)
-  const name = 'Cherry Regression Claude Agent 31415'
-  await createAgent(page, { name, permission: 'Full Access', runtime: 'Claude Agent', model })
-  await selectAgentWorkspace(app, page)
-  const marker = 'CLAUDE_AGENT_RUNTIME_PASS'
-  const agentView = page.locator('[data-ui="agent.view"]:visible').first()
-  const composer = agentView.locator('[data-ui~="chat.composer"] [contenteditable="true"]').first()
-  await composer.fill(`Reply with exactly ${marker} and do not use tools.`)
-  await agentView.getByRole('button', { name: 'Send', exact: true }).click()
-  await expect(agentView.getByText(marker, { exact: true }).last()).toBeVisible({ timeout: 2 * 60_000 })
-
-  page = await app.restart('authenticated')
-  await dismissOnboarding(page)
-  await selectSidebarApp(page, 'Work')
-  const restartedAgentView = page.locator('[data-ui="agent.view"]:visible').first()
-  await expect(restartedAgentView.getByRole('button', { name, exact: true })).toBeVisible()
-})
 
 test(...caseDefinition('A-04'), async ({ app, mainWindow: page }) => {
   test.setTimeout(15 * 60_000)

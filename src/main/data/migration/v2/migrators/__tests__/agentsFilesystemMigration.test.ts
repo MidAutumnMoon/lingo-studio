@@ -7,7 +7,6 @@ import {
   readdir,
   readFile,
   readlink,
-  realpath,
   rm,
   stat,
   symlink,
@@ -24,10 +23,6 @@ import type * as Platform from '@main/core/platform'
 
 import {
   type AgentFileSessionPlan,
-  type ClaudeConfigMigrationProgress,
-  claudeProjectDirectoryName,
-  copyLegacyClaudeConfig,
-  copyLegacyClaudeSessionData,
   isManagedLegacyAgentWorkspace,
   legacyAgentWorkspacePath,
   stageLegacyAgentFiles
@@ -36,7 +31,6 @@ import {
 const { copyMutation, platformState, realpathFailures } = vi.hoisted(() => ({
   copyMutation: {
     afterCopyFile: undefined as undefined | ((sourcePath: string, destinationPath: string) => Promise<void>),
-    beforeCpEntry: undefined as undefined | ((sourcePath: string, destinationPath: string) => Promise<void>),
     copyFileCalls: [] as Array<[sourcePath: string, destinationPath: string]>,
     linkFailure: undefined as undefined | NodeJS.ErrnoException,
     linkCalls: [] as Array<[sourcePath: string, destinationPath: string]>,
@@ -63,22 +57,6 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   const original = await importOriginal<typeof FsPromises>()
   return {
     ...original,
-    cp: async (...args: Parameters<typeof original.cp>) => {
-      const [source, destination, options] = args
-      await original.cp(source, destination, {
-        ...options,
-        filter: async (sourcePath, destinationPath) => {
-          const included = (await options?.filter?.(sourcePath, destinationPath)) ?? true
-          if (included && platformState.isWin && (await original.lstat(sourcePath)).isSymbolicLink()) {
-            const error = new Error(`operation not permitted, symlink '${sourcePath}' -> '${destinationPath}'`)
-            Object.assign(error, { code: 'EPERM', syscall: 'symlink' })
-            throw error
-          }
-          if (included) await copyMutation.beforeCpEntry?.(String(sourcePath), String(destinationPath))
-          return included
-        }
-      })
-    },
     copyFile: async (...args: Parameters<typeof original.copyFile>) => {
       copyMutation.copyFileCalls.push([String(args[0]), String(args[1])])
       const result = await original.copyFile(...args)
@@ -106,8 +84,6 @@ const SOURCE_AGENT_ID = 'agent_1234567890_keykxlx33'
 const FINAL_AGENT_ID = '5f83c9de-f186-5d86-813f-1a19f190c68c'
 const FINAL_OLD_SESSION_ID = '9a075ce3-c42d-545b-a0b5-f39e43e4a917'
 const FINAL_LATEST_SESSION_ID = '01257168-34a7-5ff9-994d-bf78596c777c'
-const CLAUDE_SESSION_ID = '95b9a03b-6704-4a4b-bcf1-f65dabb67bf6'
-const MISSING_LATEST_CLAUDE_SESSION_ID = '3f5221a6-b39d-4cab-a82d-7a7ed7ccf5db'
 
 function buildSystemWorkspacePath(systemWorkspacesRoot: string, sessionId: string, createdAt: number): string {
   return path.join(systemWorkspacesRoot, new Date(createdAt).toISOString().slice(0, 10), sessionId)
@@ -137,12 +113,9 @@ describe('agentsFilesystemMigration', () => {
       createdAt: number
       updatedAt: number
       managed?: boolean
-      latestRuntimeResumeToken?: string
-      runtimeResumeTokens?: string[]
     }
   ): AgentFileSessionPlan {
     const managed = input.managed ?? true
-    const runtimeResumeTokens = input.runtimeResumeTokens ?? []
     return {
       sourceSessionId: input.sourceSessionId,
       finalSessionId: input.finalSessionId,
@@ -153,8 +126,7 @@ describe('agentsFilesystemMigration', () => {
       systemWorkspacePath: managed
         ? buildSystemWorkspacePath(path.join(agentsDataRoot, 'system'), input.finalSessionId, input.createdAt)
         : undefined,
-      latestRuntimeResumeToken: input.latestRuntimeResumeToken ?? runtimeResumeTokens.at(-1),
-      runtimeResumeTokens,
+      runtimeResumeTokens: [],
       createdAt: input.createdAt,
       updatedAt: input.updatedAt
     }
@@ -162,7 +134,6 @@ describe('agentsFilesystemMigration', () => {
 
   afterEach(async () => {
     copyMutation.afterCopyFile = undefined
-    copyMutation.beforeCpEntry = undefined
     copyMutation.copyFileCalls.length = 0
     copyMutation.linkFailure = undefined
     copyMutation.linkCalls.length = 0
@@ -171,446 +142,6 @@ describe('agentsFilesystemMigration', () => {
     platformState.isMac = false
     platformState.isWin = false
     await Promise.all(tempRoots.splice(0).map((tempRoot) => rm(tempRoot, { recursive: true, force: true })))
-  })
-
-  it('copies the legacy Claude config recursively and preserves the source', async () => {
-    const { tempRoot, agentsDataRoot } = await createFixture()
-    const source = path.join(tempRoot, '.claude')
-    const destination = path.join(agentsDataRoot, '.claude')
-    await mkdir(path.join(source, 'plugins'), { recursive: true })
-    await mkdir(path.join(source, 'projects', 'legacy-project'), { recursive: true })
-    await writeFile(path.join(source, 'settings.json'), '{"theme":"dark"}')
-    await writeFile(path.join(source, 'plugins', 'installed.json'), '{"version":1}')
-    await writeFile(path.join(source, 'projects', 'legacy-project', 'session.jsonl'), '{"session":true}')
-
-    await expect(copyLegacyClaudeConfig(source, destination)).resolves.toBe(true)
-
-    expect(await readFile(path.join(destination, 'settings.json'), 'utf8')).toBe('{"theme":"dark"}')
-    expect(await readFile(path.join(destination, 'plugins', 'installed.json'), 'utf8')).toBe('{"version":1}')
-    expect(await readFile(path.join(destination, 'projects', 'legacy-project', 'session.jsonl'), 'utf8')).toBe(
-      '{"session":true}'
-    )
-    expect(await readFile(path.join(source, 'settings.json'), 'utf8')).toBe('{"theme":"dark"}')
-    expect(await readFile(path.join(source, 'plugins', 'installed.json'), 'utf8')).toBe('{"version":1}')
-    expect(await readFile(path.join(source, 'projects', 'legacy-project', 'session.jsonl'), 'utf8')).toBe(
-      '{"session":true}'
-    )
-  })
-
-  it('allows Claude config source metadata to change after its content snapshot', async () => {
-    const { tempRoot, agentsDataRoot } = await createFixture()
-    const source = path.join(tempRoot, '.claude')
-    const destination = path.join(agentsDataRoot, '.claude')
-    const sourceFile = path.join(source, 'settings.json')
-    await mkdir(source, { recursive: true })
-    await writeFile(sourceFile, '{"theme":"dark"}')
-    const originalStat = await stat(sourceFile)
-    copyMutation.beforeCpEntry = async (copiedSourcePath) => {
-      if (copiedSourcePath !== sourceFile) return
-      await utimes(sourceFile, originalStat.atime, new Date(originalStat.mtimeMs + 60_000))
-    }
-
-    await expect(copyLegacyClaudeConfig(source, destination)).resolves.toBe(true)
-
-    expect(await readFile(path.join(destination, 'settings.json'), 'utf8')).toBe('{"theme":"dark"}')
-  })
-
-  it('reports incremental scan, copy, and verification progress for a large Claude config', async () => {
-    const { tempRoot, agentsDataRoot } = await createFixture()
-    const source = path.join(tempRoot, '.claude')
-    const destination = path.join(agentsDataRoot, '.claude')
-    const contents = [
-      Buffer.alloc(9 * 1024 * 1024, 0x61),
-      Buffer.alloc(9 * 1024 * 1024, 0x62),
-      Buffer.from('session transcript')
-    ]
-    await mkdir(path.join(source, 'plugins'), { recursive: true })
-    await mkdir(path.join(source, 'projects', 'legacy-project'), { recursive: true })
-    await writeFile(path.join(source, 'settings.json'), contents[0])
-    await writeFile(path.join(source, 'plugins', 'installed.json'), contents[1])
-    await writeFile(path.join(source, 'projects', 'legacy-project', 'session.jsonl'), contents[2])
-
-    const progress: ClaudeConfigMigrationProgress[] = []
-    await copyLegacyClaudeConfig(source, destination, (update) => progress.push(update))
-
-    expect([...new Set(progress.map((update) => update.phase))]).toEqual(['scanning', 'copying', 'verifying'])
-    const expectedBytes = contents.reduce((total, content) => total + content.byteLength, 0)
-    for (const phase of ['scanning', 'copying', 'verifying'] as const) {
-      const phaseProgress = progress.filter((update) => update.phase === phase)
-      expect(phaseProgress.at(-1)).toEqual({
-        phase,
-        processed: contents.length,
-        total: contents.length,
-        byteCount: expectedBytes,
-        byteTotal: expectedBytes
-      })
-      expect(
-        phaseProgress.every(
-          (update, index) =>
-            index === 0 ||
-            (update.processed >= phaseProgress[index - 1].processed &&
-              update.byteCount >= phaseProgress[index - 1].byteCount)
-        )
-      ).toBe(true)
-      expect(phaseProgress.some((update) => update.byteCount > 0 && update.byteCount < expectedBytes)).toBe(true)
-    }
-  })
-
-  it('skips symlinks while copying the legacy Claude config', async () => {
-    const { tempRoot, agentsDataRoot } = await createFixture()
-    const source = path.join(tempRoot, '.claude')
-    const destination = path.join(agentsDataRoot, '.claude')
-    await mkdir(path.join(source, 'plugins'), { recursive: true })
-    await writeFile(path.join(source, 'settings.json'), '{"theme":"dark"}')
-    await writeFile(path.join(source, 'plugins', 'installed.json'), '{"version":1}')
-    await symlink(
-      process.platform === 'win32' ? path.join(source, 'plugins') : 'plugins',
-      path.join(source, 'plugins-link'),
-      process.platform === 'win32' ? 'junction' : undefined
-    )
-    if (process.platform !== 'win32') {
-      await symlink('settings.json', path.join(source, 'settings-link.json'))
-      await symlink('missing.json', path.join(source, 'dangling-link.json'))
-    }
-
-    await expect(copyLegacyClaudeConfig(source, destination)).resolves.toBe(true)
-
-    expect(await readFile(path.join(destination, 'settings.json'), 'utf8')).toBe('{"theme":"dark"}')
-    expect(await readFile(path.join(destination, 'plugins', 'installed.json'), 'utf8')).toBe('{"version":1}')
-    await expect(lstat(path.join(destination, 'plugins-link'))).rejects.toThrow()
-    if (process.platform !== 'win32') {
-      await expect(lstat(path.join(destination, 'settings-link.json'))).rejects.toThrow()
-      await expect(lstat(path.join(destination, 'dangling-link.json'))).rejects.toThrow()
-    }
-
-    await expect(copyLegacyClaudeConfig(source, destination)).resolves.toBe(false)
-  })
-
-  it.runIf(process.platform !== 'win32')('skips a symlinked legacy Claude config root', async () => {
-    const { tempRoot, agentsDataRoot } = await createFixture()
-    const sourceTarget = path.join(tempRoot, 'external-claude')
-    const source = path.join(tempRoot, '.claude')
-    const destination = path.join(agentsDataRoot, '.claude')
-    await mkdir(sourceTarget)
-    await writeFile(path.join(sourceTarget, 'settings.json'), '{"source":true}')
-    await symlink(sourceTarget, source, 'dir')
-
-    await expect(copyLegacyClaudeConfig(source, destination)).resolves.toBe(false)
-
-    await expect(access(destination)).rejects.toThrow()
-    expect(await readFile(path.join(sourceTarget, 'settings.json'), 'utf8')).toBe('{"source":true}')
-    expect((await lstat(source)).isSymbolicLink()).toBe(true)
-  })
-
-  it('skips an existing identical Claude config destination on retry', async () => {
-    const { tempRoot, agentsDataRoot } = await createFixture()
-    const source = path.join(tempRoot, '.claude')
-    const destination = path.join(agentsDataRoot, '.claude')
-    await mkdir(source)
-    await writeFile(path.join(source, 'settings.json'), '{"theme":"dark"}')
-
-    await copyLegacyClaudeConfig(source, destination)
-
-    await expect(copyLegacyClaudeConfig(source, destination)).resolves.toBe(false)
-    expect(await readFile(path.join(destination, 'settings.json'), 'utf8')).toBe('{"theme":"dark"}')
-  })
-
-  it('skips a conflicting Claude config destination without overwriting either side', async () => {
-    const { tempRoot, agentsDataRoot } = await createFixture()
-    const source = path.join(tempRoot, '.claude')
-    const destination = path.join(agentsDataRoot, '.claude')
-    await mkdir(source)
-    await mkdir(destination)
-    await writeFile(path.join(source, 'settings.json'), '{"source":true}')
-    await writeFile(path.join(destination, 'settings.json'), '{"destination":true}')
-
-    await expect(copyLegacyClaudeConfig(source, destination)).resolves.toBe(false)
-
-    expect(await readFile(path.join(source, 'settings.json'), 'utf8')).toBe('{"source":true}')
-    expect(await readFile(path.join(destination, 'settings.json'), 'utf8')).toBe('{"destination":true}')
-  })
-
-  it('matches the Claude SDK project directory name for the observed legacy workspace', () => {
-    expect(
-      claudeProjectDirectoryName('/Users/suyao/Library/Application Support/CherryStudioDev/Data/Agents/cvqr0cflx')
-    ).toBe('-Users-suyao-Library-Application-Support-CherryStudioDev-Data-Agents-cvqr0cflx')
-  })
-
-  it('uses the old cwd project before falling back to other Claude projects', async () => {
-    const { tempRoot, agentsDataRoot, legacyWorkspace } = await createFixture()
-    const legacyProjectsDirectory = path.join(tempRoot, '.claude', 'projects')
-    const destinationProjectsDirectory = path.join(agentsDataRoot, '.claude', 'projects')
-    const expectedProjectDirectory = path.join(
-      legacyProjectsDirectory,
-      claudeProjectDirectoryName(path.resolve(legacyWorkspace))
-    )
-    const unrelatedProjectDirectory = path.join(legacyProjectsDirectory, 'a-unrelated-project')
-    await mkdir(expectedProjectDirectory, { recursive: true })
-    await mkdir(unrelatedProjectDirectory, { recursive: true })
-    await writeFile(path.join(expectedProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`), '{"source":"expected"}\n')
-    await writeFile(path.join(unrelatedProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`), '{"source":"fallback"}\n')
-
-    const session = sessionPlan(agentsDataRoot, legacyWorkspace, {
-      sourceSessionId: 'session_latest',
-      finalSessionId: FINAL_LATEST_SESSION_ID,
-      createdAt: Date.parse('2026-07-22T00:00:00Z'),
-      updatedAt: Date.parse('2026-07-23T00:00:00Z'),
-      runtimeResumeTokens: [CLAUDE_SESSION_ID]
-    })
-
-    await copyLegacyClaudeSessionData({
-      agentsDataRoot,
-      sourceProjectsDirectories: [legacyProjectsDirectory, destinationProjectsDirectory],
-      destinationProjectsDirectory,
-      sessions: [session]
-    })
-    const destinationProjectDirectory = path.join(
-      destinationProjectsDirectory,
-      claudeProjectDirectoryName(path.resolve(session.systemWorkspacePath!))
-    )
-    expect(await readFile(path.join(destinationProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`), 'utf8')).toBe(
-      '{"source":"expected"}\n'
-    )
-  })
-
-  it('makes an external workspace token available under its unchanged runtime cwd', async () => {
-    const { tempRoot, agentsDataRoot } = await createFixture()
-    const externalWorkspace = path.join(tempRoot, 'external-workspace')
-    const legacyProjectsDirectory = path.join(tempRoot, '.claude', 'projects')
-    const destinationProjectsDirectory = path.join(agentsDataRoot, '.claude', 'projects')
-    await mkdir(externalWorkspace)
-    const sourceProjectDirectory = path.join(
-      legacyProjectsDirectory,
-      claudeProjectDirectoryName(await realpath(externalWorkspace))
-    )
-    await mkdir(sourceProjectDirectory, { recursive: true })
-    await writeFile(path.join(sourceProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`), '{"external":true}\n')
-
-    const session = sessionPlan(agentsDataRoot, externalWorkspace, {
-      sourceSessionId: 'session_external',
-      finalSessionId: FINAL_LATEST_SESSION_ID,
-      createdAt: Date.parse('2026-01-01T00:00:00Z'),
-      updatedAt: Date.parse('2026-01-02T00:00:00Z'),
-      managed: false,
-      runtimeResumeTokens: [CLAUDE_SESSION_ID]
-    })
-
-    await copyLegacyClaudeSessionData({
-      agentsDataRoot,
-      sourceProjectsDirectories: [legacyProjectsDirectory],
-      destinationProjectsDirectory,
-      sessions: [session]
-    })
-
-    const destinationProjectDirectory = path.join(
-      destinationProjectsDirectory,
-      claudeProjectDirectoryName(await realpath(externalWorkspace))
-    )
-    expect(await readFile(path.join(destinationProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`), 'utf8')).toBe(
-      '{"external":true}\n'
-    )
-  })
-
-  it('allows Claude session source metadata to change after its content snapshot', async () => {
-    const { tempRoot, agentsDataRoot, legacyWorkspace } = await createFixture()
-    const legacyProjectsDirectory = path.join(tempRoot, '.claude', 'projects')
-    const destinationProjectsDirectory = path.join(agentsDataRoot, '.claude', 'projects')
-    const sourceProjectDirectory = path.join(
-      legacyProjectsDirectory,
-      claudeProjectDirectoryName(path.resolve(legacyWorkspace))
-    )
-    const sourceTranscript = path.join(sourceProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`)
-    await mkdir(sourceProjectDirectory, { recursive: true })
-    await writeFile(sourceTranscript, '{"source":true}\n')
-    const originalStat = await stat(sourceTranscript)
-    copyMutation.afterCopyFile = async (copiedSourcePath) => {
-      if (copiedSourcePath !== sourceTranscript) return
-      await utimes(sourceTranscript, originalStat.atime, new Date(originalStat.mtimeMs + 60_000))
-    }
-
-    const session = sessionPlan(agentsDataRoot, legacyWorkspace, {
-      sourceSessionId: 'session_latest',
-      finalSessionId: FINAL_LATEST_SESSION_ID,
-      createdAt: Date.parse('2026-07-22T00:00:00Z'),
-      updatedAt: Date.parse('2026-07-23T00:00:00Z'),
-      runtimeResumeTokens: [CLAUDE_SESSION_ID]
-    })
-
-    await expect(
-      copyLegacyClaudeSessionData({
-        agentsDataRoot,
-        sourceProjectsDirectories: [legacyProjectsDirectory],
-        destinationProjectsDirectory,
-        sessions: [session]
-      })
-    ).resolves.toBeUndefined()
-
-    const destinationTranscript = path.join(
-      destinationProjectsDirectory,
-      claudeProjectDirectoryName(path.resolve(session.systemWorkspacePath!)),
-      `${CLAUDE_SESSION_ID}.jsonl`
-    )
-    expect(await readFile(destinationTranscript, 'utf8')).toBe('{"source":true}\n')
-  })
-
-  it('replaces only the exact globally discovered Claude JSONL target', async () => {
-    const { tempRoot, agentsDataRoot, legacyWorkspace } = await createFixture()
-    const legacyProjectsDirectory = path.join(tempRoot, '.claude', 'projects')
-    const destinationProjectsDirectory = path.join(agentsDataRoot, '.claude', 'projects')
-    const sourceProjectDirectory = path.join(legacyProjectsDirectory, 'workspace-key-from-before-the-rename')
-    const sourceAuxiliaryDirectory = path.join(sourceProjectDirectory, CLAUDE_SESSION_ID, 'subagents')
-    await mkdir(sourceAuxiliaryDirectory, { recursive: true })
-    await writeFile(path.join(sourceProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`), '{"type":"user"}\n')
-    await writeFile(path.join(sourceAuxiliaryDirectory, 'agent-child.jsonl'), '{"type":"assistant"}\n')
-
-    const session = sessionPlan(agentsDataRoot, legacyWorkspace, {
-      sourceSessionId: 'session_latest',
-      finalSessionId: FINAL_LATEST_SESSION_ID,
-      createdAt: Date.parse('2026-07-22T00:00:00Z'),
-      updatedAt: Date.parse('2026-07-23T00:00:00Z'),
-      runtimeResumeTokens: [CLAUDE_SESSION_ID]
-    })
-    const input = {
-      agentsDataRoot,
-      sourceProjectsDirectories: [legacyProjectsDirectory, destinationProjectsDirectory],
-      destinationProjectsDirectory,
-      sessions: [session]
-    }
-
-    await copyLegacyClaudeSessionData(input)
-
-    const destinationProjectDirectory = path.join(
-      destinationProjectsDirectory,
-      claudeProjectDirectoryName(path.resolve(session.systemWorkspacePath!))
-    )
-    const destinationTranscript = path.join(destinationProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`)
-    expect(await readFile(destinationTranscript, 'utf8')).toBe('{"type":"user"}\n')
-    await expect(access(path.join(destinationProjectDirectory, CLAUDE_SESSION_ID))).rejects.toThrow()
-    expect(await readFile(path.join(sourceProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`), 'utf8')).toBe(
-      '{"type":"user"}\n'
-    )
-    expect(await readFile(path.join(sourceAuxiliaryDirectory, 'agent-child.jsonl'), 'utf8')).toBe(
-      '{"type":"assistant"}\n'
-    )
-
-    const unrelatedDestination = path.join(destinationProjectDirectory, 'keep.jsonl')
-    await writeFile(unrelatedDestination, '{"keep":true}\n')
-    await writeFile(destinationTranscript, '{"type":"destination"}\n')
-    await expect(copyLegacyClaudeSessionData(input)).resolves.toBeUndefined()
-
-    expect(await readFile(destinationTranscript, 'utf8')).toBe('{"type":"user"}\n')
-    expect(await readFile(unrelatedDestination, 'utf8')).toBe('{"keep":true}\n')
-    expect(await readFile(path.join(sourceProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`), 'utf8')).toBe(
-      '{"type":"user"}\n'
-    )
-  })
-
-  it('keeps a Claude session cache entry when it is also the only source', async () => {
-    const { tempRoot, agentsDataRoot } = await createFixture()
-    const externalWorkspace = path.join(tempRoot, 'external-workspace')
-    const destinationProjectsDirectory = path.join(agentsDataRoot, '.claude', 'projects')
-    const projectDirectory = path.join(
-      destinationProjectsDirectory,
-      claudeProjectDirectoryName(path.resolve(externalWorkspace))
-    )
-    const transcriptPath = path.join(projectDirectory, `${CLAUDE_SESSION_ID}.jsonl`)
-    await mkdir(externalWorkspace)
-    await mkdir(projectDirectory, { recursive: true })
-    await writeFile(transcriptPath, '{"only":"source"}\n')
-
-    const session = sessionPlan(agentsDataRoot, externalWorkspace, {
-      sourceSessionId: 'session_external',
-      finalSessionId: FINAL_LATEST_SESSION_ID,
-      createdAt: Date.parse('2026-07-22T00:00:00Z'),
-      updatedAt: Date.parse('2026-07-23T00:00:00Z'),
-      managed: false,
-      runtimeResumeTokens: [CLAUDE_SESSION_ID]
-    })
-
-    await copyLegacyClaudeSessionData({
-      agentsDataRoot,
-      sourceProjectsDirectories: [destinationProjectsDirectory],
-      destinationProjectsDirectory,
-      sessions: [session]
-    })
-
-    expect(await readFile(transcriptPath, 'utf8')).toBe('{"only":"source"}\n')
-  })
-
-  it('does not overwrite a Claude session cache target created after cleanup', async () => {
-    const { tempRoot, agentsDataRoot, legacyWorkspace } = await createFixture()
-    const legacyProjectsDirectory = path.join(tempRoot, '.claude', 'projects')
-    const destinationProjectsDirectory = path.join(agentsDataRoot, '.claude', 'projects')
-    const sourceProjectDirectory = path.join(
-      legacyProjectsDirectory,
-      claudeProjectDirectoryName(path.resolve(legacyWorkspace))
-    )
-    const sourceTranscript = path.join(sourceProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`)
-    await mkdir(sourceProjectDirectory, { recursive: true })
-    await writeFile(sourceTranscript, '{"source":true}\n')
-
-    const session = sessionPlan(agentsDataRoot, legacyWorkspace, {
-      sourceSessionId: 'session_latest',
-      finalSessionId: FINAL_LATEST_SESSION_ID,
-      createdAt: Date.parse('2026-07-22T00:00:00Z'),
-      updatedAt: Date.parse('2026-07-23T00:00:00Z'),
-      runtimeResumeTokens: [CLAUDE_SESSION_ID]
-    })
-    const destinationTranscript = path.join(
-      destinationProjectsDirectory,
-      claudeProjectDirectoryName(path.resolve(session.systemWorkspacePath!)),
-      `${CLAUDE_SESSION_ID}.jsonl`
-    )
-    copyMutation.afterCopyFile = async (sourcePath) => {
-      if (sourcePath !== sourceTranscript) return
-      await writeFile(destinationTranscript, '{"concurrent":true}\n')
-    }
-
-    await expect(
-      copyLegacyClaudeSessionData({
-        agentsDataRoot,
-        sourceProjectsDirectories: [legacyProjectsDirectory],
-        destinationProjectsDirectory,
-        sessions: [session]
-      })
-    ).rejects.toThrow(/Claude session cache destination conflict/)
-
-    expect(await readFile(destinationTranscript, 'utf8')).toBe('{"concurrent":true}\n')
-    expect(await readFile(sourceTranscript, 'utf8')).toBe('{"source":true}\n')
-  })
-
-  it('does not copy or expose an older Claude token when the latest token is missing', async () => {
-    const { tempRoot, agentsDataRoot, legacyWorkspace } = await createFixture()
-    const legacyProjectsDirectory = path.join(tempRoot, '.claude', 'projects')
-    const destinationProjectsDirectory = path.join(agentsDataRoot, '.claude', 'projects')
-    const sourceProjectDirectory = path.join(
-      legacyProjectsDirectory,
-      claudeProjectDirectoryName(path.resolve(legacyWorkspace))
-    )
-    await mkdir(sourceProjectDirectory, { recursive: true })
-    await writeFile(path.join(sourceProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`), '{"source":"older"}\n')
-
-    const session = sessionPlan(agentsDataRoot, legacyWorkspace, {
-      sourceSessionId: 'session_latest',
-      finalSessionId: FINAL_LATEST_SESSION_ID,
-      createdAt: Date.parse('2026-07-22T00:00:00Z'),
-      updatedAt: Date.parse('2026-07-23T00:00:00Z'),
-      latestRuntimeResumeToken: MISSING_LATEST_CLAUDE_SESSION_ID,
-      runtimeResumeTokens: [CLAUDE_SESSION_ID, MISSING_LATEST_CLAUDE_SESSION_ID]
-    })
-
-    await copyLegacyClaudeSessionData({
-      agentsDataRoot,
-      sourceProjectsDirectories: [legacyProjectsDirectory],
-      destinationProjectsDirectory,
-      sessions: [session]
-    })
-
-    const destinationProjectDirectory = path.join(
-      destinationProjectsDirectory,
-      claudeProjectDirectoryName(path.resolve(session.systemWorkspacePath!))
-    )
-    await expect(access(path.join(destinationProjectDirectory, `${CLAUDE_SESSION_ID}.jsonl`))).rejects.toThrow()
   })
 
   it.runIf(process.platform !== 'win32')(

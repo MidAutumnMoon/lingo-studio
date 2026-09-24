@@ -34,7 +34,6 @@ export function applyFastModeToProviderOptions(
   if (!fastMode || !isSupportFastMode(provider, model)) {
     return providerOptions
   }
-  // 'claude-code' carries Fast inside the SDK, not through providerOptions.
   if (provider.fastMode.transport !== 'openai-priority') return providerOptions
   const serviceTier = provider.fastMode.serviceTier ?? 'priority'
 

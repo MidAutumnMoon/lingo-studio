@@ -104,11 +104,11 @@ function completedWithSensitiveEvidence(): Extract<DoctorState, { status: 'compl
       ...state.report,
       results: [
         {
-          id: 'runtime-claude-login',
+          id: 'storage-userdata-location',
           status: 'warn',
           durationMs: 1,
           attribution: 'user-fixable',
-          detail: { variant: 'not_logged_in' },
+          detail: { variant: 'fallback_to_default' },
           evidence: [{ key: 'request-body', value: 'private', dataClass: 'consent_required' }],
           actions: []
         }
@@ -295,11 +295,11 @@ describe('useDoctorController', () => {
       useDoctorController({ subject: { kind: 'global' }, initialPanel: 'checks', onNavigate: vi.fn() })
     )
 
-    act(() => result.current.requestEvidence('runtime-claude-login'))
+    act(() => result.current.requestEvidence('storage-userdata-location'))
     expect(result.current.session.interaction).toEqual({
       kind: 'confirm-evidence',
       runId: 'completed-run',
-      checkId: 'runtime-claude-login'
+      checkId: 'storage-userdata-location'
     })
     expect(result.current.session.evidenceGrant).toBeUndefined()
 
@@ -307,7 +307,7 @@ describe('useDoctorController', () => {
     expect(result.current.session.interaction).toEqual({ kind: 'idle' })
     expect(result.current.session.evidenceGrant).toBeUndefined()
 
-    act(() => result.current.requestEvidence('runtime-claude-login'))
+    act(() => result.current.requestEvidence('storage-userdata-location'))
     mocks.doctorState = {
       status: 'running',
       runId: 'replacement-run',
@@ -334,12 +334,12 @@ describe('useDoctorController', () => {
       report: {
         ...settled.report,
         runId: 'replacement-run',
-        results: [{ id: 'runtime-claude-login', status: 'pass', durationMs: 1 }],
+        results: [{ id: 'storage-userdata-location', status: 'pass', durationMs: 1 }],
         summary: { pass: 1, warn: 0, fail: 0, skip: 0, error: 0 }
       }
     }
     rerender()
-    expect(result.current.viewModel.rows[0]).toMatchObject({ id: 'runtime-claude-login', status: 'pass' })
+    expect(result.current.viewModel.rows[0]).toMatchObject({ id: 'storage-userdata-location', status: 'pass' })
     expect(result.current.session.interaction).toEqual({ kind: 'idle' })
     expect(result.current.canChangePanel).toBe(true)
   })
@@ -351,13 +351,13 @@ describe('useDoctorController', () => {
       useDoctorController({ subject: { kind: 'global' }, initialPanel: 'checks', onNavigate: vi.fn() })
     )
 
-    act(() => result.current.requestEvidence('runtime-claude-login'))
+    act(() => result.current.requestEvidence('storage-userdata-location'))
     expect(result.current.session.interaction.kind).toBe('confirm-evidence')
     mocks.doctorState = {
       ...state,
       report: {
         ...state.report,
-        results: [{ id: 'runtime-claude-login', status: 'pass', durationMs: 1 }],
+        results: [{ id: 'storage-userdata-location', status: 'pass', durationMs: 1 }],
         summary: { pass: 1, warn: 0, fail: 0, skip: 0, error: 0 }
       }
     }

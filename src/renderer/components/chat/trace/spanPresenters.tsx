@@ -263,8 +263,8 @@ function getSpanInputs(node: TraceNode) {
     attrs.user_prompt ??
     attrs.tool_input ??
     attrs.tool_parameters ??
-    getEventValue(node, ['user_prompt', 'claude_code.user_prompt'], ['prompt', 'log.body']) ??
-    getEventValue(node, ['api_request_body', 'claude_code.api_request_body'], ['body', 'body_ref']) ??
+    getEventValue(node, ['user_prompt'], ['prompt', 'log.body']) ??
+    getEventValue(node, ['api_request_body'], ['body', 'body_ref']) ??
     getEventValue(node, ['tool.output'], ['input', 'tool_input', 'tool.input']) ??
     pickAttributes(attrs, [
       'new_context',
@@ -291,9 +291,9 @@ function getSpanOutputs(node: TraceNode) {
     attrs.outputs ??
     attrs['response.model_output'] ??
     attrs.model_output ??
-    getEventValue(node, ['api_response_body', 'claude_code.api_response_body'], ['body', 'body_ref']) ??
+    getEventValue(node, ['api_response_body'], ['body', 'body_ref']) ??
     getEventValue(node, ['tool.output'], ['output', 'tool_output', 'tool.output', 'result']) ??
-    getEventValue(node, ['tool_result', 'claude_code.tool_result'], ['tool_result', 'result', 'log.body']) ??
+    getEventValue(node, ['tool_result'], ['tool_result', 'result', 'log.body']) ??
     pickAttributes(attrs, [
       'request_id',
       'gen_ai.response.id',

@@ -1,7 +1,6 @@
 import type { ComponentProps } from 'react'
 
 import type {
-  MessageListActions,
   MessageListSelectAllPagination,
   MessageStreamingLayers,
   MessageToolApprovalInput
@@ -29,7 +28,6 @@ interface AgentChatMainProps {
   loadOlder?: () => void
   selectAllPagination?: MessageListSelectAllPagination
   onOpenCitationsPanel: (payload: { citations: Citation[] }) => void
-  openDiagnosticReport?: MessageListActions['openDiagnosticReport']
   deleteMessage: (messageId: string) => Promise<void>
   startEditing: (messageId: string) => Promise<void>
   editBusy: boolean
@@ -51,7 +49,6 @@ export default function AgentChatMain({
   loadOlder,
   selectAllPagination,
   onOpenCitationsPanel,
-  openDiagnosticReport,
   deleteMessage,
   startEditing,
   editBusy,
@@ -77,7 +74,6 @@ export default function AgentChatMain({
           loadOlder={loadOlder}
           selectAllPagination={selectAllPagination}
           onOpenCitationsPanel={onOpenCitationsPanel}
-          openDiagnosticReport={openDiagnosticReport}
           deleteMessage={agentId ? deleteMessage : undefined}
           startEditing={agentId ? startEditing : undefined}
           editBusy={editBusy}

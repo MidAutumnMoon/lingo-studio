@@ -39,9 +39,8 @@ export function useAgentSessionContextUsage(
   return { usage: effectiveUsage, percentage, maxTokens }
 }
 
-// Claude Code ignores the window Cherry declares for its own models and applies its per-plan one, so
-// there `usage.maxTokens` is the effective window — the catalog cannot tell a 200K session from its
-// `[1m]` twin, since both rows resolve to the same entry. Elsewhere it is only our compaction budget.
+// Claude models report their effective per-plan window in `usage.maxTokens`, so
+// there `usage.maxTokens` is the effective window rather than the catalog one.
 function resolveMaxTokens(usage: AgentSessionContextUsage | null, contextWindow: number | undefined): number | null {
   if (!usage) return null
   const reported = usage.maxTokens > 0 ? usage.maxTokens : null

@@ -836,7 +836,7 @@ export class WeixinBot {
   /**
    * Download and decrypt an image from WeChat CDN.
    * Returns a data URL (data:<mime>;base64,...) or null on failure.
-   * Format conversion (to PNG) is handled downstream by ClaudeCodeService.
+   * Format conversion (to PNG) is handled downstream by the agent runtime.
    */
   async downloadImage(imageItem: ImageItem): Promise<string | null> {
     try {

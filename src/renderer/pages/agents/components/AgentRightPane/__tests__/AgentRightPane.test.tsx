@@ -2170,7 +2170,7 @@ describe('AgentRightPane', () => {
       state: 'output-available',
       input: { description: 'Inspect imports' },
       output: 'Done',
-      callProviderMetadata: { 'claude-code': { parentToolCallId: 'parent' } }
+      callProviderMetadata: { cherry: { parentToolCallId: 'parent' } }
     } as unknown as CherryMessagePart
     const messages = [{ id: 'm1', role: 'assistant', parts: [parent, child], metadata: {} }] as CherryUIMessage[]
     render(

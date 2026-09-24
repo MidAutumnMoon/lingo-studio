@@ -152,7 +152,7 @@ export function buildPiProviderInjection(
   credentialReceipt?: AiUsageCredentialReceipt
 ): PiDirectProviderInjection {
   // Unsupported-provider beats missing-key: a login-based provider (grok-cli,
-  // claude-code) has no key by design, and "missing API key" would misdiagnose it.
+  // CLI-login providers have no key by design, and "missing API key" would misdiagnose it.
   const resolvedEndpoint = resolvePiEndpoint(provider, model)
   const adapterFamily = resolvedEndpoint.endpointType
     ? provider.endpointConfigs?.[resolvedEndpoint.endpointType]?.adapterFamily

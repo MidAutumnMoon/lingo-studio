@@ -92,6 +92,7 @@ interface DirectBackupMetadata {
     cache: true
     indexedDB: boolean
     localStorage: boolean
+    /** Legacy archive-format marker; the `.claude` resource itself is no longer restored. */
     appClaude: boolean
     data: boolean
   }
@@ -1018,19 +1019,6 @@ class BackupManager {
         await fs.copy(stagedDatabase, workDatabase)
       }
 
-      let bundleClaudeWithData = false
-      let stagedClaude: string | null = null
-      if (metadata.resources.appClaude) {
-        const appClaudeDataPath = this.toDataRelative(application.getPath('feature.agents.claude.root'))
-        if (metadata.resources.data && appClaudeDataPath !== null) {
-          bundleClaudeWithData = true
-          stagedClaude = path.join(stagedData, appClaudeDataPath)
-        } else {
-          stagedClaude = path.join(restoreDir, 'resources', '.claude')
-        }
-        await this.copyClaudeState(path.join(extractionDir, '.claude'), stagedClaude)
-      }
-
       const chain = this.validateStagedDatabase(workDatabase)
       if (!this.isChainBundledPrefix(chain)) {
         throw new Error(
@@ -1070,16 +1058,6 @@ class BackupManager {
       }
       if (metadata.resources.data && !isSlimBackup) {
         fileResources.push(...(await this.createDataJournalResources(restoreDir, stagedData)))
-      }
-      if (stagedClaude && !bundleClaudeWithData) {
-        fileResources.push(
-          await this.createJournalResource({
-            restoreDir,
-            stagingPath: stagedClaude,
-            livePath: application.getPath('feature.agents.claude.root'),
-            directory: true
-          })
-        )
       }
 
       // Flush both the staged contents and the staging root's restoreId
@@ -1372,7 +1350,6 @@ class BackupManager {
   private isReservedDataRelativePath(relativePath: string): boolean {
     const databasePath = this.toDataRelative(application.getPath('app.database.file'))
     const restoreJournalPath = this.toDataRelative(application.getPath('feature.backup.restore.file'))
-    const appClaudePath = this.toDataRelative(application.getPath('feature.agents.claude.root'))
     const normalizedPath = path.normalize(relativePath)
 
     if (
@@ -1391,9 +1368,7 @@ class BackupManager {
     ) {
       return true
     }
-    return Boolean(
-      appClaudePath && (normalizedPath === appClaudePath || normalizedPath.startsWith(`${appClaudePath}${path.sep}`))
-    )
+    return false
   }
 
   private fsyncTree(entryPath: string): void {
@@ -1608,38 +1583,6 @@ class BackupManager {
       throw new Error(`Expected an application data directory: ${source}`)
     }
     await this.copyDirWithProgress(source, destination, () => {}, { dereferenceSymlinks: false, signal })
-  }
-
-  /**
-   * Restore the standalone CLAUDE_CONFIG_DIR resource used by earlier
-   * version 7 archives. The generated `skills/` mirror is not restored.
-   */
-  private async copyClaudeState(source: string, destination: string): Promise<void> {
-    const rootStats = await fs.lstat(source).catch(() => null)
-    if (!rootStats || rootStats.isSymbolicLink() || !rootStats.isDirectory()) {
-      throw new Error('Backup is missing its application .claude directory')
-    }
-
-    await fs.ensureDir(destination)
-    const entries = await fs.readdir(source, { withFileTypes: true })
-    for (const entry of entries) {
-      if (entry.name === 'skills') {
-        continue
-      }
-
-      const sourcePath = path.join(source, entry.name)
-      const destinationPath = path.join(destination, entry.name)
-      const stats = await fs.lstat(sourcePath)
-      if (stats.isSymbolicLink()) {
-        logger.warn('[restoreDirect] Skipping symlink in application .claude state', { path: sourcePath })
-        continue
-      }
-      if (stats.isDirectory()) {
-        await this.copyDirWithProgress(sourcePath, destinationPath, () => {}, { dereferenceSymlinks: false })
-      } else if (stats.isFile()) {
-        await fs.copy(sourcePath, destinationPath)
-      }
-    }
   }
 
   /**

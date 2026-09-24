@@ -354,7 +354,7 @@ completed document through `kb_read` or `kb_manage`.
 ## Agent Tool Surface
 
 `src/main/ai/tools/knowledgeLookup.ts` is shared by the AI SDK builtins and the
-Claude Code in-process MCP bridge.
+in-process `cherry-tools` MCP server.
 
 | Tool | Current operation |
 |---|---|

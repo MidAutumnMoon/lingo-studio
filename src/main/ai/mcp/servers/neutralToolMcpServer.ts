@@ -21,7 +21,7 @@ function formatToolError(error: unknown): string {
 }
 
 /**
- * Wrap a set of runtime-neutral tools as a Claude SDK MCP server.
+ * Wrap a set of runtime-neutral tools as an in-process MCP server.
  *
  * The MCP-facing surface (tool names, descriptions, JSON Schemas, and the
  * `{ content, isError }` result/error shapes) mirrors the hand-written servers

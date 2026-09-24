@@ -10,30 +10,18 @@ import { DataApiErrorFactory } from '@shared/data/api/errors'
 import { aiErrorCodes } from '@shared/ipc/errors/ai'
 import { IpcError } from '@shared/ipc/errors/IpcError'
 
-const {
-  appGetMock,
-  agentSessionMessageService,
-  fileEntryService,
-  messageService,
-  createAgent,
-  createBuiltinSkillSession,
-  createBuiltinSupportSession
-} = vi.hoisted(() => ({
+const { appGetMock, agentSessionMessageService, fileEntryService, messageService, createAgent } = vi.hoisted(() => ({
   appGetMock: vi.fn(),
   agentSessionMessageService: { getSessionMessage: vi.fn() },
   fileEntryService: { findById: vi.fn() },
   messageService: { getById: vi.fn() },
-  createAgent: vi.fn(),
-  createBuiltinSkillSession: vi.fn(),
-  createBuiltinSupportSession: vi.fn()
+  createAgent: vi.fn()
 }))
 vi.mock('@application', () => ({ application: { get: appGetMock } }))
 vi.mock('@data/services/AgentSessionMessageService', () => ({ agentSessionMessageService }))
 vi.mock('@data/services/FileEntryService', () => ({ fileEntryService }))
 vi.mock('@data/services/MessageService', () => ({ messageService }))
 vi.mock('@main/ai/agents/createAgent', () => ({ createAgent }))
-vi.mock('@main/ai/agents/createBuiltinSkillSession', () => ({ createBuiltinSkillSession }))
-vi.mock('@main/ai/agents/createBuiltinSupportSession', () => ({ createBuiltinSupportSession }))
 vi.mock('@main/ai/agents/AgentLifecycleService', () => ({
   AgentSessionArchiveBusyError: class AgentSessionArchiveBusyError extends Error {
     constructor(readonly sessionIds: string[]) {
@@ -76,7 +64,6 @@ const toolPart = (toolCallId: string, output: unknown) => ({
 
 const fileManager = { read: vi.fn() }
 
-const claudeCodeWarmQueryManager = { prewarmAgentSession: vi.fn(), closeAgentSessionWarm: vi.fn() }
 const agentSessionRuntimeService = { acquireWarmLease: vi.fn(), releaseWarmLease: vi.fn(), forkSession: vi.fn() }
 const agentLifecycleService = {
   archiveSessions: vi.fn(),
@@ -86,7 +73,6 @@ const agentLifecycleService = {
   archiveAgentSessions: vi.fn(),
   deleteWorkspace: vi.fn()
 }
-const claudeCodeTraceBridgeService = { isTraceModeEnabled: vi.fn() }
 const agentJobsService = {
   createTask: vi.fn(),
   updateTask: vi.fn(),
@@ -103,8 +89,6 @@ const windowManager = { getWindow: vi.fn() }
 beforeEach(() => {
   vi.clearAllMocks()
   createAgent.mockImplementation(async (request: object) => ({ id: 'agent-1', ...request }))
-  createBuiltinSkillSession.mockReturnValue({ id: 'skill-session', agentId: 'cherry-assistant' })
-  createBuiltinSupportSession.mockReturnValue({ id: 'feedback-session', agentId: 'cherry-support' })
   // The ownership gate's happy path: entries with the tool-output store's fixed attributes.
   fileEntryService.findById.mockReturnValue({
     origin: 'internal',
@@ -118,14 +102,10 @@ beforeEach(() => {
         return aiService
       case 'AiStreamManager':
         return aiStreamManager
-      case 'ClaudeCodeWarmQueryManager':
-        return claudeCodeWarmQueryManager
       case 'AgentSessionRuntimeService':
         return agentSessionRuntimeService
       case 'AgentLifecycleService':
         return agentLifecycleService
-      case 'ClaudeCodeTraceBridgeService':
-        return claudeCodeTraceBridgeService
       case 'AgentJobsService':
         return agentJobsService
       case 'WindowManager':
@@ -248,20 +228,6 @@ describe('aiHandlers', () => {
       deletedIds: ['session-1']
     })
     expect(agentLifecycleService.deleteWorkspace).toHaveBeenCalledWith('workspace-1')
-  })
-
-  it('delegates Support-session creation and returns its id', async () => {
-    const result = await aiHandlers['ai.agent.support_session.create'](undefined, ctx)
-
-    expect(createBuiltinSupportSession).toHaveBeenCalledTimes(1)
-    expect(result).toEqual({ sessionId: 'feedback-session' })
-  })
-
-  it('delegates Skill-session creation with the selected Skill and returns its id', async () => {
-    const result = await aiHandlers['ai.agent.skill_session.create']({ skillId: 'skill-1' }, ctx)
-
-    expect(createBuiltinSkillSession).toHaveBeenCalledExactlyOnceWith('skill-1')
-    expect(result).toEqual({ sessionId: 'skill-session' })
   })
 
   it('generate_text forwards the request and returns the AiService result', async () => {
@@ -648,7 +614,7 @@ describe('aiHandlers — streaming', () => {
 describe('aiHandlers — agent sessions & tasks', () => {
   it('delegates Agent creation to the owning operation', async () => {
     const request = {
-      type: 'claude-code' as const,
+      type: 'pi' as const,
       name: 'Test',
       model: 'anthropic::claude-sonnet' as const
     }
@@ -664,20 +630,11 @@ describe('aiHandlers — agent sessions & tasks', () => {
     expect(agentSessionRuntimeService.acquireWarmLease).toHaveBeenCalledWith('s1', fakeWebContents)
   })
 
-  // Trace mode used to skip this, inherited from the warm-query era. A primed connection carries the
-  // session's traceparent like any other, so skipping only cost developer mode its eager catalog.
-  it('prewarm_agent_session acquires the lease in trace mode too', async () => {
-    claudeCodeTraceBridgeService.isTraceModeEnabled.mockReturnValue(true)
-    await aiHandlers['ai.agent.session.prewarm']({ sessionId: 's1' }, ctx)
-    expect(agentSessionRuntimeService.acquireWarmLease).toHaveBeenCalledWith('s1', fakeWebContents)
-  })
-
   // The actual teardown (warm-query park + primed connection) is owned by the runtime service,
   // which starts it only once no window holds the session.
   it('close_agent_session_warm releases only the sender window lease', async () => {
     await aiHandlers['ai.agent.session.close_warm']({ sessionId: 's1' }, ctx)
     expect(agentSessionRuntimeService.releaseWarmLease).toHaveBeenCalledWith('s1', fakeWebContents)
-    expect(claudeCodeWarmQueryManager.closeAgentSessionWarm).not.toHaveBeenCalled()
   })
 
   it('respond_tool_approval delegates to AiService with the resolved sender WebContents', async () => {

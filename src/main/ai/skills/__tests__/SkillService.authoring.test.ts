@@ -38,7 +38,6 @@ describe('SkillService authoring and remote updates', () => {
   const installer = new SkillInstaller()
   let root: string
   let skillsRoot: string
-  let mirrorRoot: string
   let getPathSpy: { mockRestore: () => void }
 
   async function makeTempDir(prefix: string): Promise<string> {
@@ -104,15 +103,10 @@ describe('SkillService authoring and remote updates', () => {
   beforeEach(async () => {
     root = await makeTempDir('skill-authoring-')
     skillsRoot = path.join(root, 'Data', 'Skills')
-    mirrorRoot = path.join(root, 'Data', 'Agents', '.claude', 'skills')
-    await Promise.all([
-      fs.promises.mkdir(skillsRoot, { recursive: true }),
-      fs.promises.mkdir(mirrorRoot, { recursive: true })
-    ])
+    await fs.promises.mkdir(skillsRoot, { recursive: true })
     getPathSpy = vi.spyOn(application, 'getPath').mockImplementation((key: string, filename?: string) => {
       const roots: Record<string, string> = {
         'feature.agents.skills': skillsRoot,
-        'feature.agents.claude.skills': mirrorRoot,
         'feature.agents.skills.install.temp': path.join(root, 'temp')
       }
       const resolved = roots[key] ?? path.join(root, key)
@@ -149,9 +143,6 @@ describe('SkillService authoring and remote updates', () => {
       .get()
     expect(updated).toMatchObject({ contentHash: baseline, updatedAt: 10 })
     expect(untouched?.updatedAt).toBe(20)
-    await expect(fs.promises.readFile(path.join(mirrorRoot, 'writer', 'scripts', 'run.sh'), 'utf-8')).resolves.toBe(
-      'echo changed\n'
-    )
     expect(notifyDataApiDataChangeMock).not.toHaveBeenCalled()
   })
 
@@ -197,19 +188,17 @@ describe('SkillService authoring and remote updates', () => {
     expect(notifyDataApiDataChangeMock).not.toHaveBeenCalled()
   })
 
-  it('keeps the catalog row but removes its mirror when the edited descriptor becomes unreadable', async () => {
+  it('keeps the catalog row when the edited descriptor becomes unreadable', async () => {
     const skillDir = path.join(skillsRoot, 'writer')
     await writeSkill(skillDir)
     await seedSkill(SKILL_ID, 'writer')
-    const service = new SkillService()
-    await service.linkMirror('writer')
+
     await fs.promises.rm(path.join(skillDir, 'SKILL.md'))
     await fs.promises.mkdir(path.join(skillDir, 'SKILL.md'))
 
-    await expect(service.reconcileSkill(SKILL_ID)).rejects.toThrow()
+    await expect(new SkillService().reconcileSkill(SKILL_ID)).rejects.toThrow()
 
     expect(agentGlobalSkillService.getById(SKILL_ID)).not.toBeNull()
-    await expect(fs.promises.lstat(path.join(mirrorRoot, 'writer'))).rejects.toMatchObject({ code: 'ENOENT' })
     expect(notifyDataApiDataChangeMock).not.toHaveBeenCalled()
   })
 
@@ -219,7 +208,7 @@ describe('SkillService authoring and remote updates', () => {
     await seedSkill(SKILL_ID, 'writer')
     await dbh.db.insert(agentTable).values({
       id: AGENT_ID,
-      type: 'claude-code',
+      type: 'pi',
       name: 'Agent',
       instructions: '',
       model: null,
@@ -277,7 +266,7 @@ describe('SkillService authoring and remote updates', () => {
     await seedSkill(SKILL_ID, 'writer', { isEnabled: false })
     await dbh.db.insert(agentTable).values({
       id: AGENT_ID,
-      type: 'claude-code',
+      type: 'pi',
       name: 'Agent',
       instructions: '',
       model: null,
@@ -355,7 +344,7 @@ describe('SkillService authoring and remote updates', () => {
     await expect(fs.promises.access(fetchedTempDir)).rejects.toThrow()
   })
 
-  it('restores files and metadata when mirror publication fails after replacement', async () => {
+  it('restores files and metadata when commit fails after the database replacement', async () => {
     const skillDir = path.join(skillsRoot, 'writer')
     await writeSkill(skillDir, { supportingContent: 'echo baseline\n' })
     const contentHash = await installer.computeContentHash(skillDir)
@@ -364,14 +353,17 @@ describe('SkillService authoring and remote updates', () => {
     const service = new SkillService()
     const check = await service.checkRemoteUpdate(SKILL_ID)
     if (check.state !== 'available') throw new Error('Expected an available update')
-    const mirrorSpy = vi
-      .spyOn(service, 'linkMirror')
-      .mockRejectedValueOnce(new Error('mirror failed'))
-      .mockResolvedValueOnce(undefined)
+    const originalPrepare = service['installer'].prepareInstall.bind(service['installer'])
+    const prepareSpy = vi
+      .spyOn(service['installer'], 'prepareInstall')
+      .mockImplementationOnce(async (...args: Parameters<typeof originalPrepare>) => {
+        const prepared = await originalPrepare(...args)
+        return { ...prepared, commit: vi.fn().mockRejectedValueOnce(new Error('commit failed')) }
+      })
 
     await expect(
       service.applyRemoteUpdate({ skillId: SKILL_ID, revision: check.revision, overwriteLocalChanges: false })
-    ).rejects.toThrow('mirror failed')
+    ).rejects.toThrow('commit failed')
 
     await expect(fs.promises.readFile(path.join(skillDir, 'scripts', 'run.sh'), 'utf-8')).resolves.toBe(
       'echo baseline\n'
@@ -381,7 +373,7 @@ describe('SkillService authoring and remote updates', () => {
       sourceUrl: SOURCE_URL,
       contentHash
     })
-    expect(mirrorSpy).toHaveBeenCalledTimes(2)
+    expect(prepareSpy).toHaveBeenCalledTimes(1)
     expect(notifyDataApiDataChangeMock).not.toHaveBeenCalled()
   })
 

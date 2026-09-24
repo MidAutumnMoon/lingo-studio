@@ -11,8 +11,6 @@
  * approval is a security policy and belongs in the runtime-neutral approval layer.
  */
 
-import { MOVE_TO_TRASH_TOOL_NAME } from '@main/ai/tools/moveToTrash'
-import { SAVE_ATTACHMENT_TOOL_NAME } from '@main/ai/tools/saveAttachment'
 import {
   SESSION_CREATE_TOOL_NAME,
   SESSION_DELIVERIES_TOOL_NAME,
@@ -30,7 +28,6 @@ import {
   KB_READ_TOOL_NAME,
   KB_SEARCH_TOOL_NAME,
   NOTIFY_TOOL_NAME,
-  READ_FILE_TOOL_NAME,
   REPORT_ARTIFACTS_TOOL_NAME,
   TO_MARKDOWN_TOOL_NAME,
   WEB_FETCH_TOOL_NAME,
@@ -48,9 +45,7 @@ export const CHERRY_MCP_SERVER = {
   BROWSER: 'browser',
   AGENT_MEMORY: 'agent-memory',
   SKILLS: 'skills',
-  MCP_MANAGER: 'mcp-manager',
-  ASSISTANT: 'assistant',
-  ASSISTANT_FILES: 'assistant-files'
+  MCP_MANAGER: 'mcp-manager'
 } as const
 
 export interface BuiltinToolPolicyEntry {
@@ -104,17 +99,7 @@ const BUILTIN_TOOL_POLICIES = {
   installSkill: tool(CHERRY_MCP_SERVER.SKILLS, 'install_skill', 'runtime'),
   // A stdio install launches an arbitrary local command with the caller's env, so this asks per call
   // like cli_install rather than deferring to the runtime's permission mode.
-  installMcpServer: tool(CHERRY_MCP_SERVER.MCP_MANAGER, 'install_mcp_server', 'required'),
-
-  assistantNavigate: tool(CHERRY_MCP_SERVER.ASSISTANT, 'navigate', 'auto'),
-  assistantProductInfo: tool(CHERRY_MCP_SERVER.ASSISTANT, 'product_info', 'auto'),
-  assistantDiagnose: tool(CHERRY_MCP_SERVER.ASSISTANT, 'diagnose', 'required'),
-  assistantApplySetting: tool(CHERRY_MCP_SERVER.ASSISTANT, 'apply_setting', 'required'),
-  assistantCreateAgent: tool(CHERRY_MCP_SERVER.ASSISTANT, 'create_agent', 'required'),
-  assistantPrepareDiagnosticReport: tool(CHERRY_MCP_SERVER.ASSISTANT, 'prepare_diagnostic_report', 'auto'),
-  assistantReadFile: tool(CHERRY_MCP_SERVER.ASSISTANT_FILES, READ_FILE_TOOL_NAME, 'auto'),
-  assistantMoveToTrash: tool(CHERRY_MCP_SERVER.ASSISTANT_FILES, MOVE_TO_TRASH_TOOL_NAME, 'required'),
-  assistantSaveAttachment: tool(CHERRY_MCP_SERVER.ASSISTANT_FILES, SAVE_ATTACHMENT_TOOL_NAME, 'required')
+  installMcpServer: tool(CHERRY_MCP_SERVER.MCP_MANAGER, 'install_mcp_server', 'required')
 } as const satisfies Record<string, BuiltinToolPolicyEntry>
 
 export const BUILTIN_TOOL_POLICY_ENTRIES: readonly BuiltinToolPolicyEntry[] = Object.values(BUILTIN_TOOL_POLICIES)

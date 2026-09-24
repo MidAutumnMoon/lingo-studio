@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 
 import { setupTestDatabase } from '@test-helpers/db'
 import { MockMainPreferenceServiceUtils } from '@test-mocks/main/PreferenceService'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 
 import { application } from '@application'
@@ -32,7 +32,6 @@ import { modelService } from '@data/services/ModelService'
 import { pinService } from '@data/services/PinService'
 import { providerRegistryService } from '@data/services/ProviderRegistryService'
 import { generateOrderKeyBetween, generateOrderKeySequence } from '@data/services/utils/orderKey'
-import { CHERRY_SUPPORT_AGENT_ID } from '@shared/ai/builtinAgent'
 import { ErrorCode } from '@shared/data/api/errors'
 import { createUniqueModelId, MODEL_CAPABILITY } from '@shared/data/types/model'
 
@@ -78,7 +77,7 @@ describe('AgentService', () => {
     const rows = generateOrderKeySequence(502).map((orderKey, index) => ({
       id: `agent-${index}`,
       name: `Agent ${index}`,
-      type: 'claude-code',
+      type: 'pi',
       instructions: '',
       orderKey,
       deletedAt: index === 501 ? Date.now() : null
@@ -118,7 +117,7 @@ describe('AgentService', () => {
     const id = overrides.id ?? `agent_test_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
     const { mcps, knowledgeBaseIds, ...rest } = overrides
     const base: typeof agentTable.$inferInsert = {
-      type: 'claude-code',
+      type: 'pi',
       name: 'Test Agent',
       instructions: 'You are a helpful assistant.',
       // Default to NULL; model-behavior tests override it with a seeded user_model FK.
@@ -270,7 +269,7 @@ describe('AgentService', () => {
           return dbh.db.transaction((tx) => {
             const presetCreated = agentService.createAgentTx(tx, 'startup-preset-agent', {
               id: 'startup-preset-agent',
-              type: 'claude-code',
+              type: 'pi',
               name: 'Preset Agent',
               description: '',
               instructions: '',
@@ -279,7 +278,7 @@ describe('AgentService', () => {
             })
             const customCreated = agentService.createAgentTx(tx, 'startup-custom-agent', {
               id: 'startup-custom-agent',
-              type: 'claude-code',
+              type: 'pi',
               name: 'Custom Agent',
               description: '',
               instructions: '',
@@ -304,7 +303,10 @@ describe('AgentService', () => {
       expect(customCreated?.modelName).toBe('Custom Reasoner')
 
       expect(presetModel?.capabilities).toContain(MODEL_CAPABILITY.REASONING)
-      expect(presetModel?.reasoning?.controls).toEqual([{ kind: 'budget', min: 1024, max: 64_000 }, { kind: 'toggle' }])
+      // Order-insensitive: the registry owns the controls' declaration order.
+      expect(presetModel?.reasoning?.controls).toEqual(
+        expect.arrayContaining([{ kind: 'budget', min: 1024, max: 64_000 }, { kind: 'toggle' }])
+      )
       expect(customModel?.capabilities).toContain(MODEL_CAPABILITY.REASONING)
       expect(customModel?.reasoning?.controls).toEqual([{ kind: 'effort', values: ['low', 'medium', 'high'] }])
       expect(customModel?.requestControls?.serviceTier).toEqual({
@@ -319,7 +321,7 @@ describe('AgentService', () => {
       notifyDataApiDataChangeMock.mockClear()
 
       const agent = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Externally Created',
         model: TEST_MODEL_ID
       })
@@ -331,7 +333,7 @@ describe('AgentService', () => {
 
     it('persists plan and small models when provided', async () => {
       const agent = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Model Roles Test',
         model: TEST_MODEL_ID,
         planModel: TEST_MODEL_ID,
@@ -364,7 +366,7 @@ describe('AgentService', () => {
     it('does not mislabel non-skill FK failures as stale selected skills', async () => {
       const error = captureError(() =>
         createAgentForTest({
-          type: 'claude-code',
+          type: 'pi',
           name: 'Missing Model',
           model: 'anthropic::missing-model'
         })
@@ -384,7 +386,7 @@ describe('AgentService', () => {
       await insertAgent({ id: 'agent_existing_b' })
 
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Newest',
         model: TEST_MODEL_ID
       })
@@ -395,205 +397,12 @@ describe('AgentService', () => {
 
     it('defaults disabledTools to an empty array (opt-out, backward-safe)', async () => {
       const agent = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Disabled Tools Default',
         model: TEST_MODEL_ID
       })
       const reloaded = agentService.getAgent(agent.id)
       expect(reloaded?.disabledTools).toEqual([])
-    })
-  })
-
-  describe('ensureBuiltinAgent', () => {
-    const defaults: Parameters<typeof agentService.ensureBuiltinAgent>[0] = {
-      builtinRole: 'assistant',
-      name: 'Cherry Assistant',
-      preferredModelId: TEST_MODEL_ID,
-      type: 'claude-code',
-      configuration: {
-        avatar: '🍒',
-        permission_mode: 'default' as const,
-        env_vars: {}
-      }
-    }
-
-    function builtinRows() {
-      return dbh.db
-        .select()
-        .from(agentTable)
-        .where(sql`json_extract(${agentTable.configuration}, '$.builtin_role') = 'assistant'`)
-        .all()
-    }
-
-    function activeBuiltinRows() {
-      return dbh.db
-        .select()
-        .from(agentTable)
-        .where(
-          sql`${agentTable.deletedAt} IS NULL AND json_extract(${agentTable.configuration}, '$.builtin_role') = 'assistant'`
-        )
-        .all()
-    }
-
-    it('creates one protected assistant and returns it unchanged on repeated calls', () => {
-      const first = agentService.ensureBuiltinAgent(defaults)
-      const second = agentService.ensureBuiltinAgent({
-        builtinRole: 'assistant',
-        name: 'Replacement Name',
-        preferredModelId: null,
-        type: 'claude-code',
-        configuration: { avatar: '🤖' }
-      })
-
-      expect(second).toEqual(first)
-      expect(first).toMatchObject({
-        name: 'Cherry Assistant',
-        model: TEST_MODEL_ID,
-        configuration: {
-          avatar: '🍒',
-          permission_mode: 'default',
-          env_vars: {},
-          builtin_role: 'assistant'
-        }
-      })
-      expect(activeBuiltinRows()).toHaveLength(1)
-    })
-
-    it('keeps a newly created built-in assistant after existing agents', () => {
-      const ordinary = createAgentForTest({
-        type: 'claude-code',
-        name: 'Ordinary Agent',
-        model: TEST_MODEL_ID
-      })
-      const builtin = agentService.ensureBuiltinAgent(defaults)
-
-      expect(agentService.listAgents().agents.map((agent) => agent.id)).toEqual([ordinary.id, builtin.id])
-    })
-
-    it('restores exactly one active assistant after the previous row was soft-deleted', () => {
-      const first = agentService.ensureBuiltinAgent(defaults)
-      dbh.db
-        .update(agentTable)
-        .set({ deletedAt: Date.UTC(2026, 0, 1) })
-        .where(eq(agentTable.id, first.id))
-        .run()
-
-      const restored = agentService.ensureBuiltinAgent(defaults)
-      const repeated = agentService.ensureBuiltinAgent(defaults)
-
-      expect(restored.id).not.toBe(first.id)
-      expect(repeated.id).toBe(restored.id)
-      expect(builtinRows()).toHaveLength(2)
-      expect(activeBuiltinRows()).toHaveLength(1)
-    })
-
-    it('restores the assistant after the Agent delete endpoint removed its row', () => {
-      const first = agentService.ensureBuiltinAgent(defaults)
-
-      expect(agentService.deleteAgent(first.id, { deleteSessions: true })).toMatchObject({ deleted: true })
-
-      const restored = agentService.ensureBuiltinAgent(defaults)
-
-      expect(restored.id).not.toBe(first.id)
-      expect(agentService.getAgent(first.id)).toBeNull()
-      expect(activeBuiltinRows()).toHaveLength(1)
-    })
-
-    it('re-fires onAgentCreated when a soft-deleted Support agent is restored in place', () => {
-      // The claim path restores the reserved support row WITHOUT creating a
-      // new one (created: false) — post-commit provisioning subscribers (the
-      // heartbeat schedule sync) must still hear about it.
-      const supportDefaults: Parameters<typeof agentService.ensureBuiltinAgent>[0] = {
-        ...defaults,
-        builtinRole: 'support',
-        name: 'Cherry Support'
-      }
-      const first = agentService.ensureBuiltinAgent(supportDefaults)
-      dbh.db
-        .update(agentTable)
-        .set({ deletedAt: Date.UTC(2026, 0, 1) })
-        .where(eq(agentTable.id, first.id))
-        .run()
-
-      const events: string[] = []
-      const disposable = agentService.onAgentCreated(({ agentId }) => events.push(agentId))
-      try {
-        const restored = agentService.ensureBuiltinAgent(supportDefaults)
-        // Restored in place under the reserved identity — not a fresh row.
-        expect(restored.id).toBe(first.id)
-        // An active repeat fires nothing.
-        agentService.ensureBuiltinAgent(supportDefaults)
-      } finally {
-        disposable.dispose()
-      }
-
-      expect(events).toEqual([first.id])
-    })
-
-    it('leaves the model unset when the default cannot run the Agent runtime', () => {
-      dbh.db
-        .insert(userProviderTable)
-        .values({ providerId: 'embedding', name: 'Embedding', orderKey: generateOrderKeyBetween(null, null) })
-        .run()
-      dbh.db
-        .insert(userModelTable)
-        .values({
-          id: 'embedding::vectors',
-          providerId: 'embedding',
-          modelId: 'vectors',
-          name: 'Vectors',
-          capabilities: ['embedding'],
-          supportsStreaming: false,
-          orderKey: generateOrderKeyBetween(null, null)
-        })
-        .run()
-
-      const assistant = agentService.ensureBuiltinAgent({
-        ...defaults,
-        preferredModelId: 'embedding::vectors'
-      })
-
-      expect(assistant.model).toBeNull()
-    })
-
-    it('does not trust a Support role on an ordinary ID and restores the fixed identity in place', async () => {
-      await insertAgent({
-        id: 'ordinary-support',
-        name: 'User Agent',
-        instructions: 'User instructions',
-        configuration: { builtin_role: 'support', avatar: 'U' }
-      })
-      await insertAgent({
-        id: CHERRY_SUPPORT_AGENT_ID,
-        name: 'Existing Support',
-        description: 'Keep description',
-        instructions: 'Keep fixed instructions',
-        model: TEST_MODEL_ID,
-        deletedAt: Date.UTC(2026, 0, 1),
-        configuration: { avatar: 'S', heartbeat_interval: 7 }
-      })
-
-      const support = agentService.ensureBuiltinAgent({ ...defaults, builtinRole: 'support' })
-
-      expect(support).toMatchObject({
-        id: CHERRY_SUPPORT_AGENT_ID,
-        name: 'Existing Support',
-        description: 'Keep description',
-        instructions: 'Keep fixed instructions',
-        model: TEST_MODEL_ID,
-        configuration: { avatar: 'S', heartbeat_interval: 7, builtin_role: 'support' }
-      })
-      const [restoredRow] = dbh.db
-        .select({ deletedAt: agentTable.deletedAt })
-        .from(agentTable)
-        .where(eq(agentTable.id, CHERRY_SUPPORT_AGENT_ID))
-        .all()
-      expect(restoredRow.deletedAt).toBeNull()
-      expect(agentService.getAgent('ordinary-support')).toMatchObject({
-        name: 'User Agent',
-        instructions: 'User instructions',
-        configuration: { avatar: 'U' }
-      })
     })
   })
 
@@ -743,94 +552,10 @@ describe('AgentService', () => {
     })
   })
 
-  describe('builtin_role write protection', () => {
-    it('does not expose a legacy Support marker on an ordinary Agent', async () => {
-      await insertAgent({ id: 'legacy-support-read', configuration: { builtin_role: 'support', avatar: 'U' } })
-
-      expect(agentService.getAgent('legacy-support-read')?.configuration).toEqual({ avatar: 'U' })
-    })
-
-    it('rejects createAgent when configuration carries a builtin_role', async () => {
-      const error = captureError(() =>
-        createAgentForTest({
-          type: 'claude-code',
-          name: 'Forged Assistant',
-          model: TEST_MODEL_ID,
-          configuration: { builtin_role: 'assistant' }
-        })
-      )
-      expect(error).toMatchObject({
-        code: ErrorCode.INVALID_OPERATION,
-        message: expect.stringContaining('builtin_role')
-      })
-
-      const agents = await dbh.db.select().from(agentTable).where(eq(agentTable.name, 'Forged Assistant'))
-      expect(agents).toHaveLength(0)
-    })
-
-    it('rejects updateAgent adding a builtin_role to an ordinary agent', async () => {
-      const created = createAgentForTest({
-        type: 'claude-code',
-        name: 'Ordinary Agent',
-        model: TEST_MODEL_ID
-      })
-
-      const error = captureError(() =>
-        agentService.updateAgent(created.id, { configuration: { builtin_role: 'assistant' } })
-      )
-      expect(error).toMatchObject({ code: ErrorCode.INVALID_OPERATION })
-      expect(agentService.getAgent(created.id)?.configuration?.builtin_role).toBeUndefined()
-    })
-
-    it('rejects updateAgent changing an existing builtin_role', async () => {
-      // Seed through the internal tx path, as the Cherry Assistant seeder does.
-      const agentId = 'agent_builtin_change'
-      await insertAgent({ id: agentId, configuration: { builtin_role: 'assistant' } })
-
-      const error = captureError(() =>
-        agentService.updateAgent(agentId, { configuration: { builtin_role: 'other' as never } })
-      )
-      expect(error).toMatchObject({ code: ErrorCode.INVALID_OPERATION })
-      expect(agentService.getAgent(agentId)?.configuration?.builtin_role).toBe('assistant')
-    })
-
-    it('preserves the builtin_role when an update omits it from configuration', async () => {
-      const agentId = 'agent_builtin_preserve'
-      await insertAgent({ id: agentId, configuration: { builtin_role: 'assistant', avatar: '🍒' } })
-
-      const updated = agentService.updateAgent(agentId, { configuration: { avatar: '🅰️' } })
-      expect(updated?.configuration?.builtin_role).toBe('assistant')
-      expect(updated?.configuration?.avatar).toBe('🅰️')
-    })
-
-    it('accepts an update that carries the existing builtin_role unchanged', async () => {
-      const agentId = 'agent_builtin_roundtrip'
-      await insertAgent({ id: agentId, configuration: { builtin_role: 'assistant' } })
-
-      const updated = agentService.updateAgent(agentId, {
-        configuration: { builtin_role: 'assistant', avatar: '🍒' }
-      })
-      expect(updated?.configuration?.builtin_role).toBe('assistant')
-      expect(updated?.configuration?.avatar).toBe('🍒')
-    })
-
-    it('rejects preserving a legacy Support marker on a non-system ID', async () => {
-      const agentId = 'legacy-forged-support'
-      await insertAgent({ id: agentId, configuration: { builtin_role: 'support', avatar: 'U' } })
-
-      const error = captureError(() =>
-        agentService.updateAgent(agentId, { configuration: { builtin_role: 'support', avatar: 'changed' } })
-      )
-
-      expect(error).toMatchObject({ code: ErrorCode.INVALID_OPERATION })
-      expect(agentService.getAgent(agentId)?.configuration).toEqual({ avatar: 'U' })
-    })
-  })
-
   describe('disabledTools round-trip', () => {
     it('persists disabledTools on create and update', async () => {
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Disabled Tools',
         model: TEST_MODEL_ID,
         disabledTools: ['Bash']
@@ -851,7 +576,7 @@ describe('AgentService', () => {
       await insertMcpServer('mcp_b')
 
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'MCP Create',
         model: TEST_MODEL_ID,
         mcps: ['mcp_a', 'mcp_b']
@@ -867,7 +592,7 @@ describe('AgentService', () => {
       await insertMcpServer('mcp_b')
       await insertMcpServer('mcp_c')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'MCP Replace',
         model: TEST_MODEL_ID,
         mcps: ['mcp_a', 'mcp_b']
@@ -887,7 +612,7 @@ describe('AgentService', () => {
     it('preserves existing mcps when update omits the field', async () => {
       await insertMcpServer('mcp_a')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'MCP Preserve',
         model: TEST_MODEL_ID,
         mcps: ['mcp_a']
@@ -904,7 +629,7 @@ describe('AgentService', () => {
     it('clears mcps when update passes an empty array', async () => {
       await insertMcpServer('mcp_a')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'MCP Clear',
         model: TEST_MODEL_ID,
         mcps: ['mcp_a']
@@ -922,7 +647,7 @@ describe('AgentService', () => {
     it('reports a missing create binding as KnowledgeBase and leaves no agent row', async () => {
       const error = captureError(() =>
         createAgentForTest({
-          type: 'claude-code',
+          type: 'pi',
           name: 'Missing KB Create',
           model: TEST_MODEL_ID,
           knowledgeBaseIds: ['missing-kb']
@@ -946,7 +671,7 @@ describe('AgentService', () => {
 
       const error = captureError(() =>
         createAgentForTest({
-          type: 'claude-code',
+          type: 'pi',
           name: 'KB Create Race',
           model: TEST_MODEL_ID,
           knowledgeBaseIds: ['kb_create_race']
@@ -966,7 +691,7 @@ describe('AgentService', () => {
       await insertKnowledgeBase('kb_b')
 
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'KB Create',
         model: TEST_MODEL_ID,
         knowledgeBaseIds: ['kb_a', 'kb_b']
@@ -982,7 +707,7 @@ describe('AgentService', () => {
       await insertKnowledgeBase('kb_b')
       await insertKnowledgeBase('kb_c')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'KB Replace',
         model: TEST_MODEL_ID,
         knowledgeBaseIds: ['kb_a', 'kb_b']
@@ -998,7 +723,7 @@ describe('AgentService', () => {
     it('reports a missing update binding as KnowledgeBase and preserves the existing binding', async () => {
       await insertKnowledgeBase('kb_a')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Missing KB Update',
         model: TEST_MODEL_ID,
         knowledgeBaseIds: ['kb_a']
@@ -1017,7 +742,7 @@ describe('AgentService', () => {
       await insertKnowledgeBase('kb_a')
       await insertKnowledgeBase('kb_b')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'KB Update Race',
         model: TEST_MODEL_ID,
         knowledgeBaseIds: ['kb_a']
@@ -1042,7 +767,7 @@ describe('AgentService', () => {
     it('preserves existing knowledgeBaseIds when update omits the field', async () => {
       await insertKnowledgeBase('kb_a')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'KB Preserve',
         model: TEST_MODEL_ID,
         knowledgeBaseIds: ['kb_a']
@@ -1059,7 +784,7 @@ describe('AgentService', () => {
     it('clears knowledgeBaseIds when update passes an empty array', async () => {
       await insertKnowledgeBase('kb_a')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'KB Clear',
         model: TEST_MODEL_ID,
         knowledgeBaseIds: ['kb_a']
@@ -1078,7 +803,7 @@ describe('AgentService', () => {
       await insertKnowledgeBase('kb_a')
       await insertKnowledgeBase('kb_b')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'KB Cascade',
         model: TEST_MODEL_ID,
         knowledgeBaseIds: ['kb_a', 'kb_b']
@@ -1102,7 +827,7 @@ describe('AgentService', () => {
       await insertGlobalSkill('skill_b')
 
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Skill Create',
         model: TEST_MODEL_ID,
         skillIds: ['skill_a', 'skill_b', 'skill_a'] // duplicate is deduped
@@ -1114,9 +839,9 @@ describe('AgentService', () => {
     })
 
     it('writes no skill rows when skillIds is omitted or empty', async () => {
-      const omitted = createAgentForTest({ type: 'claude-code', name: 'No Skills', model: TEST_MODEL_ID })
+      const omitted = createAgentForTest({ type: 'pi', name: 'No Skills', model: TEST_MODEL_ID })
       const empty = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Empty Skills',
         model: TEST_MODEL_ID,
         skillIds: []
@@ -1131,7 +856,7 @@ describe('AgentService', () => {
     it('rejects with NOT_FOUND and persists no agent when a skillId does not exist', async () => {
       const error = captureError(() =>
         createAgentForTest({
-          type: 'claude-code',
+          type: 'pi',
           name: 'Bad Skill',
           model: TEST_MODEL_ID,
           skillIds: ['does_not_exist']
@@ -1155,7 +880,7 @@ describe('AgentService', () => {
       try {
         const error = captureError(() =>
           createAgentForTest({
-            type: 'claude-code',
+            type: 'pi',
             name: 'Raced Skill',
             model: TEST_MODEL_ID,
             skillIds: ['skill_race']
@@ -1176,7 +901,7 @@ describe('AgentService', () => {
     it('leaves skill rows unchanged when update omits skillUpdates', async () => {
       await insertGlobalSkill('skill_a')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Skill Preserve',
         model: TEST_MODEL_ID,
         skillIds: ['skill_a']
@@ -1194,7 +919,7 @@ describe('AgentService', () => {
       await insertGlobalSkill('skill_b')
       await insertGlobalSkill('skill_c')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Skill Replace',
         model: TEST_MODEL_ID,
         skillIds: ['skill_a', 'skill_b']
@@ -1221,7 +946,7 @@ describe('AgentService', () => {
     it('writes an explicit disabled row when a builtin skill is disabled', async () => {
       await insertGlobalSkill('skill_builtin', undefined, 'builtin')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Builtin Disable',
         model: TEST_MODEL_ID
       })
@@ -1238,7 +963,7 @@ describe('AgentService', () => {
       await insertGlobalSkill('skill_builtin', undefined, 'builtin')
       await insertGlobalSkill('skill_regular')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Builtin Preserve',
         model: TEST_MODEL_ID
       })
@@ -1261,7 +986,7 @@ describe('AgentService', () => {
     it('rejects update skillUpdates when a selected skill does not exist', async () => {
       await insertGlobalSkill('skill_a')
       const created = createAgentForTest({
-        type: 'claude-code',
+        type: 'pi',
         name: 'Skill Bad Update',
         model: TEST_MODEL_ID,
         skillIds: ['skill_a']
@@ -1992,27 +1717,6 @@ describe('AgentService', () => {
 
       expect(agents.map((agent) => agent.id).sort()).toEqual(['agent_search_1', 'agent_search_2'])
     })
-
-    it('searches the localized blank builtin description server-side and returns it for display', async () => {
-      await insertAgent({
-        id: 'agent_builtin_assistant',
-        name: 'Cherry Assistant',
-        description: '',
-        configuration: { builtin_role: 'assistant' }
-      })
-
-      const { agents, total } = agentService.listAgents({ search: 'diagnose issues' })
-
-      expect(total).toBe(1)
-      expect(agents).toEqual([
-        expect.objectContaining({
-          id: 'agent_builtin_assistant',
-          // Preserve the persistence contract: renderer display fallback must not
-          // masquerade as a user-owned database description.
-          description: ''
-        })
-      ])
-    })
   })
 
   describe('search', () => {
@@ -2056,41 +1760,6 @@ describe('AgentService', () => {
         }
       ])
       expect(result[0]).not.toHaveProperty('modelName')
-    })
-
-    it('matches and displays the localized blank builtin description in global search', async () => {
-      await insertAgent({
-        id: 'agent_builtin_global_search',
-        name: 'Cherry Assistant',
-        description: '',
-        configuration: { builtin_role: 'assistant' },
-        updatedAt: 100
-      })
-
-      expect(agentService.search({ q: 'collect FAQs', limit: 5 })).toEqual([
-        expect.objectContaining({
-          id: 'agent_builtin_global_search',
-          subtitle:
-            'Built-in Cherry Studio advisor. Diagnose issues, guide operations, collect FAQs, submit bugs/feature requests, and search/create Skills'
-        })
-      ])
-    })
-
-    it('matches and displays Cherry Support through its localized fallback description', async () => {
-      await insertAgent({
-        id: CHERRY_SUPPORT_AGENT_ID,
-        name: 'Cherry Support',
-        description: '',
-        configuration: { builtin_role: 'support' },
-        updatedAt: 100
-      })
-
-      expect(agentService.search({ q: 'troubleshooting', limit: 5 })).toEqual([
-        expect.objectContaining({
-          id: CHERRY_SUPPORT_AGENT_ID,
-          subtitle: 'Official Cherry Studio support Agent for setup guidance, troubleshooting, FAQs, and feedback'
-        })
-      ])
     })
   })
 

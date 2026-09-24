@@ -2,7 +2,6 @@
 description: Unified aiSdk ToolEntry registry — built-in web/kb tools, MCP sync, meta-tools, and deferred exposition
 sources:
   - src/main/ai/tools/adapters/aiSdk
-  - src/main/ai/tools/adapters/claudeCode/agentTools.ts
 ---
 
 # Tool Registry
@@ -25,9 +24,8 @@ interface ToolEntry {
 process-wide singleton. `AiService.onInit()` calls the single
 `registerBuiltinTools()` entry point; request preparation later reads the
 registry through `buildAgentParams`. Agent-session runtimes build their own
-runtime-native tool surfaces. For example,
-`tools/adapters/claudeCode/agentTools.ts` combines Claude descriptors with MCP
-tools and does not consume this AI SDK `ToolRegistry`.
+runtime-native tool surfaces (Pi's bridged custom tools, DSH's bridge
+catalog) and do not consume this AI SDK `ToolRegistry`.
 
 Tests construct their own `new ToolRegistry()` to avoid singleton pollution.
 
@@ -47,8 +45,7 @@ e.g. `web_search`); they are not derived from a `__` segment convention like MCP
 The AI SDK MCP digest is derived from the stable server id plus the original
 protocol tool name. The readable slugs romanize Han characters (`tiny-pinyin`)
 so CJK names still produce a meaningful segment; kana and Hangul do not
-romanize and fall back to `server` / `tool` plus the digest. Claude Code keeps
-its separate runtime naming contract.
+romanize and fall back to `server` / `tool` plus the digest.
 
 ## Built-in tools
 
@@ -93,9 +90,9 @@ The sync is idempotent; a stale entry is overwritten on the next sync.
 
 - **`listTools(serverId)`** is cache-only — it returns the shared
   `mcp.tools.<serverId>` cache and **never connects** to the upstream MCP server.
-  Every hot path that builds an agent/chat's tool surface uses it: the Claude Code
-  SDK bridge (`createSdkMcpServerInstance`), `buildMcpToolMetadata`, the agent
-  tool-policy (`agentTools.listMcpDescriptors`), and the two AI-SDK adapters
+  Every hot path that builds an agent/chat's tool surface uses it: the runtime
+  MCP bridges and connection signatures (pi's in-memory bridge, the DSH cherry
+  tool bridge), and the two AI-SDK adapters
   above. A dead or slow server therefore cannot block agent/chat startup
   (issue #16242).
 - **`refreshTools(serverId)`** (and the private `listToolsForServer`) is the live
@@ -110,8 +107,8 @@ so headless/cron starts self-warm without re-probing dead servers.
 
 Trade-off: tool availability is **eventually consistent**. A server whose cache
 is still cold when a session starts contributes no tools to that session and
-appears on the next one — the Claude Agent SDK snapshots the tool list per
-session, so this cannot be made live mid-session.
+appears on the next one — agent runtimes snapshot the tool list per
+session/connection, so this cannot be made live mid-session.
 
 ## Meta-tools
 
@@ -181,8 +178,7 @@ see [Pi code mode](./agent-session-runtime.md#pi-code-mode).
 
 ## Where to read more
 
-- Code: `src/main/ai/tools/adapters/aiSdk/` (Claude Code adapter:
-  `src/main/ai/tools/adapters/claudeCode/`)
+- Code: `src/main/ai/tools/adapters/aiSdk/`
 - Tests: `tools/adapters/aiSdk/__tests__/`,
   `tools/adapters/aiSdk/builtin/__tests__/`,
   `tools/adapters/aiSdk/exposition/__tests__/`,

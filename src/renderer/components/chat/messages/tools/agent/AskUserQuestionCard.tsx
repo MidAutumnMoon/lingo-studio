@@ -72,7 +72,7 @@ export function AskUserQuestionCard({ toolResponse }: { toolResponse: NormalTool
   const { t } = useTranslation()
   const optimisticInput = useAskUserQuestionOptimisticInput(toolResponse.toolCallId)
 
-  // Parse from available sources. Completed Claude Code AskUserQuestion
+  // Parse from available sources. Completed AskUserQuestion
   // parts can keep the original questions in `input` and put user answers
   // in tool `output`, so read both sides.
   const { questions, answers } = useMemo(() => {

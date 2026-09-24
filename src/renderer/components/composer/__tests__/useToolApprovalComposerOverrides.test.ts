@@ -33,7 +33,7 @@ function makePermissionPart(overrides: Partial<Record<string, unknown>> = {}): C
     input: { file_path: '/tmp/file.ts' },
     approval: { id: 'approval-read' },
     callProviderMetadata: {
-      'claude-code': {
+      anthropic: {
         rawInput: { file_path: '/tmp/file.ts' },
         parentToolCallId: null
       }

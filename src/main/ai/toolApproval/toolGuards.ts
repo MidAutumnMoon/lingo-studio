@@ -1,5 +1,5 @@
 /**
- * Declarative tool-call guards for the Claude Code runtime's PreToolUse plane.
+ * Declarative tool-call guards for the runtimes' pre-approval plane.
  *
  * The SDK runs every PreToolUse hook and folds their permission decisions by severity
  * (deny > ask > allow) — it never short-circuits and never applies hook order. This evaluator
@@ -17,7 +17,7 @@
 import { loggerService } from '@logger'
 import type { AgentPermissionMode } from '@shared/data/api/schemas/agents'
 
-const logger = loggerService.withContext('ClaudeCodeToolGuards')
+const logger = loggerService.withContext('ToolGuards')
 
 export interface ToolGuardInteractionState {
   readonly currentTurn: 'none' | 'interactive' | 'headless'

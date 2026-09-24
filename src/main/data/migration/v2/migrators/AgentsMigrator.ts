@@ -34,8 +34,6 @@ import { LegacyAgentsDbReader } from '../utils/LegacyAgentsDbReader'
 import { assignOrderKeysByScope, assignOrderKeysInSequence } from '../utils/orderKey'
 import {
   type AgentFileSessionPlan,
-  copyLegacyClaudeConfig,
-  copyLegacyClaudeSessionData,
   isManagedLegacyAgentWorkspace,
   legacyAgentWorkspacePath,
   stageLegacyAgentFiles
@@ -88,22 +86,10 @@ const AGENT_MESSAGE_IMPORT_SAVEPOINT = 'agent_message_batch_import'
 
 const logger = loggerService.withContext('AgentsMigrator')
 
-function formatMigrationByteCount(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  const units = ['KiB', 'MiB', 'GiB', 'TiB']
-  let value = bytes / 1024
-  let unit = units[0]
-  for (let index = 1; index < units.length && value >= 1024; index++) {
-    value /= 1024
-    unit = units[index]
-  }
-  return `${value.toFixed(value >= 10 ? 0 : 1)} ${unit}`
-}
-
 export class AgentsMigrator extends BaseMigrator {
   readonly id = 'agents'
   readonly name = 'Agents'
-  readonly description = 'Migrate legacy Agent data and Claude config into v2 storage'
+  readonly description = 'Migrate legacy Agent data into v2 storage'
   readonly order = 2.5
 
   private sourceCounts: AgentsTableRowCounts = this.createEmptyCounts()
@@ -168,54 +154,6 @@ export class AgentsMigrator extends BaseMigrator {
 
   async execute(ctx: MigrationContext): Promise<ExecuteResult> {
     const executeStartedAt = performance.now()
-    const claudeConfigStartedAt = performance.now()
-    let reportedClaudeConfigProgress = 1
-    this.reportProgress(reportedClaudeConfigProgress, 'Scanning Agent configuration', {
-      key: 'migration.progress.agents_claude_config_scanning_start'
-    })
-    const copiedLegacyClaudeConfig = await copyLegacyClaudeConfig(
-      ctx.paths.legacyClaudeConfigDir,
-      ctx.paths.claudeConfigDir,
-      (progress) => {
-        const phaseRange = {
-          scanning: { start: 1, span: 14 },
-          copying: { start: 15, span: 15 },
-          verifying: { start: 30, span: 14 }
-        }[progress.phase]
-        const ratio =
-          progress.byteTotal > 0
-            ? progress.byteCount / progress.byteTotal
-            : progress.total > 0
-              ? progress.processed / progress.total
-              : 0
-        reportedClaudeConfigProgress = Math.max(
-          reportedClaudeConfigProgress,
-          phaseRange.start + Math.round(Math.min(Math.max(ratio, 0), 1) * phaseRange.span)
-        )
-        this.reportProgress(
-          reportedClaudeConfigProgress,
-          `Migrating Agent configuration: ${progress.processed}/${progress.total} files`,
-          {
-            key: `migration.progress.agents_claude_config_${progress.phase}`,
-            params: {
-              processed: progress.processed,
-              total: progress.total,
-              byteCount: formatMigrationByteCount(progress.byteCount),
-              byteTotal: formatMigrationByteCount(progress.byteTotal)
-            }
-          }
-        )
-      }
-    )
-    logger.info('Agent migration phase completed', {
-      phase: 'claude-config',
-      copied: copiedLegacyClaudeConfig,
-      durationMs: Math.round(performance.now() - claudeConfigStartedAt)
-    })
-    this.reportProgress(45, 'Prepared Agent configuration', {
-      key: 'migration.progress.agents_claude_config'
-    })
-
     const reader = this.createReader(ctx)
     const dbPath = this.resolveSourceDbPath(reader)
 
@@ -269,7 +207,7 @@ export class AgentsMigrator extends BaseMigrator {
           filesDataDir: ctx.paths.filesDataDir
         },
         (processed, total) => {
-          const progress = total === 0 ? 55 : 45 + Math.round((processed / total) * 10)
+          const progress = total === 0 ? 30 : 1 + Math.round((processed / total) * 29)
           this.reportProgress(progress, `Prepared ${processed}/${total} Agent messages`, {
             key: 'migration.progress.agents_messages',
             params: { processed, total }
@@ -284,7 +222,7 @@ export class AgentsMigrator extends BaseMigrator {
         sessions: derivedSessionWorkspaces.mappings.length,
         durationMs: Math.round(performance.now() - messagePreparationStartedAt)
       })
-      this.reportProgress(55, `Prepared ${stagedSessionMessageCount} Agent messages`, {
+      this.reportProgress(30, `Prepared ${stagedSessionMessageCount} Agent messages`, {
         key: 'migration.progress.agents_messages',
         params: { processed: stagedSessionMessageCount, total: stagedSessionMessageCount }
       })
@@ -323,7 +261,7 @@ export class AgentsMigrator extends BaseMigrator {
         messages: stagedSessionMessageCount,
         durationMs: Math.round(performance.now() - databaseImportStartedAt)
       })
-      this.reportProgress(55, 'Imported Agent database records', {
+      this.reportProgress(30, 'Imported Agent database records', {
         key: 'migration.progress.agents_database'
       })
 
@@ -348,7 +286,7 @@ export class AgentsMigrator extends BaseMigrator {
         sessions: idRemap.sessionIds.size,
         durationMs: Math.round(performance.now() - idMappingStartedAt)
       })
-      this.reportProgress(65, 'Remapped Agent and Session identifiers', {
+      this.reportProgress(40, 'Remapped Agent and Session identifiers', {
         key: 'migration.progress.agents_id_mapping'
       })
       const finalSessionWorkspaces = finalizeSessionWorkspaces(ctx, derivedSessionWorkspaces, idRemap)
@@ -356,7 +294,7 @@ export class AgentsMigrator extends BaseMigrator {
       const fileSessionPlans = toAgentFileSessionPlans(ctx.db, finalSessionWorkspaces, stagedSessionMessageCount)
       dropLegacySessionMessageStaging(ctx.db)
       const workspaceCopyStartedAt = performance.now()
-      let reportedFileProgress = 65
+      let reportedFileProgress = 40
       const filesystemResult = await stageLegacyAgentFiles({
         agentsDataRoot: ctx.paths.agentsDataDir,
         agents: legacyAgentIds.map((sourceAgentId) => ({
@@ -365,8 +303,8 @@ export class AgentsMigrator extends BaseMigrator {
         })),
         sessions: fileSessionPlans,
         onProgress: ({ phase, processed, total }) => {
-          const phaseStart = phase === 'identity' ? 65 : 70
-          const phaseSpan = phase === 'identity' ? 5 : 18
+          const phaseStart = phase === 'identity' ? 40 : 50
+          const phaseSpan = phase === 'identity' ? 10 : 38
           const progress =
             total === 0 ? phaseStart + phaseSpan : phaseStart + Math.round((processed / total) * phaseSpan)
           reportedFileProgress = Math.max(reportedFileProgress, progress)
@@ -385,31 +323,6 @@ export class AgentsMigrator extends BaseMigrator {
       })
       this.reportProgress(88, 'Prepared Agent workspaces', {
         key: 'migration.progress.agents_workspaces',
-        params: { processed: fileSessionPlans.length, total: fileSessionPlans.length }
-      })
-      const claudeCacheStartedAt = performance.now()
-      await copyLegacyClaudeSessionData({
-        agentsDataRoot: ctx.paths.agentsDataDir,
-        sourceProjectsDirectories: copiedLegacyClaudeConfig
-          ? [ctx.paths.legacyClaudeProjectsDir]
-          : [ctx.paths.legacyClaudeProjectsDir, ctx.paths.claudeProjectsDir],
-        destinationProjectsDirectory: ctx.paths.claudeProjectsDir,
-        sessions: fileSessionPlans,
-        onProgress: ({ processed, total }) => {
-          const progress = total === 0 ? 97 : 88 + Math.round((processed / total) * 9)
-          this.reportProgress(progress, `Prepared ${processed}/${total} Claude session transcripts`, {
-            key: 'migration.progress.agents_claude_cache',
-            params: { processed, total }
-          })
-        }
-      })
-      logger.info('Agent migration phase completed', {
-        phase: 'claude-session-cache',
-        sessions: fileSessionPlans.length,
-        durationMs: Math.round(performance.now() - claudeCacheStartedAt)
-      })
-      this.reportProgress(97, 'Prepared Agent Claude session cache', {
-        key: 'migration.progress.agents_claude_cache',
         params: { processed: fileSessionPlans.length, total: fileSessionPlans.length }
       })
       // Self-check agent-domain referential integrity after import + remap. FK is OFF for

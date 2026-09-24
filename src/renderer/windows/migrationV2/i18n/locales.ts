@@ -75,15 +75,6 @@ export const zhCN = {
   'migration.more_options.diagnostics_title': '保存问题信息',
   'migration.more_options.skip_description': '不导入旧版数据，以默认配置开始使用。',
   'migration.more_options.use_v2_title': '直接使用 V2',
-  'migration.progress.agents_claude_cache': '正在迁移 Agent 会话缓存 {{processed}}/{{total}}…',
-  'migration.progress.agents_claude_config': '正在迁移 Agent 配置…',
-  'migration.progress.agents_claude_config_copying':
-    '正在迁移 Agent 配置：{{processed}}/{{total}} 个文件，{{byteCount}}/{{byteTotal}}',
-  'migration.progress.agents_claude_config_scanning':
-    '正在扫描 Agent 配置：{{processed}}/{{total}} 个文件，{{byteCount}}/{{byteTotal}}',
-  'migration.progress.agents_claude_config_scanning_start': '正在统计 Agent 配置文件…',
-  'migration.progress.agents_claude_config_verifying':
-    '正在验证 Agent 配置：{{processed}}/{{total}} 个文件，{{byteCount}}/{{byteTotal}}',
   'migration.progress.agents_database': '正在导入 Agent 数据库记录…',
   'migration.progress.agents_id_mapping': '正在更新 Agent 和会话标识…',
   'migration.progress.agents_identity': '正在迁移 Agent 身份文件 {{processed}}/{{total}}…',
@@ -231,15 +222,6 @@ export const enUS = {
   'migration.more_options.diagnostics_title': 'Save troubleshooting information',
   'migration.more_options.skip_description': 'Start with default settings without importing your V1 data.',
   'migration.more_options.use_v2_title': 'Use V2 without importing V1 data',
-  'migration.progress.agents_claude_cache': 'Migrating Agent session cache {{processed}}/{{total}}…',
-  'migration.progress.agents_claude_config': 'Migrating Agent configuration…',
-  'migration.progress.agents_claude_config_copying':
-    'Migrating Agent configuration: {{processed}}/{{total}} files, {{byteCount}}/{{byteTotal}}',
-  'migration.progress.agents_claude_config_scanning':
-    'Scanning Agent configuration: {{processed}}/{{total}} files, {{byteCount}}/{{byteTotal}}',
-  'migration.progress.agents_claude_config_scanning_start': 'Counting Agent configuration files…',
-  'migration.progress.agents_claude_config_verifying':
-    'Verifying Agent configuration: {{processed}}/{{total}} files, {{byteCount}}/{{byteTotal}}',
   'migration.progress.agents_database': 'Importing Agent database records…',
   'migration.progress.agents_id_mapping': 'Updating Agent and Session identifiers…',
   'migration.progress.agents_identity': 'Migrating Agent identity files {{processed}}/{{total}}…',

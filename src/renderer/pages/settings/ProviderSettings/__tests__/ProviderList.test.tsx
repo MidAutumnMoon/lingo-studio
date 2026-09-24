@@ -290,8 +290,8 @@ describe('ProviderList', () => {
         { ...canonicalOpenAI, id: 'openai-work' },
         {
           ...providers[1],
-          id: 'claude-code',
-          presetProviderId: 'claude-code',
+          id: 'cli-login',
+          presetProviderId: 'cli-login',
           authType: 'api-key',
           authMethods: ['external-cli']
         }

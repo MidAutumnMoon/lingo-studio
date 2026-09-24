@@ -77,8 +77,8 @@ export async function registerIpc() {
 
   // system
   handleGuarded(IpcChannel.System_GetHostname, getHostname)
-  // Git Bash has no IPC: the Claude Code runtime resolves it in-process via
-  // autoDiscoverGitBash() (ai/runtime/claudeCode/settingsBuilder.ts).
+  // Git Bash has no IPC: the agent runtimes resolve it in-process via
+  // autoDiscoverGitBash() (utils/commandResolver).
 
   // backup
   handleGuarded(IpcChannel.Backup_Backup, backupManager.backup.bind(backupManager))

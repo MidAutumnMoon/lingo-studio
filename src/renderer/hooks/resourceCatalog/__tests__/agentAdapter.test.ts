@@ -62,7 +62,7 @@ describe('useAgentMutations', () => {
     const dto = {
       name: 'Agent',
       model: 'anthropic::claude-3' as const,
-      type: 'claude-code' as const
+      type: 'pi' as const
     }
     const created = { id: 'agent-1', ...dto }
     ipcRequestMock.mockResolvedValue(created)
@@ -82,7 +82,7 @@ describe('useAgentMutations', () => {
     const dto = {
       name: 'Agent',
       model: 'anthropic::claude-3' as const,
-      type: 'claude-code' as const
+      type: 'pi' as const
     }
     const created = { id: 'agent-1', ...dto }
     ipcRequestMock.mockResolvedValue(created)
@@ -101,7 +101,7 @@ describe('useAgentMutations', () => {
     const dto = {
       name: 'Agent',
       model: 'anthropic::claude-3' as const,
-      type: 'claude-code' as const
+      type: 'pi' as const
     }
     let rejectCreate!: (error: Error) => void
     const pendingCreate = new Promise<never>((_, reject) => {

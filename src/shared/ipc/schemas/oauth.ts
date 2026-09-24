@@ -18,11 +18,6 @@ import { defineRoute } from '../define'
  *
  * `sign_in` and `get_account` return only the account id; OAuth tokens stay in
  * main. Providers without an account concept resolve `{ accountId: null }`.
- *
- * `check_external_login` covers the other login shape — providers whose
- * credential lives in an external CLI's store (`authMethods` includes
- * `'external-cli'`, e.g. Claude Code) rather than an app-held token. It is a
- * read-only presence probe; no credential is read or returned.
  */
 
 /** The account a provider associates with the session (Codex's ChatGPT id), or null. */
@@ -44,6 +39,5 @@ export const oauthRequestSchemas = {
   'oauth.has_token': defineRoute({ input: providerInput, output: z.boolean() }),
   'oauth.get_account': defineRoute({ input: providerInput, output: oauthAccountSchema }),
   'oauth.logout': defineRoute({ input: providerInput, output: z.void() }),
-  'oauth.tokendance.authorize_api_key': defineRoute({ input: z.void(), output: z.string().min(1) }),
-  'oauth.check_external_login': defineRoute({ input: providerInput, output: z.boolean() })
+  'oauth.tokendance.authorize_api_key': defineRoute({ input: z.void(), output: z.string().min(1) })
 }

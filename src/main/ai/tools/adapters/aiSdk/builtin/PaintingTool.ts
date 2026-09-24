@@ -3,7 +3,7 @@
  *
  * The model supplies a prompt, model-supported canonical parameters, and optional image references.
  * The actual generation/editing (painting-model resolution, vendor
- * mapping, persistence) lives in the shared `painting` core so the Claude Code
+ * mapping, persistence) lives in the shared `painting` core so the agent
  * MCP bridge runs the exact same logic; this file is just the AI-SDK `dynamicTool()`
  * wrapper.
  */

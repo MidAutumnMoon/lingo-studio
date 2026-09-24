@@ -108,7 +108,6 @@ interface AgentMessageListParams {
   openArtifactFile?: MessageListActions['openArtifactFile']
   openBrowserUrl?: MessageListActions['openBrowserUrl']
   openExternalUrl?: MessageListActions['openExternalUrl']
-  openDiagnosticReport?: MessageListActions['openDiagnosticReport']
   diagnosticReport?: DiagnosticReportConfig
   deleteMessage?: MessageListActions['deleteMessage']
   startEditing?: (messageId: string) => Promise<void>
@@ -171,7 +170,6 @@ export function useAgentMessageListProviderValue({
   openArtifactFile,
   openBrowserUrl,
   openExternalUrl,
-  openDiagnosticReport,
   diagnosticReport,
   deleteMessage,
   startEditing,
@@ -488,7 +486,6 @@ export function useAgentMessageListProviderValue({
       isDirectory,
       openPath,
       openArtifactFile,
-      openDiagnosticReport: normalInteractionsEnabled ? openDiagnosticReport : undefined,
       openCitationsPanel,
       isAgentToolFlowActive,
       openAgentToolFlow,
@@ -523,7 +520,6 @@ export function useAgentMessageListProviderValue({
       normalInteractionsEnabled,
       openCitationsPanel,
       openArtifactFile,
-      openDiagnosticReport,
       openBrowserUrl,
       openExternalUrl,
       isAgentToolFlowActive,

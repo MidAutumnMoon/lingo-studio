@@ -17,7 +17,7 @@ describe('doctorSessionReducer', () => {
     const confirming = doctorSessionReducer(initial, {
       type: 'confirm-evidence',
       runId: 'run-1',
-      checkId: 'runtime-claude-login'
+      checkId: 'storage-userdata-location'
     })
 
     expect(doctorSessionReducer(confirming, { type: 'cancel-confirmation' }).interaction).toEqual({ kind: 'idle' })
@@ -29,7 +29,7 @@ describe('doctorSessionReducer', () => {
     const revealed = doctorSessionReducer(initial, {
       type: 'reveal-evidence',
       runId: 'run-1',
-      checkId: 'runtime-claude-login'
+      checkId: 'storage-userdata-location'
     })
     const expanded = doctorSessionReducer(revealed, {
       type: 'reveal-evidence',
@@ -39,13 +39,13 @@ describe('doctorSessionReducer', () => {
 
     expect(expanded.evidenceGrant).toEqual({
       runId: 'run-1',
-      checkIds: ['runtime-claude-login', 'logs-recent-findings']
+      checkIds: ['storage-userdata-location', 'logs-recent-findings']
     })
     expect(
       doctorSessionReducer(expanded, {
         type: 'reveal-evidence',
         runId: 'run-1',
-        checkId: 'runtime-claude-login'
+        checkId: 'storage-userdata-location'
       })
     ).toBe(expanded)
   })
@@ -55,16 +55,16 @@ describe('doctorSessionReducer', () => {
     const firstRun = doctorSessionReducer(initial, {
       type: 'reveal-evidence',
       runId: 'run-1',
-      checkId: 'runtime-claude-login'
+      checkId: 'storage-userdata-location'
     })
 
     const secondRun = doctorSessionReducer(firstRun, {
       type: 'reveal-evidence',
       runId: 'run-2',
-      checkId: 'runtime-claude-login'
+      checkId: 'storage-userdata-location'
     })
 
-    expect(secondRun.evidenceGrant).toEqual({ runId: 'run-2', checkIds: ['runtime-claude-login'] })
+    expect(secondRun.evidenceGrant).toEqual({ runId: 'run-2', checkIds: ['storage-userdata-location'] })
   })
 
   it('keeps one report draft while switching panels', () => {
@@ -121,7 +121,7 @@ describe('doctorSessionReducer', () => {
     const result = doctorSessionReducer(fixing, {
       type: 'confirm-evidence',
       runId: 'run-1',
-      checkId: 'runtime-claude-login'
+      checkId: 'storage-userdata-location'
     })
 
     expect(result).toBe(fixing)

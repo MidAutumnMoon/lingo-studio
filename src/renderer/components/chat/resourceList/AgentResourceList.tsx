@@ -21,17 +21,11 @@ import { useCloseConversationTabs } from '@renderer/hooks/tab'
 import { usePins } from '@renderer/hooks/usePins'
 import { useSidebarShortcuts } from '@renderer/hooks/useSidebarShortcuts'
 import { ipcApi } from '@renderer/ipc'
-import {
-  restoreRecycleBinItems,
-  restoreRecycleBinUndoGroup,
-  showRecycleBinBatchUndo,
-  showRecycleBinUndo
-} from '@renderer/services/recycleBinFeedback'
+import { restoreRecycleBinUndoGroup, showRecycleBinUndo } from '@renderer/services/recycleBinFeedback'
 import { toast } from '@renderer/services/toast'
 import { SESSION_UNKNOWN_AGENT_GROUP_ID } from '@renderer/utils/chat/sessionListHelpers'
 import { formatErrorMessageWithPrefix } from '@renderer/utils/error'
 import { createSidebarShortcutTarget, SIDEBAR_SHORTCUT_PROVIDER_IDS } from '@renderer/utils/sidebar'
-import { isProtectedBuiltinAgentRole } from '@shared/ai/builtinAgent'
 import type { AgentSessionEntity } from '@shared/data/api/schemas/agentSessions'
 import type { AssistantIconType } from '@shared/data/preference/preferenceTypes'
 import { isAgentNotFoundError, isAgentSessionNotFoundError } from '@shared/ipc/errors/ai'
@@ -300,28 +294,17 @@ export function AgentResourceList({
     async (agentId: string) => {
       if (deletingAgentId) return
 
-      const deleteSessionsOnly = isProtectedBuiltinAgentRole(
-        agents.find((agent) => agent.id === agentId)?.configuration?.builtin_role
-      )
       const agentName = agents.find((agent) => agent.id === agentId)?.name ?? t('common.unnamed')
 
       const performDelete = async (deleteSessions: boolean) => {
         setDeletingAgentId(agentId)
         try {
-          let deletedSessionIds: string[] = []
-          let deletionChangedState = false
-          if (deleteSessionsOnly) {
-            const result = await ipcApi.request('ai.agent.sessions.delete', { agentId })
-            deletedSessionIds = result.deletedIds
-            deletionChangedState = deletedSessionIds.length > 0
-          } else {
-            const result = await ipcApi.request('ai.agent.delete', {
-              agentId,
-              deleteSessions
-            })
-            deletionChangedState = result.deleted
-            deletedSessionIds = result.deletedSessionIds ?? []
-          }
+          const result = await ipcApi.request('ai.agent.delete', {
+            agentId,
+            deleteSessions
+          })
+          const deletedSessionIds = result.deletedSessionIds ?? []
+          const deletionChangedState = result.deleted
           if (deletedSessionIds.length > 0) closeConversationTabs('agents', deletedSessionIds)
 
           const invalidateOutcomes = await Promise.allSettled(
@@ -334,7 +317,7 @@ export function AgentResourceList({
           }
           const reloadResources = async () => {
             try {
-              await Promise.all([...(deleteSessionsOnly ? [] : [refetchAgents()]), reload()])
+              await Promise.all([refetchAgents(), reload()])
             } catch (err) {
               logger.warn('Failed to reload resources after deleting Agent from classic-layout rail', { agentId, err })
             }
@@ -354,53 +337,33 @@ export function AgentResourceList({
           }
 
           await reloadResources()
-          if (deleteSessionsOnly) {
-            showRecycleBinBatchUndo({
-              itemCount: deletedSessionIds.length,
-              onUndo: () =>
-                restoreRecycleBinItems({
+          showRecycleBinUndo({
+            itemName: agentName,
+            title: t('common.archived', { name: agentName }),
+            description: t('agent.archive.related_resources'),
+            onUndo: () =>
+              restoreRecycleBinUndoGroup({
+                primary: {
+                  id: agentId,
+                  restore: (id) => restoreAgent(id),
+                  isNotFound: isAgentNotFoundError,
+                  getActive: (id) => dataApiService.get(`/agents/${id}`)
+                },
+                related: {
                   ids: deletedSessionIds,
                   restore: restoreSession,
                   getActive: (id) => dataApiService.get(`/agent-sessions/${id}`),
-                  isNotFound: isAgentSessionNotFoundError,
-                  refresh: refreshAfterRestore
-                })
-            })
-          } else {
-            showRecycleBinUndo({
-              itemName: agentName,
-              title: t('common.archived', { name: agentName }),
-              description: t('agent.archive.related_resources'),
-              onUndo: () =>
-                restoreRecycleBinUndoGroup({
-                  primary: {
-                    id: agentId,
-                    restore: (id) => restoreAgent(id),
-                    isNotFound: isAgentNotFoundError,
-                    getActive: (id) => dataApiService.get(`/agents/${id}`)
-                  },
-                  related: {
-                    ids: deletedSessionIds,
-                    restore: restoreSession,
-                    getActive: (id) => dataApiService.get(`/agent-sessions/${id}`),
-                    isNotFound: isAgentSessionNotFoundError
-                  },
-                  refresh: refreshAfterRestore
-                })
-            })
-          }
+                  isNotFound: isAgentSessionNotFoundError
+                },
+                refresh: refreshAfterRestore
+              })
+          })
         } catch (err) {
           logger.error('Failed to delete agent from classic-layout rail', { agentId, err })
-          if (!deleteSessionsOnly) throw err
-          toast.error(formatErrorMessageWithPrefix(err, t('agent.delete.error.failed')))
+          throw err
         } finally {
           setDeletingAgentId(null)
         }
-      }
-
-      if (deleteSessionsOnly) {
-        await performDelete(true)
-        return
       }
 
       await deleteConversationOwnerPopup.show({ type: 'agent', action: performDelete })
@@ -427,9 +390,6 @@ export function AgentResourceList({
 
       const pinned = agentPinnedIdSet.has(item.id)
       const sidebarPinned = sidebarAgentFavoriteIdSet.has(item.id)
-      const deleteSessionsOnly = isProtectedBuiltinAgentRole(
-        agents.find((agent) => agent.id === item.id)?.configuration?.builtin_role
-      )
 
       return [
         buildResolvedResourceEntityMenuAction({
@@ -461,7 +421,7 @@ export function AgentResourceList({
         ),
         buildResolvedResourceEntityMenuAction({
           id: AGENT_ENTITY_ARCHIVE_ACTION_ID,
-          label: t(deleteSessionsOnly ? 'agent.session.agent.delete.trigger' : 'common.archive'),
+          label: t('common.archive'),
           icon: <Archive size={14} />,
           group: 'danger',
           order: 30,

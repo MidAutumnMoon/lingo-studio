@@ -4,7 +4,7 @@ import { defangSystemReminderTags } from './untrustedContent'
  * Wrap a steer message — one the user sent while the assistant was already working — so the model
  * treats it as a mid-task redirect rather than a fresh prompt (invariant 7). Mirrors opencode's
  * `insertReminders`. Shared by both runtimes: chat wraps it into the rebuilt model history; the
- * claudeCode driver wraps it as it pushes into the live streaming-input queue.
+ * agent runtime wraps it as it pushes into the live streaming-input queue.
  */
 const SYSTEM_REMINDER_OPEN = '<system-reminder>'
 const SYSTEM_REMINDER_CLOSE = '</system-reminder>'

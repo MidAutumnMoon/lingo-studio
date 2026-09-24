@@ -10,7 +10,6 @@ import { ToolApprovalOutcome } from '../shared/ToolApprovalOutcome'
 import { isToolPartAwaitingApproval } from '../toolResponse'
 import { AgentToolCallCard } from './AgentToolCallCard'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
-import { NavigateToolInline } from './NavigateTool'
 import { isCherrySessionToolResponse } from './sessionToolResult'
 import { getSubagentTaskStatus } from './subagentStatus'
 
@@ -38,10 +37,6 @@ export function AgentExecutionTimeline({ toolResponse }: { toolResponse: NormalT
       return undefined
     }
   }, [deferredPartialArguments])
-
-  if (tool?.name === 'mcp__assistant__navigate') {
-    return <NavigateToolInline input={args ?? parsedPartialArgs} output={response} />
-  }
 
   if (isAskUserQuestionToolName(tool?.name)) {
     if (toolResponse.approval?.approved === false) {

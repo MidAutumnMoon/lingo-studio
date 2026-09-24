@@ -67,7 +67,6 @@ export class CodeCliService extends BaseService {
     timestamp: number
   } | null = null
   private readonly TERMINALS_CACHE_DURATION = 1000 * 60 * 5 // 5 minutes cache for terminals
-  private loginQuery: { controller: AbortController; promise: Promise<boolean>; users: number } | null = null
 
   protected async onInit(): Promise<void> {
     if (isMac || isWin) {
@@ -116,83 +115,7 @@ export class CodeCliService extends BaseService {
     await skillService.uninstallBuiltinSkill(preset.skillFolderName, preset.skillNamespace)
   }
 
-  /**
-   * Read-only probe of whether the user already has a Claude Code CLI
-   * subscription login (Claude Pro/Max OAuth) usable by the Agent SDK. Never
-   * reads or stores the credential value itself — only its presence.
-   *
-   * macOS: the OAuth token lives in the global login Keychain under the generic
-   * password service `Claude Code-credentials` (independent of CLAUDE_CONFIG_DIR);
-   * we query existence without `-w` so no secret is read and no ACL prompt fires.
-   * Linux/Windows: it lives in `<CLAUDE_CONFIG_DIR>/.credentials.json` (default
-   * `~/.claude`). A present token may still be expired — the SDK refreshes on use;
-   * this is a best-effort "is the user signed in" hint for the settings UI.
-   */
-  public async checkClaudeLogin(signal?: AbortSignal): Promise<boolean> {
-    signal?.throwIfAborted()
-    if (!this.loginQuery || this.loginQuery.controller.signal.aborted) {
-      const controller = new AbortController()
-      const query = { controller, users: 0, promise: this.probeClaudeLogin(controller.signal) }
-      this.loginQuery = query
-      void query.promise
-        .finally(() => {
-          if (this.loginQuery === query) this.loginQuery = null
-        })
-        .catch(() => undefined)
-    }
-    const query = this.loginQuery
-    query.users += 1
-    let onAbort: (() => void) | undefined
-    try {
-      return await new Promise<boolean>((resolve, reject) => {
-        onAbort = () => reject(signal?.reason)
-        signal?.addEventListener('abort', onAbort, { once: true })
-        query.promise.then(resolve, reject)
-      })
-    } finally {
-      if (onAbort) signal?.removeEventListener('abort', onAbort)
-      query.users -= 1
-      if (query.users === 0) query.controller.abort()
-    }
-  }
-
-  private async probeClaudeLogin(signal: AbortSignal): Promise<boolean> {
-    if (isMac) {
-      try {
-        await execFileAsync('security', ['find-generic-password', '-s', 'Claude Code-credentials'], {
-          timeout: 3000,
-          signal,
-          killSignal: 'SIGKILL'
-        })
-        return true
-      } catch (error) {
-        signal.throwIfAborted()
-        if ((error as { code?: unknown }).code === 44) return false
-        throw error
-      }
-    }
-    try {
-      // Resolve from the same source the runtime uses (settingsBuilder reads the
-      // shell CLAUDE_CONFIG_DIR), not raw process.env: a GUI-launched Electron
-      // process does not inherit rc-exported vars, so probing process.env alone
-      // falsely reports "not signed in".
-      const shellEnv = await getShellEnv(signal)
-      const configDir =
-        shellEnv.CLAUDE_CONFIG_DIR ||
-        process.env.CLAUDE_CONFIG_DIR ||
-        path.join(application.getPath('sys.home'), '.claude')
-      await fs.promises.access(path.join(configDir, '.credentials.json'))
-      signal.throwIfAborted()
-      return true
-    } catch (error) {
-      signal.throwIfAborted()
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
-      throw error
-    }
-  }
-
   protected async onStop(): Promise<void> {
-    this.loginQuery?.controller.abort()
     this.terminalsCache = null
   }
 

@@ -3,8 +3,6 @@ import { AssistantSidebarShortcutCleanupSeeder } from './seeders/AssistantSideba
 import { BrowserCapabilityUpgradeSeeder } from './seeders/browserCapabilityUpgradeSeeder'
 import { BuiltinMcpServerSeeder } from './seeders/builtinMcpServerSeeder'
 import { CherryAiDefaultModelSeeder } from './seeders/cherryaiDefaultModelSeeder'
-import { CherryAssistantSeeder } from './seeders/cherryAssistantSeeder'
-import { CherrySupportSeeder } from './seeders/cherrySupportSeeder'
 import { DefaultAssistantSeeder } from './seeders/defaultAssistantSeeder'
 import { LegacyFileCleanupPolicySeeder } from './seeders/legacyFileCleanupPolicySeeder'
 import { LongTextPastePreferenceUpgradeSeeder } from './seeders/longTextPastePreferenceUpgradeSeeder'
@@ -28,8 +26,6 @@ export const seeders: ISeeder[] = [
   new BrowserCapabilityUpgradeSeeder(),
   new LegacyFileCleanupPolicySeeder(),
   new CherryAiDefaultModelSeeder(),
-  new CherryAssistantSeeder(),
-  new CherrySupportSeeder(),
   new DefaultAssistantSeeder(),
   new LongTextPastePreferenceUpgradeSeeder(),
   new WebSearchPreferenceUpgradeSeeder(),

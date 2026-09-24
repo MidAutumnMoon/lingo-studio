@@ -10,7 +10,6 @@ const APP_TEMP = '/mock/tmp/CherryStudio'
 const MARKER_FILE = `${USER_DATA}/data-reset.pending.json`
 const MARKER_ASIDE = `${USER_DATA}/data-reset.pending.invalid`
 const DATABASE_FILE = `${USER_DATA}/Data/cherrystudio.sqlite`
-const CLAUDE_ROOT = `${USER_DATA}/Data/Agents/.claude`
 const VERSION_LOG_FILE = `${USER_DATA}/version.log`
 const REGISTRY_OVERRIDE = `${USER_DATA}/Runtime/provider-registry-override`
 
@@ -71,7 +70,6 @@ const DEFAULT_LISTING = [
   'cache.json',
   'version.log',
   'restore-journal.json',
-  '.claude',
   '.copilot_token',
   'config.json',
   'window-state.json',
@@ -112,7 +110,6 @@ const EXPECTED_WIPED = [
   'cache.json',
   'version.log',
   'restore-journal.json',
-  '.claude',
   '.copilot_token',
   'config.json',
   'window-state.json',
@@ -168,7 +165,6 @@ function stubApplication(userData: string = USER_DATA, opts: { throwOnUserData?:
     if (key === 'app.temp') return APP_TEMP
     if (key === 'feature.data_reset.marker_file') return `${userData}/data-reset.pending.json`
     if (key === 'app.database.file') return `${userData}/Data/cherrystudio.sqlite`
-    if (key === 'feature.agents.claude.root') return `${userData}/Data/Agents/.claude`
     if (key === 'feature.version_log.file') return `${userData}/version.log`
     if (key === 'feature.provider_registry.override') return `${userData}/Runtime/provider-registry-override`
     return '/mock/unknown'
@@ -441,7 +437,6 @@ describe('runDataReset', () => {
     expect(rmSyncMock.mock.calls.map(([target]) => target)).toEqual([
       `${DATABASE_FILE}-wal`,
       `${DATABASE_FILE}-shm`,
-      CLAUDE_ROOT,
       DATABASE_FILE
     ])
     expect(appendFileSyncMock).not.toHaveBeenCalled()

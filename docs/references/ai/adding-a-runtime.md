@@ -8,7 +8,7 @@ sources:
 
 # Adding an Agent Runtime
 
-How to add another agent runtime alongside `claude-code`, `pi`, and `dsh`. For the
+How to add another agent runtime alongside `pi` and `dsh`. For the
 host/driver architecture itself (turn lifecycle, resume tokens, follow-up
 queue) read [Agent Session Runtime](./agent-session-runtime.md) first — this
 document is the operational checklist.
@@ -83,8 +83,8 @@ Create `src/main/ai/runtime/<name>/` implementing the contract in
      API-key rotation, open connections, or write state.
    - `listAvailableTools(mcpIds)` — the tool catalog for approval UI.
    - `connect(input)` — build an `AgentRuntimeConnection`.
-   - Optional: `prewarmSession` / `closeSessionWarm` / `onSessionIdle` for
-     runtimes that benefit from idle warmup (see the Claude driver).
+   - Optional: `onSessionIdle` for runtimes that benefit from idle lifecycle
+     hooks.
 
 2. **Connection** (`AgentRuntimeConnection`) — required members:
    - `events` — an `AsyncIterable<AgentRuntimeEvent>`. Minimum viable event
@@ -122,8 +122,7 @@ Create `src/main/ai/runtime/<name>/` implementing the contract in
 4. **Stream adapter** — convert runtime-native events into
    `UIMessageChunk`s. Import your transport constant from the descriptor
    (single source), never re-declare the string. Reference implementations:
-   `claudeCode/streamAdapter.ts`, `pi/piStreamAdapter.ts`, and
-   `dsh/dshStreamAdapter.ts`.
+   `pi/piStreamAdapter.ts` and `dsh/dshStreamAdapter.ts`.
 
 5. **Register the driver** in `src/main/ai/runtime/registerDrivers.ts`
    (called from `AgentSessionRuntimeService.onInit`). Do **not** create a
@@ -167,15 +166,15 @@ These are the choices nothing enforces:
   auto-import user-global resources or workspace **executable/code** resources
   (extensions, skills, prompt files) until Cherry has an explicit trust flow.
   Workspace **text** the user already vouched for by hand-picking the workspace
-  (context files like `AGENTS.md`/`CLAUDE.md`) may load — pi does, matching the
-  claude driver's `project` source. Draw the line at the trust class, not at
+  (context files like `AGENTS.md`/`CLAUDE.md`) may load — pi does.
+  Draw the line at the trust class, not at
   "all workspace resources": widening the runtime's `no*` flags wholesale is the
   regression to guard against. See
   [pi driver resource boundary](./agent-session-runtime.md#pi-driver-resource-boundary)
   for the concrete enforcement pattern.
-- **Permission posture matches the trust roots.** `claude-code` defaults to
-  `auto`, with its SDK brokering tool execution. An in-process
-  runtime may default to `acceptEdits` only when automatic writes are confined
+- **Permission posture matches the trust roots.** An in-process runtime may
+  expose an unattended `auto` mode only as a Cherry-owned rule-based gate, and
+  may default to `acceptEdits` only when automatic writes are confined
   to canonical user-selected roots; shell, external paths, third-party tools,
   symlink escapes, and Cherry approval-required mutations must remain gated.
 - **Resume tokens are opaque to the host but not to you.** Persist a stable

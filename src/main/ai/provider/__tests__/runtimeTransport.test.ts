@@ -22,7 +22,6 @@ describe('getProviderTransportAdapter', () => {
     expect(getProviderTransportAdapter('grok-cli')).toBeDefined()
     expect(getProviderTransportAdapter('openai-codex')).toBeDefined()
     expect(getProviderTransportAdapter('openai')).toBeUndefined()
-    expect(getProviderTransportAdapter('claude-code')).toBeUndefined()
   })
 })
 

@@ -13,7 +13,7 @@ import {
 function createAgent(overrides: Partial<AgentDetail> = {}): AgentDetail {
   return {
     id: 'a-1',
-    type: 'claude-code',
+    type: 'pi',
     name: 'Agent',
     description: '',
     model: 'anthropic::claude-sonnet-4-5',

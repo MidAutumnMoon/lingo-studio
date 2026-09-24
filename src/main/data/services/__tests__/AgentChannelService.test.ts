@@ -28,7 +28,7 @@ describe('AgentChannelService', () => {
   async function insertAgent(id: string): Promise<void> {
     await dbh.db.insert(agentTable).values({
       id,
-      type: 'claude-code',
+      type: 'pi',
       name: `Agent ${id}`,
       instructions: 'test',
       model: null,

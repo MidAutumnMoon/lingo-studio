@@ -2,11 +2,11 @@
  * Knowledge base search / list core — runtime-agnostic.
  *
  * Single source of truth shared by the AI-SDK builtin tools (`kb_search` /
- * `kb_list`) and the Claude Code in-process MCP bridge. `allowedIds` scopes
+ * `kb_list`) and the agent in-process MCP bridge. `allowedIds` scopes
  * which bases are reachable: in the AI-SDK path it is the scope resolved by
  * `resolveKnowledgeBaseScope` (the assistant's own bound bases are a ceiling the
  * composer's per-turn selection may narrow but never widen; with no binding that
- * selection defines the scope alone). The Claude Code path applies the same rule
+ * selection defines the scope alone). The MCP bridge path applies the same rule
  * to Agent bindings and per-turn selection, and hides/rejects the kb_* tools when
  * the effective scope is empty.
  * At this shared core boundary, an empty array still means "no scope" (all user bases).

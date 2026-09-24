@@ -97,7 +97,7 @@ vi.mock('@renderer/hooks/useGroups', () => ({
 }))
 
 const createValues = {
-  agentType: 'claude-code' as const,
+  agentType: 'pi' as const,
   permissionMode: 'auto' as const,
   avatar: 'A',
   description: 'A focused helper',
@@ -223,10 +223,8 @@ describe('useResourceCatalogController', () => {
       knowledgeBaseIds: createValues.knowledgeBaseIds,
       model: createValues.modelId,
       name: createValues.name,
-      planModel: createValues.modelId,
       skillIds: createValues.skillIds,
-      smallModel: createValues.modelId,
-      type: 'claude-code'
+      type: 'pi'
     })
     expect(controllerMocks.refetch).toHaveBeenCalledOnce()
     expect(result.current.dialogs.createDialogOpen).toBe(false)
@@ -258,41 +256,14 @@ describe('useResourceCatalogController', () => {
     })
   })
 
-  it('opens and launches a Skill through the shared callbacks', async () => {
+  it('opens a Skill through the shared callback', async () => {
     const skill = createSkillResource('skill-1', 'writer', 'local')
     const onOpenSkill = vi.fn()
-    const onLaunchSkill = vi.fn().mockResolvedValue(undefined)
-    const { result } = renderHook(() => useResourceCatalogController('skill', { onOpenSkill, onLaunchSkill }))
+    const { result } = renderHook(() => useResourceCatalogController('skill', { onOpenSkill }))
 
     act(() => result.current.gridProps.onEdit(skill))
-    act(() => result.current.gridProps.onLaunchSkill?.(skill))
 
     expect(onOpenSkill).toHaveBeenCalledExactlyOnceWith(skill.raw)
-    expect(onLaunchSkill).toHaveBeenCalledExactlyOnceWith(skill.raw)
-  })
-
-  it('launches only the exact builtin skill-creator from the unfiltered catalog', () => {
-    const localImpostor = createSkillResource('local-creator', 'skill-creator', 'local')
-    const builtinCreator = createSkillResource('builtin-creator', 'skill-creator', 'builtin')
-    controllerMocks.resourceLibraryState.allResources = [localImpostor, builtinCreator]
-    controllerMocks.resourceLibraryState.resources = []
-    const onLaunchSkill = vi.fn().mockResolvedValue(undefined)
-    const { result } = renderHook(() => useResourceCatalogController('skill', { onLaunchSkill }))
-
-    act(() => result.current.gridProps.onCreateSkillWithAgent?.())
-
-    expect(onLaunchSkill).toHaveBeenCalledExactlyOnceWith(builtinCreator.raw)
-  })
-
-  it('does not create a session when the builtin skill-creator is unavailable', () => {
-    controllerMocks.resourceLibraryState.allResources = [createSkillResource('local-creator', 'skill-creator', 'local')]
-    const onLaunchSkill = vi.fn().mockResolvedValue(undefined)
-    const { result } = renderHook(() => useResourceCatalogController('skill', { onLaunchSkill }))
-
-    act(() => result.current.gridProps.onCreateSkillWithAgent?.())
-
-    expect(onLaunchSkill).not.toHaveBeenCalled()
-    expect(toast.error).toHaveBeenCalledWith('settings.skills.creatorUnavailable')
   })
 
   it('reports assistant export failures without throwing', async () => {
@@ -393,51 +364,6 @@ describe('useResourceCatalogController', () => {
       expect(controllerMocks.resourceLibraryOptions.at(-1)).toEqual(
         expect.objectContaining({ activeGroupId: null, resourceType: 'assistant' })
       )
-    })
-  })
-
-  it('moves protected Agent sessions directly without opening the owner confirmation', async () => {
-    const protectedAgent = {
-      id: 'agent-protected',
-      type: 'agent',
-      name: 'Cherry Assistant',
-      description: '',
-      avatar: 'C',
-      createdAt: '2026-09-16T00:00:00.000Z',
-      updatedAt: '2026-09-16T00:00:00.000Z',
-      raw: {
-        id: 'agent-protected',
-        name: 'Cherry Assistant',
-        configuration: { builtin_role: 'assistant' }
-      }
-    } as unknown as ResourceItem
-    const { result } = renderHook(() => useResourceCatalogController('agent'))
-
-    act(() => {
-      result.current.gridProps.onDelete(protectedAgent)
-    })
-
-    expect(result.current.dialogs.deleteConfirm).toBeNull()
-    await waitFor(() =>
-      expect(controllerMocks.ipcRequest).toHaveBeenCalledWith('ai.agent.sessions.delete', {
-        agentId: 'agent-protected'
-      })
-    )
-    expect(controllerMocks.closeConversationTabs).toHaveBeenCalledWith('agents', ['session-1', 'session-2'])
-    expect(controllerMocks.showRecycleBinBatchUndo).toHaveBeenCalledWith({
-      itemCount: 2,
-      onUndo: expect.any(Function)
-    })
-
-    await expect(controllerMocks.showRecycleBinBatchUndo.mock.calls.at(-1)?.[0].onUndo()).resolves.toEqual({
-      restored: ['session-1', 'session-2'],
-      failed: []
-    })
-    expect(controllerMocks.ipcRequest).toHaveBeenCalledWith('ai.agent.session.restore', {
-      sessionId: 'session-1'
-    })
-    expect(controllerMocks.ipcRequest).toHaveBeenCalledWith('ai.agent.session.restore', {
-      sessionId: 'session-2'
     })
   })
 })

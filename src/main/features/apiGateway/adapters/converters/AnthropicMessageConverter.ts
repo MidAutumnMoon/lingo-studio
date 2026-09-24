@@ -136,7 +136,7 @@ function textContentToString(content: MessageCreateParams['system'] | MessagePar
 }
 
 /**
- * The Claude Agent SDK puts `system` messages inside `messages` (agent/skill catalogs,
+ * Some agent runtimes put `system` messages inside `messages` (agent/skill catalogs,
  * deferred-tool notices), which `MessageParam` does not model.
  */
 type AgentInputMessage = MessageParam | { role: 'system'; content: MessageParam['content'] }

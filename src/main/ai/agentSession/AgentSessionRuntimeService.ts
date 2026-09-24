@@ -18,7 +18,6 @@ import { serializeError } from '@main/ai/utils/serializeError'
 import { createAiUsageCaptureContext } from '@main/ai/utils/usageCapture'
 import {
   BaseService,
-  DependsOn,
   type Disposable,
   Emitter,
   type Event,
@@ -44,10 +43,6 @@ import {
 } from '@shared/ai/agentSessionContextUsage'
 import type { AgentSessionEditDraft, AgentSessionEditTarget } from '@shared/ai/agentSessionEdit'
 import { AGENT_SESSION_FLOW_PARTS_CACHE_KEY } from '@shared/ai/agentSessionFlowParts'
-import {
-  AGENT_SESSION_SLASH_COMMANDS_CACHE_KEY,
-  type AgentSessionSlashCommand
-} from '@shared/ai/agentSessionSlashCommands'
 import { AGENT_SESSION_TURN_ORIGIN_CACHE_KEY } from '@shared/ai/agentSessionTurnOrigin'
 import type { AgentEntity, UpdateAgentDto } from '@shared/data/api/schemas/agents'
 import type { AgentSessionMessageEntity } from '@shared/data/types/agent'
@@ -337,10 +332,6 @@ class AgentSessionRuntimeTerminalListener implements StreamListener {
 
 @Injectable('AgentSessionRuntimeService')
 @ServicePhase(Phase.WhenReady)
-// The dependency is runtime, not lexical: this service's connections spawn CLI children through
-// ClaudeCodeProcessManager. Declaring it keeps that owner stopping LAST, so its sweep runs after
-// these entries are closed — do not drop it as unused. Covered by a stop-order test.
-@DependsOn(['ClaudeCodeProcessManager'])
 export class AgentSessionRuntimeService extends BaseService {
   private readonly forks = new AgentSessionForkOperations()
   private readonly failedClosures = new Map<string, AgentRuntimeConnection>()
@@ -715,27 +706,16 @@ export class AgentSessionRuntimeService extends BaseService {
   }
 
   /**
-   * Open the session's runtime connection ahead of the first turn (on session open) so the driver's
-   * slash-command catalog (`query.supportedCommands()`) is read into the shared cache before the user
-   * types — the SDK warm-query handle can't expose commands without a live connection. Best-effort and
-   * idempotent: an existing entry (idle-warm or mid-turn) is just kept connected; a freshly primed
-   * entry idles under the same TTL as a post-turn one, so it self-tears-down if never used.
+   * Open the session's runtime connection ahead of the first turn (on session open) so the first
+   * message does not pay the startup cost. Best-effort and idempotent: an existing entry
+   * (idle-warm or mid-turn) is just kept connected; a freshly primed entry idles under the same
+   * TTL as a post-turn one, so it self-tears-down if never used.
    */
   async primeConnection(sessionId: string): Promise<void> {
     if (this.forks.edits.has(sessionId) || this.failedClosures.has(sessionId)) return
     try {
       const existing = this.entries.get(sessionId)
-      if (existing) {
-        // Re-prime of a live session (e.g. a second window opening it): re-read and republish the
-        // catalog so a consumer that mounts after the initial publish still gets it — `ensureConnection`
-        // alone skips the read when the connection already exists.
-        void this.ensureConnection(existing)
-          .then((connected) => {
-            if (connected) this.refreshSupportedCommands(existing)
-          })
-          .catch((error) => logger.warn('Failed to re-prime agent session connection', { sessionId, error }))
-        return
-      }
+      if (existing) return
 
       const session = agentSessionService.getById(sessionId)
       if (!session?.agentId) return
@@ -1106,10 +1086,9 @@ export class AgentSessionRuntimeService extends BaseService {
 
   /**
    * Acquire a warm-connection lease for a window displaying this session. The first holder primes
-   * the connection ({@link primeConnection}); later holders re-prime so the slash-command catalog
-   * is republished for windows that mount after the initial publish. An unmanaged sender (no
-   * WebContents) cannot be tracked as a holder — it still primes, and the idle TTL reaps the
-   * connection if nothing else holds it.
+   * the connection ({@link primeConnection}) so the first turn starts without the runtime's
+   * startup cost. An unmanaged sender (no WebContents) cannot be tracked as a holder — it still
+   * primes, and the idle TTL reaps the connection if nothing else holds it.
    */
   acquireWarmLease(sessionId: string, sender: Electron.WebContents | undefined): void {
     const pendingTeardown = this.pendingWarmTeardowns.get(sessionId)
@@ -1134,7 +1113,7 @@ export class AgentSessionRuntimeService extends BaseService {
   }
 
   /**
-   * Release one window's warm lease. The actual teardown (warm-query park + primed connection)
+   * Release one window's warm lease. The actual teardown (primed connection)
    * starts only when no window holds the session anymore, and then only after
    * {@link WARM_LEASE_RELEASE_DELAY_MS} with no re-acquire.
    */
@@ -1192,9 +1171,6 @@ export class AgentSessionRuntimeService extends BaseService {
     if (existing) clearTimeout(existing)
     const timer = setTimeout(() => {
       this.pendingWarmTeardowns.delete(sessionId)
-      // Prewarm opens a real runtime connection, so releasing the warm-query park alone would
-      // leak the primed subprocess until the idle TTL.
-      application.get('ClaudeCodeWarmQueryManager').closeAgentSessionWarm(sessionId)
       this.releaseIdleConnection(sessionId)
     }, WARM_LEASE_RELEASE_DELAY_MS)
     timer.unref()
@@ -1781,11 +1757,10 @@ export class AgentSessionRuntimeService extends BaseService {
     }
     entry.usageCapture = connection.usageCapture
     this.resetConnectionRuntimeState(entry, connection)
-    // Priming opens an idle connection only to populate connection-local metadata such as slash
-    // commands. Context usage is expensive (the SDK issues multiple token-count probes), so defer it
-    // until a real turn, a runtime event, or an explicit UI refresh needs a reading.
+    // Priming opens an idle connection only to skip first-turn startup cost. Context usage is
+    // expensive (the runtime issues token-count probes), so defer it until a real turn, a runtime
+    // event, or an explicit UI refresh needs a reading.
     if (this.runtimeStatus(entry) === 'active') this.refreshContextUsage(entry, connection)
-    this.refreshSupportedCommands(entry, connection)
     const connectionLoop = this.runConnectionLoop(entry, connection).finally(() => {
       void this.closeRuntimeConnection(connection, entry.sessionId)
       if (this.currentConnection(entry) === connection) {
@@ -1887,11 +1862,6 @@ export class AgentSessionRuntimeService extends BaseService {
         break
       case 'context-usage':
         this.persistContextUsage(entry, event.usage)
-        break
-      case 'supported-commands':
-        // SDK pushed a refreshed catalog (`commands_changed`) — replace the cached list so the
-        // composer and channel `/help` reflect commands discovered after the initial read.
-        this.publishSupportedCommands(entry, event.commands)
         break
       case 'background-tasks':
         this.publishBackgroundTasks(entry, event.tasks, connection)
@@ -2129,28 +2099,6 @@ export class AgentSessionRuntimeService extends BaseService {
     }
     entry.lastContextUsageRefreshAt = now
     this.refreshContextUsage(entry)
-  }
-
-  // The initial slash command catalog read (`query.supportedCommands()`) once the connection is live.
-  // It only captures the catalog at init; mid-session changes arrive separately as `supported-commands`
-  // events (`commands_changed`) and are applied via the same {@link publishSupportedCommands} sink.
-  // The cached list feeds both the renderer composer and the channel `/help` listing.
-  private refreshSupportedCommands(entry: AgentSessionRuntimeEntry, connection = this.currentConnection(entry)): void {
-    if (!connection?.getSupportedCommands) return
-
-    void (async () => {
-      const commands = await connection.getSupportedCommands?.()
-      if (!commands) return
-      if (!this.isCurrentEntry(entry) || this.currentConnection(entry) !== connection) return
-      this.publishSupportedCommands(entry, commands)
-    })().catch((error) => {
-      logger.warn('Failed to refresh agent session slash commands', { sessionId: entry.sessionId, error })
-    })
-  }
-
-  private publishSupportedCommands(entry: AgentSessionRuntimeEntry, commands: AgentSessionSlashCommand[]): void {
-    if (!this.isCurrentEntry(entry)) return
-    application.get('CacheService').setShared(AGENT_SESSION_SLASH_COMMANDS_CACHE_KEY(entry.sessionId), commands)
   }
 
   /**
@@ -3346,7 +3294,6 @@ export class AgentSessionRuntimeService extends BaseService {
     this.clearApiRetry(entry)
     // Context usage deliberately survives: unlike its neighbours here it is not per-CLI-process
     // state. No turn can run without a connection, so the last reading stays true until one does.
-    application.get('CacheService').deleteShared(AGENT_SESSION_SLASH_COMMANDS_CACHE_KEY(entry.sessionId))
     // The background-task level is per CLI process, so the closing process's set must not outlive it.
     application.get('CacheService').deleteShared(AGENT_SESSION_BACKGROUND_TASKS_CACHE_KEY(entry.sessionId))
     application.get('CacheService').deleteShared(AGENT_SESSION_TASK_EVENTS_CACHE_KEY(entry.sessionId))

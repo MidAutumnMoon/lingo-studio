@@ -130,7 +130,7 @@ export class TraceSpanStore {
 
   /**
    * Record that an already-stored span mutated in place, shifting its retained size by `deltaBytes`.
-   * Claude Code delivers one OTLP batch as a separate call per log event, so the appending caller
+   * Event delivery may arrive as separate calls per event, so the appending caller
    * reports the delta it already computed rather than making the store re-measure the whole span on
    * every event — which would be quadratic in the events a span receives.
    */

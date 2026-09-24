@@ -2619,15 +2619,15 @@ describe('AiService.listModels', () => {
 
   it('returns the shipped registry catalog for a registry-sourced provider without calling the API', async () => {
     const service = createService()
-    const registryModels = [{ id: 'claude-code::haiku' }, { id: 'claude-code::sonnet' }]
-    mockProviderGetByProviderId.mockReturnValue({ id: 'claude-code', modelListSource: 'registry' })
+    const registryModels = [{ id: 'registry-only::haiku' }, { id: 'registry-only::sonnet' }]
+    mockProviderGetByProviderId.mockReturnValue({ id: 'registry-only', modelListSource: 'registry' })
     mockListProviderRegistryModels.mockReturnValue(registryModels)
 
-    const result = await service.listModels({ providerId: 'claude-code' })
+    const result = await service.listModels({ providerId: 'registry-only' })
 
     expect(result).toEqual(registryModels)
     expect(mockListProviderRegistryModels).toHaveBeenCalledWith({
-      providerId: 'claude-code',
+      providerId: 'registry-only',
       presetProviderId: null
     })
     expect(mockListModelsFromProvider).not.toHaveBeenCalled()

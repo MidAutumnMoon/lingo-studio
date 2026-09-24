@@ -23,7 +23,7 @@ import { isLoginBasedProvider } from '@shared/utils/provider'
  * Login-based providers Cherry can still drive through pi via a per-request
  * "transport adapter" (main-side: `src/main/ai/provider/runtimeTransport.ts`):
  * their OAuth token, provider headers, and payload rewrite are injected at
- * stream time, so unlike an external-CLI login (`claude-code`) they DO fit pi's
+ * stream time, so unlike an external CLI's own stored login they DO fit pi's
  * provider model. This id list is the pure, cross-process source of truth; the
  * main-side adapter registry keys off the SAME ids (its record type is derived
  * from this const, so the two cannot drift). Kept as a tuple so that derivation
@@ -104,7 +104,7 @@ function resolveEndpointType(provider: Provider, model: Model): EndpointType | u
 /** Resolve the pi `api` family for a Cherry provider+model, or `undefined` if unsupported. */
 export function resolvePiApi(provider: Provider, model: Model): PiApi | undefined {
   // Login-based providers hold no plain app-side API key. An external-CLI login
-  // (`claude-code`) reuses a CLI's own stored session and cannot be injected, so
+  // reuses a CLI's own stored session and cannot be injected, so
   // it stays unsupported like Bedrock/Vertex above. App-managed OAuth providers
   // (`grok-cli`/`openai-codex`), however, have a pi transport adapter that
   // injects their OAuth token + provider headers + payload rewrite per request —

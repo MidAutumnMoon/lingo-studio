@@ -38,7 +38,6 @@ export const USER_DATA_WIPE = [
   'version.log',
   'restore-journal.json',
   'restore-staging',
-  '.claude',
   '.copilot_token',
   'config.json',
   'window-state.json',
@@ -417,12 +416,7 @@ export function runDataReset(): void {
 /** Removes only current v2 state while preserving every source consumed by v1 migration. */
 function wipeV1RemigrationData(failures: string[]): void {
   const databaseFile = application.getPath('app.database.file')
-  const targets = [
-    `${databaseFile}-wal`,
-    `${databaseFile}-shm`,
-    application.getPath('feature.agents.claude.root'),
-    databaseFile
-  ]
+  const targets = [`${databaseFile}-wal`, `${databaseFile}-shm`, databaseFile]
 
   for (const target of targets) {
     try {

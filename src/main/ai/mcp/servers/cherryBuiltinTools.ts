@@ -1,8 +1,8 @@
 /**
- * In-process MCP server exposing Cherry Studio's builtin tools to Claude Code.
+ * In-process MCP server exposing Cherry Studio's builtin tools to agent sessions.
  *
  * Wraps the same `webLookup` / painting cores the AI-SDK builtin tools use, so
- * Claude Code's web search/fetch and image generation run identical logic against
+ * Agent-session web search/fetch and image generation run identical logic against
  * the user's configured `WebSearchService` provider and painting model. Injected by
  * `settingsBuilder` as an `sdk`-type MCP server; Claude calls these tools as
  * `mcp__cherry-tools__web_search`, `…__web_fetch`, `…__report_artifacts`, and

@@ -78,7 +78,7 @@ function toSdkResourceContents(content: McpResource): ReadResourceResult['conten
  * proxying tool/resource/prompt list and call requests to an existing MCP
  * server managed by `McpRuntimeService`.
  *
- * Two consumers: the Claude Agent SDK's in-memory (`type: 'sdk'`) transport, keeping all
+ * Consumers: the agent runtimes' in-memory bridges, keeping all
  * communication within the Electron main process; and the API gateway's `/v1/mcps/:id/mcp`
  * route, which fronts it with a stateless Streamable HTTP transport for external clients.
  *
@@ -198,7 +198,7 @@ export function createMcpBridgeServer(
         // Expected cancellation from the SDK side — the runtime already logged it at debug.
         logger.debug('MCP bridge: tool call aborted', { mcpId, tool: request.params.name })
       } else {
-        // Every agent runtime (dsh / pi / Claude Code) reaches Cherry's tools through this
+        // Every agent runtime (dsh / pi) reaches Cherry's tools through this
         // handler, so this is the one place their tool failures are observable in-process.
         logger.error('MCP bridge: failed to call tool', {
           mcpId,

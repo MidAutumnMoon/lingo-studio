@@ -94,7 +94,7 @@ function Harness({
       avatar: '💬',
       name,
       description: '',
-      agentType: 'claude-code',
+      agentType: 'pi',
       permissionMode: 'default',
       modelId,
       prompt,

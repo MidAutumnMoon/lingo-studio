@@ -10,10 +10,7 @@ describe('AgentTaskService active-Agent read contract', () => {
   const dbh = setupTestDatabase()
 
   function seedAgent(id: string, deletedAt: number | null = null): void {
-    dbh.db
-      .insert(agentTable)
-      .values({ id, type: 'claude-code', name: id, instructions: '', orderKey: id, deletedAt })
-      .run()
+    dbh.db.insert(agentTable).values({ id, type: 'pi', name: id, instructions: '', orderKey: id, deletedAt }).run()
   }
 
   function seedTask(name: string, agentId: string): string {

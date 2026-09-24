@@ -7,10 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ResolvedAction } from '@renderer/components/chat/actions/actionTypes'
 import type { ResourceEntityRailItem } from '@renderer/components/chat/resourceList/ResourceEntityRail'
 import type { AgentSessionsSource } from '@renderer/hooks/resourceViewSources'
-import { popup } from '@renderer/services/popup'
 import type * as RecycleBinFeedback from '@renderer/services/recycleBinFeedback'
 import { toast } from '@renderer/services/toast'
-import { DataApiErrorFactory } from '@shared/data/api/errors'
 import type { AgentSessionEntity } from '@shared/data/api/schemas/agentSessions'
 import { createSidebarShortcutId, type SidebarShortcutTarget } from '@shared/data/preference/preferenceTypes'
 import { aiErrorCodes } from '@shared/ipc/errors/ai'
@@ -33,7 +31,6 @@ const agentDataMocks = vi.hoisted(() => ({
     }
   ],
   deleteAgent: vi.fn(),
-  deleteAgentSessions: vi.fn(),
   invalidate: vi.fn(),
   ipcRequest: vi.fn(),
   refetchAgents: vi.fn(),
@@ -392,17 +389,13 @@ describe('entity resource list actions', () => {
     preferenceMocks.setPreference.mockClear()
     agentDataMocks.deleteAgent.mockResolvedValue({ deleted: true, deletedSessionIds: [] })
     agentDataMocks.deleteAgent.mockClear()
-    agentDataMocks.deleteAgentSessions.mockResolvedValue({ deletedIds: [] })
-    agentDataMocks.deleteAgentSessions.mockClear()
     agentDataMocks.invalidate.mockResolvedValue(undefined)
     agentDataMocks.invalidate.mockClear()
-    agentDataMocks.ipcRequest.mockImplementation((route, input) =>
-      route === 'ai.agent.sessions.delete'
-        ? agentDataMocks.deleteAgentSessions({ params: { agentId: input.agentId } })
-        : agentDataMocks.deleteAgent({
-            params: { agentId: input.agentId },
-            query: { deleteSessions: input.deleteSessions }
-          })
+    agentDataMocks.ipcRequest.mockImplementation((_route, input) =>
+      agentDataMocks.deleteAgent({
+        params: { agentId: input.agentId },
+        query: { deleteSessions: input.deleteSessions }
+      })
     )
     agentDataMocks.ipcRequest.mockClear()
     agentDataMocks.refetchAgents.mockResolvedValue(undefined)
@@ -783,97 +776,6 @@ describe('entity resource list actions', () => {
     await expect(recycleBinFeedbackMocks.showRecycleBinUndo.mock.calls.at(-1)?.[0].onUndo()).resolves.toBeUndefined()
 
     expect(agentDataMocks.getActiveResource).toHaveBeenCalledWith('/agents/agent-1')
-  })
-
-  it('deletes only sessions for the built-in Cherry Assistant in the classic layout', async () => {
-    agentDataMocks.agents = [
-      {
-        id: 'agent-1',
-        name: 'Cherry Assistant',
-        orderKey: 'a',
-        configuration: { builtin_role: 'assistant' },
-        model: 'anthropic::claude-sonnet-4',
-        modelName: 'Claude Sonnet 4'
-      }
-    ]
-    const onActiveAgentDeleted = vi.fn()
-    agentDataMocks.deleteAgentSessions.mockResolvedValueOnce({ deletedIds: ['session-1', 'session-not-loaded'] })
-
-    render(
-      <AgentResourceList
-        activeAgentId="agent-1"
-        activeSessionId="session-1"
-        agentSessionsSource={createAgentSessionsSource()}
-        onSelectSession={vi.fn()}
-        onCreateSession={vi.fn()}
-        onShowMissingAgentSelection={vi.fn()}
-        onActiveAgentDeleted={onActiveAgentDeleted}
-      />
-    )
-
-    expect(screen.getByTestId('agent-1-context-menu')).toHaveTextContent('agent.session.agent.delete.trigger')
-    expect(screen.getByTestId('agent-1-context-menu')).not.toHaveTextContent('common.archive')
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'agent.session.agent.delete.trigger' })[0])
-
-    await waitFor(() =>
-      expect(agentDataMocks.deleteAgentSessions).toHaveBeenCalledWith({ params: { agentId: 'agent-1' } })
-    )
-    expect(popup.confirm).not.toHaveBeenCalled()
-    expect(conversationOwnerPopupMocks.show).not.toHaveBeenCalled()
-    expect(agentDataMocks.deleteAgent).not.toHaveBeenCalled()
-    expect(tabsContextMocks.closeConversationTabs).toHaveBeenCalledWith('agents', ['session-1', 'session-not-loaded'])
-    expect(onActiveAgentDeleted).toHaveBeenCalledWith('agent-1')
-    expect(recycleBinFeedbackMocks.showRecycleBinBatchUndo).toHaveBeenCalledWith({
-      itemCount: 2,
-      onUndo: expect.any(Function)
-    })
-
-    await expect(recycleBinFeedbackMocks.showRecycleBinBatchUndo.mock.calls.at(-1)?.[0].onUndo()).resolves.toEqual({
-      restored: ['session-1', 'session-not-loaded'],
-      failed: []
-    })
-    expect(agentDataMocks.restoreSession).toHaveBeenCalledWith({ sessionId: 'session-1' })
-    expect(agentDataMocks.restoreSession).toHaveBeenCalledWith({ sessionId: 'session-not-loaded' })
-  })
-
-  it('counts active protected Sessions as restored after restore NOT_FOUND and missing Sessions as failed', async () => {
-    agentDataMocks.agents = [
-      {
-        id: 'agent-1',
-        name: 'Cherry Assistant',
-        orderKey: 'a',
-        configuration: { builtin_role: 'assistant' },
-        model: 'anthropic::claude-sonnet-4',
-        modelName: 'Claude Sonnet 4'
-      }
-    ]
-    agentDataMocks.deleteAgentSessions.mockResolvedValueOnce({ deletedIds: ['session-active', 'session-purged'] })
-    const activeError = new IpcError(aiErrorCodes.AI_AGENT_SESSION_NOT_FOUND, 'Session active')
-    const purgedError = new IpcError(aiErrorCodes.AI_AGENT_SESSION_NOT_FOUND, 'Session purged')
-    agentDataMocks.restoreSession.mockRejectedValueOnce(activeError).mockRejectedValueOnce(purgedError)
-    agentDataMocks.getActiveResource.mockImplementation((path: string) =>
-      path === '/agent-sessions/session-active'
-        ? Promise.resolve({ id: 'session-active' })
-        : Promise.reject(DataApiErrorFactory.notFound('Session', 'session-purged'))
-    )
-
-    render(
-      <AgentResourceList
-        activeAgentId="agent-1"
-        agentSessionsSource={createAgentSessionsSource()}
-        onSelectSession={vi.fn()}
-        onCreateSession={vi.fn()}
-        onShowMissingAgentSelection={vi.fn()}
-      />
-    )
-    fireEvent.click(screen.getAllByRole('button', { name: 'agent.session.agent.delete.trigger' })[0])
-    await waitFor(() => expect(recycleBinFeedbackMocks.showRecycleBinBatchUndo).toHaveBeenCalled())
-
-    await expect(recycleBinFeedbackMocks.showRecycleBinBatchUndo.mock.calls.at(-1)?.[0].onUndo()).resolves.toEqual({
-      restored: ['session-active'],
-      failed: [{ id: 'session-purged', error: purgedError.message }]
-    })
   })
 
   it('refreshes a stale Agent delete without closing tabs, reconciling selection, or offering Undo', async () => {

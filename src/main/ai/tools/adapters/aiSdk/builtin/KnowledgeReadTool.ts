@@ -12,7 +12,7 @@
  * per-turn selection, or that selection alone when there is no binding — see
  * `resolveKnowledgeBaseScope`) flows in via
  * `RequestContext.knowledgeBaseIds` and scopes which bases are reachable. Both modes live in the
- * shared `knowledgeLookup` core so the Claude Code MCP bridge runs
+ * shared `knowledgeLookup` core so the agent MCP bridge runs
  * identical logic; this file is just the AI-SDK `tool()` wrapper.
  */
 

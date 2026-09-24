@@ -16,7 +16,6 @@ import {
 } from './checks/network'
 import { accessibilityPermission } from './checks/permission'
 import { cherryAccount, providerApiKey, providerModel } from './checks/provider'
-import { claudeLogin } from './checks/runtime'
 import { diagnosticDataSize, diskSpace, userDataLocation } from './checks/storage'
 import type { DoctorCheckRegistry } from './types'
 
@@ -48,6 +47,5 @@ export const doctorCheckRegistry: DoctorCheckRegistry = {
   'network-provider-endpoint': providerEndpoint,
   'mcp-servers-connected': mcpServersConnected,
   'mcp-launch-commands': mcpLaunchCommands,
-  'runtime-claude-login': claudeLogin,
   'logs-recent-findings': recentLogFindings
 }
