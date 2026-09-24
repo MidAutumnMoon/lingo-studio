@@ -63,12 +63,6 @@ function getChannelSummary(channel: ChannelData): string {
   const parts: string[] = []
 
   switch (channel.type) {
-    case 'feishu': {
-      if (cfg.app_id) parts.push(truncateId(cfg.app_id as string))
-      const domain = cfg.domain as string
-      parts.push(domain === 'lark' ? 'Lark (International)' : 'Feishu (China)')
-      break
-    }
     case 'telegram':
       if (cfg.bot_token) parts.push(`Token: ${truncateId(cfg.bot_token as string)}`)
       if (chatIds.length > 0) parts.push(`${chatIds.length} chat IDs`)
@@ -479,12 +473,6 @@ const ChannelDetail: FC<ChannelDetailProps> = ({ channelDef }) => {
     previousStatuses.current = statuses
   }, [mutate, statuses])
 
-  useIpcOn('channel.feishu.qr_login', (data) => {
-    if (channelDef.type === 'feishu' && data.status === 'confirmed') {
-      void mutate()
-    }
-  })
-
   const handleAdd = useCallback(async () => {
     const existingCount = channels?.length ?? 0
     const newChannel = await createChannel({
@@ -492,9 +480,9 @@ const ChannelDetail: FC<ChannelDetailProps> = ({ channelDef }) => {
       name: existingCount > 0 ? `${channelDef.name} ${existingCount + 1}` : channelDef.name,
       workspace: { type: AGENT_WORKSPACE_TYPE.SYSTEM },
       config: channelDef.defaultConfig,
-      // Feishu and WeChat register by QR, so binding an active channel to an agent
+      // WeChat registers by QR, so binding an active channel to an agent
       // starts the adapter flow. Credential-gated channels start inactive.
-      isActive: channelDef.type === 'feishu' || channelDef.type === 'wechat'
+      isActive: channelDef.type === 'wechat'
     } as never)
     if (newChannel) {
       openEditModal(newChannel.id)

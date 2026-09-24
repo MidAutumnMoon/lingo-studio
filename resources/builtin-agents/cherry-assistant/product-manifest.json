@@ -827,7 +827,6 @@
   "agents": {
     "channelTypes": [
       "telegram",
-      "feishu",
       "qq",
       "wechat",
       "discord",

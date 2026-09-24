@@ -195,7 +195,7 @@ src/main/ai/streamManager/
 │   ├── WebContentsListener.ts         chunks → renderer windows
 │   ├── PersistenceListener.ts         observer protocol + delegates to PersistenceBackend
 │   ├── TraceFlushListener.ts          terminal trace-cache flush to local history
-│   ├── ChannelAdapterListener.ts      text → Discord / Slack / Feishu
+│   ├── ChannelAdapterListener.ts      text → Discord / Slack / Telegram
 │   └── SseListener.ts                 UIMessageChunk → SSE response (API server)
 │
 └── persistence/

@@ -160,7 +160,7 @@ describe('captureDshConnectionSnapshot', () => {
   it('changes its signature when task notification recipients change', async () => {
     mocks.getTurnTrustedNotifyChannels.mockReturnValue([{ id: 'channel-1', type: 'telegram' }])
     const first = await captureDshConnectionSnapshot('session-1', agent.id, 'provider::model')
-    mocks.getTurnTrustedNotifyChannels.mockReturnValue([{ id: 'channel-2', type: 'feishu' }])
+    mocks.getTurnTrustedNotifyChannels.mockReturnValue([{ id: 'channel-2', type: 'slack' }])
 
     await expect(captureDshConnectionSnapshot('session-1', agent.id, 'provider::model')).resolves.not.toMatchObject({
       signature: first.signature

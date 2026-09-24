@@ -56,11 +56,11 @@ and the adapter types you can add — so you act on real IDs instead of guessing
 
 Then:
 
-- **`add_channel`** — connect a new IM channel (Telegram, Feishu, Discord, Slack,
-  WeChat, QQ). Credential-based types need their fields; WeChat/Feishu can use QR mode.
+- **`add_channel`** — connect a new IM channel (Telegram, Discord, Slack,
+  WeChat, QQ). Credential-based types need their fields; WeChat can use QR mode.
 - **`update_channel`** / **`remove_channel`** — change or delete an existing channel by
   ID.
-- **`reconnect_channel`** — re-establish a dropped channel; for WeChat/Feishu this
+- **`reconnect_channel`** — re-establish a dropped channel; for WeChat this
   re-issues a QR code to re-scan (expired session or failed initial setup).
 - **`rename`** the agent, or **`complete_bootstrap`** / **`reset_bootstrap`** onboarding.
 

@@ -171,7 +171,7 @@ src/main/ai/
 ├── runtime/                      ← aiSdk plus claudeCode / pi / dsh agent-session drivers
 ├── agentSession/                 ← agent-session topic host
 ├── agents/                       ← AgentJobsService, AgentTaskJobHandler, runAgentTask, prompt, heartbeat
-├── channels/                     ← ChannelManager + IM adapters (discord/feishu/qq/slack/telegram/wechat) + security/
+├── channels/                     ← ChannelManager + IM adapters (discord/qq/slack/telegram/wechat) + security/
 ├── streamManager/                ← AiStreamManager, listeners, persistence, dispatch
 ├── provider/                     ← provider config, endpoint resolution, custom providers
 ├── mcp/                          ← McpRuntimeService / McpCatalogService, oauth, built-in servers

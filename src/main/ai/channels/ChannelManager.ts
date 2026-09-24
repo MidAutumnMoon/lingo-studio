@@ -5,7 +5,6 @@ import { loggerService } from '@logger'
 import { BaseService, DependsOn, type Disposable, Injectable, Phase, ServicePhase } from '@main/core/lifecycle'
 import { WindowType } from '@main/core/window/types'
 import { t } from '@main/i18n'
-import type { ChannelConfig } from '@shared/data/types/channel'
 import type { IpcEventName } from '@shared/ipc/schemas/ipcSchemas'
 import type { EventPayload } from '@shared/ipc/types'
 
@@ -132,7 +131,6 @@ export class ChannelManager extends BaseService {
       loadAdapter: loadChannelAdapter,
       onMessage: (adapter, event) => this.handleMessage(adapter, event),
       onCommand: (adapter, event) => this.handleCommand(adapter, event),
-      onCredentials: (agentId, id, credentials) => this.saveCredentials(agentId, id, credentials),
       onDynamicChatId: (id, chatId) => this.persistDynamicChatId(id, chatId),
       onLog: (entry) => this.publishLog(entry),
       onStatus: (status) => this.publishStatus(status),
@@ -222,24 +220,6 @@ export class ChannelManager extends BaseService {
       logger.warn('Failed to persist activeChatId', {
         channelId,
         chatId,
-        error: error instanceof Error ? error.message : String(error)
-      })
-    }
-  }
-
-  private saveCredentials(agentId: string, channelId: string, credentials: { appId: string; appSecret: string }): void {
-    try {
-      const channel = channelService.getChannel(channelId)
-      if (!channel || channel.agentId !== agentId) return
-      const config = channel.config as ChannelConfig & Record<string, unknown>
-      channelService.updateChannel(channelId, {
-        config: { ...config, app_id: credentials.appId, app_secret: credentials.appSecret }
-      })
-      this.requestReconcile(channelId)
-    } catch (error) {
-      logger.error('Failed to save channel credentials', {
-        agentId,
-        channelId,
         error: error instanceof Error ? error.message : String(error)
       })
     }

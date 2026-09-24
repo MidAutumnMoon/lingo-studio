@@ -181,21 +181,6 @@ describe('ChannelDetail', () => {
     available: true,
     defaultConfig: { bot_token: '', allowed_chat_ids: [] }
   }
-  const feishuChannelDef: AvailableChannel = {
-    type: 'feishu',
-    name: 'Feishu',
-    titleKey: 'agent.channels.feishu.title',
-    description: 'agent.channels.feishu.description',
-    available: true,
-    defaultConfig: {
-      app_id: '',
-      app_secret: '',
-      encrypt_key: '',
-      verification_token: '',
-      allowed_chat_ids: [],
-      domain: 'feishu'
-    }
-  }
   const wechatChannelDef: AvailableChannel = {
     type: 'wechat',
     name: 'WeChat',
@@ -266,30 +251,6 @@ describe('ChannelDetail', () => {
 
     await waitFor(() => {
       expect(channelMocks.updateChannel).toHaveBeenCalledWith('channel-1', { permissionMode: null })
-    })
-  })
-
-  it('creates Feishu channels active so binding an agent can start QR registration', async () => {
-    channelMocks.channels = []
-    channelMocks.createChannel.mockResolvedValue({
-      id: 'new-feishu-channel',
-      type: 'feishu',
-      name: 'Feishu 1',
-      config: feishuChannelDef.defaultConfig,
-      isActive: true
-    })
-    render(<ChannelDetail channelDef={feishuChannelDef} />)
-
-    fireEvent.click(screen.getByText('agent.channels.add'))
-
-    await waitFor(() => {
-      expect(channelMocks.createChannel).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'feishu',
-          config: feishuChannelDef.defaultConfig,
-          isActive: true
-        })
-      )
     })
   })
 

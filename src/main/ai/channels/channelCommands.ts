@@ -38,18 +38,6 @@ export async function createAgentChannelAndWaitForQr(
   }
 }
 
-export async function updateAgentChannelAndWaitForQr(
-  channelId: string,
-  agentId: string,
-  updates: UpdateAgentChannelDto,
-  timeoutMs = 30_000
-): Promise<{ channel: AgentChannelEntity; qrUrl: string }> {
-  const channel = agentChannelService.updateChannel(channelId, updates)
-  if (!channel) throw DataApiErrorFactory.notFound('Channel', channelId)
-  const qrUrl = await application.get('ChannelManager').waitForQrAndReconcile(agentId, channelId, timeoutMs)
-  return { channel, qrUrl }
-}
-
 export async function reconnectAgentChannel(channelId: string): Promise<void> {
   await application.get('ChannelManager').reconcileChannel(channelId)
 }

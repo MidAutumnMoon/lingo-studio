@@ -9,7 +9,7 @@ import type { StreamDoneResult, StreamErrorResult, StreamListener, StreamPausedR
 const logger = loggerService.withContext('ChannelAdapterListener')
 const INCOMPLETE_CITATION_MARKER_PATTERN = /[ \t]?\[(?:c(?:i(?:t(?:e(?::[\w-]*)?)?)?)?)?$/
 
-/** IM-channel sink (Discord / Slack / Feishu / Telegram / etc). */
+/** IM-channel sink (Discord / Slack / Telegram / etc). */
 export class ChannelAdapterListener implements StreamListener {
   readonly id: string
   private accumulatedText = ''
@@ -68,7 +68,7 @@ export class ChannelAdapterListener implements StreamListener {
     }
 
     try {
-      // Adapter finalizes its streaming UI first (e.g. close Feishu card).
+      // Adapter finalizes its streaming UI first (e.g. close a streaming card).
       const handled = await this.completeStream(text)
       if (!handled) {
         await this.deliver(text)

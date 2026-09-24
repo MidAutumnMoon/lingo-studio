@@ -1629,7 +1629,7 @@ describe('deriveConnectionConfig', () => {
   it('rebuilds when task notification recipients change', async () => {
     mocks.getTurnTrustedNotifyChannels.mockReturnValue([{ id: 'channel-1', type: 'telegram' }])
     const first = await deriveSignature()
-    mocks.getTurnTrustedNotifyChannels.mockReturnValue([{ id: 'channel-2', type: 'feishu' }])
+    mocks.getTurnTrustedNotifyChannels.mockReturnValue([{ id: 'channel-2', type: 'slack' }])
 
     expect((await deriveSignature()).rebuildSignature).not.toBe(first.rebuildSignature)
   })

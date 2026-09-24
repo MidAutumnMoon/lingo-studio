@@ -740,7 +740,7 @@ describe('ChannelMessageHandler', () => {
   })
 
   it('keeps conversations isolated and restores each persisted session after tracker reset', async () => {
-    const adapter = createMockAdapter({ channelType: 'feishu' })
+    const adapter = createMockAdapter({ channelType: 'slack' })
 
     for (const chatId of ['dm-alice', 'dm-bob']) {
       simulateStream([{ type: 'text-delta', delta: `reply:${chatId}` }])
@@ -927,7 +927,7 @@ describe('ChannelMessageHandler', () => {
   })
 
   it('isolates threads in the same chat and preserves their reply context', async () => {
-    const adapter = createMockAdapter({ channelType: 'feishu' })
+    const adapter = createMockAdapter({ channelType: 'slack' })
 
     for (const conversationId of ['thread:one', 'thread:two']) {
       simulateStream([{ type: 'text-delta', delta: conversationId }])

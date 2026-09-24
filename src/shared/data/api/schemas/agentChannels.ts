@@ -3,22 +3,12 @@ import * as z from 'zod'
 import { AgentPermissionModeSchema } from './agents'
 import { AgentSessionWorkspaceSourceSchema } from './agentWorkspaces'
 
-export const AgentChannelTypeSchema = z.enum(['telegram', 'feishu', 'qq', 'wechat', 'discord', 'slack'])
+export const AgentChannelTypeSchema = z.enum(['telegram', 'qq', 'wechat', 'discord', 'slack'])
 export type AgentChannelType = z.infer<typeof AgentChannelTypeSchema>
 
 export const TelegramAgentChannelConfigSchema = z.strictObject({
   bot_token: z.string(),
   allowed_chat_ids: z.array(z.string()).optional()
-})
-
-export const FeishuDomainSchema = z.enum(['feishu', 'lark'])
-export const FeishuAgentChannelConfigSchema = z.strictObject({
-  app_id: z.string(),
-  app_secret: z.string(),
-  encrypt_key: z.string(),
-  verification_token: z.string(),
-  allowed_chat_ids: z.array(z.string()).optional(),
-  domain: FeishuDomainSchema
 })
 
 export const QQAgentChannelConfigSchema = z.strictObject({
@@ -46,7 +36,6 @@ export const SlackAgentChannelConfigSchema = z.strictObject({
 
 export const AgentChannelConfigSchemasByType = {
   telegram: TelegramAgentChannelConfigSchema,
-  feishu: FeishuAgentChannelConfigSchema,
   qq: QQAgentChannelConfigSchema,
   wechat: WeChatAgentChannelConfigSchema,
   discord: DiscordAgentChannelConfigSchema,
@@ -55,7 +44,6 @@ export const AgentChannelConfigSchemasByType = {
 
 export const ActiveAgentChannelConfigSchemasByType = {
   telegram: TelegramAgentChannelConfigSchema.extend({ bot_token: z.string().min(1) }),
-  feishu: FeishuAgentChannelConfigSchema,
   qq: QQAgentChannelConfigSchema.extend({
     app_id: z.string().min(1),
     client_secret: z.string().min(1)
@@ -69,14 +57,12 @@ export const ActiveAgentChannelConfigSchemasByType = {
 } as const satisfies Record<AgentChannelType, z.ZodType<Record<string, unknown>>>
 
 export type TelegramAgentChannelConfig = z.infer<typeof TelegramAgentChannelConfigSchema>
-export type FeishuAgentChannelConfig = z.infer<typeof FeishuAgentChannelConfigSchema>
 export type QQAgentChannelConfig = z.infer<typeof QQAgentChannelConfigSchema>
 export type WeChatAgentChannelConfig = z.infer<typeof WeChatAgentChannelConfigSchema>
 export type DiscordAgentChannelConfig = z.infer<typeof DiscordAgentChannelConfigSchema>
 export type SlackAgentChannelConfig = z.infer<typeof SlackAgentChannelConfigSchema>
 export type AgentChannelConfig =
   | TelegramAgentChannelConfig
-  | FeishuAgentChannelConfig
   | QQAgentChannelConfig
   | WeChatAgentChannelConfig
   | DiscordAgentChannelConfig
@@ -130,7 +116,6 @@ export const TelegramAgentChannelEntitySchema = createAgentChannelEntitySchema(
   'telegram',
   TelegramAgentChannelConfigSchema
 )
-export const FeishuAgentChannelEntitySchema = createAgentChannelEntitySchema('feishu', FeishuAgentChannelConfigSchema)
 export const QQAgentChannelEntitySchema = createAgentChannelEntitySchema('qq', QQAgentChannelConfigSchema)
 export const WeChatAgentChannelEntitySchema = createAgentChannelEntitySchema('wechat', WeChatAgentChannelConfigSchema)
 export const DiscordAgentChannelEntitySchema = createAgentChannelEntitySchema(
@@ -141,7 +126,6 @@ export const SlackAgentChannelEntitySchema = createAgentChannelEntitySchema('sla
 
 export const AgentChannelEntitySchema = z.discriminatedUnion('type', [
   TelegramAgentChannelEntitySchema,
-  FeishuAgentChannelEntitySchema,
   QQAgentChannelEntitySchema,
   WeChatAgentChannelEntitySchema,
   DiscordAgentChannelEntitySchema,
@@ -153,7 +137,6 @@ export const TelegramCreateAgentChannelSchema = createAgentChannelMutationSchema
   'telegram',
   TelegramAgentChannelConfigSchema
 )
-export const FeishuCreateAgentChannelSchema = createAgentChannelMutationSchema('feishu', FeishuAgentChannelConfigSchema)
 export const QQCreateAgentChannelSchema = createAgentChannelMutationSchema('qq', QQAgentChannelConfigSchema)
 export const WeChatCreateAgentChannelSchema = createAgentChannelMutationSchema('wechat', WeChatAgentChannelConfigSchema)
 export const DiscordCreateAgentChannelSchema = createAgentChannelMutationSchema(
@@ -164,7 +147,6 @@ export const SlackCreateAgentChannelSchema = createAgentChannelMutationSchema('s
 
 export const CreateAgentChannelSchema = z.discriminatedUnion('type', [
   TelegramCreateAgentChannelSchema,
-  FeishuCreateAgentChannelSchema,
   QQCreateAgentChannelSchema,
   WeChatCreateAgentChannelSchema,
   DiscordCreateAgentChannelSchema,
@@ -179,7 +161,6 @@ export const UpdateAgentChannelSchema = z.strictObject({
   config: z
     .union([
       TelegramAgentChannelConfigSchema,
-      FeishuAgentChannelConfigSchema,
       QQAgentChannelConfigSchema,
       WeChatAgentChannelConfigSchema,
       DiscordAgentChannelConfigSchema,

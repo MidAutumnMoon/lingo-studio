@@ -693,13 +693,13 @@ describe('runAgentTask', () => {
     [
       'owned configured recipients, including offline or inactive channels',
       [
-        { id: 'ch-offline', type: 'feishu', agentId: 'a1', isActive: true },
+        { id: 'ch-offline', type: 'slack', agentId: 'a1', isActive: true },
         { id: 'ch-inactive', type: 'telegram', agentId: 'a1', isActive: false },
         { id: 'ch-foreign', type: 'telegram', agentId: 'a2', isActive: true }
       ],
       [
         { id: 'ch-inactive', type: 'telegram' },
-        { id: 'ch-offline', type: 'feishu' }
+        { id: 'ch-offline', type: 'slack' }
       ]
     ],
     ['an explicit empty recipient set', [], []]

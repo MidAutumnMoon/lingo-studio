@@ -1,7 +1,7 @@
 import type { AgentSessionWorkspaceSource } from '@shared/data/api/schemas/agentWorkspaces'
 
 export type AvailableChannel = {
-  type: 'telegram' | 'feishu' | 'qq' | 'wechat' | 'discord' | 'slack'
+  type: 'telegram' | 'qq' | 'wechat' | 'discord' | 'slack'
   name: string
   titleKey: string
   description: string
@@ -10,21 +10,6 @@ export type AvailableChannel = {
 }
 
 export const AVAILABLE_CHANNELS: AvailableChannel[] = [
-  {
-    type: 'feishu',
-    name: 'Feishu',
-    titleKey: 'agent.channels.feishu.title',
-    description: 'agent.channels.feishu.description',
-    available: true,
-    defaultConfig: {
-      app_id: '',
-      app_secret: '',
-      encrypt_key: '',
-      verification_token: '',
-      allowed_chat_ids: [],
-      domain: 'feishu'
-    }
-  },
   {
     type: 'telegram',
     name: 'Telegram',

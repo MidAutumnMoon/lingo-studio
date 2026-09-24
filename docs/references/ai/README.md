@@ -71,7 +71,7 @@ src/main/ai/
 ├── agentSession/                 ← agent-session topic host
 │   └── AgentSessionRuntimeService.ts
 ├── agents/                       ← AgentLifecycleService, AgentJobsService, runAgentTask, prompt, heartbeat, builtin/
-├── channels/                     ← ChannelManager + IM adapters (discord/feishu/qq/slack/telegram/wechat) + security/
+├── channels/                     ← ChannelManager + IM adapters (discord/qq/slack/telegram/wechat) + security/
 ├── streamManager/                ← AiStreamManager + listeners + persistence backends
 │   ├── AiStreamManager.ts        ← active-stream registry and dispatch owner
 │   ├── context/                  ← ChatContextProvider implementations + dispatch

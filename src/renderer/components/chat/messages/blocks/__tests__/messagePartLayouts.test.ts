@@ -608,7 +608,7 @@ describe('projectCompletedMessageParts', () => {
           toolCallId: 'channel-auth',
           toolName: 'mcp__cherry-tools__config',
           state: 'output-available',
-          input: { action: 'add_channel', type: 'feishu', auth_mode: 'qr' },
+          input: { action: 'add_channel', type: 'wechat', auth_mode: 'qr' },
           output: {
             $deferredToolResult: {
               topicId: 'agent-session:session-1',

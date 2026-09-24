@@ -15,15 +15,6 @@ export const loadChannelAdapter: ChannelAdapterLoader = async (channel, agentId)
         channelConfig: channel.config
       })
     }
-    case 'feishu': {
-      const { createFeishuAdapter } = await import('./adapters/feishu/FeishuAdapter')
-      return createFeishuAdapter({
-        channelId: channel.id,
-        channelType: channel.type,
-        agentId,
-        channelConfig: channel.config
-      })
-    }
     case 'qq': {
       const { createQqAdapter } = await import('./adapters/qq/QqAdapter')
       return createQqAdapter({

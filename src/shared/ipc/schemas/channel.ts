@@ -9,8 +9,8 @@ import {
 import { defineRoute } from '../define'
 
 /**
- * Channel (WeChat / Feishu agent channels) IPC schemas. Per-adapter faces use a
- * three-segment subtype (channel.wechat.* / channel.feishu.*, precedent app.updater.*);
+ * Channel (WeChat agent channels) IPC schemas. Per-adapter faces use a
+ * three-segment subtype (channel.wechat.*, precedent app.updater.*);
  * cross-subtype faces stay two-segment (channel.get_logs / log). Event payload shapes mirror
  * ChannelLogEntry (@main/ai/channels)
  * inline — @shared must not import @main; the producers are structurally compatible.
@@ -50,12 +50,5 @@ export type ChannelEventSchemas = {
     url: string
     status: QrStatus
     userId?: string
-  }
-  'channel.feishu.qr_login': {
-    channelId: string
-    url: string
-    status: QrStatus
-    appId?: string
-    appSecret?: string
   }
 }

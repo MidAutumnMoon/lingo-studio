@@ -10,21 +10,6 @@ export const TelegramChannelConfigSchema = z.object({
 
 export type TelegramChannelConfig = z.infer<typeof TelegramChannelConfigSchema>
 
-export const FeishuDomainSchema = z.enum(['feishu', 'lark'])
-export type FeishuDomain = z.infer<typeof FeishuDomainSchema>
-
-export const FeishuChannelConfigSchema = z.object({
-  type: z.literal('feishu'),
-  app_id: z.string(),
-  app_secret: z.string(),
-  encrypt_key: z.string(),
-  verification_token: z.string(),
-  allowed_chat_ids: z.array(z.string()).default([]),
-  domain: FeishuDomainSchema
-})
-
-export type FeishuChannelConfig = z.infer<typeof FeishuChannelConfigSchema>
-
 export const QQChannelConfigSchema = z.object({
   type: z.literal('qq'),
   app_id: z.string(),
@@ -64,7 +49,6 @@ export type SlackChannelConfig = z.infer<typeof SlackChannelConfigSchema>
 
 export const ChannelConfigSchema = z.discriminatedUnion('type', [
   TelegramChannelConfigSchema,
-  FeishuChannelConfigSchema,
   QQChannelConfigSchema,
   WeChatChannelConfigSchema,
   DiscordChannelConfigSchema,
@@ -73,7 +57,7 @@ export const ChannelConfigSchema = z.discriminatedUnion('type', [
 
 export type ChannelConfig = z.infer<typeof ChannelConfigSchema>
 
-export const CHANNEL_TYPES = ['telegram', 'feishu', 'qq', 'wechat', 'discord', 'slack'] as const
+export const CHANNEL_TYPES = ['telegram', 'qq', 'wechat', 'discord', 'slack'] as const
 export type ChannelType = (typeof CHANNEL_TYPES)[number]
 
 export interface ChannelStatus {

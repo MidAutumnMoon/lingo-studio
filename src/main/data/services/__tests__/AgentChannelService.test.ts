@@ -327,16 +327,14 @@ describe('AgentChannelService', () => {
       const agentId = 'agent-channel-session'
       await insertAgent(agentId)
       const channel = agentChannelService.createChannel({
-        type: 'feishu',
-        name: 'Feishu',
+        type: 'qq',
+        name: 'QQ',
         agentId,
         workspace: SYSTEM_WORKSPACE,
         config: {
           app_id: 'app',
-          app_secret: 'secret',
-          encrypt_key: '',
-          verification_token: '',
-          domain: 'feishu'
+          client_secret: 'secret',
+          allowed_chat_ids: []
         }
       })
       const first = agentSessionService.create({ agentId, name: 'First', workspace: SYSTEM_WORKSPACE })

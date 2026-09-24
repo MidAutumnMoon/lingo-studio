@@ -366,7 +366,7 @@ describe('applyMigrations over a populated database', () => {
     const insertChannel = sqlite.prepare(
       `INSERT INTO agent_channel
          (id, type, name, agent_id, session_id, workspace, config, created_at, updated_at)
-       VALUES (?, 'feishu', ?, 'agent-channel-migration', ?, '{"type":"system"}', '{}', ?, ?)`
+       VALUES (?, 'telegram', ?, 'agent-channel-migration', ?, '{"type":"system"}', '{}', ?, ?)`
     )
     insertChannel.run('channel-stale', 'Stale', 'session-shared', now, now - 10)
     insertChannel.run('channel-recent', 'Recent', 'session-shared', now, now)

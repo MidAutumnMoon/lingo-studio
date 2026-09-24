@@ -11,8 +11,7 @@ export {
   deleteAgentChannel,
   reconnectAgentChannel,
   reconnectAgentChannelWithQr,
-  updateAgentChannel,
-  updateAgentChannelAndWaitForQr
+  updateAgentChannel
 } from './channelCommands'
 export { ChannelManager } from './ChannelManager'
 export { ChannelMessageHandler, channelMessageHandler } from './ChannelMessageHandler'

@@ -30,8 +30,7 @@ import {
   type ChannelAdapter,
   resolveWorkspaceFile,
   sanitizeChannelOutput,
-  updateAgentChannel,
-  updateAgentChannelAndWaitForQr
+  updateAgentChannel
 } from '@main/ai/channels'
 import { conversationEvidence } from '@main/ai/messages/conversationEvidence'
 import { findPersistedToolOutput } from '@main/ai/messages/persistedToolOutput'
@@ -158,7 +157,7 @@ const CRON_TOOL: Tool = {
 const NOTIFY_TOOL: Tool = {
   name: NOTIFY_TOOL_NAME,
   description:
-    'Deliver a message, a workspace file, or both to this turn’s configured notification recipients. Files are first-class deliverables: use file_path for final workspace artifacts. Telegram/Feishu/WeChat forward any file, and WeChat sends video as native video media; Discord/Slack/QQ do not support files yet. Omit channel_id to deliver to all configured recipients; provide channel_id only to select one configured recipient. In a source-channel session, channel_id may also select another live channel owned by this Agent.',
+    'Deliver a message, a workspace file, or both to this turn’s configured notification recipients. Files are first-class deliverables: use file_path for final workspace artifacts. Telegram/WeChat forward any file, and WeChat sends video as native video media; Discord/Slack/QQ do not support files yet. Omit channel_id to deliver to all configured recipients; provide channel_id only to select one configured recipient. In a source-channel session, channel_id may also select another live channel owned by this Agent.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -188,12 +187,6 @@ const CHANNEL_CONFIG_SCHEMAS: Record<string, { required: string[]; optional: str
     required: ['bot_token'],
     optional: ['allowed_chat_ids'],
     description: 'Telegram Bot. Get bot_token from @BotFather.'
-  },
-  feishu: {
-    required: ['app_id', 'app_secret', 'encrypt_key', 'verification_token', 'domain'],
-    optional: ['allowed_chat_ids'],
-    description:
-      'Feishu/Lark bot. Set auth_mode to "qr" to register interactively without config. For credential setup, provide all required fields and set domain to "feishu" or "lark".'
   },
   qq: {
     required: ['app_id', 'client_secret'],
@@ -240,7 +233,7 @@ const CHANNEL_CONFIG_SCHEMAS: Record<string, { required: string[]; optional: str
 const CONFIG_TOOL: Tool = {
   name: CONFIG_TOOL_NAME,
   description:
-    "Inspect and manage your own agent configuration. Use 'status' to see current channels, model, and supported adapter types. Use 'rename' to change your display name. Use 'add_channel', 'update_channel', 'remove_channel', or 'reconnect_channel' to manage IM channel connections. Use 'reconnect_channel' when a WeChat or Feishu channel needs to re-scan a QR code (e.g. session expired or initial setup failed). Use 'complete_bootstrap' to mark the onboarding ritual as done. Use 'reset_bootstrap' to re-run the onboarding in the next session.",
+    "Inspect and manage your own agent configuration. Use 'status' to see current channels, model, and supported adapter types. Use 'rename' to change your display name. Use 'add_channel', 'update_channel', 'remove_channel', or 'reconnect_channel' to manage IM channel connections. Use 'reconnect_channel' when a WeChat channel needs to re-scan a QR code (e.g. session expired or initial setup failed). Use 'complete_bootstrap' to mark the onboarding ritual as done. Use 'reset_bootstrap' to re-run the onboarding in the next session.",
   inputSchema: {
     type: 'object',
     properties: {
@@ -260,7 +253,7 @@ const CONFIG_TOOL: Tool = {
       },
       type: {
         type: 'string',
-        enum: ['telegram', 'feishu', 'qq', 'wechat', 'discord', 'slack'],
+        enum: ['telegram', 'qq', 'wechat', 'discord', 'slack'],
         description: "Channel adapter type (required for 'add_channel')"
       },
       name: {
@@ -280,7 +273,7 @@ const CONFIG_TOOL: Tool = {
         type: 'string',
         enum: ['credentials', 'qr'],
         description:
-          'Authentication mode for add_channel. Use "qr" only with WeChat or Feishu for interactive setup; defaults to "credentials".'
+          'Authentication mode for add_channel. Use "qr" only with WeChat for interactive setup; defaults to "credentials".'
       },
       enabled: {
         type: 'boolean',
@@ -1067,7 +1060,7 @@ export class CherryAutonomyTools {
     if (authMode !== 'credentials' && authMode !== 'qr') {
       throw new McpError(ErrorCode.InvalidParams, `Unknown auth_mode "${authMode}", expected credentials/qr`)
     }
-    if (authMode === 'qr' && type !== 'wechat' && type !== 'feishu') {
+    if (authMode === 'qr' && type !== 'wechat') {
       throw new McpError(ErrorCode.InvalidParams, `QR authentication is not supported for ${type} channels`)
     }
     if (authMode === 'qr' && enabled === false) {
@@ -1075,43 +1068,8 @@ export class CherryAutonomyTools {
     }
 
     let cfg: object = rawConfig ?? {}
-    if (authMode === 'qr' && type === 'wechat') {
+    if (authMode === 'qr') {
       cfg = { ...rawConfig, token_path: '' }
-    } else if (authMode === 'qr' && type === 'feishu') {
-      const unverifiedChannels = channelService
-        .listChannels({ agentId: this.agentId, type: 'feishu' })
-        .filter((channel) => channel.type === 'feishu' && !(channel.config.app_id && channel.config.app_secret))
-
-      if (unverifiedChannels.length > 1) {
-        const channelIds = unverifiedChannels.map((channel) => channel.id).join(', ')
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          `Multiple unverified Feishu channels already exist (${channelIds}). Use reconnect_channel with the intended channel_id instead of creating another channel.`
-        )
-      }
-
-      const existingChannel = unverifiedChannels[0]
-      cfg = {
-        allowed_chat_ids: [],
-        domain: 'feishu',
-        ...existingChannel?.config,
-        ...rawConfig,
-        app_id: '',
-        app_secret: '',
-        encrypt_key: '',
-        verification_token: ''
-      }
-
-      if (existingChannel) {
-        const config = ChannelConfigSchema.parse({ type, ...cfg })
-        const { qrUrl } = await updateAgentChannelAndWaitForQr(
-          existingChannel.id,
-          this.agentId,
-          { name, config, isActive: true },
-          30_000
-        )
-        return await this.configReconnectChannel({ channel_id: existingChannel.id }, qrUrl)
-      }
     }
     if (authMode === 'credentials') {
       for (const field of schema.required) {
@@ -1124,17 +1082,14 @@ export class CherryAutonomyTools {
     const config = ChannelConfigSchema.parse({ type, ...cfg })
     const channelType = config.type
 
-    // For channels that use QR-based setup (WeChat login, Feishu app registration),
+    // For channels that use QR-based setup (WeChat login),
     // connect is blocking (waits for QR scan), so run sync in background
     // and wait only for the QR URL to return it to the agent.
     const needsQr = authMode === 'qr'
 
     if (needsQr) {
-      const channelLabel = type === 'wechat' ? 'WeChat' : 'Feishu'
-      const scanHint =
-        type === 'wechat'
-          ? 'scan with WeChat to log in'
-          : 'scan with Feishu to create a bot app and obtain credentials automatically'
+      const channelLabel = 'WeChat'
+      const scanHint = 'scan with WeChat to log in'
 
       try {
         const { channel: newChannel, qrUrl } = await createAgentChannelAndWaitForQr(
@@ -1256,8 +1211,7 @@ export class CherryAutonomyTools {
     if (channel.agentId !== this.agentId)
       throw new McpError(ErrorCode.InvalidParams, `Channel "${channelId}" not found`)
 
-    const needsQr =
-      channel.type === 'wechat' || (channel.type === 'feishu' && !(channel.config.app_id && channel.config.app_secret))
+    const needsQr = channel.type === 'wechat'
 
     if (!needsQr) {
       await reconnectAgentChannel(channelId)
@@ -1266,7 +1220,7 @@ export class CherryAutonomyTools {
       }
     }
 
-    const channelLabel = channel.type === 'wechat' ? 'WeChat' : 'Feishu'
+    const channelLabel = 'WeChat'
 
     try {
       const qrUrl = preparedQrUrl ?? (await reconnectAgentChannelWithQr(this.agentId, channelId, 30_000))

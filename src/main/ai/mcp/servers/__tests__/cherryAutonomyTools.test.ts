@@ -22,7 +22,6 @@ const mockCreateChannel = vi.fn()
 const mockCreateChannelAndWaitForQr = vi.fn()
 const mockGetChannel = vi.fn()
 const mockUpdateChannel = vi.fn()
-const mockUpdateChannelAndWaitForQr = vi.fn()
 const mockDeleteChannel = vi.fn()
 const mockReconnectChannel = vi.fn()
 const mockReconnectChannelWithQr = vi.fn()
@@ -125,7 +124,6 @@ vi.mock('@main/ai/channels', async (importOriginal) => {
     createAgentChannel: mockCreateChannel,
     createAgentChannelAndWaitForQr: mockCreateChannelAndWaitForQr,
     updateAgentChannel: mockUpdateChannel,
-    updateAgentChannelAndWaitForQr: mockUpdateChannelAndWaitForQr,
     deleteAgentChannel: mockDeleteChannel,
     reconnectAgentChannel: mockReconnectChannel,
     reconnectAgentChannelWithQr: mockReconnectChannelWithQr
@@ -1346,22 +1344,6 @@ describe('CherryAutonomyTools', () => {
       config: { type: 'telegram', bot_token: 'tok_123', allowed_chat_ids: ['100'] }
     }
 
-    const feishuChannel = {
-      id: 'ch_feishu',
-      type: 'feishu',
-      name: 'My Feishu',
-      agentId: 'agent_1',
-      isActive: true,
-      config: {
-        app_id: '',
-        app_secret: '',
-        encrypt_key: '',
-        verification_token: '',
-        allowed_chat_ids: [],
-        domain: 'feishu'
-      }
-    }
-
     const agentWithConfig = {
       id: 'agent_1',
       name: 'Test Agent',
@@ -1399,10 +1381,9 @@ describe('CherryAutonomyTools', () => {
         expect(parsed.model).toBe('claude-sonnet-4-20250514')
         expect(parsed.channels).toHaveLength(1)
         expect(parsed.channels[0].type).toBe('telegram')
-        expect(parsed.supported_channel_types).toHaveLength(6)
+        expect(parsed.supported_channel_types).toHaveLength(5)
         expect(parsed.supported_channel_types.map((t: any) => t.type)).toEqual([
           'telegram',
-          'feishu',
           'qq',
           'wechat',
           'discord',
@@ -1495,7 +1476,7 @@ describe('CherryAutonomyTools', () => {
         const server = createServer('agent_1')
         const result = await callTool(
           server,
-          { action: 'add_channel', type: 'feishu', name: 'My Feishu', auth_mode: true },
+          { action: 'add_channel', type: 'telegram', name: 'Work Bot', auth_mode: true },
           'config'
         )
 
@@ -1546,180 +1527,6 @@ describe('CherryAutonomyTools', () => {
         expect(result.content[1].mimeType).toBe('image/png')
       })
 
-      it('should add a feishu channel without app credentials and return QR code image', async () => {
-        mockCreateChannelAndWaitForQr.mockResolvedValue({
-          channel: { id: 'ch_fs1', type: 'feishu', name: 'My Feishu', isActive: true },
-          qrUrl: 'https://accounts.feishu.cn/device/abc123'
-        })
-        mockQRCodeToDataURL.mockResolvedValue('data:image/png;base64,iVBORw0KGgo=')
-
-        const server = createServer('agent_1')
-        const result = await callTool(
-          server,
-          {
-            action: 'add_channel',
-            type: 'feishu',
-            name: 'My Feishu',
-            auth_mode: 'qr',
-            config: {
-              app_id: 'old-app-id',
-              app_secret: 'old-app-secret',
-              encrypt_key: 'old-encrypt-key',
-              verification_token: 'old-verification-token',
-              allowed_chat_ids: ['chat-1'],
-              domain: 'lark'
-            }
-          },
-          'config'
-        )
-
-        expect(mockCreateChannelAndWaitForQr).toHaveBeenCalledWith(
-          expect.objectContaining({
-            config: {
-              type: 'feishu',
-              app_id: '',
-              app_secret: '',
-              encrypt_key: '',
-              verification_token: '',
-              allowed_chat_ids: ['chat-1'],
-              domain: 'lark'
-            }
-          }),
-          30_000
-        )
-        expect(result.content).toHaveLength(2)
-        expect(result.content[0].text).toContain('Feishu channel created')
-        expect(result.content[1]).toMatchObject({
-          type: 'image',
-          data: 'iVBORw0KGgo=',
-          mimeType: 'image/png'
-        })
-      })
-
-      it('should allow adding another Feishu channel when one already exists', async () => {
-        mockListChannels.mockReturnValue([
-          {
-            ...feishuChannel,
-            id: 'ch_existing',
-            config: { ...feishuChannel.config, app_id: 'app-id', app_secret: 'app-secret' }
-          }
-        ])
-        mockCreateChannelAndWaitForQr.mockResolvedValue({
-          channel: { id: 'ch_fs2', type: 'feishu', name: 'Second Feishu', isActive: true },
-          qrUrl: 'https://accounts.feishu.cn/device/abc123'
-        })
-        mockQRCodeToDataURL.mockResolvedValue('data:image/png;base64,iVBORw0KGgo=')
-
-        const server = createServer('agent_1')
-        const result = await callTool(
-          server,
-          { action: 'add_channel', type: 'feishu', name: 'Second Feishu', auth_mode: 'qr' },
-          'config'
-        )
-
-        expect(mockCreateChannelAndWaitForQr).toHaveBeenCalledWith(
-          expect.objectContaining({
-            type: 'feishu',
-            name: 'Second Feishu',
-            agentId: 'agent_1'
-          }),
-          30_000
-        )
-        expect(result.content.filter((item: { type: string }) => item.type === 'image')).toHaveLength(1)
-      })
-
-      it('should reuse one unverified Feishu channel without losing the new setup options', async () => {
-        const existingChannel = { ...feishuChannel, id: 'ch_existing', isActive: false }
-        const updatedChannel = {
-          ...existingChannel,
-          name: 'Updated Feishu',
-          isActive: true,
-          config: {
-            ...existingChannel.config,
-            allowed_chat_ids: ['chat-1'],
-            domain: 'lark'
-          }
-        }
-        mockListChannels.mockReturnValue([
-          {
-            ...feishuChannel,
-            id: 'ch_verified',
-            config: { ...feishuChannel.config, app_id: 'app-id', app_secret: 'app-secret' }
-          },
-          existingChannel
-        ])
-        mockGetChannel.mockReturnValue(updatedChannel)
-        mockUpdateChannelAndWaitForQr.mockResolvedValue({
-          channel: updatedChannel,
-          qrUrl: 'https://accounts.larksuite.com/device/abc123'
-        })
-        mockQRCodeToDataURL.mockResolvedValue('data:image/png;base64,iVBORw0KGgo=')
-
-        const server = createServer('agent_1')
-        const result = await callTool(
-          server,
-          {
-            action: 'add_channel',
-            type: 'feishu',
-            name: 'Updated Feishu',
-            auth_mode: 'qr',
-            config: {
-              app_id: 'stale-app-id',
-              app_secret: 'stale-app-secret',
-              allowed_chat_ids: ['chat-1'],
-              domain: 'lark'
-            }
-          },
-          'config'
-        )
-
-        expect(mockCreateChannel).not.toHaveBeenCalled()
-        expect(mockUpdateChannelAndWaitForQr).toHaveBeenCalledWith(
-          'ch_existing',
-          'agent_1',
-          {
-            name: 'Updated Feishu',
-            config: {
-              type: 'feishu',
-              app_id: '',
-              app_secret: '',
-              encrypt_key: '',
-              verification_token: '',
-              allowed_chat_ids: ['chat-1'],
-              domain: 'lark'
-            },
-            isActive: true
-          },
-          30_000
-        )
-        expect(result.content.filter((item: { type: string }) => item.type === 'image')).toHaveLength(1)
-      })
-
-      it('should require an explicit channel when multiple unverified Feishu channels exist', async () => {
-        mockListChannels.mockReturnValue([
-          { ...feishuChannel, id: 'ch_pending_1' },
-          { ...feishuChannel, id: 'ch_pending_2' },
-          {
-            ...feishuChannel,
-            id: 'ch_verified',
-            config: { ...feishuChannel.config, app_id: 'app-id', app_secret: 'app-secret' }
-          }
-        ])
-
-        const server = createServer('agent_1')
-        const result = await callTool(
-          server,
-          { action: 'add_channel', type: 'feishu', name: 'My Feishu', auth_mode: 'qr' },
-          'config'
-        )
-
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toContain('Multiple unverified Feishu channels already exist')
-        expect(result.content[0].text).toContain('reconnect_channel')
-        expect(mockCreateChannel).not.toHaveBeenCalled()
-        expect(mockCreateChannelAndWaitForQr).not.toHaveBeenCalled()
-      })
-
       it('should clean up orphan channel when wechat QR times out', async () => {
         mockCreateChannelAndWaitForQr.mockRejectedValue(new Error('Timed out waiting for QR code'))
 
@@ -1747,19 +1554,6 @@ describe('CherryAutonomyTools', () => {
 
         expect(result.isError).toBe(true)
         expect(result.content[0].text).toContain('Missing required config field "bot_token"')
-      })
-
-      it('should keep credential fields required unless QR authentication is explicit', async () => {
-        const server = createServer('agent_1')
-        const result = await callTool(
-          server,
-          { action: 'add_channel', type: 'feishu', name: 'My Feishu', config: {} },
-          'config'
-        )
-
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toContain('Missing required config field "app_id"')
-        expect(mockCreateChannel).not.toHaveBeenCalled()
       })
 
       it('should reject QR authentication for channels that do not support it', async () => {

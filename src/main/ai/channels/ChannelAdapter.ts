@@ -264,7 +264,6 @@ export abstract class ChannelAdapter extends EventEmitter {
   override emit(event: 'message', data: ChannelMessageEvent): boolean
   override emit(event: 'command', data: ChannelCommandEvent): boolean
   override emit(event: 'qr', url: string): boolean
-  override emit(event: 'credentials', data: { appId: string; appSecret: string }): boolean
   override emit(event: 'log', data: ChannelLogEntry): boolean
   override emit(event: 'statusChange', data: ChannelStatusEvent): boolean
   override emit(event: string, ...args: unknown[]): boolean {
@@ -274,7 +273,6 @@ export abstract class ChannelAdapter extends EventEmitter {
   override on(event: 'message', listener: (data: ChannelMessageEvent) => void): this
   override on(event: 'command', listener: (data: ChannelCommandEvent) => void): this
   override on(event: 'qr', listener: (url: string) => void): this
-  override on(event: 'credentials', listener: (data: { appId: string; appSecret: string }) => void): this
   override on(event: 'log', listener: (data: ChannelLogEntry) => void): this
   override on(event: 'statusChange', listener: (data: ChannelStatusEvent) => void): this
   override on(event: string, listener: (...args: any[]) => void): this {

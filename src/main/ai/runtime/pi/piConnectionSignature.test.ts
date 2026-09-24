@@ -156,13 +156,13 @@ describe('capturePiConnectionSnapshot', () => {
 
   it('signs current turn notification recipients independent of input order', async () => {
     mocks.getTurnTrustedNotifyChannels.mockReturnValue([
-      { id: 'channel-2', type: 'feishu' },
+      { id: 'channel-2', type: 'slack' },
       { id: 'channel-1', type: 'telegram' }
     ])
     const first = await capturePiConnectionSnapshot('session-1', agent.id, 'provider::model')
     mocks.getTurnTrustedNotifyChannels.mockReturnValue([
       { id: 'channel-1', type: 'telegram' },
-      { id: 'channel-2', type: 'feishu' }
+      { id: 'channel-2', type: 'slack' }
     ])
     const reordered = await capturePiConnectionSnapshot('session-1', agent.id, 'provider::model')
     mocks.getTurnTrustedNotifyChannels.mockReturnValue([{ id: 'channel-3', type: 'telegram' }])
