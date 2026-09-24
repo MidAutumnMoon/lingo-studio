@@ -396,13 +396,13 @@ describe('DoctorPopup', () => {
             durationMs: 1
           },
           {
-            id: 'permission-accessibility',
+            id: 'config-boot-config-valid',
             status: 'warn',
             durationMs: 1,
             attribution: 'user-fixable',
-            detail: { variant: 'denied' },
-            evidence: [{ key: 'permission', value: 'denied', dataClass: 'local_only' }],
-            actions: [{ kind: 'fix', fixId: 'request' }]
+            detail: { variant: 'invalid_keys' },
+            evidence: [{ key: 'configPath', value: '/private/config.json', dataClass: 'local_only' }],
+            actions: [{ kind: 'fix', fixId: 'repair' }]
           },
           {
             id: 'storage-disk-space',
@@ -471,7 +471,7 @@ describe('DoctorPopup', () => {
     const expectedTitles = [
       'settings.doctor.checks.storage-disk-space.title',
       'Provider model',
-      'settings.doctor.checks.permission-accessibility.title',
+      'settings.doctor.checks.config-boot-config-valid.title',
       'settings.doctor.checks.network-online.title',
       'settings.doctor.checks.logs-recent-findings.title',
       'settings.doctor.checks.install-version-channel.title',
@@ -519,7 +519,7 @@ describe('DoctorPopup', () => {
     await user.keyboard('{Escape}')
 
     const firstCheck = within(checks).getByRole('button', {
-      name: /settings\.doctor\.checks\.permission-accessibility\.title.*settings\.doctor\.status\.warn/
+      name: /settings\.doctor\.checks\.config-boot-config-valid\.title.*settings\.doctor\.status\.warn/
     })
     const failingCheck = within(checks).getByRole('button', {
       name: /settings\.doctor\.checks\.storage-disk-space\.title.*settings\.doctor\.status\.fail/
@@ -546,12 +546,12 @@ describe('DoctorPopup', () => {
     const user = userEvent.setup()
     mocks.doctorState = completedDoctorState([
       {
-        id: 'permission-accessibility',
+        id: 'config-boot-config-valid',
         status: 'warn',
         durationMs: 1,
         attribution: 'user-fixable',
-        detail: { variant: 'denied' },
-        actions: [{ kind: 'fix', fixId: 'request' }]
+        detail: { variant: 'invalid_keys' },
+        actions: [{ kind: 'fix', fixId: 'repair' }]
       }
     ])
     mocks.request.mockResolvedValue({ status: 'fixed' })
@@ -562,15 +562,15 @@ describe('DoctorPopup', () => {
     })
 
     await user.click(
-      await screen.findByRole('button', { name: /settings\.doctor\.checks\.permission-accessibility\.title/ })
+      await screen.findByRole('button', { name: /settings\.doctor\.checks\.config-boot-config-valid\.title/ })
     )
-    await user.click(screen.getByRole('button', { name: 'settings.doctor.fixes.request_accessibility' }))
+    await user.click(screen.getByRole('button', { name: 'settings.doctor.fixes.repair_boot_config' }))
 
     expect(mocks.request).toHaveBeenCalledWith('diagnostics.doctor.fix', {
       scope: 'global',
       runId: 'completed-quick',
-      checkId: 'permission-accessibility',
-      fixId: 'request'
+      checkId: 'config-boot-config-valid',
+      fixId: 'repair'
     })
   })
 

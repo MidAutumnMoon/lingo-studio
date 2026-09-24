@@ -44,30 +44,6 @@ export type RetryFallbackModelId = UniqueModelId
  */
 export type AgentLanguagePreference = AgentLanguage
 
-export enum SelectionTriggerMode {
-  Selected = 'selected',
-  Ctrlkey = 'ctrlkey',
-  Shortcut = 'shortcut'
-}
-
-export enum SelectionFilterMode {
-  Default = 'default',
-  Whitelist = 'whitelist',
-  Blacklist = 'blacklist'
-}
-
-export type SelectionActionItem = {
-  id: string
-  name: string
-  enabled: boolean
-  isBuiltIn: boolean
-  icon?: string
-  prompt?: string
-  assistantId?: string
-  selectedText?: string
-  searchEngine?: string
-}
-
 export enum ThemeMode {
   light = 'light',
   dark = 'dark',

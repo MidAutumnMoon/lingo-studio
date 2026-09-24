@@ -6,37 +6,27 @@ const {
   getDeviceTypeMock,
   getCountryMock,
   getFontsMock,
-  isTrustedMock,
   openPathMock,
   openExternalMock,
   isSafeMock,
-  nativeThemeMock,
-  platform
+  nativeThemeMock
 } = vi.hoisted(() => ({
   appGetMock: vi.fn(),
   getDeviceTypeMock: vi.fn(),
   getCountryMock: vi.fn(),
   getFontsMock: vi.fn(),
-  isTrustedMock: vi.fn(),
   openPathMock: vi.fn(),
   openExternalMock: vi.fn(),
   isSafeMock: vi.fn(),
-  nativeThemeMock: { shouldUseDarkColors: false },
-  platform: { isMac: true }
+  nativeThemeMock: { shouldUseDarkColors: false }
 }))
 
 vi.mock('@application', () => ({ application: { get: appGetMock } }))
 vi.mock('@main/utils/system', () => ({ getDeviceType: getDeviceTypeMock }))
 vi.mock('@main/services/RegionService', () => ({ regionService: { getCountry: getCountryMock } }))
 vi.mock('@main/utils/externalUrlSafety', () => ({ isSafeExternalUrl: isSafeMock }))
-vi.mock('@main/core/platform', () => ({
-  get isMac() {
-    return platform.isMac
-  }
-}))
 vi.mock('electron', () => ({
   nativeTheme: nativeThemeMock,
-  systemPreferences: { isTrustedAccessibilityClient: isTrustedMock },
   shell: { openPath: openPathMock, openExternal: openExternalMock }
 }))
 vi.mock('font-list', () => ({ default: { getFonts: getFontsMock } }))
@@ -51,7 +41,6 @@ const ctx = (senderId: string | null) => ({ senderId })
 
 beforeEach(() => {
   vi.clearAllMocks()
-  platform.isMac = true
   nativeThemeMock.shouldUseDarkColors = false
   appGetMock.mockImplementation((name: string) => {
     if (name === 'WindowManager') return windowManager
@@ -97,25 +86,6 @@ describe('systemHandlers', () => {
   it('toggle_dev_tools is a no-op when the caller is not a tracked window', async () => {
     await systemHandlers['system.toggle_dev_tools'](undefined, ctx(null))
     expect(windowManager.getWindow).not.toHaveBeenCalled()
-  })
-
-  it('mac.is_process_trusted queries systemPreferences on darwin', async () => {
-    isTrustedMock.mockReturnValue(true)
-    expect(await systemHandlers['system.mac.is_process_trusted'](undefined, ctx('w1'))).toBe(true)
-    expect(isTrustedMock).toHaveBeenCalledWith(false)
-  })
-
-  it('mac.request_process_trust prompts on darwin', async () => {
-    isTrustedMock.mockReturnValue(false)
-    expect(await systemHandlers['system.mac.request_process_trust'](undefined, ctx('w1'))).toBe(false)
-    expect(isTrustedMock).toHaveBeenCalledWith(true)
-  })
-
-  it('mac.* routes are resident and return false off darwin without touching systemPreferences', async () => {
-    platform.isMac = false
-    expect(await systemHandlers['system.mac.is_process_trusted'](undefined, ctx('w1'))).toBe(false)
-    expect(await systemHandlers['system.mac.request_process_trust'](undefined, ctx('w1'))).toBe(false)
-    expect(isTrustedMock).not.toHaveBeenCalled()
   })
 
   it('shell.open_path delegates straight to shell.openPath', async () => {

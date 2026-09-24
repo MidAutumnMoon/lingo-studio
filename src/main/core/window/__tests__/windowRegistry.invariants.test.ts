@@ -19,8 +19,8 @@ describe('WINDOW_TYPE_REGISTRY behavior invariants', () => {
     }
   })
 
-  it('SelectionToolbar and QuickAssistant declare the flag (regression: enabling selection assistant hid the app)', () => {
-    for (const type of [WindowType.SelectionToolbar, WindowType.QuickAssistant]) {
+  it('QuickAssistant declares the flag (regression: fullscreen overlay windows hid the app)', () => {
+    for (const type of [WindowType.QuickAssistant] as const) {
       expect(
         WINDOW_TYPE_REGISTRY[type]?.behavior?.visibleOnAllWorkspaces?.skipTransformProcessType,
         `WindowType '${type}'`

@@ -471,15 +471,15 @@ Unlike `Pausable` (which temporarily suspends execution), `Activatable` controls
 import { application } from '@application'
 import { BaseService, Injectable, type Activatable } from '@main/core/lifecycle'
 
-@Injectable('SelectionService')
-class SelectionService extends BaseService implements Activatable {
+@Injectable('ExampleService')
+class ExampleService extends BaseService implements Activatable {
   protected onInit() {
     this.registerIpcHandlers()
     // Set up trigger: subscribe to preference changes
     // Note: PreferenceService is Phase.BeforeReady — guaranteed ready before WhenReady services
     const prefService = application.get('PreferenceService')
     this.registerDisposable(
-      prefService.subscribeChange('feature.selection.enabled', async (enabled) => {
+      prefService.subscribeChange('feature.example.enabled', async (enabled) => {
         if (enabled) await this.activate()
         else await this.deactivate()
       })
@@ -488,7 +488,7 @@ class SelectionService extends BaseService implements Activatable {
 
   protected async onReady() {
     // Initial activation check (state is Ready, so activate() works)
-    if (application.get('PreferenceService').get('feature.selection.enabled')) {
+    if (application.get('PreferenceService').get('feature.example.enabled')) {
       await this.activate()
     }
   }

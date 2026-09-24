@@ -18,7 +18,6 @@ const {
   windowServiceMock,
   openSettingsInMainWindowMock,
   quickAssistantServiceMock,
-  selectionServiceMock,
   windowManagerMock,
   handleZoomFactorMock,
   showNativePopupMenuMock
@@ -29,10 +28,6 @@ const {
   openSettingsInMainWindowMock: vi.fn(),
   quickAssistantServiceMock: {
     toggleQuickAssistant: vi.fn()
-  },
-  selectionServiceMock: {
-    toggleEnabled: vi.fn(),
-    processSelectTextByShortcut: vi.fn()
   },
   windowManagerMock: {
     getWindowsByType: vi.fn((): any[] => [])
@@ -46,7 +41,6 @@ vi.mock('@application', async () => {
   return mockApplicationFactory({
     MainWindowService: windowServiceMock,
     QuickAssistantService: quickAssistantServiceMock,
-    SelectionService: selectionServiceMock,
     WindowManager: windowManagerMock
   } as any)
 })
@@ -115,11 +109,11 @@ describe('CommandService', () => {
   })
 
   it('executes enabled feature commands', () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('feature.selection.enabled', true)
+    MockMainPreferenceServiceUtils.setPreferenceValue('feature.quick_assistant.enabled', true)
 
-    service.execute('selection.capture_text')
+    service.execute('quick_assistant.toggle')
 
-    expect(selectionServiceMock.processSelectTextByShortcut).toHaveBeenCalledTimes(1)
+    expect(quickAssistantServiceMock.toggleQuickAssistant).toHaveBeenCalledTimes(1)
   })
 
   it('opens settings through the main-window settings helper', () => {

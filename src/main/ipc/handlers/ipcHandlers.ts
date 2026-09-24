@@ -32,7 +32,6 @@ import { printHandlers } from './print'
 import { profileHandlers } from './profile'
 import { providerHandlers } from './provider'
 import { quickAssistantHandlers } from './quickAssistant'
-import { selectionHandlers } from './selection'
 import { skillHandlers } from './skill'
 import { systemHandlers } from './system'
 import { tabHandlers } from './tab'
@@ -83,7 +82,6 @@ export const ipcHandlers: IpcHandlersFor<IpcRequestSchemas> = {
   ...profileHandlers,
   ...providerHandlers,
   ...quickAssistantHandlers,
-  ...selectionHandlers,
   ...skillHandlers,
   ...systemHandlers,
   ...tabHandlers,

@@ -18,7 +18,6 @@ import {
   Search,
   Settings2,
   Terminal,
-  TextCursorInput,
   ToolCase,
   Zap
 } from 'lucide-react'
@@ -165,12 +164,6 @@ export const settingsMenu: readonly SettingsMenuEntry[] = [
     route: '/settings/quick-assistant',
     titleKey: 'settings.quickAssistant.title',
     icon: createElement(PictureInPicture2),
-    groupKey: 'settings.menuGroups.automation'
-  },
-  {
-    route: '/settings/selection-assistant',
-    titleKey: 'selection.name',
-    icon: createElement(TextCursorInput),
     groupKey: 'settings.menuGroups.automation'
   },
   {

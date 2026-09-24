@@ -194,7 +194,7 @@ const basePool = {
 
 vi.mock('../windowRegistry', () => {
   const registry: Record<string, unknown> = {
-    // Singleton toolbar with all three quirks + showMode:'manual' (like SelectionToolbar)
+    // Singleton toolbar with all three quirks + showMode:'manual'
     toolbar: {
       type: 'toolbar',
       lifecycle: 'singleton',
@@ -210,7 +210,7 @@ vi.mock('../windowRegistry', () => {
         reapplyAlwaysOnTop: true
       }
     },
-    // Pooled action with only restoreFocusOnHide (like SelectionAction)
+    // Pooled action with only restoreFocusOnHide
     action: {
       type: 'action',
       lifecycle: 'pooled',
@@ -589,7 +589,7 @@ describe('WindowManager quirks — applyQuirks monkey-patching', () => {
     })
 
     it('still re-applies setAlwaysOnTop after show()/showInactive() on Windows', () => {
-      // Regression for #18092: the selection toolbar sank behind third-party
+      // Regression for #18092: a topmost toolbar sank behind third-party
       // topmost windows because this re-assert used to be gated on isMac, and
       // Windows resolves topmost z-order by whoever asserted it last.
       platform.isMac = false

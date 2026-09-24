@@ -21,7 +21,7 @@ function result(
     status,
     durationMs: 1,
     attribution: 'user-fixable',
-    detail: { variant: 'denied' },
+    detail: { variant: 'invalid_keys' },
     actions: actions ?? []
   } as DoctorCheckResult
 }
@@ -61,13 +61,13 @@ describe('buildDoctorViewModel', () => {
       selectedCheckIds: [
         'install-version-channel',
         'install-update-available',
-        'permission-accessibility',
-        'permission-accessibility',
+        'storage-disk-space',
+        'storage-disk-space',
         'network-online'
       ],
       startedAt: '2026-09-04T08:59:00.000Z',
-      activeCheckIds: ['permission-accessibility', 'network-online'],
-      results: [result('permission-accessibility', 'fail'), result('install-version-channel', 'pass')]
+      activeCheckIds: ['storage-disk-space', 'network-online'],
+      results: [result('storage-disk-space', 'fail'), result('install-version-channel', 'pass')]
     }
 
     const viewModel = buildDoctorViewModel(state, NOW)
@@ -78,8 +78,8 @@ describe('buildDoctorViewModel', () => {
     expect(viewModel.rows.find((row) => row.id === 'network-model-endpoint')).toBeUndefined()
     expect(viewModel.rows.find((row) => row.id === 'install-version-channel')).toMatchObject({ status: 'pass' })
     expect(viewModel.rows.find((row) => row.id === 'install-update-available')).toMatchObject({ status: 'pending' })
-    expect(viewModel.activeCheckIds).toEqual(['permission-accessibility', 'network-online'])
-    expect(viewModel.groups.find((group) => group.domain === 'permission')?.status).toBe('fail')
+    expect(viewModel.activeCheckIds).toEqual(['storage-disk-space', 'network-online'])
+    expect(viewModel.groups.find((group) => group.domain === 'storage')?.status).toBe('fail')
   })
 
   it('includes only quick checks while a basic run is in progress', () => {
@@ -136,7 +136,7 @@ describe('buildDoctorViewModel', () => {
   it('never synthesizes actions for findings', () => {
     const state: DoctorState = {
       status: 'completed',
-      report: report([result('permission-accessibility', 'pass'), result('config-boot-config-valid', 'fail')])
+      report: report([result('storage-disk-space', 'pass'), result('config-boot-config-valid', 'fail')])
     }
 
     const viewModel = buildDoctorViewModel(state, NOW)
@@ -151,7 +151,7 @@ describe('buildDoctorViewModel', () => {
     const state: DoctorState = {
       status: 'completed',
       report: report(
-        [result('permission-accessibility', 'fail', [{ kind: 'fix', fixId: 'request' }])],
+        [result('config-boot-config-valid', 'fail', [{ kind: 'fix', fixId: 'repair' }])],
         '2026-09-04T08:59:59.999Z'
       )
     }
@@ -192,7 +192,7 @@ describe('buildDoctorViewModel', () => {
       report: report([
         result('logs-recent-findings', 'error'),
         result('config-hardware-acceleration', 'pass'),
-        result('permission-accessibility', 'warn'),
+        result('storage-disk-space', 'warn'),
         result('network-online', 'skip')
       ])
     }
@@ -200,7 +200,7 @@ describe('buildDoctorViewModel', () => {
     const viewModel = buildDoctorViewModel(state, NOW)
 
     expect(viewModel.rows.map((row) => row.id)).toEqual([
-      'permission-accessibility',
+      'storage-disk-space',
       'config-hardware-acceleration',
       'network-online',
       'logs-recent-findings'

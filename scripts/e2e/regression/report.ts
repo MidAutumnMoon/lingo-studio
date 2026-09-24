@@ -43,7 +43,6 @@ const MODE_LABELS: Record<RunMode, string> = {
 
 const CAPABILITY_LABELS: Record<string, string> = {
   desktopAutomation: 'Desktop automation',
-  externalSelection: 'Cross-app text selection',
   globalShortcut: 'Global shortcut',
   directCdp: 'Direct CDP connection',
   npx: 'npx',

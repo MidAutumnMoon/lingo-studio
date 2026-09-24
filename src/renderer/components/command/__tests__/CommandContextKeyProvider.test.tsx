@@ -45,7 +45,6 @@ describe('CommandContextKeyProvider', () => {
 
   it('initializes platform and feature flags', () => {
     preferenceValues['feature.quick_assistant.enabled'] = true
-    preferenceValues['feature.selection.enabled'] = false
 
     render(
       <CommandContextKeyProvider>
@@ -55,8 +54,7 @@ describe('CommandContextKeyProvider', () => {
 
     expect(readSnapshot()).toMatchObject({
       platform: expect.any(String),
-      'feature.quick_assistant.enabled': true,
-      'feature.selection.enabled': false
+      'feature.quick_assistant.enabled': true
     })
   })
 

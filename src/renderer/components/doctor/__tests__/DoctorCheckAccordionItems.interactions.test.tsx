@@ -349,8 +349,8 @@ describe('DoctorCheckAccordionItems interactions', () => {
           request: {
             scope: 'global',
             runId: 'run-1',
-            checkId: 'permission-accessibility',
-            fixId: 'request'
+            checkId: 'config-boot-config-valid',
+            fixId: 'repair'
           }
         }
       }

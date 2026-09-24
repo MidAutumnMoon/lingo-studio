@@ -111,7 +111,7 @@ function runWindowsHotkey(keys: string[]): void {
     '  Start-Sleep -Milliseconds 200',
     '  $shell.SendKeys("^a")',
     '  Start-Sleep -Milliseconds 200',
-    // selection-hook reads the window under the pointer on Windows.
+    // Center the pointer inside the activated window so subsequent input targets it.
     '  $rect = [NativeRect]::new()',
     '  if (-not [NativeKeyboard]::GetWindowRect($fixture.MainWindowHandle, [ref]$rect)) { throw "External text window bounds could not be read" }',
     '  $null = [NativeKeyboard]::SetCursorPos([int](($rect.Left + $rect.Right) / 2), [int](($rect.Top + $rect.Bottom) / 2))',

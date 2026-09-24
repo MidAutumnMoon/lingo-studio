@@ -1574,9 +1574,9 @@ describe('MainWindowService', () => {
       expect(win.webContents.send).toHaveBeenCalledWith(IpcChannel.App_QuoteToMain, 'Selected text')
     })
 
-    it('routes quotes from a non-SubWindow helper window (selection toolbar) to the main window', () => {
-      windowManagerMock.getWindowIdByWebContents.mockReturnValue('toolbar-window-1')
-      windowManagerMock.getWindowType.mockReturnValue(WindowType.SelectionToolbar)
+    it('routes quotes from a non-SubWindow helper window (quick assistant) to the main window', () => {
+      windowManagerMock.getWindowIdByWebContents.mockReturnValue('helper-window-1')
+      windowManagerMock.getWindowType.mockReturnValue(WindowType.QuickAssistant)
 
       svc.quoteToMainWindow('Selected text', { id: 500 } as any)
 

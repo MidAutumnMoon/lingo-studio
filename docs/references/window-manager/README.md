@@ -55,27 +55,17 @@ Per-type metadata in `windowRegistry.ts` is split into three layers. Each field 
 
 ## WM Does Not Know "Pin"
 
-**Cherry Studio windows do not share a single "pin" concept** — the three pinnable windows each mean something different by it:
+**Cherry Studio windows do not share a single "pin" concept** — pin semantics belong to each window's owning service:
 
 | Window | What "pin" toggles |
 |---|---|
 | QuickAssistant | Suppress blur-auto-hide (`alwaysOnTop` stays true) |
-| SelectionAction | Toggle `alwaysOnTop` (no blur auto-hide to suppress) |
-| SelectionToolbar | No pin concept (always hide on blur) |
-
-Plus SelectionAction has an independent `auto_close` user preference that drives blur-auto-hide on its own axis — so all four `{hideOnBlur, alwaysOnTop}` quadrants are reachable.
 
 WindowManager therefore **exposes orthogonal primitives, not a `pin` abstraction**. Consumers compose pin semantics in their own service layer:
 
 ```typescript
 // QuickAssistant (pin = suppress blur-hide only)
 wm.behavior.setHideOnBlur(id, !isPinned)
-
-// SelectionAction (pin = toggle alwaysOnTop only)
-wm.behavior.setAlwaysOnTop(id, isPinned)
-
-// SelectionAction (auto_close + pin composed in renderer)
-wm.behavior.setHideOnBlur(id, isAutoClose && !isPinned)
 ```
 
 ### When to Provide a Runtime Setter
@@ -85,7 +75,7 @@ Runtime setters for the declarative behavior layer live on `wm.behavior` (the {@
 1. **WM must maintain state** — e.g. `hideOnBlur` needs an override map the blur listener reads; `macShowInDock` needs a per-type override map the Dock predicate reads.
 2. **WM can derive parameters from the registry** — e.g. `setAlwaysOnTop` auto-fills `level` / `relativeLevel`.
 
-`visibleOnAllWorkspaces` satisfies neither (no state; options differ per call, as in SelectionAction's full-screen show sequence) — consumers drive it directly on the `BrowserWindow` instance.
+`visibleOnAllWorkspaces` satisfies neither (no state; options may differ per call) — consumers drive it directly on the `BrowserWindow` instance.
 
 **Note on `wm.behavior.setMacShowInDockByType`**: uniquely keyed by window TYPE (not windowId), because Dock visibility is an app-level UI decision — two instances of the same type should contribute identically, and services routinely need to flip the override BEFORE any instance exists (e.g. tray-on-launch calls `wm.behavior.setMacShowInDockByType(Main, false)` before the first `open(Main)`). See [Platform → Declarative Behavior Layer](./window-manager-platform.md#declarative-behavior-layer) for semantics.
 
@@ -95,8 +85,8 @@ Runtime setters for the declarative behavior layer live on `wm.behavior` (the {@
 |---|---|
 | Only want initial state on create | Declare in registry `behavior.*` |
 | Single driver, runtime toggle | Use `wm.behavior.setHideOnBlur` / `wm.behavior.setAlwaysOnTop` (or `window.*` if no setter exists) |
-| Multiple independent drivers (pin + auto_close) | Compute final target state on the consumer side, then call setters once. **Do NOT** store intermediate state in WM. |
-| Call-specific options that differ per call | Drive directly on `BrowserWindow` (e.g. SelectionAction's show sequence) |
+| Multiple independent drivers | Compute final target state on the consumer side, then call setters once. **Do NOT** store intermediate state in WM. |
+| Call-specific options that differ per call | Drive directly on `BrowserWindow` (e.g. a per-show fullscreen choreography) |
 
 ### Type Derivation Convention
 

@@ -17,45 +17,34 @@ vi.mock('@data/PreferenceService', async () => {
   return MockMainPreferenceServiceExport
 })
 
-const {
-  windowServiceMock,
-  windowManagerMock,
-  selectionServiceMock,
-  quickAssistantServiceMock,
-  commandServiceMock,
-  globalShortcutMock
-} = vi.hoisted(() => ({
-  windowServiceMock: {
-    onMainWindowCreated: vi.fn(),
-    showMainWindow: vi.fn(),
-    toggleMainWindow: vi.fn()
-  },
-  windowManagerMock: {
-    open: vi.fn(),
-    broadcastToType: vi.fn()
-  },
-  selectionServiceMock: {
-    toggleEnabled: vi.fn(),
-    processSelectTextByShortcut: vi.fn()
-  },
-  quickAssistantServiceMock: {
-    toggleQuickAssistant: vi.fn()
-  },
-  commandServiceMock: {
-    execute: vi.fn()
-  },
-  globalShortcutMock: {
-    register: vi.fn(),
-    unregister: vi.fn()
-  }
-}))
+const { windowServiceMock, windowManagerMock, quickAssistantServiceMock, commandServiceMock, globalShortcutMock } =
+  vi.hoisted(() => ({
+    windowServiceMock: {
+      onMainWindowCreated: vi.fn(),
+      showMainWindow: vi.fn(),
+      toggleMainWindow: vi.fn()
+    },
+    windowManagerMock: {
+      open: vi.fn(),
+      broadcastToType: vi.fn()
+    },
+    quickAssistantServiceMock: {
+      toggleQuickAssistant: vi.fn()
+    },
+    commandServiceMock: {
+      execute: vi.fn()
+    },
+    globalShortcutMock: {
+      register: vi.fn(),
+      unregister: vi.fn()
+    }
+  }))
 
 vi.mock('@application', async () => {
   const { mockApplicationFactory } = await import('@test-mocks/main/application')
   return mockApplicationFactory({
     MainWindowService: windowServiceMock,
     WindowManager: windowManagerMock,
-    SelectionService: selectionServiceMock,
     QuickAssistantService: quickAssistantServiceMock,
     CommandService: commandServiceMock
   } as any)
@@ -90,9 +79,6 @@ import { WindowType } from '@main/core/window/types'
 import { IpcChannel } from '@shared/IpcChannel'
 
 import { ShortcutService } from '../ShortcutService'
-
-// Mirrors the selection commands' supportedPlatforms (darwin/win32/linux) — SelectionService supports linux too.
-const supportsSelectionShortcuts = ['darwin', 'win32', 'linux'].includes(process.platform)
 
 class MockBrowserWindow {
   private readonly events = new EventEmitter()
@@ -361,27 +347,6 @@ describe('ShortcutService', () => {
     MockMainPreferenceServiceUtils.setPreferenceValue('feature.quick_assistant.enabled', true)
 
     expect(globalShortcutMock.register).toHaveBeenCalledWith('CommandOrControl+E', expect.any(Function))
-  })
-
-  it('reacts to selection assistant enablement changes for selection shortcuts', async () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('shortcut.selection.toggle', {
-      binding: ['CommandOrControl', 'Shift', 'S'],
-      enabled: true
-    })
-    MockMainPreferenceServiceUtils.setPreferenceValue('feature.selection.enabled', false)
-
-    await (service as any).onInit()
-
-    expect(globalShortcutMock.register).not.toHaveBeenCalledWith('CommandOrControl+Shift+S', expect.any(Function))
-
-    globalShortcutMock.register.mockClear()
-    MockMainPreferenceServiceUtils.setPreferenceValue('feature.selection.enabled', true)
-
-    if (supportsSelectionShortcuts) {
-      expect(globalShortcutMock.register).toHaveBeenCalledWith('CommandOrControl+Shift+S', expect.any(Function))
-    } else {
-      expect(globalShortcutMock.register).not.toHaveBeenCalledWith('CommandOrControl+Shift+S', expect.any(Function))
-    }
   })
 
   it('re-registers window-bound shortcuts when the main window instance changes', async () => {

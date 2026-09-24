@@ -174,7 +174,7 @@ const QuickAssistantSettings: FC = () => {
               )}
               {isAssistantMode && (
                 <InfoTooltip
-                  content={t('selection.settings.user_modal.model.tooltip')}
+                  content={t('settings.quickAssistant.model.tooltip')}
                   showArrow
                   iconProps={{ className: 'cursor-pointer' }}
                 />

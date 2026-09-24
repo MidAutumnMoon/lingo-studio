@@ -7,8 +7,8 @@ import { createDoctorSession, doctorSessionReducer } from '../doctorSessionReduc
 const fixRequest: DoctorFixRequest = {
   scope: 'global',
   runId: 'run-1',
-  checkId: 'permission-accessibility',
-  fixId: 'request'
+  checkId: 'config-boot-config-valid',
+  fixId: 'repair'
 }
 
 describe('doctorSessionReducer', () => {

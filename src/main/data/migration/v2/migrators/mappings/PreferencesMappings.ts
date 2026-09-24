@@ -1,6 +1,6 @@
 /**
  * Auto-generated preference mappings from classification.json
- * Generated at: 2026-09-24T13:08:18.726Z
+ * Generated at: 2026-09-24T16:13:04.841Z
  *
  * This file contains pure mapping relationships without default values.
  * Default values are managed in src/shared/data/preferences.ts
@@ -603,52 +603,6 @@ export const REDUX_STORE_MAPPINGS = {
       "targetKey": "chat.message.show_outline"
     }
   ],
-  "selectionStore": [
-    {
-      "originalKey": "selectionEnabled",
-      "targetKey": "feature.selection.enabled"
-    },
-    {
-      "originalKey": "triggerMode",
-      "targetKey": "feature.selection.trigger_mode"
-    },
-    {
-      "originalKey": "isFollowToolbar",
-      "targetKey": "feature.selection.follow_toolbar"
-    },
-    {
-      "originalKey": "isRemeberWinSize",
-      "targetKey": "feature.selection.remember_win_size"
-    },
-    {
-      "originalKey": "filterMode",
-      "targetKey": "feature.selection.filter_mode"
-    },
-    {
-      "originalKey": "filterList",
-      "targetKey": "feature.selection.filter_list"
-    },
-    {
-      "originalKey": "isCompact",
-      "targetKey": "feature.selection.compact"
-    },
-    {
-      "originalKey": "isAutoClose",
-      "targetKey": "feature.selection.auto_close"
-    },
-    {
-      "originalKey": "isAutoPin",
-      "targetKey": "feature.selection.auto_pin"
-    },
-    {
-      "originalKey": "actionWindowOpacity",
-      "targetKey": "feature.selection.action_window_opacity"
-    },
-    {
-      "originalKey": "actionItems",
-      "targetKey": "feature.selection.action_items"
-    }
-  ],
   "llm": [
     {
       "originalKey": "quickAssistantId",
@@ -803,11 +757,11 @@ export const LOCALSTORAGE_MAPPINGS: ReadonlyArray<{ originalKey: string; targetK
 /**
  * 映射统计:
  * - ElectronStore项: 2
- * - Redux Store项: 175
- * - Redux分类: settings, selectionStore, llm, nutstore, preprocess, translate, websearch, ocr, note
+ * - Redux Store项: 164
+ * - Redux分类: settings, llm, nutstore, preprocess, translate, websearch, ocr, note
  * - DexieSettings项: 5
  * - localStorage项: 0
- * - 总配置项: 182
+ * - 总配置项: 171
  *
  * 使用说明:
  * 1. ElectronStore读取: configManager.get(mapping.originalKey)

@@ -303,7 +303,7 @@ jobs:
           --run-dir "$RUN_DIR"
           --phase 04-translation
 
-      - name: Phase 05 - Quick Assistant and Selection Assistant
+      - name: Phase 05 - Quick Assistant
         if: "!cancelled() && steps.launch.outcome == 'success'"
         continue-on-error: true
         timeout-minutes: 25

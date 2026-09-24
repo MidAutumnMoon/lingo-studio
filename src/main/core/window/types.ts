@@ -10,8 +10,6 @@ export enum WindowType {
   Print = 'print',
   QuickAssistant = 'quickAssistant',
   SubWindow = 'subWindow',
-  SelectionToolbar = 'selectionToolbar',
-  SelectionAction = 'selectionAction',
   McpBrowser = 'mcpBrowser'
 }
 
@@ -215,8 +213,8 @@ export interface WindowBehavior {
    * equivalent option, WM invokes the setter on create.
    *
    * Intentionally no runtime WM setter — windows whose true/false options
-   * differ across calls (e.g. SelectionAction's full-screen show sequence)
-   * should drive both directions directly on the `BrowserWindow` instance.
+   * differ across calls should drive both directions directly on the
+   * `BrowserWindow` instance.
    *
    * Reuses Electron's named type `VisibleOnAllWorkspacesOptions` directly,
    * so any field additions in `@types/electron` flow in automatically.
@@ -235,7 +233,7 @@ export interface WindowBehavior {
  * automatically at the right lifecycle moments by monkey-patching the BrowserWindow
  * instance methods (`hide`/`close`/`show`/`showInactive`).
  *
- * Each quirk is empirically derived from hard-won experience in SelectionService;
+ * Each quirk is empirically derived from hard-won platform experience;
  * enabling it in a window's metadata is a declarative replacement for hand-rolling
  * the same dance at every call site.
  *

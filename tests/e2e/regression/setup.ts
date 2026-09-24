@@ -9,8 +9,7 @@ export async function prepareScenario(page: Page): Promise<void> {
       'app.language': 'en-US',
       'app.onboarding.provider_setup.status': 'skipped',
       'app.privacy.data_collection.enabled': false,
-      'feature.quick_assistant.enabled': false,
-      'feature.selection.enabled': false
+      'feature.quick_assistant.enabled': false
     })
   })
   await selectSidebarApp(page, 'Chat')

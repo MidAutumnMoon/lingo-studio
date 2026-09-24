@@ -220,7 +220,7 @@ export class SubWindowService extends BaseService {
 
     // showMode: 'manual' — WM does not auto-show. Callers that supply an initial position
     // will receive Tab_MoveWindow which shows the window after repositioning; otherwise we show
-    // it here, unconditionally and immediately, mirroring SelectionService.showActionWindow.
+    // it here, unconditionally and immediately.
     // This works for both fresh and reused windows because the SubWindow registry keeps
     // paintWhenInitiallyHidden (Electron's default true): the hidden window — whether a freshly
     // created one or a pre-warmed pooled standby — paints its renderer while hidden, so show()

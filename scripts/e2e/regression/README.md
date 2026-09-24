@@ -13,7 +13,7 @@ It controls only the application recorded in its isolated run directory; it neve
 | `lifecycle.ts` | Start, reuse, restart, and stop the owned application |
 | `process.ts` | OS process identity, ancestry, ports, and termination |
 | `debugBridge.ts`, `cdpClient.ts` | Explicit main-process debug operations and HTTP callback delivery |
-| `systemAutomation.ts` | Native dialogs, external text selection, and keyboard input |
+| `systemAutomation.ts` | Native file dialogs, external text windows, and keyboard input |
 | `RegressionReporter.ts` | Playwright result adapter and run-state updates |
 | `state.ts`, `report.ts` | Run state, platform/aggregate verdicts, and human-readable reports |
 | `fixtureFiles.ts`, `paths.ts`, `config.ts` | Input fixtures, run-owned paths, and configuration |

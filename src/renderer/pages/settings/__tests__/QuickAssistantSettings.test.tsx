@@ -171,12 +171,12 @@ describe('QuickAssistantSettings', () => {
 
     expect(within(modeRow).getByRole('radiogroup')).toBeInTheDocument()
     expect(
-      within(modeRow).queryByRole('button', { name: 'selection.settings.user_modal.model.tooltip' })
+      within(modeRow).queryByRole('button', { name: 'settings.quickAssistant.model.tooltip' })
     ).not.toBeInTheDocument()
     expect(modeRow).not.toHaveTextContent('GPT-4o')
     expect(within(modelRow).getByText('GPT-4o')).toBeInTheDocument()
     expect(
-      within(modelRow).queryByRole('button', { name: 'selection.settings.user_modal.model.tooltip' })
+      within(modelRow).queryByRole('button', { name: 'settings.quickAssistant.model.tooltip' })
     ).not.toBeInTheDocument()
 
     await user.click(within(modelRow).getByRole('button', { name: 'navigate.model_settings' }))
@@ -195,10 +195,10 @@ describe('QuickAssistantSettings', () => {
 
     expect(within(modeRow).getByRole('radiogroup')).toBeInTheDocument()
     expect(
-      within(modeRow).queryByRole('button', { name: 'selection.settings.user_modal.model.tooltip' })
+      within(modeRow).queryByRole('button', { name: 'settings.quickAssistant.model.tooltip' })
     ).not.toBeInTheDocument()
     expect(
-      within(assistantRow).getByRole('button', { name: 'selection.settings.user_modal.model.tooltip' })
+      within(assistantRow).getByRole('button', { name: 'settings.quickAssistant.model.tooltip' })
     ).toBeInTheDocument()
     expect(within(assistantRow).getByRole('button', { expanded: false })).toHaveTextContent('Assistant 1')
     expect(screen.queryByRole('button', { name: 'navigate.model_settings' })).not.toBeInTheDocument()

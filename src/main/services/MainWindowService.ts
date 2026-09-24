@@ -871,7 +871,7 @@ export class MainWindowService extends BaseService {
    * @param text 原始文本（未格式化）
    * @param sourceWebContents 发起引用的 webContents（IPC 调用方）。当它属于一个
    *   detached SubWindow（独立标签窗口）时，引用插入该子窗口自己的输入框，避免
-   *   内容总是落到主窗口；其余情况（主窗口、selection toolbar 等）保持发往主窗口。
+   *   内容总是落到主窗口；其余情况（主窗口等）保持发往主窗口。
    */
   public quoteToMainWindow(text: string, sourceWebContents?: Electron.WebContents): void {
     // Track the intended landing spot so a failure log names the right window:

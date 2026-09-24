@@ -56,13 +56,6 @@ describe('getCommandShortcutLabel', () => {
     expect(getCommandShortcutLabel('topic.create', { binding: [], enabled: true }, { context: {}, isMac: true })).toBe(
       ''
     )
-    expect(
-      getCommandShortcutLabel('selection.toggle', undefined, {
-        context: { 'feature.selection.enabled': true },
-        isMac: false,
-        platform: 'linux'
-      })
-    ).toBe('')
   })
 })
 

@@ -104,14 +104,14 @@ Windows are reused rather than destroyed. The pool has two orthogonal axes:
 
 Both axes are independently enabled via config. `open()` pops an idle window (sending the `window.reused` IpcApi event when `initData` is provided) or creates fresh if empty. `close()` either recycles or destroys depending on the recycle config.
 
-**Use for**: frequently opened windows where creation cost is high (selection actions).
+**Use for**: frequently opened windows where creation cost is high (detached tab sub-windows).
 
 ```typescript
-// Example: SelectionAction — hybrid (standby + recycle).
-WINDOW_TYPE_REGISTRY[WindowType.SelectionAction] = {
-  type: WindowType.SelectionAction,
+// Example: SubWindow — hybrid (standby + recycle).
+WINDOW_TYPE_REGISTRY[WindowType.SubWindow] = {
+  type: WindowType.SubWindow,
   lifecycle: 'pooled',
-  htmlPath: 'selectionAction.html',
+  htmlPath: 'subWindow.html',
   poolConfig: {
     standbySize: 1,          // always keep 1 pre-warmed spare
     recycleMaxSize: 3,       // recycle up to 3 windows for burst handling

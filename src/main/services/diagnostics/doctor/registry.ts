@@ -14,7 +14,6 @@ import {
   proxyApplied,
   tlsHandshake
 } from './checks/network'
-import { accessibilityPermission } from './checks/permission'
 import { cherryAccount, providerApiKey, providerModel } from './checks/provider'
 import { diagnosticDataSize, diskSpace, userDataLocation } from './checks/storage'
 import type { DoctorCheckRegistry } from './types'
@@ -27,7 +26,6 @@ export const doctorCheckRegistry: DoctorCheckRegistry = {
   'install-architecture-match': installArchitectureMatch,
   'install-version-channel': installVersionChannel,
   'install-update-available': installUpdateAvailable,
-  'permission-accessibility': accessibilityPermission,
   'storage-userdata-location': userDataLocation,
   'storage-disk-space': diskSpace,
   'storage-diagnostic-data-size': diagnosticDataSize,

@@ -226,16 +226,6 @@ export const getSidebarFavoriteLabelKey = (key: string): string => {
   return getLabelKey(sidebarFavoriteKeyMap, key)
 }
 
-const selectionDescriptionKeyMap = {
-  linux: 'selection.settings.toolbar.trigger_mode.description_note.linux',
-  mac: 'selection.settings.toolbar.trigger_mode.description_note.mac',
-  windows: 'selection.settings.toolbar.trigger_mode.description_note.windows'
-} as const
-
-export const getSelectionDescriptionLabelKey = (key: string): string => {
-  return getLabelKey(selectionDescriptionKeyMap, key)
-}
-
 const paintingsImageSizeOptionsKeyMap = {
   auto: 'paintings.image_size_options.auto'
 } as const

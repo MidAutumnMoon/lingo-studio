@@ -24,7 +24,6 @@ type DoctorFixLabelDeclaration =
 
 export const DOCTOR_DOMAIN_LABEL_KEYS = {
   install: 'settings.doctor.domains.install',
-  permission: 'settings.doctor.domains.permission',
   storage: 'settings.doctor.domains.storage',
   config: 'settings.doctor.domains.config',
   provider: 'settings.doctor.domains.provider',
@@ -52,7 +51,6 @@ export const DOCTOR_NAVIGATION_LABEL_KEYS = {
 } as const satisfies Record<DoctorNavigateTarget, string>
 
 const DOCTOR_FIX_LABEL_DECLARATIONS = {
-  'permission-accessibility': { request: 'settings.doctor.fixes.request_accessibility' },
   'config-boot-config-valid': { repair: 'settings.doctor.fixes.repair_boot_config' },
   'mcp-servers-connected': {
     restart: (action, resolveTargetName) => {

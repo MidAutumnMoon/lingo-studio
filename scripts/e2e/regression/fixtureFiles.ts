@@ -9,7 +9,6 @@ export const FIXTURE_MARKERS = {
   agentFile: 'AGENT_FILE_TASK_PASS',
   knowledge: 'CHERRY_KNOWLEDGE_58597',
   pdf: 'PDF_TRANSLATION_MARKER_314159',
-  selection: 'SELECTION_ASSISTANT_PASS',
   skill: 'SKILL_IMPORT_PASS',
   translation: 'CherryStudio Neptune 27182 TRANSLATION_MARKER'
 } as const
@@ -33,9 +32,10 @@ export async function createFixtures(paths: RunPaths): Promise<void> {
   )
   writeFileSync(knowledgeHtml, '<!doctype html><html><body><p>Cherry regression HTML fixture.</p></body></html>\n')
 
+  // External-text fixture consumed by openExternalText() (quick-assistant regression)
   const selectionFile = join(paths.fixtures, 'selection.txt')
   const translationFile = join(paths.fixtures, 'translation.txt')
-  writeFileSync(selectionFile, `The validation label printed on this document is ${FIXTURE_MARKERS.selection}.\n`)
+  writeFileSync(selectionFile, 'The validation label printed on this document is external text.\n')
   writeFileSync(translationFile, `${FIXTURE_MARKERS.translation}\n`)
 
   writeFileSync(

@@ -187,32 +187,6 @@ export const COMMAND_DEFINITIONS = [
     }
   }),
   defineCommand({
-    id: 'selection.capture_text',
-    titleKey: 'settings.shortcuts.selection_assistant_select_text',
-    categoryKey: 'settings.shortcuts.feature.selection',
-    scope: 'main',
-    enablement: 'feature.selection.enabled',
-    keybinding: {
-      defaultBinding: [],
-      global: true,
-      when: 'feature.selection.enabled',
-      supportedPlatforms: ['darwin', 'win32', 'linux']
-    }
-  }),
-  defineCommand({
-    id: 'selection.toggle',
-    titleKey: 'settings.shortcuts.selection_assistant_toggle',
-    categoryKey: 'settings.shortcuts.feature.selection',
-    scope: 'main',
-    enablement: 'feature.selection.enabled',
-    keybinding: {
-      defaultBinding: [],
-      global: true,
-      when: 'feature.selection.enabled',
-      supportedPlatforms: ['darwin', 'win32', 'linux']
-    }
-  }),
-  defineCommand({
     id: 'topic.clear_messages',
     titleKey: 'chat.topics.clear.title',
     categoryKey: 'settings.shortcuts.topic',

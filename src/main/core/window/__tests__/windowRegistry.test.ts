@@ -18,9 +18,9 @@ const { WindowType } = await import('../types')
 type RegistryEntry = WindowTypeMetadata
 
 // Inject test fixtures into the real registry (isolated by setting unique WindowType keys).
-// Using SelectionAction/SelectionToolbar entries already shipped by the registry would couple
+// Using entries whose real config is asserted elsewhere in this file would couple
 // these tests to their current config. Instead, we swap them out for minimal fixtures per test.
-const fixtureKey = WindowType.SelectionToolbar // reuse the enum value; we overwrite the entry below
+const fixtureKey = WindowType.QuickAssistant // reuse the enum value; we overwrite the entry below
 
 function setFixture(entry: RegistryEntry): void {
   ;(WINDOW_TYPE_REGISTRY as Record<string, RegistryEntry>)[fixtureKey] = entry
@@ -237,18 +237,6 @@ describe('WINDOW_TYPE_REGISTRY Main window — frame contract', () => {
     const result = mergeWindowOptions(WindowType.Main)
     expect(result.frame).toBeUndefined()
     expect(result.titleBarStyle).toBe('hidden')
-  })
-})
-
-describe('WINDOW_TYPE_REGISTRY SelectionAction window — macOS traffic lights', () => {
-  beforeEach(() => {
-    resetPlatform()
-    platform.isMac = true
-  })
-
-  it('positions only the selection action traffic lights slightly lower', () => {
-    expect(mergeWindowOptions(WindowType.SelectionAction).trafficLightPosition).toEqual({ x: 12, y: 11 })
-    expect(mergeWindowOptions(WindowType.Main).trafficLightPosition).toEqual({ x: 13, y: 16 })
   })
 })
 

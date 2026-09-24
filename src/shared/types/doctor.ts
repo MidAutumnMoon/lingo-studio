@@ -10,16 +10,7 @@ import type { AppEdition } from './appEdition'
  * fix or detail the check never declared.
  */
 
-export type DoctorDomain =
-  | 'install'
-  | 'permission'
-  | 'storage'
-  | 'config'
-  | 'provider'
-  | 'network'
-  | 'mcp'
-  | 'health'
-  | 'logs'
+export type DoctorDomain = 'install' | 'storage' | 'config' | 'provider' | 'network' | 'mcp' | 'health' | 'logs'
 
 export type DoctorTier = 'quick' | 'live' | 'deep'
 
@@ -80,7 +71,6 @@ export const DOCTOR_CHECK_IDS = [
   'install-architecture-match',
   'install-version-channel',
   'install-update-available',
-  'permission-accessibility',
   'storage-userdata-location',
   'storage-disk-space',
   'storage-diagnostic-data-size',
@@ -151,14 +141,6 @@ export const DOCTOR_CHECK_CATALOG = {
     fixes: [],
     details: ['available', 'unsupported'],
     requires: ['network-endpoint-update']
-  },
-  'permission-accessibility': {
-    domain: 'permission',
-    tier: 'quick',
-    scope: 'global',
-    fixes: [{ id: 'request', reversible: true, relaunch: false }],
-    details: ['denied'],
-    requires: []
   },
   'storage-userdata-location': {
     domain: 'storage',

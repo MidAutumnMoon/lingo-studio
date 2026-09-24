@@ -7,8 +7,8 @@ describe('resolveDoctorFixLabel', () => {
     const resolveTargetName = vi.fn()
 
     expect(
-      resolveDoctorFixLabel('permission-accessibility', { kind: 'fix', fixId: 'request' }, resolveTargetName)
-    ).toEqual({ key: 'settings.doctor.fixes.request_accessibility' })
+      resolveDoctorFixLabel('config-boot-config-valid', { kind: 'fix', fixId: 'repair' }, resolveTargetName)
+    ).toEqual({ key: 'settings.doctor.fixes.repair_boot_config' })
     expect(resolveTargetName).not.toHaveBeenCalled()
   })
 

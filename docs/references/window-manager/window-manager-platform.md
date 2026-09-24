@@ -33,20 +33,17 @@ The `mac`-prefixed quirks are macOS-only: on other platforms those methods are l
 ### Example
 
 ```typescript
-[WindowType.SelectionToolbar]: {
-  type: WindowType.SelectionToolbar,
+[WindowType.QuickAssistant]: {
+  type: WindowType.QuickAssistant,
   lifecycle: 'singleton',
   showMode: 'manual',
   windowOptions: { /* ... */ },
   behavior: {
-    hideOnBlur: true,
-    alwaysOnTop: { level: 'screen-saver' },  // level lives here, not in quirks
+    alwaysOnTop: { level: 'floating' },      // level lives here, not in quirks
     visibleOnAllWorkspaces: { enabled: true, visibleOnFullScreen: true },
     macShowInDock: false
   },
   quirks: {
-    macRestoreFocusOnHide: true,
-    macClearHoverOnHide: true,
     reapplyAlwaysOnTop: true                 // boolean switch; reads level from behavior above
   }
 }
@@ -76,7 +73,7 @@ The domain service carries none of this code.
 |---|---|---|
 | `hideOnBlur` | `boolean` | Installs a blur listener that calls `window.hide()` (with optional runtime override via `wm.behavior.setHideOnBlur(id, enabled)`). |
 | `alwaysOnTop` | `{ level?: AlwaysOnTopLevel, relativeLevel?: number }` | Supplies the `level` / `relativeLevel` to `setAlwaysOnTop` calls — the single source of truth, read by: (1) the initial application after create (when `windowOptions.alwaysOnTop` is `true`), (2) `wm.behavior.setAlwaysOnTop(id, enabled)` runtime calls, (3) the `reapplyAlwaysOnTop` quirk. |
-| `visibleOnAllWorkspaces` | `{ enabled: boolean } & VisibleOnAllWorkspacesOptions` | Runs `window.setVisibleOnAllWorkspaces(enabled, options)` once on create. Windows whose true/false options differ per call should *not* declare this (e.g. SelectionAction) — drive directly on `BrowserWindow` instead. |
+| `visibleOnAllWorkspaces` | `{ enabled: boolean } & VisibleOnAllWorkspacesOptions` | Runs `window.setVisibleOnAllWorkspaces(enabled, options)` once on create. Windows whose true/false options differ per call should *not* declare this — drive directly on `BrowserWindow` instead. |
 | `macShowInDock` | `boolean` | macOS-only default for whether a window of this type CONTRIBUTES to Dock visibility (Dock shown iff any alive window contributes). Existence-based, not visibility-based: hiding a contributing window does NOT hide the Dock (Cmd+W semantics). When omitted, defaults to `true`. `false` is for helper windows (floating panels, menu-bar style overlays) that should never affect the Dock. Runtime override via `wm.behavior.setMacShowInDockByType(type, value)` — set it to `false` before `window.hide()` to enter tray mode, `true` before `window.show()` to leave. No-op on Windows/Linux. |
 
 ### Runtime Setters

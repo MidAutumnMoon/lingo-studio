@@ -383,7 +383,7 @@ describe('SubWindowService', () => {
 
       svc.createWindow({ id: 'tab-noxy', url: 'u' })
 
-      // Unconditional + immediate show (mirrors SelectionService.showActionWindow): the window is
+      // Unconditional + immediate show: the window is
       // shown synchronously inside createWindow, not deferred to a ready-to-show listener.
       expect(win.show).toHaveBeenCalledTimes(1)
     })

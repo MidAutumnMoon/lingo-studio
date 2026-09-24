@@ -27,9 +27,9 @@ Each PR is independently revertible.
 When a request input reuses a TS type defined elsewhere (a preference type, a shared model), bind the validating zod schema to that type at the definition with `z.ZodType<X>`, so a drift is a compile error **there** — not in a far-away test:
 
 ```ts
-import type { SelectionActionItem } from '@shared/data/preference/preferenceTypes'
+import type { SomePreferenceType } from '@shared/data/preference/preferenceTypes'
 // repo convention — see uiParts.ts, legacyFileMetadata.ts
-const selectionActionItemSchema: z.ZodType<SelectionActionItem> = z.object({ id: z.string() /* …all fields… */ })
+const someTypeSchema: z.ZodType<SomePreferenceType> = z.object({ id: z.string() /* …all fields… */ })
 ```
 
 Two enforcement layers, only the second costs anything:
@@ -73,7 +73,7 @@ Classify each push call site by destination before moving it:
 
 | Class | Destination | Notes |
 |---|---|---|
-| **A** typed event | IpcApi `broadcast`/`broadcastToType`/`send` + `useIpcOn` | window lifecycle/state, theme, selection, adapter notifications, update progress |
+| **A** typed event | IpcApi `broadcast`/`broadcastToType`/`send` + `useIpcOn` | window lifecycle/state, theme, adapter notifications, update progress |
 | **B** topic stream | service-held listener + directed `send` | AI streams and `file.tree.mutation`; preserve batching and per-topic attachment |
 | **C** infrastructure | **not collected** | `Preference_Changed`, `Cache_Sync`, and `DataApi_DataChanged` stay in their subsystems |
 

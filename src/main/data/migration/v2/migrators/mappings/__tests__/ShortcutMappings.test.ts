@@ -28,11 +28,6 @@ describe('transformShortcuts', () => {
           enabled: true
         },
         {
-          key: 'selection_assistant_toggle',
-          shortcut: [],
-          enabled: false
-        },
-        {
           key: 'toggle_new_context',
           shortcut: ['CommandOrControl', 'Alt', 'K'],
           enabled: true
@@ -48,10 +43,6 @@ describe('transformShortcuts', () => {
       'shortcut.app.settings.open': {
         binding: ['CommandOrControl', ','],
         enabled: true
-      },
-      'shortcut.selection.toggle': {
-        binding: [],
-        enabled: false
       },
       'shortcut.chat.context.toggle_new': {
         binding: ['CommandOrControl', 'Alt', 'K'],

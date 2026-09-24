@@ -1,6 +1,6 @@
 import { app } from 'electron'
 
-import { isLinux, isWin } from '@main/core/platform'
+import { isLinux } from '@main/core/platform'
 import { bootConfigService } from '@main/data/bootConfig'
 
 /**
@@ -26,13 +26,6 @@ export function configureChromiumFlags(): void {
   // Disable hardware acceleration if the user opted out via BootConfig.
   if (bootConfigService.get('app.disable_hardware_acceleration')) {
     app.disableHardwareAcceleration()
-  }
-
-  // Windows: disable Chromium's native window-show animation. Prevents the
-  // transparent SelectionAssistant toolbar from flashing on appear.
-  // https://github.com/electron/electron/issues/12130#issuecomment-627198990
-  if (isWin) {
-    app.commandLine.appendSwitch('wm-window-animations-disabled')
   }
 
   // Linux Wayland: enable the xdg-desktop-portal global-shortcut backend so

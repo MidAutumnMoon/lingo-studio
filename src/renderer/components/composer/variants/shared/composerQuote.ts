@@ -31,7 +31,7 @@ export function useComposerQuoteInsertion<T extends QuoteInsertionActions>(actio
 
   const insertQuote = useEffectEvent((selectedText: string) => {
     if (!selectedText) return
-    actionsRef.current.insertToken(createQuoteToken(selectedText, t('selection.action.builtin.quote')))
+    actionsRef.current.insertToken(createQuoteToken(selectedText, t('chat.message.quote')))
   })
 
   useEffect(() => {

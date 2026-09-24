@@ -76,7 +76,6 @@ vi.mock('react-i18next', () => ({
       ({
         'agent.settings.toolsMcp.mcp.tab': 'MCP',
         'deviceConnections.title': '设备互联',
-        'selection.name': '划词助手',
         'settings.appearance.title': '外观',
         'settings.channels.title': '频道',
         'settings.dependencies.title': '环境依赖',
@@ -205,13 +204,13 @@ describe('SettingsPage', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/prompts' })
   })
 
-  it('merges quick access into efficiency and places both assistants last', () => {
+  it('merges quick access into efficiency and places the assistant last', () => {
     render(<SettingsPage />)
 
     expect(screen.getByText('效率')).toBeInTheDocument()
     expect(screen.queryByText('快捷入口')).not.toBeInTheDocument()
 
-    const efficiencyItems = ['频道', '设备互联', '定时任务', '快捷键', '快捷助手', '划词助手'].map((name) =>
+    const efficiencyItems = ['频道', '设备互联', '定时任务', '快捷键', '快捷助手'].map((name) =>
       screen.getByRole('button', { name })
     )
     const menuItems = screen.getAllByTestId('menu-item')

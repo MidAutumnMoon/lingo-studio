@@ -6,7 +6,6 @@ import type { ContextReader, ContextValue } from '@shared/types/command'
 export type RendererCommandContextKey =
   | 'platform'
   | 'feature.quick_assistant.enabled'
-  | 'feature.selection.enabled'
   | 'chat.active'
   | 'topic.exists'
   | 'input.composing'

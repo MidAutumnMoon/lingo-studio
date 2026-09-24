@@ -51,7 +51,6 @@ business state into the command runtime merely to make the action triggerable.
 
 - `platform`
 - `feature.quick_assistant.enabled`
-- `feature.selection.enabled`
 
 `useCommandContextKey` is the window-local extension point:
 

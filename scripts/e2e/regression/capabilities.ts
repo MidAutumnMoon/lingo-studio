@@ -89,12 +89,6 @@ export function probeCapabilities(platform: Platform, paths: RunPaths): Record<s
 
   return {
     desktopAutomation,
-    externalSelection: {
-      available: desktopAutomation.available && screenCapture.available,
-      detail: desktopAutomation.available
-        ? screenCapture.detail
-        : `Cross-app text selection requires desktop automation: ${desktopAutomation.detail}`
-    },
     globalShortcut: {
       available: desktopAutomation.available,
       detail: desktopAutomation.available

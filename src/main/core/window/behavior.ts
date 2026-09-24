@@ -70,8 +70,7 @@ export function applyWindowBehavior(
 
   // ── Initial setVisibleOnAllWorkspaces ────────────────────────────────
   // One-shot on create. Windows whose true/false options differ per call
-  // (e.g. SelectionAction's full-screen show sequence) should not declare
-  // this — they drive both directions via direct window calls.
+  // should not declare this — they drive both directions via direct window calls.
   if (behavior.visibleOnAllWorkspaces) {
     const { enabled, ...options } = behavior.visibleOnAllWorkspaces
     window.setVisibleOnAllWorkspaces(enabled, options)

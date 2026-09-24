@@ -30,7 +30,6 @@ import { printRequestSchemas } from './print'
 import { profileRequestSchemas } from './profile'
 import { providerRequestSchemas } from './provider'
 import { type QuickAssistantEventSchemas, quickAssistantRequestSchemas } from './quickAssistant'
-import { type SelectionEventSchemas, selectionRequestSchemas } from './selection'
 import { skillRequestSchemas } from './skill'
 import { type SystemEventSchemas, systemRequestSchemas } from './system'
 import { type TabEventSchemas, tabRequestSchemas } from './tab'
@@ -79,7 +78,6 @@ export const ipcRequestSchemas = {
   ...profileRequestSchemas,
   ...providerRequestSchemas,
   ...quickAssistantRequestSchemas,
-  ...selectionRequestSchemas,
   ...skillRequestSchemas,
   ...systemRequestSchemas,
   ...tabRequestSchemas,
@@ -112,7 +110,6 @@ export type IpcEventSchemas = AiEventSchemas &
   NavigationEventSchemas &
   NotificationEventSchemas &
   QuickAssistantEventSchemas &
-  SelectionEventSchemas &
   SystemEventSchemas &
   TabEventSchemas &
   TranslateEventSchemas &

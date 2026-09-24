@@ -1,8 +1,7 @@
-import { nativeTheme, shell, systemPreferences } from 'electron'
+import { nativeTheme, shell } from 'electron'
 
 import { application } from '@application'
 import { loggerService } from '@logger'
-import { isMac } from '@main/core/platform'
 import { regionService } from '@main/services/RegionService'
 import { isSafeExternalUrl } from '@main/utils/externalUrlSafety'
 import { getDeviceType } from '@main/utils/system'
@@ -16,11 +15,6 @@ const logger = loggerService.withContext('systemHandlers')
  * System-domain handlers. Most are stateless host-environment queries; `toggle_dev_tools`
  * acts on the caller window, resolved from `ctx.senderId` via WindowManager (the legacy
  * handler used `BrowserWindow.fromWebContents(event.sender)`).
- *
- * The two `mac.*` accessibility routes are resident on ALL platforms and short-circuit to
- * `false` off darwin — the legacy handlers were only registered inside `if (isMac)`, so a
- * non-darwin invoke used to reject; returning `false` keeps the typed surface uniform.
- * `request_process_trust` prompts the OS dialog and returns the trust state at call time.
  *
  * The `system.shell.*` routes delegate straight to Electron's `shell` and ignore
  * `IpcContext` (they act on app-level OS resources, not the caller's window). `open_website`
@@ -44,9 +38,6 @@ export const systemHandlers: IpcHandlersFor<typeof systemRequestSchemas> = {
     }
   },
   'system.get_ip_country': async () => regionService.getCountry(),
-  'system.mac.is_process_trusted': async () => (isMac ? systemPreferences.isTrustedAccessibilityClient(false) : false),
-  'system.mac.request_process_trust': async () =>
-    isMac ? systemPreferences.isTrustedAccessibilityClient(true) : false,
   'system.shell.open_path': async (path) => {
     await shell.openPath(path)
   },

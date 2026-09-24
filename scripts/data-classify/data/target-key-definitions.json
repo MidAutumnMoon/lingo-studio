@@ -713,26 +713,6 @@
       "description": "Command shortcut: quick_assistant.toggle (unified command system)"
     },
     {
-      "targetKey": "shortcut.selection.capture_text",
-      "type": "PreferenceTypes.PreferenceShortcutType",
-      "defaultValue": {
-        "binding": [],
-        "enabled": false
-      },
-      "status": "classified",
-      "description": "Command shortcut: selection.capture_text (unified command system)"
-    },
-    {
-      "targetKey": "shortcut.selection.toggle",
-      "type": "PreferenceTypes.PreferenceShortcutType",
-      "defaultValue": {
-        "binding": [],
-        "enabled": false
-      },
-      "status": "classified",
-      "description": "Command shortcut: selection.toggle (unified command system)"
-    },
-    {
       "targetKey": "shortcut.topic.create",
       "type": "PreferenceTypes.PreferenceShortcutType",
       "defaultValue": {

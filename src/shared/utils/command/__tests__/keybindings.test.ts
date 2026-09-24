@@ -74,13 +74,9 @@ describe('command definitions', () => {
       scope: 'main',
       whenSource: 'feature.quick_assistant.enabled'
     })
-    expect(REGISTERED_KEYBINDINGS.find((rule) => rule.command === 'selection.toggle')).toMatchObject({
-      command: 'selection.toggle',
-      defaultBinding: [],
-      global: true,
-      scope: 'main',
-      supportedPlatforms: ['darwin', 'win32', 'linux'],
-      whenSource: 'feature.selection.enabled'
+    expect(REGISTERED_KEYBINDINGS.find((rule) => rule.command === 'app.window.close')).toMatchObject({
+      command: 'app.window.close',
+      supportedPlatforms: ['darwin']
     })
     expect(REGISTERED_KEYBINDINGS.find((rule) => rule.command === 'app.zoom.in')).toMatchObject({
       command: 'app.zoom.in',
@@ -297,13 +293,14 @@ describe('resolveCommandKeybinding', () => {
       })?.enabled
     ).toBe(false)
 
+    expect(resolveCommandKeybinding({ command: 'app.window.close', context: {}, platform: 'linux' })).toBeUndefined()
     expect(
       resolveCommandKeybinding({
-        command: 'selection.toggle',
-        context: { 'feature.selection.enabled': true },
-        platform: 'linux'
+        command: 'app.window.close',
+        context: {},
+        platform: 'darwin'
       })?.binding
-    ).toEqual([])
+    ).toEqual(['CommandOrControl', 'Shift', 'W'])
   })
 })
 

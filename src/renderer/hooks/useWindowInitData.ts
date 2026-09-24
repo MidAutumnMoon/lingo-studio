@@ -25,9 +25,9 @@ import { ipcApi, useIpcOn } from '@renderer/ipc'
  *
  * Usage:
  *
- *   const action = useWindowInitData<SelectionActionItem>()
- *   if (!action) return null
- *   return <Content action={action} />
+ *   const initData = useWindowInitData<SomeInitDataType>()
+ *   if (!initData) return null
+ *   return <Content data={initData} />
  *
  * DO NOT `key={…}` the consumer of this hook on state changes — the whole
  * point is to avoid unmounting the subtree across re-use. Use

@@ -46,7 +46,7 @@ export function applyWindowQuirks(
   // Does:  Wraps hide()/close() with a focus-guard dance; optionally sends
   //        a synthetic mouseMove(-1, -1) inside the guard to reset hover.
   // When:  Floating / panel-style windows that hide frequently and must
-  //        not disturb z-order (SelectionToolbar, SelectionAction).
+  //        not disturb z-order.
   //
   // [macOS] Exit-path methods (hide/close): preserve HEAD's ordering —
   //   focus-down (begin guard) → native hide/close → sendInputEvent → 50ms restore (end guard)

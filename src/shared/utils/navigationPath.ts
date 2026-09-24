@@ -61,7 +61,6 @@ const KNOWN_NAVIGATION_ROUTES = [
   '/settings/ocr',
   '/settings/shortcut',
   '/settings/quick-assistant',
-  '/settings/selection-assistant',
   '/settings/about',
   '/settings/channels',
   '/settings/code-execution',

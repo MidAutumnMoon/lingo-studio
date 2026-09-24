@@ -1393,7 +1393,7 @@ export class WindowManager extends BaseService {
 
     // Auto-show on ready-to-show (suppressed for pool idle windows).
     // Windows with showMode: 'manual' opt out entirely — their owner drives visibility
-    // on its own schedule (see e.g. SelectionService.processAction).
+    // on its own schedule.
     // 'immediate' also skips this path: the window was already shown by the
     // `show: true` above, and ready-to-show will fire after content loads.
     if (showMode === 'auto' && !suppressAutoShow) {

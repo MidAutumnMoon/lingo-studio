@@ -221,7 +221,7 @@ Example:
 
 ```bash
 CSLOGGER_MAIN_LEVEL=verbose
-CSLOGGER_MAIN_SHOW_MODULES=McpService,SelectionService
+CSLOGGER_MAIN_SHOW_MODULES=McpService,AiService
 ```
 
 Note:

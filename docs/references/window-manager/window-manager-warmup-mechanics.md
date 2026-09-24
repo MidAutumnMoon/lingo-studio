@@ -150,4 +150,4 @@ Rules:
 
 ## Avoiding First-Paint Flashes on Reuse
 
-Pooled windows that are **visually sensitive** to showing stale content or empty chrome (e.g. transparent hiddenInset frames on macOS where empty content reveals the native traffic-light buttons) can wrap their own `.show()` call in a short "reveal" sequence that briefly `setOpacity(0) + showInactive()` lets Chromium resume compositor paint, then `setOpacity(1)` after a settle window. See `SelectionService.processAction` for a reference implementation. This concern is domain-specific and not part of the generic `WindowManager` contract.
+Pooled windows that are **visually sensitive** to showing stale content or empty chrome (e.g. transparent hiddenInset frames on macOS where empty content reveals the native traffic-light buttons) can wrap their own `.show()` call in a short "reveal" sequence that briefly `setOpacity(0) + showInactive()` lets Chromium resume compositor paint, then `setOpacity(1)` after a settle window. This concern is domain-specific and not part of the generic `WindowManager` contract.

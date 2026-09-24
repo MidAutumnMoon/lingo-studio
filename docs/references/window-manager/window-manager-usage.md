@@ -169,7 +169,7 @@ Pull exactly the fields you need out of the parameter — `{ window }`, `{ windo
 **`mw` shorthand (callback with inner closures or many accesses):**
 
 ```typescript
-wm.onWindowCreatedByType(WindowType.SelectionAction, (mw) => {
+wm.onWindowCreatedByType(WindowType.SubWindow, (mw) => {
   // Inner closure reads mw.window's methods repeatedly — keeping the whole
   // record under one short name reads better than re-destructuring.
   mw.window.on('resized', () => {

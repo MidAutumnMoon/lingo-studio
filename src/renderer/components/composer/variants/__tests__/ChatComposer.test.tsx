@@ -1407,7 +1407,7 @@ describe('ChatComposer', () => {
     expect(mocks.insertToken).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: 'quote',
-        label: 'selection.action.builtin.quote',
+        label: 'chat.message.quote',
         description: 'Selected message text',
         promptText: '<blockquote>\n\nSelected message text\n</blockquote>'
       })
