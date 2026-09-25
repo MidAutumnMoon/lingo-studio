@@ -1,6 +1,8 @@
 # Pi Unification Plan — one engine for chat and work
 
-Status: draft for review — 2026-09-26. No code has been written against this plan.
+Status: executing — 2026-09-26. Phase 0 under way: triage done (upgrade-notes doc),
+upgrade ladder climbing (0.80.7 rung landed on `pi-upgrade-0.80.7`; progress log in the
+notes doc §9/§11). Phases 1–3 remain draft.
 
 Decision context: pi (in-process, loop owned by us, `pi-ai` wire layer shared with dsh)
 is the base for unification. dsh stays as an opt-in agent runtime behind the existing
@@ -27,9 +29,9 @@ The plan below phases the work so the app is shippable after every step.
 
 | Fact | Value |
 |---|---|
-| Pinned pi versions | `@earendil-works/pi-ai` 0.80.6, `@earendil-works/pi-coding-agent` 0.80.3 (`pi-agent-core` resolves 0.80.10 transitively) |
+| Pinned pi versions | `@earendil-works/pi-ai` 0.80.7, `@earendil-works/pi-coding-agent` 0.80.7 (upgrading rung-by-rung to 0.87.1; the pi line — `pi-ai`, `pi-agent-core` inside `pi-coding-agent` — is also pinned via `pnpm-workspace.yaml` overrides so all instances share one pi-ai; see upgrade-notes §11) |
 | Upgrade target | 0.87.1 — all three packages align on one line |
-| pi patches in `patches/` | `pi-ai@0.80.6`: thread custom `fetch` through openai-completions/responses clients (Electron proxy) + add `ultra` reasoning effort. `pi-coding-agent@0.80.3`: backport of upstream earendil-works/pi#7540 (context-clamped length-stop recovery) |
+| pi patches in `patches/` | `pi-ai` (keyed to the current pin): thread custom `fetch` through openai-completions/responses clients (Electron proxy; drops at 0.83.0) + add `ultra` reasoning effort. `pi-coding-agent`: backport of upstream earendil-works/pi#7540 (context-clamped length-stop recovery; drops at 0.84.0) |
 | dsh coupling to pi upgrade | None at runtime — dsh's `pi-ai ^0.84.2` is inlined into the `packages/dsh-bridge` dist at build time |
 | Engine seam | `src/main/ai/AiService.ts:555` `streamText()` — already branches on `request.runtime?.kind === 'agent-session'` (line 565) → `AgentSessionRuntimeService.openTurnStream()`; a chat-on-pi branch slots in identically |
 | Chat engine today | `AiService.streamText` → `buildAgentParams` → `src/main/ai/runtime/aiSdk/Agent.ts` → `@cherrystudio/ai-core` `createAgent` → Vercel AI SDK `ToolLoopAgent` |

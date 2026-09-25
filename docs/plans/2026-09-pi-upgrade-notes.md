@@ -97,6 +97,17 @@ pi-ai patch file must be split or regenerated twice if we step gradually — the
 file for one package version. Since patch files are keyed to exact versions, every rung
 change regenerates whatever patches survive; only the `ultra` half should survive to 0.87.1.
 
+**Patch regeneration recipe** (proven on the 0.80.7 rung; `pnpm patch` refuses to *create*
+a new patch non-interactively — it cancels with `ERR_PNPM_PATCH_CANCELED` — so build the
+artifact manually):
+
+1. `cp -rL node_modules/@earendil-works/<pkg> /tmp/<pkg>-edit` and again as `/tmp/<pkg>-orig`.
+2. `cd /tmp/<pkg>-edit && git apply <old patch>` (add `--exclude=<file>` for hunks whose
+   context drifted, then edit those files directly; verify each hunk lands semantically).
+3. `git diff --no-index --no-ext-diff a b` over dir copies named `a/`/`b/`, normalize the
+   `1/a/`…`2/b/` prefixes newer git emits, round-trip check against a fresh pristine copy,
+   drop into `patches/`, update `pnpm-workspace.yaml`, delete the old patch file.
+
 ## 6. Why the scary 0.84 "session model replaced" break doesn't hit us
 
 The 0.84.0 breaking change replaced **pi-agent-core's harness** session model (v4 lane-based
@@ -136,21 +147,32 @@ delta-only break applies to the wire protocol modes, not the SDK subscription
   created by the released build) stays in the checklist as confirmation, but the
   cold-sessions fallback is not expected to be needed.
 
-## 9. Recommended step ladder for 0.3
+## 9. Step ladder for 0.3 — progress log
 
-Manual-check rungs chosen where breaks cluster (all other intermediate versions are
-fix-only; skipping them loses nothing):
+Rungs chosen where breaks cluster (intermediate versions are fix-only; skipping them
+loses nothing). **0.80.7 ✅ (2026-09-26, branch `pi-upgrade-0.80.7`)** — see §11.
 
-1. **0.80.8** — auth refactor rewrite (§3). First and only heavy rung; everything before it
-   (0.80.7) is a no-op for us, so start here.
-2. **0.83.0** — drop the fetch half of the pi-ai patch; `piProviderFetch.test.ts` proves
+1. ~~**0.80.7**~~ — done: pins + both patches regenerated + pi-line overrides added (§11);
+   no API change for Cherry, proved the rung procedure end-to-end.
+2. **0.80.8** — auth refactor rewrite (§3): `PiRuntimeConnection.ts` 264–412 **and**
+   `piLengthRecovery.test.ts` (it builds its session with `AuthStorage`/`ModelRegistry`
+   the same way, so it fails typecheck alongside production code — rewrite together).
+   First and only heavy rung.
+3. **0.83.0** — drop the fetch half of the pi-ai patch; `piProviderFetch.test.ts` proves
    native injection end-to-end.
-3. **0.84.4** — drop the coding-agent patch; `piLengthRecovery.test.ts` pins native #7540.
-4. **0.86.1** — `TranscriptContext` type rework (transport stream, thinking replay).
-5. **0.87.1** — final rung; regenerate the `ultra` patch here once, run full gate + smoke.
+4. **0.84.4** — drop the coding-agent patch; `piLengthRecovery.test.ts` pins native #7540.
+5. **0.86.1** — `TranscriptContext` type rework (transport stream, thinking replay).
+6. **0.87.1** — final rung; regenerate the `ultra` patch here once, run full gate + smoke.
 
-At every rung: `pnpm typecheck:node` + `pnpm test:main` for `runtime/pi` + `agentSession`;
-surviving patches regenerated at each version bump.
+Per-rung procedure (mechanized on the 0.80.7 rung):
+
+1. Bump both pins in `package.json`; bump the **three pi-line overrides** in
+   `pnpm-workspace.yaml` to the same version (see §11 for why — non-negotiable, fresh
+   resolutions otherwise drift to the newest 0.8x patch and split pi-ai into two
+   instances that cannot typecheck).
+2. Regenerate surviving patches (recipe in §5).
+3. `pnpm install`; then `pnpm typecheck:node` + `pnpm test:main` for `runtime/pi` +
+   `agentSession`; `pnpm lint` before handing over for the manual check.
 
 ## 10. Open items — verified how far, and what 0.3 must still check
 
@@ -163,7 +185,51 @@ Spot-checked rather than exhaustively diffed (each is small; re-check during 0.3
 - `SettingsManager.inMemory(settings, { projectTrusted })` + `setShellCommandPrefix`.
 - Full `AgentSessionEvent` variant list vs `piStreamAdapter`'s switch (spot-checked
   `message_update`/`message_end`; new variants added since 0.80 are additive).
-- `piBundlingViability` expectations — 0.84.3 moved CLI/RPC entrypoints to a bundled
-  runtime; the library entrypoint is documented to stay on the modular runtime (changelog:
-  "keeping the public library and legacy module paths on the modular runtime for normal
-  dependency identity"), but the ESM bundling spike should re-run at 0.87.1.
+- `piBundlingViability` — green at 0.80.7 (16 files / 267 tests). Re-check at 0.87.1:
+  0.84.3 moved CLI/RPC entrypoints to a bundled runtime; the library entrypoint is
+  documented to stay on the modular runtime (changelog: "keeping the public library and
+  legacy module paths on the modular runtime for normal dependency identity").
+
+## 11. Rung log
+
+### 0.80.7 — landed 2026-09-26 on `pi-upgrade-0.80.7`
+
+Changes: pins 0.80.6/0.80.3 → 0.80.7/0.80.7; both patches regenerated (recipe §5; only
+adaptation: 0.80.7's new `toolChoice` field broke the `openai-responses.d.ts` hunk's
+trailing context — union edited directly); old patch files deleted; three
+`parent>child` overrides added in `pnpm-workspace.yaml`.
+
+**The dual-instance trap (new gotcha, affects every rung):** TypeScript nominal-checks
+private class members, so two pi-ai copies can never typecheck where pi-ai and
+pi-coding-agent types meet (`AssistantMessageEventStream`'s `private queue`, hit in
+`piThinkingReplay.ts:42` and `piTransportStream.ts:72`). The pre-0.80.7 tree only worked
+because the lockfile happened to resolve coding-agent 0.80.3's `^0.80.3` to root's
+0.80.6 instance; a fresh resolution picks the *newest* matching 0.8x (0.80.10 at the
+time), splitting the instances. Fix (now in `pnpm-workspace.yaml`):
+`pi-coding-agent>pi-ai`, `pi-coding-agent>pi-agent-core`, `pi-agent-core>pi-ai` pinned
+to the root pin's exact version — same-release siblings are what upstream ships and
+tests together. dsh's pi-ai 0.84.4 is untouched (scoped selectors, no global override).
+These three lines move with the pins at every rung.
+
+Residuals (benign, no action): `pi-tui` still resolves 0.80.10 via coding-agent's
+`^0.80.7` — it has no pi-ai dependency and never loads in embedded usage; orphaned
+0.80.x store dirs under `.pnpm` are unreferenced by the lockfile. `pnpm peers check`
+warnings are all pre-existing (sentry/otel, eslint-plugin-import-x, react-spinners) —
+none from the pi line.
+
+Verification: `pnpm typecheck:node` clean; `runtime/pi` 16 files / 267 tests green
+(incl. `piLengthRecovery`, `piProviderFetch`, `piBundlingViability`); `agentSession`
+8 files / 307 tests green; `pnpm lint` full gate green.
+
+New APIs now available but deliberately **not** adopted (Phase 0 non-goal: no behavior
+change; recorded as Phase 1 inputs):
+
+- **Dynamic tool loading** (0.80.7 pi-ai: `ToolResultMessage.addedToolNames`, native
+  deferred loading for Anthropic/OpenAI Responses) — machinery for Phase 1 W5's
+  defer-exposition row and `piCodeMode` evolution.
+- **`toolChoice` for OpenAI/Codex Responses** (0.80.7) — chat-side control; agent loop
+  drives its own tool use today.
+- **`agent_settled`** event (0.80.4) — host owns idle semantics via `AsyncEventQueue`;
+  revisit only if work wants pi-native settled hooks.
+- **`max` thinking level** (0.80.6, already native below our patch) — our `ultra`
+  patch still extends beyond it; nothing to do.
