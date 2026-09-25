@@ -67,6 +67,7 @@ import {
   type DshConnectionSnapshot,
   DshInvalidConnectionSnapshotError
 } from './dshConnectionSignature'
+import { buildDshProxyEnvironment } from './dshProxyEnvironment'
 import { loadDshSdk } from './dshSdk'
 import { type DshInvocationMetrics, DshStreamAdapter } from './dshStreamAdapter'
 import { DshTraceRecorder } from './dshTrace'
@@ -452,7 +453,7 @@ export class DshRuntimeConnection implements AgentRuntimeConnection {
       const loginShellEnv = await getShellEnv()
       const loginPath = getPathFromEnvironment(loginShellEnv)
       // Complete replacement env — deliberate credential scope: the child sees
-      // only the user's PATH, HOME, the routed API key, and the bridge socket.
+      // only the user's PATH, HOME, the applied proxy, the routed API key, and the bridge socket.
       const dshBin = resolveDshRuntimeBinPath()
       const client = new sdk.HarnessClient({
         runtimeExecutable,
@@ -468,6 +469,8 @@ export class DshRuntimeConnection implements AgentRuntimeConnection {
             : process.env.HOME !== undefined
               ? { HOME: process.env.HOME }
               : {}),
+          // Inherit the applied proxy; the gateway-host bypass keeps the local gateway direct.
+          ...buildDshProxyEnvironment(snapshot.provider, snapshot.model),
           CHERRY_DSH_API_KEY: injection.apiKey,
           CHERRY_DSH_CONFIG: this.compositionPath,
           [BRIDGE_SOCKET_ENV]: this.bridge.socketPath,
