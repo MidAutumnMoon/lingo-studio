@@ -1,8 +1,8 @@
 diff --git a/dist/core/agent-session.js b/dist/core/agent-session.js
-index 7cdf28a..f1e5918 100644
+index 6379a7b..a020a5b 100644
 --- a/dist/core/agent-session.js
 +++ b/dist/core/agent-session.js
-@@ -365,7 +365,7 @@ export class AgentSession {
+@@ -369,7 +369,7 @@ export class AgentSession {
              if (event.message.role === "assistant") {
                  this._lastAssistantMessage = event.message;
                  const assistantMsg = event.message;
@@ -11,7 +11,7 @@ index 7cdf28a..f1e5918 100644
                      this._overflowRecoveryAttempted = false;
                  }
                  // Reset retry counter immediately on successful assistant response
-@@ -1528,11 +1528,12 @@ export class AgentSession {
+@@ -1526,11 +1526,12 @@ export class AgentSession {
          if (assistantIsFromBeforeCompaction) {
              return false;
          }
@@ -29,7 +29,7 @@ index 7cdf28a..f1e5918 100644
              const willRetry = assistantMessage.stopReason !== "stop";
              if (!willRetry) {
                  return await this._runAutoCompaction("overflow", false);
-@@ -1702,7 +1703,7 @@ export class AgentSession {
+@@ -1704,7 +1705,7 @@ export class AgentSession {
              if (willRetry) {
                  const messages = this.agent.state.messages;
                  const lastMsg = messages[messages.length - 1];

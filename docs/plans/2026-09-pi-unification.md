@@ -1,7 +1,7 @@
 # Pi Unification Plan — one engine for chat and work
 
-Status: executing — 2026-09-26. Phase 0 under way: triage done, 0.80.x series complete
-(notes doc §8); remaining rungs 0.83.0 → 0.84.4 → 0.86.1 → 0.87.1. Phases 1–3 remain
+Status: executing — 2026-09-26. Phase 0 under way: triage done, 0.80.x + 0.81.x series
+complete (notes doc §8); remaining rungs 0.83.0 → 0.84.4 → 0.86.1 → 0.87.1. Phases 1–3 remain
 draft.
 
 Decision context: pi (in-process, loop owned by us, `pi-ai` wire layer shared with dsh)
@@ -29,7 +29,7 @@ The plan below phases the work so the app is shippable after every step.
 
 | Fact | Value |
 |---|---|
-| Pinned pi versions | riding the ladder to 0.87.1 — currently `@earendil-works/pi-ai` 0.80.10, `@earendil-works/pi-coding-agent` 0.80.10; the pi line (including transitive `pi-agent-core`/`pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides (see upgrade-notes §8) |
+| Pinned pi versions | riding the ladder to 0.87.1 — currently `@earendil-works/pi-ai` 0.81.1, `@earendil-works/pi-coding-agent` 0.81.1; the pi line (including transitive `pi-agent-core`/`pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides (see upgrade-notes §8) |
 | Upgrade target | 0.87.1 — all three packages align on one line |
 | pi patches in `patches/` | `pi-ai` (keyed to the current pin): thread custom `fetch` through openai-completions/responses clients (Electron proxy; drops at 0.83.0) + add `ultra` reasoning effort. `pi-coding-agent`: backport of upstream earendil-works/pi#7540 (context-clamped length-stop recovery; drops at 0.84.0) |
 | dsh coupling to pi upgrade | None at runtime — dsh's `pi-ai ^0.84.2` is inlined into the `packages/dsh-bridge` dist at build time |

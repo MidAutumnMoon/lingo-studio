@@ -1,9 +1,10 @@
 # Pi 0.80 → 0.87 Upgrade Notes — Phase 0 working record
 
-Status: 0.80.x series complete (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10,
-including the 0.80.8 auth-refactor rewrite onto `ModelRuntime` (now behind the
-`createIsolatedPiModelRuntime()` helper in `piSdk.ts`) and patch regeneration at every
-rung; that history lives in git. This doc keeps only what the remaining rungs need.
+Status: 0.81.x series complete (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10
+(including the 0.80.8 auth-refactor rewrite onto `ModelRuntime`, now behind the
+`createIsolatedPiModelRuntime()` helper in `piSdk.ts`) → 0.81.1, with patch
+regeneration at every rung; that history lives in git. This doc keeps only what the
+remaining rungs need.
 Companion to [2026-09-pi-unification.md](./2026-09-pi-unification.md); research verified
 against a local clone of `earendil-works/pi` (all `v0.8x` tags available for diffing).
 
@@ -11,7 +12,7 @@ against a local clone of `earendil-works/pi` (all `v0.8x` tags available for dif
 
 | Fact | Value |
 |---|---|
-| Pins | riding the ladder to 0.87.1 — currently `pi-ai` 0.80.10, `pi-coding-agent` 0.80.10. The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
+| Pins | riding the ladder to 0.87.1 — currently `pi-ai` 0.81.1, `pi-coding-agent` 0.81.1. The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
 | Package ↔ dir mapping | one repo (`earendil-works/pi`), one version line: `packages/ai` → pi-ai, `packages/coding-agent` → pi-coding-agent, `packages/agent` → pi-agent-core; `pi-coding-agent` depends on same-line `pi-ai`/`pi-agent-core`/`pi-tui` |
 | Cherry import surface | **entirely confined to `src/main/ai/runtime/pi/`** — all runtime (value) imports go through dynamic `import()` in `piSdk.ts`; every other file is `import type` only |
 | pi test provider | `pi-ai/providers/faux` (engine tests run without network) — unchanged across the range |
@@ -22,7 +23,7 @@ against a local clone of `earendil-works/pi` (all `v0.8x` tags available for dif
 
 | Version | Breaking change | Cherry impact |
 |---|---|---|
-| 0.81.0 | pi-agent-core: harness `SessionStorage` reworked; `uuidv7` moved to pi-ai; `Agent.streamFn` fallback → required `streamFunction` (removes pi-ai/compat from selective-provider bundles) | Harness unused. But `piLengthRecovery.test.ts` overrides `session.agent.streamFn` directly — needs the `streamFunction` rename when the ladder crosses 0.81 at the 0.83 rung. `pi-ai/compat` still exports `unregisterApiProviders` |
+| 0.81.0 | pi-agent-core: harness `SessionStorage` reworked; `uuidv7` moved to pi-ai; `Agent.streamFn` fallback → required `streamFunction` (removes pi-ai/compat from selective-provider bundles) | Resolved at the 0.81.1 rung: harness unused; Cherry's `uuidv7` comes from npm `uuid`, not pi; the `piLengthRecovery.test.ts` override was renamed to `agent.streamFunction` (0.81.1 restored the `streamFn` *constructor option*, but the instance field is `streamFunction`). `pi-ai/compat` still exports `unregisterApiProviders` |
 | 0.82.0 | pi-ai `getBuiltinModelDataUrl()` → `getBuiltinModelDataGeneratedAt()`; harness `AgentTool` → context-aware `AgentHarnessTool` | None — both unused |
 | 0.83.0 | TypeBox 1.3.7 bundled aliases: `Type.Base`, `Type.Awaited`, `Type.Promise`, `Type.AsyncIterator`, `Type.Iterator`, `Type.Options`, `Value.Mutate` removed | None in our code — no TypeBox imports under `src/main/ai` (pi validates our JSON-schema tool definitions internally) |
 | 0.84.0 | pi-agent-core harness session model → v4 lane-based `Session`/`SessionStorage`/`SessionRepo`; legacy harness JSONL/in-memory repos removed; JSON/RPC `message_update` wire events delta-only; `ModelRegistry.getApiKeyAndHeaders()` returns nullable `ProviderHeaders`; `ModelsStreamTransforms` → `ModelsRequestTransforms` | **None on Cherry's path** — see §5 (harness ≠ `SessionManager`; wire ≠ SDK events; `getApiKeyAndHeaders` unused). #7540 lands natively here → coding-agent patch droppable |
@@ -110,8 +111,8 @@ the SDK subscription `piStreamAdapter` consumes.
 ## 8. Remaining rungs & per-rung procedure
 
 1. **0.83.0** — drop the fetch half of the pi-ai patch (`piProviderFetch.test.ts` proves
-   native injection end-to-end); crosses the 0.81 pi-agent-core `streamFn` →
-   `streamFunction` break — rename the override in `piLengthRecovery.test.ts`.
+   native injection end-to-end). The 0.81 `streamFn` → `streamFunction` rename already
+   landed at the 0.81.1 rung; nothing else owed from 0.81.
 2. **0.84.4** — drop the coding-agent patch; `piLengthRecovery.test.ts` pins native #7540.
 3. **0.86.1** — `TranscriptContext` type rework (§3).
 4. **0.87.1** — final rung: regenerate the `ultra` patch once, re-run
