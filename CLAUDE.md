@@ -53,6 +53,12 @@ If a host-wide search really seems necessary, ask user first.
 
 Avoid bash `sed`. Prefer builtin tools. `sed` is useful for batch editing. Don't use `sed` for targeted editing. Don't use `sed` to workaround tool use mistakes you made.
 
+## Look Things Up
+
+- When unsure about a library, tool, or API, use web search or Context7 before guessing.
+- Prefer Context7 for library docs — it pulls real examples and up-to-date signatures.
+- Don't hallucinate option names, function signatures, or CLI flags. Look it up.
+
 #### Goal-Driven Execution
 
 - Convert tasks into verifiable goals before coding:
