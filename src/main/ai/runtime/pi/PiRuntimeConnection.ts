@@ -72,7 +72,7 @@ import {
   type PiMcpToolBridge,
   warmMcpToolCatalogs
 } from './piMcpToolAdapter'
-import { loadPiAiCompat, loadPiSdk } from './piSdk'
+import { loadPiAi, loadPiAiCompat, loadPiSdk } from './piSdk'
 import { resolveResumeTokenSessionFile } from './piSessionFile'
 import { PiStreamAdapter } from './piStreamAdapter'
 import { createPiProviderExtension } from './providerExtension'
@@ -251,9 +251,9 @@ export class PiRuntimeConnection implements AgentRuntimeConnection {
       (model) => this.startProviderSpan(model)
     )
 
-    // Cherry owns the credential + model registry: in-memory only, never pi's
-    // global auth.json/models.json. The real key is a runtime override; the
-    // registered provider config carries only the placeholder (plan D1).
+    // Cherry owns the credential + model runtime: in-memory credentials, no pi
+    // auth.json/models.json, no catalog network refresh. The real key is a runtime
+    // override; the registered provider config carries only the placeholder (plan D1).
     const runtimeProviderName = `${injection.providerName}:${this.input.sessionId}:${this.generation}`
     const runtimeApi = `cherry-${this.input.sessionId}-${this.generation}-${injection.api}`
     const isolatedProviderConfig: ProviderConfig = {
@@ -261,13 +261,17 @@ export class PiRuntimeConnection implements AgentRuntimeConnection {
       api: runtimeApi,
       models: providerConfig.models?.map((model) => ({ ...model, api: runtimeApi }))
     }
-    const authStorage = pi.AuthStorage.inMemory()
-    authStorage.setRuntimeApiKey(runtimeProviderName, injection.apiKey)
-    const modelRegistry = pi.ModelRegistry.inMemory(authStorage)
-    modelRegistry.registerProvider(runtimeProviderName, isolatedProviderConfig)
+    const piAi = await loadPiAi()
+    const modelRuntime = await pi.ModelRuntime.create({
+      credentials: new piAi.InMemoryCredentialStore(),
+      modelsPath: null,
+      allowModelNetwork: false
+    })
+    await modelRuntime.setRuntimeApiKey(runtimeProviderName, injection.apiKey)
+    modelRuntime.registerProvider(runtimeProviderName, isolatedProviderConfig)
     this.apiProviderSourceId = `provider:${runtimeProviderName}`
     try {
-      const model = modelRegistry.find(runtimeProviderName, injection.modelId)
+      const model = modelRuntime.getModel(runtimeProviderName, injection.modelId)
       if (!model)
         throw new Error(`pi model ${runtimeProviderName}/${injection.modelId} could not be resolved after injection`)
 
@@ -397,8 +401,7 @@ export class PiRuntimeConnection implements AgentRuntimeConnection {
       const created = await pi.createAgentSession({
         cwd: workspacePath,
         agentDir,
-        authStorage,
-        modelRegistry,
+        modelRuntime,
         settingsManager,
         sessionManager,
         resourceLoader,

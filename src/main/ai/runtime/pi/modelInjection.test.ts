@@ -343,7 +343,8 @@ describe('buildPiProviderInjection', () => {
   })
 
   it('hands pi header values it resolves back to the literals the user typed', async () => {
-    const { AuthStorage, ModelRegistry } = await import('@earendil-works/pi-coding-agent')
+    const { ModelRuntime } = await import('@earendil-works/pi-coding-agent')
+    const { InMemoryCredentialStore } = await import('@earendil-works/pi-ai')
     const provider = makeProvider({
       id: 'p',
       defaultChatEndpoint: 'openai-chat-completions',
@@ -359,14 +360,16 @@ describe('buildPiProviderInjection', () => {
     })
     const injection = buildPiProviderInjection(provider, makeModel({ apiModelId: 'm' }), REAL_KEY)
 
-    const authStorage = AuthStorage.inMemory()
-    authStorage.setRuntimeApiKey('p', injection.apiKey)
-    const registry = ModelRegistry.inMemory(authStorage)
-    registry.registerProvider('p', injection.providerConfig)
-    const auth = await registry.getApiKeyAndHeaders(registry.find('p', injection.modelId)!)
+    const modelRuntime = await ModelRuntime.create({
+      credentials: new InMemoryCredentialStore(),
+      modelsPath: null,
+      allowModelNetwork: false
+    })
+    await modelRuntime.setRuntimeApiKey('p', injection.apiKey)
+    modelRuntime.registerProvider('p', injection.providerConfig)
+    const auth = await modelRuntime.getAuth(modelRuntime.getModel('p', injection.modelId)!)
 
-    expect(auth).toMatchObject({
-      ok: true,
+    expect(auth?.auth).toMatchObject({
       headers: { 'x-token': 'a$b${HOME}', 'x-command': '!echo pwned', 'x-legacy': '42' }
     })
   })
@@ -612,17 +615,20 @@ describe('OpenCode Pi session headers', () => {
   })
 
   it('keeps session and custom header values literal for Pi', async () => {
-    const { AuthStorage, ModelRegistry } = await import('@earendil-works/pi-coding-agent')
+    const { ModelRuntime } = await import('@earendil-works/pi-coding-agent')
+    const { InMemoryCredentialStore } = await import('@earendil-works/pi-ai')
     const configured = { ...provider, settings: { extraHeaders: { 'x-tenant': 'a$b' } } }
     const injection = await resolvePiProviderInjectionForSession('!session$1', configured, makeModel({}))
-    const authStorage = AuthStorage.inMemory()
-    authStorage.setRuntimeApiKey(provider.id, injection.apiKey)
-    const registry = ModelRegistry.inMemory(authStorage)
-    registry.registerProvider(provider.id, injection.providerConfig)
-    const auth = await registry.getApiKeyAndHeaders(registry.find(provider.id, injection.modelId)!)
+    const modelRuntime = await ModelRuntime.create({
+      credentials: new InMemoryCredentialStore(),
+      modelsPath: null,
+      allowModelNetwork: false
+    })
+    await modelRuntime.setRuntimeApiKey(provider.id, injection.apiKey)
+    modelRuntime.registerProvider(provider.id, injection.providerConfig)
+    const auth = await modelRuntime.getAuth(modelRuntime.getModel(provider.id, injection.modelId)!)
 
-    expect(auth).toMatchObject({
-      ok: true,
+    expect(auth?.auth).toMatchObject({
       headers: { 'x-opencode-session': '!session$1', 'x-tenant': 'a$b' }
     })
   })

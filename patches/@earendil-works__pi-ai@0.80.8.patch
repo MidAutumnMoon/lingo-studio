@@ -55,7 +55,7 @@ index 41267bd..f29497b 100644
      serviceTier?: ResponseCreateParamsStreaming["service_tier"];
      toolChoice?: ResponseCreateParamsStreaming["tool_choice"];
 diff --git a/dist/api/openai-responses.js b/dist/api/openai-responses.js
-index 09c8aee..dbe8e25 100644
+index 1c1f91c..6742090 100644
 --- a/dist/api/openai-responses.js
 +++ b/dist/api/openai-responses.js
 @@ -88,7 +88,7 @@ export const stream = (model, context, options) => {
@@ -97,10 +97,10 @@ index 7b08245..d1ec6a3 100644
          cacheRetention: options?.cacheRetention,
          sessionId: options?.sessionId,
 diff --git a/dist/models.js b/dist/models.js
-index 8f87b65..8c7fa47 100644
+index adb6198..8416e1e 100644
 --- a/dist/models.js
 +++ b/dist/models.js
-@@ -203,7 +203,7 @@ export function calculateCost(model, usage) {
+@@ -388,7 +388,7 @@ export function calculateCost(model, usage) {
      usage.cost.total = usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
      return usage.cost;
  }
@@ -109,7 +109,7 @@ index 8f87b65..8c7fa47 100644
  export function getSupportedThinkingLevels(model) {
      if (!model.reasoning)
          return ["off"];
-@@ -211,7 +211,7 @@ export function getSupportedThinkingLevels(model) {
+@@ -396,7 +396,7 @@ export function getSupportedThinkingLevels(model) {
          const mapped = model.thinkingLevelMap?.[level];
          if (mapped === null)
              return false;

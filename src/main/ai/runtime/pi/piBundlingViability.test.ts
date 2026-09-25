@@ -43,26 +43,31 @@ describe('pi SDK bundling viability (Phase 0 spike)', () => {
 
   it('imports the ESM-only SDK via dynamic import() and exposes the driver surface', async () => {
     const pi = await import('@earendil-works/pi-coding-agent')
+    const piAi = await import('@earendil-works/pi-ai')
 
     expect(typeof pi.createAgentSession).toBe('function')
     expect(typeof pi.DefaultResourceLoader).toBe('function')
-    expect(typeof pi.AuthStorage).toBe('function')
-    expect(typeof pi.ModelRegistry).toBe('function')
+    expect(typeof pi.ModelRuntime).toBe('function')
     expect(typeof pi.SessionManager).toBe('function')
     expect(typeof pi.SettingsManager).toBe('function')
     expect(typeof pi.ProjectTrustStore).toBe('function')
     expect(typeof pi.hasTrustRequiringProjectResources).toBe('function')
+    expect(typeof piAi.InMemoryCredentialStore).toBe('function')
   })
 
   it('constructs the in-memory credential/model/session/settings objects (no network)', async () => {
-    const { AuthStorage, ModelRegistry, SessionManager, SettingsManager, DefaultResourceLoader } =
+    const { ModelRuntime, SessionManager, SettingsManager, DefaultResourceLoader } =
       await import('@earendil-works/pi-coding-agent')
+    const { InMemoryCredentialStore } = await import('@earendil-works/pi-ai')
 
-    const authStorage = AuthStorage.inMemory()
+    const modelRuntime = await ModelRuntime.create({
+      credentials: new InMemoryCredentialStore(),
+      modelsPath: null,
+      allowModelNetwork: false
+    })
     // Cherry owns the key; it lands as a runtime override, never a persisted pi file.
-    authStorage.setRuntimeApiKey('cherry-placeholder-provider', 'cherry-runtime-key')
+    await modelRuntime.setRuntimeApiKey('cherry-placeholder-provider', 'cherry-runtime-key')
 
-    const modelRegistry = ModelRegistry.inMemory(authStorage)
     const sessionManager = SessionManager.inMemory(workspace)
     const settingsManager = SettingsManager.inMemory()
     const loader = new DefaultResourceLoader({
@@ -71,8 +76,7 @@ describe('pi SDK bundling viability (Phase 0 spike)', () => {
       settingsManager
     })
 
-    expect(authStorage).toBeTruthy()
-    expect(modelRegistry).toBeTruthy()
+    expect(modelRuntime).toBeTruthy()
     expect(sessionManager).toBeTruthy()
     expect(loader).toBeTruthy()
   })

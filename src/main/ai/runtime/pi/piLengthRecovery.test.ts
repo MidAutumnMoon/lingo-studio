@@ -2,14 +2,14 @@ import {
   type AssistantMessage,
   type Context,
   createAssistantMessageEventStream,
+  InMemoryCredentialStore,
   type Model
 } from '@earendil-works/pi-ai'
 import {
   type AgentSessionEvent,
-  AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
-  ModelRegistry,
+  ModelRuntime,
   SessionManager,
   SettingsManager
 } from '@earendil-works/pi-coding-agent'
@@ -84,14 +84,25 @@ async function createSession(responses: ReturnType<typeof response>[], cancelCom
     ]
   })
   await resourceLoader.reload()
-  const authStorage = AuthStorage.inMemory()
-  authStorage.setRuntimeApiKey(model.provider, 'synthetic-test-key')
-  const modelRegistry = ModelRegistry.inMemory(authStorage)
+  const modelRuntime = await ModelRuntime.create({
+    credentials: new InMemoryCredentialStore(),
+    modelsPath: null,
+    allowModelNetwork: false
+  })
+  // Mirror production: the config carries only a placeholder key (prompt() gates on
+  // configured auth) and the real key rides the runtime override.
+  modelRuntime.registerProvider(model.provider, {
+    name: model.provider,
+    baseUrl: model.baseUrl,
+    apiKey: 'synthetic-placeholder-key',
+    api: model.api,
+    models: [model]
+  })
+  await modelRuntime.setRuntimeApiKey(model.provider, 'synthetic-test-key')
   const { session } = await createAgentSession({
     cwd,
     model,
-    authStorage,
-    modelRegistry,
+    modelRuntime,
     settingsManager,
     resourceLoader,
     sessionManager: SessionManager.inMemory(cwd),

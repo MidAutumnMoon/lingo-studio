@@ -1,8 +1,8 @@
 # Pi Unification Plan — one engine for chat and work
 
 Status: executing — 2026-09-26. Phase 0 under way: triage done (upgrade-notes doc),
-upgrade ladder climbing (0.80.7 rung landed on `pi-upgrade-0.80.7`; progress log in the
-notes doc §9/§11). Phases 1–3 remain draft.
+upgrade ladder climbing (0.80.7 and 0.80.8 rungs landed — the auth refactor is behind
+us; progress log in the notes doc §9/§11). Phases 1–3 remain draft.
 
 Decision context: pi (in-process, loop owned by us, `pi-ai` wire layer shared with dsh)
 is the base for unification. dsh stays as an opt-in agent runtime behind the existing
@@ -60,8 +60,8 @@ findings, recommended step ladder). Headlines, verified against a local clone at
 - The upgrade is narrower than feared: the 0.84 "session model replacement" hits
   pi-agent-core's harness — unused by Cherry — not our `SessionManager` path, whose
   signatures are identical at 0.87.1. Session JSONL format is unchanged (v3 at both ends).
-- The only mandatory code change is the 0.80.8 auth refactor: `AuthStorage`/`ModelRegistry`
-  → `ModelRuntime` in `PiRuntimeConnection.ts` (264–412). No other removed API is used
+- The one mandatory code change — the 0.80.8 auth refactor (`AuthStorage`/`ModelRegistry`
+  → `ModelRuntime` in `PiRuntimeConnection`) — is **done**. No other removed API is used
   anywhere in `src/main`.
 - 0.86's `TranscriptContext` is the second (type-level) change: `piTransportStream`,
   `modelInjection`, `piThinkingReplay`.

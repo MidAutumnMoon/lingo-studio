@@ -150,14 +150,13 @@ delta-only break applies to the wire protocol modes, not the SDK subscription
 ## 9. Step ladder for 0.3 — progress log
 
 Rungs chosen where breaks cluster (intermediate versions are fix-only; skipping them
-loses nothing). **0.80.7 ✅ (2026-09-26, branch `pi-upgrade-0.80.7`)** — see §11.
+loses nothing). **0.80.7 ✅ (2026-09-26, branch `pi-upgrade-0.80.7`)**, **0.80.8 ✅
+(2026-09-26, branch `pi-upgrade-0.80.8`)** — see §11.
 
 1. ~~**0.80.7**~~ — done: pins + both patches regenerated + pi-line overrides added (§11);
    no API change for Cherry, proved the rung procedure end-to-end.
-2. **0.80.8** — auth refactor rewrite (§3): `PiRuntimeConnection.ts` 264–412 **and**
-   `piLengthRecovery.test.ts` (it builds its session with `AuthStorage`/`ModelRegistry`
-   the same way, so it fails typecheck alongside production code — rewrite together).
-   First and only heavy rung.
+2. ~~**0.80.8**~~ — done: auth refactor rewrite (§3) landed across `PiRuntimeConnection.ts`
+   + five test files; details and the new-`hasConfiguredAuth` gotcha in §11.
 3. **0.83.0** — drop the fetch half of the pi-ai patch; `piProviderFetch.test.ts` proves
    native injection end-to-end.
 4. **0.84.4** — drop the coding-agent patch; `piLengthRecovery.test.ts` pins native #7540.
@@ -233,3 +232,38 @@ change; recorded as Phase 1 inputs):
   revisit only if work wants pi-native settled hooks.
 - **`max` thinking level** (0.80.6, already native below our patch) — our `ultra`
   patch still extends beyond it; nothing to do.
+
+### 0.80.8 — landed 2026-09-26 on `pi-upgrade-0.80.8`
+
+The auth-refactor rung: `AuthStorage`/`ModelRegistry` are gone; `CreateAgentSessionOptions`
+takes a single async `modelRuntime`. Rewrite map (six files, all grepped clean of the old
+symbols afterward):
+
+- `PiRuntimeConnection.ts` — bootstrap becomes
+  `ModelRuntime.create({ credentials: new InMemoryCredentialStore(), modelsPath: null,
+  allowModelNetwork: false })` → `setRuntimeApiKey` → `registerProvider` → `getModel`,
+  and `createAgentSession({ modelRuntime, ... })`. `RuntimeCredentials` (inside
+  ModelRuntime) is the same in-memory overlay `AuthStorage` had, so the D1 isolation
+  contract is unchanged. **`allowModelNetwork: false` is mandatory** — it otherwise
+  defaults to `PI_OFFLINE === undefined` (true in Cherry) and create() would run a
+  network catalog refresh with a 15 s timeout at session bootstrap.
+- `piLengthRecovery.test.ts`, `PiRuntimeConnection.sdkContract.test.ts`,
+  `piBundlingViability.test.ts`, `modelInjection.test.ts` ×2 sites — same migration;
+  `getApiKeyAndHeaders(find(...))` → `getAuth(getModel(...)!)` and the `{ok, headers}`
+  assertion shape becomes `auth?.auth.headers`.
+- `PiRuntimeConnection.test.ts` — fake SDK surface: `ModelRuntime.create` mock replacing
+  the `AuthStorage`/`ModelRegistry` pair, plus `loadPiAi` mock for
+  `InMemoryCredentialStore`.
+
+Two behavioral notes discovered by the suite:
+
+- **`ModelRuntime.setRuntimeApiKey` is async** (sync on `AuthStorage` before) — five
+  call sites needed `await`; oxlint `no-floating-promises` caught them.
+- **`session.prompt()` now gates on `hasConfiguredAuth(provider)`**: a runtime API key
+  overlay alone is not "configured" — the provider must also be registered with the
+  placeholder-key config (exactly what production's D1 flow does). `piLengthRecovery`
+  needed the registration added; production was unaffected.
+
+Verification: `pnpm typecheck:node` clean; `runtime/pi` + `agentSession` 24 files /
+574 tests green; `pnpm lint` clean (0 errors). Patches regenerated against 0.80.8 with
+no hunk adaptations needed (models.js drifted +185 lines, hunks offset-adapted).
