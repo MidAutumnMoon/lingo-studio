@@ -1,8 +1,8 @@
 # Pi Unification Plan — one engine for chat and work
 
 Status: executing — 2026-09-26. Phase 0 under way: triage done (upgrade-notes doc),
-upgrade ladder climbing (0.80.7 and 0.80.8 rungs landed — the auth refactor is behind
-us; progress log in the notes doc §9/§11). Phases 1–3 remain draft.
+0.80.x series complete (0.80.7 → 0.80.8 → 0.80.10; the auth refactor is behind us;
+progress log in the notes doc §9/§11). Phases 1–3 remain draft.
 
 Decision context: pi (in-process, loop owned by us, `pi-ai` wire layer shared with dsh)
 is the base for unification. dsh stays as an opt-in agent runtime behind the existing

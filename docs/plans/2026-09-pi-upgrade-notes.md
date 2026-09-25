@@ -150,18 +150,21 @@ delta-only break applies to the wire protocol modes, not the SDK subscription
 ## 9. Step ladder for 0.3 — progress log
 
 Rungs chosen where breaks cluster (intermediate versions are fix-only; skipping them
-loses nothing). **0.80.7 ✅ (2026-09-26, branch `pi-upgrade-0.80.7`)**, **0.80.8 ✅
-(2026-09-26, branch `pi-upgrade-0.80.8`)** — see §11.
+loses nothing). **0.80.x series ✅ (2026-09-26: 0.80.7 → 0.80.8 → 0.80.10)** — see §11.
 
 1. ~~**0.80.7**~~ — done: pins + both patches regenerated + pi-line overrides added (§11);
    no API change for Cherry, proved the rung procedure end-to-end.
 2. ~~**0.80.8**~~ — done: auth refactor rewrite (§3) landed across `PiRuntimeConnection.ts`
    + five test files; details and the new-`hasConfiguredAuth` gotcha in §11.
-3. **0.83.0** — drop the fetch half of the pi-ai patch; `piProviderFetch.test.ts` proves
+3. ~~**0.80.10**~~ — done: series-closing fix-only hop (0.80.9/0.80.10: Kimi K3 support,
+   deferred tool loading, catalog fixes). Pins + overrides + both patches regenerated;
+   zero code change. First rung where pi-agent-core's overridden version (0.80.10) equals
+   what an unforced resolution would pick.
+4. **0.83.0** — drop the fetch half of the pi-ai patch; `piProviderFetch.test.ts` proves
    native injection end-to-end.
-4. **0.84.4** — drop the coding-agent patch; `piLengthRecovery.test.ts` pins native #7540.
-5. **0.86.1** — `TranscriptContext` type rework (transport stream, thinking replay).
-6. **0.87.1** — final rung; regenerate the `ultra` patch here once, run full gate + smoke.
+5. **0.84.4** — drop the coding-agent patch; `piLengthRecovery.test.ts` pins native #7540.
+6. **0.86.1** — `TranscriptContext` type rework (transport stream, thinking replay).
+7. **0.87.1** — final rung; regenerate the `ultra` patch here once, run full gate + smoke.
 
 Per-rung procedure (mechanized on the 0.80.7 rung):
 
@@ -267,3 +270,11 @@ Two behavioral notes discovered by the suite:
 Verification: `pnpm typecheck:node` clean; `runtime/pi` + `agentSession` 24 files /
 574 tests green; `pnpm lint` clean (0 errors). Patches regenerated against 0.80.8 with
 no hunk adaptations needed (models.js drifted +185 lines, hunks offset-adapted).
+
+### 0.80.10 — landed 2026-09-26 on `pi-upgrade-0.80.10`
+
+Series-closing hop over the fix-only 0.80.9/0.80.10 (Kimi K3 + deferred tool loading,
+catalog and xAI-OAuth fixes). Pins + the three pi-line overrides → 0.80.10; both patches
+regenerated (applied with zero offsets — no adaptation); zero code change, zero test
+change. `pnpm typecheck:node` clean; `runtime/pi` + `agentSession` 24 files / 574 tests
+green; `pnpm lint` 0 errors. **0.80.x series complete.**
