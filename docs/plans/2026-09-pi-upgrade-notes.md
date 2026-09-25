@@ -97,6 +97,11 @@ the SDK subscription `piStreamAdapter` consumes.
 - **0.87.0** deferred `agent_settled`-triggered runs; error-retry attempts omitted from
   future provider context (was: abandoned attempts retained) — changes what resumed
   transcripts replay after a failed turn.
+- **0.81.1 compaction/branch-summary retry** — transient summarization failures now
+  follow the configured retry policy (pi default: enabled, 3 retries, 2s base; Cherry
+  passes no retry override at `PiRuntimeConnection.ts:276`, so this is live for work
+  sessions). `summarization_retry_*` lifecycle events are intentionally ignored by
+  `piStreamAdapter` — retries are silent but bounded.
 - **Google adapters reject non-global `fetch` implementations** (0.83.0) — irrelevant for
   the agent-approved provider set, relevant for Phase 1 W3 chat provider matrix.
 
@@ -129,8 +134,9 @@ Per-rung procedure:
    cannot typecheck (TypeScript nominal-checks private class members — hit in
    `piThinkingReplay.ts` / `piTransportStream.ts`).
 2. Regenerate surviving patches (§4).
-3. `pnpm install`; `pnpm typecheck:node` + `pnpm test:main` for `runtime/pi` +
-   `agentSession`; `pnpm lint`; manual smoke.
+3. `pnpm install --no-frozen-lockfile` (bumping the overrides makes a frozen install
+   fail with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`); `pnpm typecheck:node` +
+   `pnpm test:main` for `runtime/pi` + `agentSession`; `pnpm lint`; manual smoke.
 4. Record the rung with jj — no branch, no `git commit`: `jj describe -m
    "chore(deps): update pi line to vX.Y.Z"`, then `jj new` before the next rung.
    Undo mid-rung with `jj restore <paths>`; drop a finished rung with `jj abandon`.
@@ -145,6 +151,14 @@ Phase 1 inputs:
   loop drives its own tool use today.
 - **`agent_settled`** event (0.80.4) — revisit only if work wants pi-native settled
   hooks (the host owns idle semantics via `AsyncEventQueue`).
+- **0.81 line** (assessed at the 0.81.1 rung, none adopted — Phase 0 non-goal):
+  `contentText()` joins *message* content only — none of our three text-join sites
+  (`piCodeMode`, `piMcpToolAdapter`, `piStreamAdapter` — all tool/MCP content) match
+  its type; Phase 1 W1 history converter may fit. Tool/compaction usage metadata in
+  session totals — billing reads assistant usage; Phase 1 parity input.
+  `retryAssistantCall()` — retry ownership stays host `createRetryableWrap` (W5).
+  `summarization_retry_*` events — ignored by design (§6). Full provider extensions
+  via `pi.registerProvider` (auth/refresh/custom streaming) — Phase 1 W3 input.
 
 Open item for the owner: the "plan D1…D8" vocabulary used across
 `src/main/ai/runtime/pi/` comments has no doc in `docs/plans/` — host a legend or
