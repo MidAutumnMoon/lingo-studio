@@ -51,45 +51,45 @@ Phase 1 on 0.80 would just defer this upgrade into the middle of the migration).
 
 Non-goals: any behavioral change to chat (chat is untouched); any dsh change.
 
-### 0.1 Changelog triage (no code)
+Phase 0 research is complete and recorded in [2026-09-pi-upgrade-notes.md](./2026-09-pi-upgrade-notes.md)
+(release-by-release break→touchpoint table, patch verdicts with evidence, data-compatibility
+findings, recommended step ladder). Headlines, verified against a local clone at `v0.87.1`:
 
-Read CHANGELOGs for `pi-ai` and `pi-coding-agent` 0.80.6 → 0.87.1 and map every
-breaking entry to a Cherry touch point. Known headline breaks to triage:
+- The upgrade is narrower than feared: the 0.84 "session model replacement" hits
+  pi-agent-core's harness — unused by Cherry — not our `SessionManager` path, whose
+  signatures are identical at 0.87.1. Session JSONL format is unchanged (v3 at both ends).
+- The only mandatory code change is the 0.80.8 auth refactor: `AuthStorage`/`ModelRegistry`
+  → `ModelRuntime` in `PiRuntimeConnection.ts` (264–412). No other removed API is used
+  anywhere in `src/main`.
+- 0.86's `TranscriptContext` is the second (type-level) change: `piTransportStream`,
+  `modelInjection`, `piThinkingReplay`.
 
-- 0.80.0+: the legacy global API lives in `pi-ai/compat` and is slated for removal —
-  Cherry still uses `loadPiAiCompat()` for `unregisterApiProviders`
-  (`PiRuntimeConnection.ts:696`).
-- 0.84.0: session model replaced with v4 lane-based Session APIs — affects
-  `SessionManager` usage: `PiRuntimeConnection`, `piSessionFile`, `piFork`
-  (`createBranchedSession`), resume-token hydration.
-- 0.86.0: provider stream inputs changed to `TranscriptContext` — affects
-  `piTransportStream`, `modelInjection`, anything calling `streamSimple`.
-- 0.87.0: `SessionManager` canonical, `shouldStopAfterTurn` removed.
+### 0.1 Changelog triage — DONE
 
-Output: a break→touchpoint table appended to this doc.
+Break→touchpoint table: notes doc §4, cross-checked against a grep inventory of every
+`@earendil-works/*` import in `src/main/` (all confined to `src/main/ai/runtime/pi/`).
+Ship: doc update only (this doc + the notes doc).
 
-Ship: doc update only.
-Verify: table cross-checked against a grep inventory of every `@earendil-works/*`
-import in `src/main/`.
+### 0.2 Patch triage — DONE
 
-### 0.2 Patch triage (no code yet)
+Verdicts with evidence in notes doc §5:
 
-- `pi-coding-agent` patch is a backport of upstream PR #7540 → check whether the
-  target release includes it. If yes: drop the patch, keep
-  `piLengthRecovery.test.ts` as the regression pin. If no: regenerate against
-  0.87.1 dist via `pnpm patch`.
-- `pi-ai` fetch-threading → check if 0.87.1 supports native `fetch` injection in
-  stream options (the 0.86 `TranscriptContext` refactor is the likely place it
-  landed). If native: drop patch, switch to the API. If not: regenerate patch.
-- `ultra` reasoning effort → check upstream; otherwise regenerate the type patch.
+- `pi-coding-agent` patch (#7540 backport) → **drop** — shipped natively in 0.84.0;
+  `piLengthRecovery.test.ts` stays as the regression pin.
+- `pi-ai` fetch threading → **drop** — native per-request `fetch` injection since 0.83.0;
+  the existing `fetch: customFetch` call site (`PiRuntimeConnection.ts:961`) works unpatched.
+- `pi-ai` `ultra` reasoning effort → **regenerate** — no `ultra` upstream at `v0.87.1`.
 
-Ship: nothing (findings recorded in this doc).
-Verify: each patch has a keep/drop/regenerate verdict with evidence.
+Ship: nothing (findings recorded in the notes doc).
 
 ### 0.3 Upgrade on a branch
 
-Bump all three pins to 0.87.1, rebase/regenerate the surviving patches, fix
-type errors across `src/main/ai/runtime/pi/` and `agentSession/`.
+Main work: rewrite the `PiRuntimeConnection` session bootstrap onto
+`ModelRuntime.create({ credentials })` + pi-ai `Models` provider registration/lookup
+(notes doc §3). Then `TranscriptContext` type fixes and the spot-checks in notes §10.
+Step ladder with manual-check rungs (notes §9): **0.80.8 → 0.83.0 → 0.84.4 → 0.86.1 →
+0.87.1** — the first rung carries the auth rewrite; each later rung drops one patch half
+or lands one type change; skipped intermediates are fix-only.
 
 Ship: behind no flag — pi is an implementation detail of "work"; the upgrade ships
 when its own verification passes.
@@ -108,7 +108,7 @@ Verify: the named suites green.
 ### 0.5 Behavior fixes + full gate
 
 Run the full main suite and fix adapter drift (event shapes, compaction semantics,
-retry classification). Then `pnpm build:check`.
+retry classification — candidate drift list in notes doc §7). Then `pnpm build:check`.
 
 Ship: combined with 0.3/0.4 as one merge or a short series — app must work at each merge.
 Verify: `pnpm build:check` green.
@@ -121,10 +121,10 @@ relaunch + resume the same session (resume token); heartbeat/scheduled task fire
 one dsh agent session still runs; `pnpm smoke:dsh-runtime` green. Chat spot-check:
 one normal chat message round-trips (chat was untouched, prove it).
 
-**Data-compatibility gate:** 0.84's session-model change may alter the JSONL format.
-Before shipping, resume a session created by the currently released app build. If the
-format broke: either pi loads old files (fine) or we accept cold sessions after
-upgrade — that tradeoff gets decided here, explicitly, before merge.
+**Data-compatibility gate:** session JSONL format verified stable across the range
+(v3 at both 0.80.3 and 0.87.1; older versions migrated on read — notes doc §8). The
+cold-sessions fallback is not expected to be needed; before shipping, still resume a
+session created by the currently released app build as live confirmation.
 
 Rollback: revert the branch — pins + patches are self-contained; no schema involved.
 
