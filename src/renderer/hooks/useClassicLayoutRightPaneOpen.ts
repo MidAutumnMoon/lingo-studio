@@ -1,8 +1,11 @@
 import { useCallback } from 'react'
 
-import { usePersistCache } from '@renderer/data/hooks/useCache'
+import { useWindowScopedPersistCache } from './useWindowScopedPersistCache'
 
-const AGENT_RIGHT_PANE_OPEN_OVERRIDE_CACHE_KEY = 'ui.agent.right_pane_open_override'
+const AGENT_RIGHT_PANE_OPEN_OVERRIDE_CACHE_KEYS = {
+  persist: 'ui.agent.right_pane_open_override',
+  window: 'ui.window.agent.right_pane_open_override'
+} as const
 
 interface ClassicLayoutRightPaneOpenOptions {
   enabled: boolean
@@ -21,7 +24,10 @@ export function useClassicLayoutRightPaneOpen({
   enabled,
   defaultOpen
 }: ClassicLayoutRightPaneOpenOptions): readonly [boolean, ClassicLayoutPaneOpenSetter] {
-  const [storedOverride, setStoredOverride] = usePersistCache(AGENT_RIGHT_PANE_OPEN_OVERRIDE_CACHE_KEY)
+  const [storedOverride, setStoredOverride] = useWindowScopedPersistCache(
+    AGENT_RIGHT_PANE_OPEN_OVERRIDE_CACHE_KEYS.persist,
+    AGENT_RIGHT_PANE_OPEN_OVERRIDE_CACHE_KEYS.window
+  )
   const paneOpen = enabled && (storedOverride ?? defaultOpen)
   const setPaneOpen = useCallback<ClassicLayoutPaneOpenSetter>(
     (open, options) => {
