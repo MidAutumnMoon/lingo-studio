@@ -61,7 +61,10 @@ The two pi-ai halves drop at different rungs, so that patch changes scope mid-la
 every rung regenerates whatever survives.
 
 **Recipe** — `pnpm patch` refuses to *create* a new patch non-interactively (cancels
-with `ERR_PNPM_PATCH_CANCELED`), so build the artifact manually:
+with `ERR_PNPM_PATCH_CANCELED`), so build the artifact manually. The repo is
+jj-colocated and jj has no patch-apply/dir-diff equivalents: `git apply` and
+`git diff --no-index` below are standalone plumbing over the `/tmp` copies (the git
+CLI stays available), not VCS operations on the repo.
 
 1. `cp -rL node_modules/@earendil-works/<pkg> /tmp/<pkg>-edit` and again as `/tmp/<pkg>-orig`.
 2. `git apply <old patch>` in the edit copy (`--exclude=<file>` plus direct edits where
@@ -128,6 +131,9 @@ Per-rung procedure:
 2. Regenerate surviving patches (§4).
 3. `pnpm install`; `pnpm typecheck:node` + `pnpm test:main` for `runtime/pi` +
    `agentSession`; `pnpm lint`; manual smoke.
+4. Record the rung with jj — no branch, no `git commit`: `jj describe -m
+   "chore(deps): update pi line to vX.Y.Z"`, then `jj new` before the next rung.
+   Undo mid-rung with `jj restore <paths>`; drop a finished rung with `jj abandon`.
 
 New APIs now available (post-0.80.10) but deliberately not adopted — Phase 0 non-goal,
 Phase 1 inputs:

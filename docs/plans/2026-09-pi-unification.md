@@ -84,7 +84,7 @@ Verdicts with evidence in notes doc §4:
 
 Ship: nothing (findings recorded in the notes doc).
 
-### 0.3 Upgrade on a branch
+### 0.3 Upgrade rung by rung
 
 Remaining work: the `TranscriptContext` type fixes at 0.86 and the patch drops keyed
 to their rungs. Step ladder with manual-check rungs (notes §8): **0.83.0 → 0.84.4 →
@@ -126,7 +126,8 @@ one normal chat message round-trips (chat was untouched, prove it).
 cold-sessions fallback is not expected to be needed; before shipping, still resume a
 session created by the currently released app build as live confirmation.
 
-Rollback: revert the branch — pins + patches are self-contained; no schema involved.
+Rollback: `jj abandon` the rung's change (or `jj restore` mid-rung) — pins + patches
+are self-contained; no schema involved.
 
 ---
 
@@ -285,7 +286,7 @@ ever want multi-model fan-out; where do overlay branches and session forks unify
 
 | Phase | Automated | Manual smoke | Rollback |
 |---|---|---|---|
-| 0 each step | typecheck + `runtime/pi`/`agentSession` suites; full gate at 0.5 | work checklist (0.6) incl. pre-upgrade session resume | revert branch |
+| 0 each step | typecheck + `runtime/pi`/`agentSession` suites; full gate at 0.5 | work checklist (0.6) incl. pre-upgrade session resume | jj abandon the rung |
 | 1 each workstream | converter corpus tests; faux-provider engine tests; provider matrix; tool round-trips; chat suites | per-flag-level chat checklist | flag off |
 | 1 exit | full `pnpm build:check` | both checklists | revert deletion PR |
 | 2 each step | per-site suites; gateway SSE contract test | aux features (naming, translate, knowledge indexing, paintings) | revert step |
