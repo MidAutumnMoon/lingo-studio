@@ -6,6 +6,20 @@ This repository is a personal fork of [CherryHQ/cherry-studio](https://github.co
 - References to the upstream project (GitHub links, workflows, community channels) may not apply here.
 - The rest of this file still governs work in this repo unless overridden by `CLAUDE.local.md` or the owner.
 
+## Establish the goal and scope
+
+Use the request and prior discussion to identify what the user truely wants to achieve. Check your interpretation against relevant code, tests, and project conventions. Respect the user's explicit constraints. Turn broad or vague requests into concrete decisions. For brief examples:
+
+- "make the code clearer": identify what obscures the logic, such as mixed responsibilities, confusing names, or tangled control flow.
+- "rewrite the comments": decide which explanations to keep, cut, move, or rephrase. Preserve useful rationale and rework awkward sentences.
+- "make the edit": establish whether the discussion approved a local change or a general fix.
+
+Trace affected code paths and check related cases for the same underlying problem. Use relevant skills. Include the changes needed for a complete, consistent result within the user's constraints. Leave optional cleanup for a separate task.
+
+Use project conventions for routine choices. Ask a focused question when reasonable interpretations of the request would lead to substantially different changes. State important assumptions behind your approach.
+
+Stop investigating once you can justify the planned changes and explain how to verify them.
+
 ## Guiding Principles (MUST FOLLOW)
 
 ### Mindset
@@ -29,14 +43,15 @@ How to approach any coding task in this repo.
 - If you wrote 200 lines and it could be 50, rewrite it.
 - Inline comments cap at 2 lines. Needing more means the code is a patch — fix the implementation instead of narrating it. Say *why*, never restate *what*; no changelogs, no rationale essays, no pasted chat/review replies. (Doc comments on an exported API — TSDoc `@param`/`@returns`/`@deprecated` — are documentation, not narration, and are exempt.)
 
-#### Surgical Changes
+## Filesystem searches
 
-- Touch only what the task requires. Do not "improve" adjacent code, comments, or formatting.
-- Do not refactor things that are not broken.
-- Match existing style even if you would do it differently.
-- If you notice unrelated dead code, mention it — do not delete it.
-- Remove imports / variables / functions that **your** changes orphaned. Leave pre-existing dead code alone unless asked.
-- Every changed line must trace directly to the user's request.
+Never perform an unbounded recursive filesystem search from `/` or `/nix/store`. Scope `find`, `grep -r`, `rg`, `fd`, etc. to the current project or another explicitly relevant directory.
+
+If a host-wide search really seems necessary, ask user first.
+
+## Editing
+
+Avoid bash `sed`. Prefer builtin tools. `sed` is useful for batch editing. Don't use `sed` for targeted editing. Don't use `sed` to workaround tool use mistakes you made.
 
 #### Goal-Driven Execution
 
