@@ -9,12 +9,27 @@
  * Phase 0 bundling spike). Every runtime use of pi values MUST go through here;
  * `import type` elsewhere is compile-only and safe.
  */
-import type { ProviderConfig } from '@earendil-works/pi-coding-agent'
+import type { ModelRuntime, ProviderConfig } from '@earendil-works/pi-coding-agent'
 
 import type { PiApi } from '@shared/ai/piModelCompatibility'
 
 export function loadPiSdk() {
   return import('@earendil-works/pi-coding-agent')
+}
+
+/**
+ * A `ModelRuntime` fully owned by Cherry: in-memory credentials, no pi auth.json or
+ * models.json on disk, and no model-catalog network refresh (`allowModelNetwork`
+ * otherwise defaults to `PI_OFFLINE === undefined`, i.e. true inside Cherry, and
+ * `create()` would probe the network at session bootstrap).
+ */
+export async function createIsolatedPiModelRuntime(): Promise<ModelRuntime> {
+  const [pi, piAi] = await Promise.all([loadPiSdk(), loadPiAi()])
+  return pi.ModelRuntime.create({
+    credentials: new piAi.InMemoryCredentialStore(),
+    modelsPath: null,
+    allowModelNetwork: false
+  })
 }
 
 /**

@@ -2,18 +2,18 @@ import {
   type AssistantMessage,
   type Context,
   createAssistantMessageEventStream,
-  InMemoryCredentialStore,
   type Model
 } from '@earendil-works/pi-ai'
 import {
   type AgentSessionEvent,
   createAgentSession,
   DefaultResourceLoader,
-  ModelRuntime,
   SessionManager,
   SettingsManager
 } from '@earendil-works/pi-coding-agent'
 import { describe, expect, it } from 'vitest'
+
+import { createIsolatedPiModelRuntime } from './piSdk'
 
 const model: Model<'openai-completions'> = {
   id: 'length-recovery-test',
@@ -84,11 +84,7 @@ async function createSession(responses: ReturnType<typeof response>[], cancelCom
     ]
   })
   await resourceLoader.reload()
-  const modelRuntime = await ModelRuntime.create({
-    credentials: new InMemoryCredentialStore(),
-    modelsPath: null,
-    allowModelNetwork: false
-  })
+  const modelRuntime = await createIsolatedPiModelRuntime()
   // Mirror production: the config carries only a placeholder key (prompt() gates on
   // configured auth) and the real key rides the runtime override.
   modelRuntime.registerProvider(model.provider, {

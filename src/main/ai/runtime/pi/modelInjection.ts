@@ -7,7 +7,7 @@
  * never placed in the `registerProvider` config — the config carries only a
  * non-secret placeholder so keys that start with `$`/`!` never hit pi's config
  * interpolation semantics. The driver injects the real key at runtime via
- * `ModelRuntime.setRuntimeApiKey(providerName, apiKey)` (Phase 2).
+ * `ModelRuntime.setRuntimeApiKey(providerName, apiKey)`.
  */
 
 import type { ProviderConfig, ProviderModelConfig } from '@earendil-works/pi-coding-agent'

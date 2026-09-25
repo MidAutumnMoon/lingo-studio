@@ -56,6 +56,8 @@ describe('pi SDK bundling viability (Phase 0 spike)', () => {
   })
 
   it('constructs the in-memory credential/model/session/settings objects (no network)', async () => {
+    // Deliberately constructs pi's own exports directly — this test proves the raw SDK
+    // surface, unlike the createIsolatedPiModelRuntime callers that share our wrapper.
     const { ModelRuntime, SessionManager, SettingsManager, DefaultResourceLoader } =
       await import('@earendil-works/pi-coding-agent')
     const { InMemoryCredentialStore } = await import('@earendil-works/pi-ai')

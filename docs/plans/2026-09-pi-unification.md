@@ -1,8 +1,8 @@
 # Pi Unification Plan — one engine for chat and work
 
-Status: executing — 2026-09-26. Phase 0 under way: triage done (upgrade-notes doc),
-0.80.x series complete (0.80.7 → 0.80.8 → 0.80.10; the auth refactor is behind us;
-progress log in the notes doc §9/§11). Phases 1–3 remain draft.
+Status: executing — 2026-09-26. Phase 0 under way: triage done, 0.80.x series complete
+(notes doc §8); remaining rungs 0.83.0 → 0.84.4 → 0.86.1 → 0.87.1. Phases 1–3 remain
+draft.
 
 Decision context: pi (in-process, loop owned by us, `pi-ai` wire layer shared with dsh)
 is the base for unification. dsh stays as an opt-in agent runtime behind the existing
@@ -29,7 +29,7 @@ The plan below phases the work so the app is shippable after every step.
 
 | Fact | Value |
 |---|---|
-| Pinned pi versions | `@earendil-works/pi-ai` 0.80.7, `@earendil-works/pi-coding-agent` 0.80.7 (upgrading rung-by-rung to 0.87.1; the pi line — `pi-ai`, `pi-agent-core` inside `pi-coding-agent` — is also pinned via `pnpm-workspace.yaml` overrides so all instances share one pi-ai; see upgrade-notes §11) |
+| Pinned pi versions | riding the ladder to 0.87.1 — currently `@earendil-works/pi-ai` 0.80.10, `@earendil-works/pi-coding-agent` 0.80.10; the pi line (including transitive `pi-agent-core`/`pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides (see upgrade-notes §8) |
 | Upgrade target | 0.87.1 — all three packages align on one line |
 | pi patches in `patches/` | `pi-ai` (keyed to the current pin): thread custom `fetch` through openai-completions/responses clients (Electron proxy; drops at 0.83.0) + add `ultra` reasoning effort. `pi-coding-agent`: backport of upstream earendil-works/pi#7540 (context-clamped length-stop recovery; drops at 0.84.0) |
 | dsh coupling to pi upgrade | None at runtime — dsh's `pi-ai ^0.84.2` is inlined into the `packages/dsh-bridge` dist at build time |
@@ -53,28 +53,28 @@ Phase 1 on 0.80 would just defer this upgrade into the middle of the migration).
 
 Non-goals: any behavioral change to chat (chat is untouched); any dsh change.
 
-Phase 0 research is complete and recorded in [2026-09-pi-upgrade-notes.md](./2026-09-pi-upgrade-notes.md)
-(release-by-release break→touchpoint table, patch verdicts with evidence, data-compatibility
-findings, recommended step ladder). Headlines, verified against a local clone at `v0.87.1`:
+Phase 0 research and the 0.80.x series are complete; the working record for the
+remaining rungs lives in [2026-09-pi-upgrade-notes.md](./2026-09-pi-upgrade-notes.md)
+(break→touchpoint table, patch verdicts, data-compatibility findings, step ladder,
+per-rung procedure). Headlines, verified against a local clone at `v0.87.1`:
 
 - The upgrade is narrower than feared: the 0.84 "session model replacement" hits
   pi-agent-core's harness — unused by Cherry — not our `SessionManager` path, whose
   signatures are identical at 0.87.1. Session JSONL format is unchanged (v3 at both ends).
-- The one mandatory code change — the 0.80.8 auth refactor (`AuthStorage`/`ModelRegistry`
-  → `ModelRuntime` in `PiRuntimeConnection`) — is **done**. No other removed API is used
-  anywhere in `src/main`.
-- 0.86's `TranscriptContext` is the second (type-level) change: `piTransportStream`,
-  `modelInjection`, `piThinkingReplay`.
+- The 0.80.8 auth refactor (`AuthStorage`/`ModelRegistry` → `ModelRuntime`) is behind
+  us; it was the only removed API Cherry used.
+- What remains: 0.86's `TranscriptContext` (type-level; `piTransportStream`,
+  `modelInjection`, `piThinkingReplay`) and the patch drops keyed to their rungs.
 
 ### 0.1 Changelog triage — DONE
 
-Break→touchpoint table: notes doc §4, cross-checked against a grep inventory of every
+Break→touchpoint table: notes doc §3, cross-checked against a grep inventory of every
 `@earendil-works/*` import in `src/main/` (all confined to `src/main/ai/runtime/pi/`).
 Ship: doc update only (this doc + the notes doc).
 
 ### 0.2 Patch triage — DONE
 
-Verdicts with evidence in notes doc §5:
+Verdicts with evidence in notes doc §4:
 
 - `pi-coding-agent` patch (#7540 backport) → **drop** — shipped natively in 0.84.0;
   `piLengthRecovery.test.ts` stays as the regression pin.
@@ -86,12 +86,10 @@ Ship: nothing (findings recorded in the notes doc).
 
 ### 0.3 Upgrade on a branch
 
-Main work: rewrite the `PiRuntimeConnection` session bootstrap onto
-`ModelRuntime.create({ credentials })` + pi-ai `Models` provider registration/lookup
-(notes doc §3). Then `TranscriptContext` type fixes and the spot-checks in notes §10.
-Step ladder with manual-check rungs (notes §9): **0.80.8 → 0.83.0 → 0.84.4 → 0.86.1 →
-0.87.1** — the first rung carries the auth rewrite; each later rung drops one patch half
-or lands one type change; skipped intermediates are fix-only.
+Remaining work: the `TranscriptContext` type fixes at 0.86 and the patch drops keyed
+to their rungs. Step ladder with manual-check rungs (notes §8): **0.83.0 → 0.84.4 →
+0.86.1 → 0.87.1** — each rung drops one patch half or lands one type change; skipped
+intermediates are fix-only.
 
 Ship: behind no flag — pi is an implementation detail of "work"; the upgrade ships
 when its own verification passes.
@@ -110,7 +108,7 @@ Verify: the named suites green.
 ### 0.5 Behavior fixes + full gate
 
 Run the full main suite and fix adapter drift (event shapes, compaction semantics,
-retry classification — candidate drift list in notes doc §7). Then `pnpm build:check`.
+retry classification — candidate drift list in notes doc §6). Then `pnpm build:check`.
 
 Ship: combined with 0.3/0.4 as one merge or a short series — app must work at each merge.
 Verify: `pnpm build:check` green.
@@ -124,7 +122,7 @@ one dsh agent session still runs; `pnpm smoke:dsh-runtime` green. Chat spot-chec
 one normal chat message round-trips (chat was untouched, prove it).
 
 **Data-compatibility gate:** session JSONL format verified stable across the range
-(v3 at both 0.80.3 and 0.87.1; older versions migrated on read — notes doc §8). The
+(v3 at both 0.80.3 and 0.87.1; older versions migrated on read — notes doc §7). The
 cold-sessions fallback is not expected to be needed; before shipping, still resume a
 session created by the currently released app build as live confirmation.
 

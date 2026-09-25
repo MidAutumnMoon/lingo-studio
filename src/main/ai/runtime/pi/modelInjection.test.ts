@@ -45,6 +45,7 @@ import {
   resolvePiProviderInjectionForSession,
   resolvePiProviderInjectionFromSnapshot
 } from './modelInjection'
+import { createIsolatedPiModelRuntime } from './piSdk'
 
 const REAL_KEY = 'sk-cherry-secret-key'
 const GATEWAY_KEY = 'cs-sk-local-gateway'
@@ -343,8 +344,6 @@ describe('buildPiProviderInjection', () => {
   })
 
   it('hands pi header values it resolves back to the literals the user typed', async () => {
-    const { ModelRuntime } = await import('@earendil-works/pi-coding-agent')
-    const { InMemoryCredentialStore } = await import('@earendil-works/pi-ai')
     const provider = makeProvider({
       id: 'p',
       defaultChatEndpoint: 'openai-chat-completions',
@@ -360,11 +359,7 @@ describe('buildPiProviderInjection', () => {
     })
     const injection = buildPiProviderInjection(provider, makeModel({ apiModelId: 'm' }), REAL_KEY)
 
-    const modelRuntime = await ModelRuntime.create({
-      credentials: new InMemoryCredentialStore(),
-      modelsPath: null,
-      allowModelNetwork: false
-    })
+    const modelRuntime = await createIsolatedPiModelRuntime()
     await modelRuntime.setRuntimeApiKey('p', injection.apiKey)
     modelRuntime.registerProvider('p', injection.providerConfig)
     const auth = await modelRuntime.getAuth(modelRuntime.getModel('p', injection.modelId)!)
@@ -615,15 +610,9 @@ describe('OpenCode Pi session headers', () => {
   })
 
   it('keeps session and custom header values literal for Pi', async () => {
-    const { ModelRuntime } = await import('@earendil-works/pi-coding-agent')
-    const { InMemoryCredentialStore } = await import('@earendil-works/pi-ai')
     const configured = { ...provider, settings: { extraHeaders: { 'x-tenant': 'a$b' } } }
     const injection = await resolvePiProviderInjectionForSession('!session$1', configured, makeModel({}))
-    const modelRuntime = await ModelRuntime.create({
-      credentials: new InMemoryCredentialStore(),
-      modelsPath: null,
-      allowModelNetwork: false
-    })
+    const modelRuntime = await createIsolatedPiModelRuntime()
     await modelRuntime.setRuntimeApiKey(provider.id, injection.apiKey)
     modelRuntime.registerProvider(provider.id, injection.providerConfig)
     const auth = await modelRuntime.getAuth(modelRuntime.getModel(provider.id, injection.modelId)!)

@@ -72,7 +72,7 @@ import {
   type PiMcpToolBridge,
   warmMcpToolCatalogs
 } from './piMcpToolAdapter'
-import { loadPiAi, loadPiAiCompat, loadPiSdk } from './piSdk'
+import { createIsolatedPiModelRuntime, loadPiAiCompat, loadPiSdk } from './piSdk'
 import { resolveResumeTokenSessionFile } from './piSessionFile'
 import { PiStreamAdapter } from './piStreamAdapter'
 import { createPiProviderExtension } from './providerExtension'
@@ -251,9 +251,8 @@ export class PiRuntimeConnection implements AgentRuntimeConnection {
       (model) => this.startProviderSpan(model)
     )
 
-    // Cherry owns the credential + model runtime: in-memory credentials, no pi
-    // auth.json/models.json, no catalog network refresh. The real key is a runtime
-    // override; the registered provider config carries only the placeholder (plan D1).
+    // The real key is a runtime override on an isolated in-memory ModelRuntime; the
+    // registered provider config carries only the placeholder (plan D1).
     const runtimeProviderName = `${injection.providerName}:${this.input.sessionId}:${this.generation}`
     const runtimeApi = `cherry-${this.input.sessionId}-${this.generation}-${injection.api}`
     const isolatedProviderConfig: ProviderConfig = {
@@ -261,12 +260,7 @@ export class PiRuntimeConnection implements AgentRuntimeConnection {
       api: runtimeApi,
       models: providerConfig.models?.map((model) => ({ ...model, api: runtimeApi }))
     }
-    const piAi = await loadPiAi()
-    const modelRuntime = await pi.ModelRuntime.create({
-      credentials: new piAi.InMemoryCredentialStore(),
-      modelsPath: null,
-      allowModelNetwork: false
-    })
+    const modelRuntime = await createIsolatedPiModelRuntime()
     await modelRuntime.setRuntimeApiKey(runtimeProviderName, injection.apiKey)
     modelRuntime.registerProvider(runtimeProviderName, isolatedProviderConfig)
     this.apiProviderSourceId = `provider:${runtimeProviderName}`

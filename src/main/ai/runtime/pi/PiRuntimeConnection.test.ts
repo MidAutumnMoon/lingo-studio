@@ -54,6 +54,7 @@ const mocks = vi.hoisted(() => ({
   getInteractionState: vi.fn(),
   loadPiSdk: vi.fn(),
   loadPiAi: vi.fn(),
+  createIsolatedPiModelRuntime: vi.fn(),
   loadPiAiCompat: vi.fn(),
   unregisterApiProviders: vi.fn(),
   loadPiApiStreamSimple: vi.fn(),
@@ -190,6 +191,7 @@ vi.mock('./piConnectionSignature', () => ({
 vi.mock('./piSdk', () => ({
   loadPiSdk: mocks.loadPiSdk,
   loadPiAi: mocks.loadPiAi,
+  createIsolatedPiModelRuntime: mocks.createIsolatedPiModelRuntime,
   loadPiAiCompat: mocks.loadPiAiCompat,
   loadPiApiStreamSimple: mocks.loadPiApiStreamSimple
 }))
@@ -239,13 +241,6 @@ const fakeSession = {
 }
 
 const fakePi = {
-  ModelRuntime: {
-    create: async () => ({
-      setRuntimeApiKey: mocks.setRuntimeApiKey,
-      registerProvider: mocks.registerProvider,
-      getModel: () => ({ id: 'm', provider: 'p' })
-    })
-  },
   SettingsManager: {
     inMemory: (...args: unknown[]) => {
       mocks.settingsArgs = args
@@ -425,6 +420,11 @@ beforeEach(() => {
   })
   mocks.loadPiSdk.mockResolvedValue(fakePi)
   mocks.loadPiAi.mockResolvedValue({ InMemoryCredentialStore: class InMemoryCredentialStore {} })
+  mocks.createIsolatedPiModelRuntime.mockResolvedValue({
+    setRuntimeApiKey: mocks.setRuntimeApiKey,
+    registerProvider: mocks.registerProvider,
+    getModel: () => ({ id: 'm', provider: 'p' })
+  })
   mocks.loadPiAiCompat.mockResolvedValue({ unregisterApiProviders: mocks.unregisterApiProviders })
   mocks.loadPiApiStreamSimple.mockResolvedValue(mocks.providerStreamSimple)
   mocks.providerResult = {

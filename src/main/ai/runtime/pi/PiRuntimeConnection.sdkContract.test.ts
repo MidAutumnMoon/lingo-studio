@@ -2,12 +2,10 @@ import { mkdir, mkdtemp, rm, copyFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-import { InMemoryCredentialStore } from '@earendil-works/pi-ai'
 import {
   createAgentSession,
   createBashToolDefinition,
   DefaultResourceLoader,
-  ModelRuntime,
   SessionManager,
   SettingsManager,
   type ToolDefinition
@@ -17,6 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { application } from '@application'
 
 import { forkPiSession } from './piFork'
+import { createIsolatedPiModelRuntime } from './piSdk'
 
 const directories: string[] = []
 afterEach(async () => {
@@ -39,11 +38,7 @@ async function createSession(excludeTools?: string[]) {
     noContextFiles: true
   })
   await resourceLoader.reload()
-  const modelRuntime = await ModelRuntime.create({
-    credentials: new InMemoryCredentialStore(),
-    modelsPath: null,
-    allowModelNetwork: false
-  })
+  const modelRuntime = await createIsolatedPiModelRuntime()
   const managedBash = createBashToolDefinition(cwd, { spawnHook: (context) => context }) as ToolDefinition
   const { session } = await createAgentSession({
     cwd,
