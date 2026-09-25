@@ -101,7 +101,7 @@ export const processorRegistry = {
     runtime: 'remote',
     isSupported: () => true,
     capabilities: {
-      document_to_markdown: lazyHandler('background', async () =>
+      document_to_markdown: lazyHandler('auto', async () =>
         import('./openMineru/documentToMarkdown/handler').then(
           ({ openMineruDocumentToMarkdownHandler }) => openMineruDocumentToMarkdownHandler
         )
