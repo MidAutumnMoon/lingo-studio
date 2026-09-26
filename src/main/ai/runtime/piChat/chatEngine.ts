@@ -21,6 +21,10 @@ import type { AssistantMessage, ImageContent, ThinkingLevel } from '@earendil-wo
  *   the sole system-prompt source, so pi's coding persona never leaks into a topic.
  * - Turn failure surfaces as a stream error, abort as a clean close (no `finish`),
  *   matching the legacy engine's `Agent.stream` contract.
+ * - Replayed history carries the LIVE turn's provider identity when the caller says the
+ *   message came from the same model (`isSameModelAsTurn`); pi's own same-model rules
+ *   (signed thinking, tool-call signatures) key off that identity, including the
+ *   per-execution provider name only this engine knows.
  */
 import type {
   CreateAgentSessionOptions,
@@ -38,9 +42,10 @@ import { TRACER_NAME } from '@main/ai/observability'
 import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/message'
 
 import { withPiInvocationCapture, type PiInvocationMetrics } from '../pi/PiRuntimeConnection'
-import { createIsolatedPiModelRuntime, loadPiAiCompat, loadPiSdk } from '../pi/piSdk'
+import { createIsolatedPiModelRuntime, loadPiSdk } from '../pi/piSdk'
 import { PiStreamAdapter } from '../pi/piStreamAdapter'
 import { createPiProviderExtension } from '../pi/providerExtension'
+import type { AgentRuntimeUsageInvocation } from '../types'
 import { toPiSessionEntries, type PiHistoryModelDescriptor } from './historyConverter'
 
 const logger = loggerService.withContext('PiChatEngine')
@@ -57,40 +62,35 @@ export interface PiChatProviderSource {
   modelId: string
 }
 
-/** One completed provider invocation, normalized to the aiUsageRecord accounting shape. */
-export interface PiChatProviderInvocation {
-  requestId: string
-  model: string
-  usage: {
-    inputTokens: number
-    outputTokens: number
-    totalTokens: number
-    reasoningTokens?: number
-    noCacheTokens: number
-    cacheReadTokens: number
-    cacheWriteTokens: number
-  }
-  metrics?: PiInvocationMetrics
-}
-
 export interface PiChatTurnRequest {
   /** Identifies the in-memory session — one per StreamExecution. */
   executionId: string
   provider: PiChatProviderSource
   /** Assembled chat system prompt; the pi coding persona is suppressed either way. */
   systemPrompt?: string
-  /** Served history EXCLUDING the turn's trailing user message (the prompt below replays it). */
+  /**
+   * Served history EXCLUDING the turn's trailing user message. The engine refuses a turn
+   * whose history already contains `prompt.messageId`, so a mis-sliced handoff fails loudly
+   * instead of sending the question twice.
+   */
   history: readonly CherryUIMessage[]
   /** The turn's user content: text verbatim (no command expansion), images inline. */
-  prompt: { text: string; images?: ImageContent[] }
+  prompt: { messageId: string; text: string; images?: ImageContent[] }
   thinkingLevel?: ThinkingLevel
   /** pi tools for the turn (W4 supplies the registry bridge; omitted ⇒ tool-less turn). */
   tools?: readonly ToolDefinition[]
-  /** W1 converter options — see `historyConverter` for what each unlocks. */
-  historyModelResolver?: (message: CherryUIMessage) => PiHistoryModelDescriptor | undefined
+  /**
+   * Whether a persisted assistant message came from the same provider+model as this turn.
+   * pi replays signed thinking (and tool-call signatures) only for same-model messages, and
+   * that comparison includes the per-execution provider identity THIS engine registers — so
+   * the engine builds the descriptor and the caller answers only the domain question (e.g.
+   * `message.metadata?.modelId === currentUniqueModelId`). Absent ⇒ every replayed message
+   * is treated as cross-model.
+   */
+  isSameModelAsTurn?: (message: CherryUIMessage) => boolean
   mediaCapabilities?: MediaCapabilities
   /** Billing sink — one call per provider invocation, deduplicated by response id. */
-  onInvocation?: (invocation: PiChatProviderInvocation) => void
+  onInvocation?: (invocation: AgentRuntimeUsageInvocation) => void
 }
 
 function finiteTokenCount(value: number | undefined): number {
@@ -110,10 +110,24 @@ function createChatPromptExtension(systemPrompt: string): ExtensionFactory {
   }
 }
 
-function toFinishReason(stopReason: string | undefined): FinishReason {
-  if (stopReason === 'length') return 'length'
-  if (stopReason === 'toolUse') return 'tool-calls'
-  return 'stop'
+type TurnVerdict = { finishReason: FinishReason } | { failure: Error }
+
+/**
+ * Terminal verdict for a completed pi run. `error` and `length` are failures (pi's
+ * `stopReason` vocabulary has no other failure mode); everything else finishes. Aborts never
+ * reach here — the caller closes the stream on the signal instead.
+ */
+function turnVerdict(stopReason: string | undefined, agentError: string | undefined): TurnVerdict {
+  if (stopReason === 'error') return { failure: new Error(agentError ?? 'pi chat turn failed') }
+  if (stopReason === 'length') {
+    return {
+      failure: new Error(
+        agentError ??
+          'Response truncated at the model output limit (stopReason: length). The reply may be incomplete or empty — try continuing the turn or retrying with a higher maximum output.'
+      )
+    }
+  }
+  return { finishReason: stopReason === 'toolUse' ? 'tool-calls' : 'stop' }
 }
 
 /** pi `input` excludes the cache buckets it reports separately; the record total is inclusive. */
@@ -121,7 +135,7 @@ function buildInvocation(
   request: PiChatTurnRequest,
   message: AssistantMessage,
   metrics?: PiInvocationMetrics
-): PiChatProviderInvocation {
+): AgentRuntimeUsageInvocation {
   const noCacheTokens = finiteTokenCount(message.usage.input)
   const cacheReadTokens = finiteTokenCount(message.usage.cacheRead)
   const cacheWriteTokens = finiteTokenCount(message.usage.cacheWrite)
@@ -130,6 +144,7 @@ function buildInvocation(
   return {
     requestId: `pi-chat:${request.executionId}:${message.responseId?.trim() || `${message.timestamp}:${message.model}`}`,
     model: message.responseModel?.trim() || message.model || request.provider.modelId,
+    messageAssociation: 'current-turn',
     usage: {
       inputTokens,
       outputTokens,
@@ -214,6 +229,13 @@ export async function streamPiChatTurn(
   request: PiChatTurnRequest,
   signal: AbortSignal
 ): Promise<ReadableStream<CherryUIMessageChunk>> {
+  // The seam slices the trailing user message out of the served list before calling; if it
+  // did not, the question would ride in both the prompt and the history. Fail setup instead.
+  if (request.history.some((message) => message.id === request.prompt.messageId)) {
+    throw new Error(
+      `pi chat turn ${request.executionId}: history already contains the prompt message ${request.prompt.messageId}`
+    )
+  }
   const pi = await loadPiSdk()
   const piDir = application.getPath('feature.agents.pi.root')
 
@@ -246,8 +268,16 @@ export async function streamPiChatTurn(
     throw new Error(`pi chat model ${runtimeProviderName}/${request.provider.modelId} could not be resolved`)
   }
 
+  const isSameModelAsTurn = request.isSameModelAsTurn
   const entries = toPiSessionEntries(request.history, {
-    ...(request.historyModelResolver && { resolveHistoryModel: request.historyModelResolver }),
+    // pi compares provider+api+model against the live turn, and the provider name is this
+    // engine's own registration — so the descriptor is built here, not by the caller.
+    ...(isSameModelAsTurn && {
+      resolveHistoryModel: (message: CherryUIMessage) =>
+        isSameModelAsTurn(message)
+          ? ({ api: model.api, provider: model.provider, model: model.id } satisfies PiHistoryModelDescriptor)
+          : undefined
+    }),
     ...(request.mediaCapabilities && { mediaCapabilities: request.mediaCapabilities }),
     ...(request.tools && { declaredToolNames: new Set(request.tools.map((tool) => tool.name)) })
   })
@@ -313,8 +343,9 @@ export async function streamPiChatTurn(
     // the agent connection's handlePiEvent ordering.
     adapter.handleEvent(event)
     if (event.type === 'turn_end') {
-      const stopReason = (event.message as { stopReason?: string }).stopReason
-      if (stopReason) lastStopReason = stopReason
+      if (event.message.role === 'assistant' && event.message.stopReason) {
+        lastStopReason = event.message.stopReason
+      }
       return
     }
     if (event.type === 'agent_end') {
@@ -329,18 +360,22 @@ export async function streamPiChatTurn(
     }
   })
 
+  const abortSession = (): void => {
+    void session.abort().catch((error) => logger.warn('pi chat session abort failed', { error }))
+  }
+
   const cleanup = (): void => {
     if (streamSettled) return
     streamSettled = true
+    signal.removeEventListener('abort', abortSession)
     unsubscribe()
     try {
       session.dispose()
     } catch (error) {
       logger.warn('pi chat session dispose failed', { error })
     }
-    void loadPiAiCompat()
-      .then((compat) => compat.unregisterApiProviders(`provider:${runtimeProviderName}`))
-      .catch((error) => logger.warn('pi chat provider unregister failed', { error }))
+    // pi resolves extension providers per runtime, so there is no global api
+    // registration to undo — the isolated runtime is dropped with this execution.
   }
 
   const stream = new ReadableStream<CherryUIMessageChunk>({
@@ -365,13 +400,13 @@ export async function streamPiChatTurn(
         }
       }
 
-      signal.addEventListener(
-        'abort',
-        () => {
-          void session.abort().catch((error) => logger.warn('pi chat session abort failed', { error }))
-        },
-        { once: true }
-      )
+      // An abort can land while the session is built; `addEventListener` never fires for an
+      // already-aborted signal, so a never-started turn must close instead of prompting.
+      if (signal.aborted) {
+        settleClosed()
+        return
+      }
+      signal.addEventListener('abort', abortSession, { once: true })
 
       session
         .prompt(request.prompt.text, {
@@ -385,11 +420,12 @@ export async function streamPiChatTurn(
               settleClosed()
               return
             }
-            if (lastStopReason === 'error' || lastStopReason === 'length') {
-              fail(turnFailure(lastStopReason, lastAgentError))
+            const verdict = turnVerdict(lastStopReason, lastAgentError)
+            if ('failure' in verdict) {
+              fail(verdict.failure)
               return
             }
-            enqueueChunk({ type: 'finish', finishReason: toFinishReason(lastStopReason) })
+            enqueueChunk({ type: 'finish', finishReason: verdict.finishReason })
             settleClosed()
           },
           (error: unknown) => {
@@ -402,7 +438,7 @@ export async function streamPiChatTurn(
         )
     },
     cancel() {
-      void session.abort().catch((error) => logger.warn('pi chat session abort failed', { error }))
+      abortSession()
     }
   })
 
@@ -416,14 +452,4 @@ function lastErrorMessage(messages: unknown): string | undefined {
     if (message.role === 'assistant' && typeof message.errorMessage === 'string') return message.errorMessage
   }
   return undefined
-}
-
-function turnFailure(stopReason: string, agentError: string | undefined): Error {
-  if (stopReason === 'length') {
-    return new Error(
-      agentError ??
-        'Response truncated at the model output limit (stopReason: length). The reply may be incomplete or empty — try continuing the turn or retrying with a higher maximum output.'
-    )
-  }
-  return new Error(agentError ?? 'pi chat turn failed')
 }

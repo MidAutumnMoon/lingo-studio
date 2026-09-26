@@ -76,9 +76,11 @@ export interface PiChatHistoryOptions {
   /**
    * Resolve a persisted assistant message's model into pi's identity fields. Wire
    * serialization of replayed turns depends on these: pi keeps a signed thinking block
-   * only when provider+api+model all match the live request, and this converter replays
-   * the persisted signature only for a mapped api family (`thinkingBlock`). Unresolvable
-   * or absent → placeholder descriptor, i.e. cross-model treatment.
+   * only when provider+api+model all match the live request, and this converter replays the
+   * persisted signature only for a mapped api family (`thinkingBlock`). Unresolvable or
+   * absent → placeholder descriptor, i.e. cross-model treatment. Callers that only know
+   * *whether* the message came from the live model (the chat engine) build the descriptor
+   * from the live model and answer that question themselves.
    */
   resolveHistoryModel?: (message: CherryUIMessage) => PiHistoryModelDescriptor | undefined
   /** Media the target model accepts; unsupported file parts become text notes. */

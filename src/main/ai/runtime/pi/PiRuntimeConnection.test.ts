@@ -206,7 +206,6 @@ vi.spyOn(trace, 'getTracer').mockReturnValue({ startSpan: mocks.startSpan } as n
 
 const { buildPiLoginPathPrefix, PiRuntimeConnection } = await import('./PiRuntimeConnection')
 const { ApiGatewayNotRunningError } = await import('../agentApiGateway')
-const { customFetch } = await import('@main/ai/utils/customFetch')
 const { REPORT_ARTIFACTS_PROMPT } = await import('../agentPrompt')
 const { toolApprovalRegistry } = await import('@main/ai/toolApproval/ToolApprovalRegistry')
 
@@ -640,32 +639,6 @@ describe('PiRuntimeConnection', () => {
     expect(appendedSystemPrompt()).not.toContain('By default, respond in')
   })
 
-  it('uses Cherry network transport and preserves provider request environment', async () => {
-    const injection = mocks.resolveInjection()
-    mocks.resolveInjection.mockReturnValue({
-      ...injection,
-      requestEnvironment: { AZURE_OPENAI_API_VERSION: '2025-04-01-preview' }
-    })
-
-    await new PiRuntimeConnection(input).start()
-    vi.stubEnv('HTTP_PROXY', 'http://127.0.0.1:7890')
-    vi.stubEnv('HTTPS_PROXY', 'http://127.0.0.1:7890')
-    vi.stubEnv('NO_PROXY', 'localhost,127.0.0.1')
-    const providerConfig = mocks.registerProvider.mock.calls[0][1]
-    providerConfig.streamSimple({}, [], { env: { REQUEST_SCOPED: 'preserved' } })
-
-    expect(mocks.providerStreamSimple.mock.calls[0][2]).toMatchObject({
-      fetch: customFetch,
-      env: {
-        REQUEST_SCOPED: 'preserved',
-        HTTP_PROXY: 'http://127.0.0.1:7890',
-        HTTPS_PROXY: 'http://127.0.0.1:7890',
-        NO_PROXY: 'localhost,127.0.0.1',
-        AZURE_OPENAI_API_VERSION: '2025-04-01-preview'
-      }
-    })
-  })
-
   it('hands the Pi bash execution environment through unchanged', async () => {
     await new PiRuntimeConnection(input).start()
 
@@ -698,17 +671,6 @@ describe('PiRuntimeConnection', () => {
       MISE_DATA_DIR: '/home/user/.local/share/mise',
       MISE_SHIMS_DIR: '/home/user/.local/share/mise/shims'
     })
-  })
-
-  it('keeps authenticated proxy requests on the credential-aware Node transport', async () => {
-    await new PiRuntimeConnection(input).start()
-    vi.stubEnv('CHERRY_STUDIO_NODE_PROXY_RULES', 'socks5://user:password@127.0.0.1:1080')
-    vi.stubEnv('SOCKS_PROXY', 'socks5://user:password@127.0.0.1:1080')
-    const providerConfig = mocks.registerProvider.mock.calls[0][1]
-
-    providerConfig.streamSimple({}, [], {})
-
-    expect(mocks.providerStreamSimple.mock.calls[0][2]).not.toHaveProperty('fetch')
   })
 
   it('uses a generation-scoped api namespace so same-session replacements cannot overwrite each other', async () => {

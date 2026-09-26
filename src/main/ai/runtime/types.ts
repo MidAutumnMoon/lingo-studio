@@ -106,33 +106,37 @@ export interface AgentRuntimeToolApprovalRequest {
   providerMetadata?: LanguageModelV3ToolApprovalRequest['providerMetadata']
 }
 
+/**
+ * One provider invocation, in the accounting shape the usage sink persists. Produced by
+ * every pi-backed engine (agent session connection, chat engine) and consumed by the
+ * runtime services that own attribution and analytics.
+ */
+export interface AgentRuntimeUsageInvocation {
+  /** Globally unique, driver-namespaced invocation id used directly for idempotent persistence. */
+  requestId: string
+  model: string
+  /** Frozen when the provider invocation is first observed; never inferred later from host turn state. */
+  messageAssociation: 'current-turn' | 'stateless'
+  usage?: {
+    inputTokens: number
+    outputTokens: number
+    totalTokens: number
+    reasoningTokens?: number
+    noCacheTokens: number
+    cacheReadTokens: number
+    cacheWriteTokens: number
+  }
+  metrics?: {
+    timeFirstTokenMs?: number
+    timeCompletionMs?: number
+    timeThinkingMs?: number
+  }
+}
+
 export type AgentRuntimeEvent =
   | { type: 'chunk'; chunk: UIMessageChunk }
   | { type: 'tool-approval-request'; request: AgentRuntimeToolApprovalRequest }
-  | {
-      type: 'usage'
-      invocation: {
-        /** Globally unique, driver-namespaced invocation id used directly for idempotent persistence. */
-        requestId: string
-        model: string
-        /** Frozen when the provider invocation is first observed; never inferred later from host turn state. */
-        messageAssociation: 'current-turn' | 'stateless'
-        usage?: {
-          inputTokens: number
-          outputTokens: number
-          totalTokens: number
-          reasoningTokens?: number
-          noCacheTokens: number
-          cacheReadTokens: number
-          cacheWriteTokens: number
-        }
-        metrics?: {
-          timeFirstTokenMs?: number
-          timeCompletionMs?: number
-          timeThinkingMs?: number
-        }
-      }
-    }
+  | { type: 'usage'; invocation: AgentRuntimeUsageInvocation }
   | { type: 'resume-token'; token: string }
   | { type: 'turn-complete'; forkAnchor?: RuntimeForkAnchor }
   /** Steers stashed via `redirect()` that the turn ended before injecting — the host queues them

@@ -24,9 +24,7 @@ import { wrapSteerReminder } from '@main/ai/steerReminder'
 import { listBuiltinToolPolicies } from '@main/ai/toolApproval/builtinToolPolicy'
 import { toolApprovalRegistry } from '@main/ai/toolApproval/ToolApprovalRegistry'
 import { chatErrorContext } from '@main/ai/utils/chatErrorContext'
-import { customFetch } from '@main/ai/utils/customFetch'
 import { resolveKnowledgeBaseScope } from '@main/ai/utils/knowledgeScope'
-import { CHERRY_NODE_PROXY_RULES_ENV, getProxyEnvironment, proxyUrlHasCredentials } from '@main/services/proxy/proxyEnv'
 import { autoDiscoverGitBash, validateGitBashPath } from '@main/utils/commandResolver'
 import { getPathFromEnvironment, getShellEnv } from '@main/utils/shellEnv'
 import type { AgentSessionCompactionAnchorData, AgentSessionCompactionTrigger } from '@shared/ai/agentSessionCompaction'
@@ -246,7 +244,7 @@ export class PiRuntimeConnection implements AgentRuntimeConnection {
     const materializedProvider = await materializePiProviderStream(injection)
     const providerConfig = withPiInvocationCapture(
       materializedProvider.providerConfig,
-      withPiRequestEnvironment(materializedProvider.streamSimple, injection.requestEnvironment),
+      materializedProvider.streamSimple,
       (message, metrics) => this.recordProviderInvocation(message, metrics),
       (model) => this.startProviderSpan(model)
     )
@@ -948,23 +946,6 @@ export function withPiInvocationCapture(
 interface PiProviderSpanObserver {
   complete(message: AssistantMessage): void
   error(error: unknown): void
-}
-
-function withPiRequestEnvironment(
-  streamSimple: NonNullable<ProviderConfig['streamSimple']>,
-  providerEnvironment: Record<string, string> | undefined
-): NonNullable<ProviderConfig['streamSimple']> {
-  return (model, context, options) => {
-    const proxyEnvironment = getProxyEnvironment(process.env)
-    const usesAuthenticatedNodeProxy = proxyUrlHasCredentials(proxyEnvironment[CHERRY_NODE_PROXY_RULES_ENV])
-
-    // Electron net.fetch cannot authenticate these proxies; retain NodeProxyBackend's credential-aware dispatcher.
-    return streamSimple(model, context, {
-      ...options,
-      env: { ...options?.env, ...proxyEnvironment, ...providerEnvironment },
-      ...(!usesAuthenticatedNodeProxy && { fetch: customFetch })
-    })
-  }
 }
 
 function finiteTokenCount(value: number | undefined): number {

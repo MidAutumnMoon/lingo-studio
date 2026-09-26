@@ -184,9 +184,11 @@ W2 also owns the **persisted part vocabulary** and the converter wiring (W1 revi
   chunk into a `step-start` part for every engine, and both the message-edit path and
   the legacy boundary restoration derive step boundaries from it — a turn persisted
   without it cannot be split back later (`piStreamAdapter` currently emits none).
-- Pass the converter options: `resolveHistoryModel` (per-message identity; signature
-  replay and pi's same-model thinking rules are inert without it),
-  `mediaCapabilities`, `declaredToolNames` (the pi tool names as declared).
+- Pass the converter options (the engine does — see the W2 review record below):
+  `isSameModelAsTurn` (the W6 seam answers whether a persisted message came from the live
+  model; the ENGINE builds the descriptor, because pi's same-model comparison includes
+  the per-execution provider name only the engine knows), `mediaCapabilities`,
+  `declaredToolNames` (the pi tool names as declared).
 - Round-trip test: captured `piStreamAdapter` parts → converter → only the documented
   matrix gaps. This is the mechanical guard for the irreversible class of findings —
   anything the engine fails to persist or the converter fails to read back.
@@ -204,6 +206,45 @@ the feature-plugin parity inventory rides W3 (per-family plugins are where it la
 request→engine-input preparation is the W6 seam wiring; the engine imports
 `withPiInvocationCapture` from `PiRuntimeConnection.ts` — extract to a shared
 `runtime/pi/` module when a third consumer appears.
+
+W2 post-landing review (2026-09-26) — probes against the real pi runtime, then fixed:
+
+- **Abort during setup was dropped.** `addEventListener('abort')` never fires for an
+  already-aborted signal, so a stop landing while the session was built let the turn run
+  to completion (probed: text streamed, provider response consumed, no `finish`). The
+  engine now closes without prompting when `signal.aborted` at `start()`, and removes the
+  listener on cleanup.
+- **Same-model replay could never trigger.** pi compares
+  `provider && api && model` (`transform-messages`), and the engine registers the provider
+  as `${name}:${executionId}` — so a descriptor built from persisted Cherry data never
+  matched (probed both directions: namespaced ⇒ `signature` preserved on the wire; bare
+  ⇒ thinking degrades to text). The engine now owns the descriptor behind
+  `isSameModelAsTurn`; W1's signature replay and the pending google/openai-responses
+  signature rows depend on this.
+- **Request environment was a hidden caller obligation.** `withPiRequestEnvironment`
+  (Cherry proxy rules + Electron `customFetch`) was applied at the agent call site only;
+  it now lives inside `materializePiProviderStream`, whose returned `streamSimple` (and
+  config) is the complete transport for both engines. Its two tests moved to
+  `modelInjection.test.ts` with it.
+- **Dead teardown removed.** `unregisterApiProviders('provider:…')` is a no-op on pi 0.87
+  (probed: registration goes to the per-runtime composer; the global api registry is
+  untouched by register *and* unregister). The chat engine no longer calls it or dynamically
+  imports `compat` per turn. `PiRuntimeConnection` still carries the same vestige — dead,
+  low-risk, left for the unification pass (see the Phase 3 record).
+- **Usage invocation re-declared a shared shape.** Chat now emits the canonical
+  `AgentRuntimeUsageInvocation` (`runtime/types.ts`, extracted from the runtime-event union)
+  with `messageAssociation: 'current-turn'`, so the seam can reuse the agent path's
+  persistence/analytics sink instead of re-wrapping.
+- **`length`/`error` verdict had two owners** (`turnFailure` + a dead `length` branch in
+  `toFinishReason`): one `turnVerdict` now decides failure vs finish. The `length`-as-error
+  policy itself is shared with the agent connection — see the register row.
+- **A mis-sliced handoff is now a setup failure**: `prompt.messageId` must not appear in
+  `history`, so a seam that forgets to remove the trailing user turn errors out instead of
+  sending the question twice.
+- Coverage added: history replay through the engine; the prompt-id guard; pre-aborted
+  signal; `length` verdict; usage math as a relation (inclusive input = noCache + cache
+  buckets); same-model signature at the wire (real anthropic serializer + recording fetch);
+  two concurrent executions on isolated registrations.
 
 **W3 — Provider coverage: agent whitelist → every chat-usable provider.**
 `modelInjection`/`assertPiProviderUsable` currently serve agent-approved providers.
@@ -244,14 +285,18 @@ MCP tool test reusing `piMcpToolAdapter` fixtures.
 | Multi-model fan-out + branch overlays | Trunk already models it; verify overlays render from pi-engine chunks |
 | Retry/fallback model chains | Host-level `createRetryableWrap` is engine-agnostic — keeps working; disable pi-internal auto-retry for chat engines so retry has a single owner |
 | Provider-native server-side web search | **Accepted delta**: pi-ai has no `providerOptions` plugin surface. Chat web search served via the MCP `web_search` tool on the pi path; provider-native search remains only on the legacy path until that path dies. Documented UX delta, not a blocker |
-| Attachments | `attachmentRouting` produces AI-SDK shapes; add pi content-block mapping (inline images supported by pi-ai). Cover image + PDF cases |
+| Attachments | `attachmentRouting` produces AI-SDK shapes and its `NativeFileSupport` axis is resolved from **AI SDK converter** behavior, while pi-ai user content is text+image only. The W6 seam must run `prepareChatMessages` over the whole served list (legacy parity: old attachments are re-extracted every turn) with native support pinned to pi's expressive set — image per model vision, and pdf/audio/video **forced to extracted text**. Reused as-is, a "native" PDF stays a file part and the converter degrades it to a filename note: silent content loss. Cover image + PDF + non-vision-image (OCR) cases |
 | Citations / sendSources | Agent side already resolves citations for pi tool outputs; port the resolution to chat rendering |
 | Reasoning effort / service tier / fast mode | `modelInjection` thinking-level map extended to chat params; verify per family |
 | Defer exposition (`tool_search`) | Port `piCodeMode` catalog for chat when tool counts demand it; v1 may ship without (chat tool sets are small) |
 | Steering semantics | Chat steer = enqueue + yield + chained continuation (host-owned, engine-agnostic) — no change; pi-native steer is not used for chat in Phase 1 |
 | Replayed step boundaries | One persisted message collapses to one assistant entry, so tool calls from different steps share one wire turn. W2 emits `start-step`; splitting the entries in `toAssistantTurn` at those boundaries is the follow-up (pi's own sessions keep one assistant message per step) |
 | Replayed tool-result rendering (builtin outputs) | MCP call results render through `mcpResultToTextSummary` (`messages/toolResultRendering.ts`, the same summary the MCP tool declares); the knowledge / fs / web / painting `toModelOutput` views are unported, so those replayed results show raw JSON text. Port into the same shared module (it survives Phase 2 — the ai-sdk adapter dir does not) |
-| Reasoning signature replay (non-anthropic families) | `providerMetadata.anthropic.signature` replays today; google (`thoughtSignature`) and openai-responses (`itemId` blob) keys are unmapped. Inert until `resolveHistoryModel` resolves per-message identity — land them together in W3 |
+| Reasoning signature replay (non-anthropic families) | `providerMetadata.anthropic.signature` replays today; google (`thoughtSignature`) and openai-responses (`itemId` blob) keys are unmapped. The engine's `isSameModelAsTurn` identity is what makes any of this reach the wire — land them together in W3, and note that cross-model treatment also strips tool-call `thoughtSignature` and normalizes tool-call ids (`transform-messages`) |
+| Stop-reason `length` policy | Both pi paths fail the turn with an actionable error (`turnVerdict` / `finishPromptRun`), while the legacy chat path finishes successfully at `finishReason: 'length'` and the gateway maps it to `max_tokens`. Decide once (keep pi's behavior ⇒ a UX delta users will see: truncation surfaces as an error row; partial text is still persisted). Legacy parity claim in the W6 checklist must match the decision |
+| Resumed-session reasoning replay (agent path) | The agent connection names the provider `${providerId}:${sessionId}:${generation}` and rewrites the pi api per generation, and pi stores those names in session JSONL — so after a resume every replayed assistant message is cross-model and signed thinking degrades to text. Chat fixed this by owning the descriptor (`isSameModelAsTurn`); the agent path needs the same identity treatment (fits the unification, see Phase 3) |
+| Tool timing in `runtimeTiming` (pi chat) | `MessageRuntimeTimingCollector` is fed by the legacy engine's `onToolExecutionStart/End` hooks only, so pi chat turns persist no tool spans and the perf panel's tool lane attributes tool time to the model. Either derive spans from chunks in the trunk (`withReasoningTimingMetadata` is the precedent transform) or feed the collector from the pi adapter |
+| `timeThinkingMs` in usage metrics | The legacy billing middleware records thinking duration; `PiInvocationMetrics` has no such field, so both pi paths leave `timeThinkingMs` null in `aiUsageRecord`. Needs a pi-side thinking-duration measurement (the adapter already sees `thinking_start/end`) |
 
 **W6 — Rollout flag.**
 Preference flag (e.g. `AiChat.piEngine`), levels: off → dogfood (team topics) →
@@ -267,6 +312,28 @@ round-trip (the public SSE contract rides the engine from day one); a topic writ
 with the flag on, then replayed after flipping the flag back off — the pi engine
 stamps tool parts `providerExecuted`/`dynamic`, which the legacy conversion treats
 differently.
+
+**W6 seam — request→engine-input preparation** (the engine takes prepared input on
+purpose; these are the obligations that used to be implicit, from the W2 review):
+
+- Provider: `resolvePiProviderInjection` → `materializePiProviderStream` — the returned
+  `streamSimple`/config is the complete transport (compat wrappers, Cherry proxy env,
+  Electron fetch); hand `{name, config, apiKey, modelId}` to the engine and do not wrap.
+- Prompt: assembled chat prompt string; the trailing user message's text verbatim
+  (no template expansion) + its **images mapped to pi `ImageContent`** (pi resizes/omits
+  unusable ones itself).
+- History: served messages **excluding** the trailing user message, its id passed as
+  `prompt.messageId` (the engine rejects double-inclusion); `isSameModelAsTurn` from the
+  message's `metadata.modelId` vs the turn's `UniqueModelId`; `mediaCapabilities`;
+  `declaredToolNames`.
+- Attachments: `prepareChatMessages` over the full served list with pi-shaped native
+  support (see the register's attachments row) — before slicing, so history keeps legacy
+  fidelity.
+- Accounting: `onInvocation` → the same attribution/analytics sink the agent path uses
+  (`AgentRuntimeUsageInvocation`), with the chat `tokenUsageSource` and the execution's
+  anchor message id.
+- Tools: only after W4a's authorizer exists — the engine executes whatever it is handed,
+  with no approval gate of its own.
 
 ### Phase 1 exit criteria
 
@@ -329,6 +396,22 @@ Candidate directions, deliberately undecided:
   (aiSdk provider config, `runtime/pi/`, `runtime/dsh/`).
 - Single prompt/permission model: converge `buildAgentRuntimePrompt` and the chat
   prompt assembly.
+
+**Consolidation inputs (W2 review, 2026-09-26 — recorded, not fixed: chat and the agent
+connection will merge here, so parallel copies are the target, not a bug to patch now).**
+`runtime/piChat/chatEngine.ts` and `runtime/pi/PiRuntimeConnection.ts` now hold two copies
+of four policies, and one copy has already drifted:
+
+| Policy | Agent connection | Chat engine | Drift |
+|---|---|---|---|
+| Provider-invocation accounting | `recordProviderInvocation` | `buildInvocation` | shapes converge (`AgentRuntimeUsageInvocation`); `finiteTokenCount` exists 3× (dsh too) |
+| Provider span mapping | `startProviderSpan` | `startProviderSpan` | agent marks `error`/`aborted` calls `ERROR`, chat always `OK` — provider failures arrive as resolved messages, so chat's spans never go red |
+| Turn verdict (stop reason / error extraction) | `handlePiEvent` + `finishPromptRun` | session-event handler + `turnVerdict` | same `turn_end` cast, `willRetry` reset, `lastErrorMessage`, identical `length` text |
+| Provider teardown | `unregisterApiProvider` | (removed in W2 review) | dead on pi 0.87: nothing registers under `provider:…` in the global api registry |
+
+Also in this pass: the two engines each own a session lifecycle (build → seed → prompt →
+verdict → dispose) with the same shape and the same failure modes. One owner for that
+lifecycle is the single highest-value item here — it removes all four rows above at once.
 
 Open questions: does chat ever want warm sessions and resume tokens; does work
 ever want multi-model fan-out; where do overlay branches and session forks unify.

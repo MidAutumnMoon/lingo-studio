@@ -5,7 +5,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/message'
 
-import { streamPiChatTurn, type PiChatProviderInvocation, type PiChatProviderSource } from './chatEngine'
+import type { AgentRuntimeUsageInvocation } from '../types'
+import { streamPiChatTurn, type PiChatProviderSource } from './chatEngine'
 import { toPiSessionEntries } from './historyConverter'
 
 type Faux = Awaited<ReturnType<typeof importFaux>>
@@ -36,6 +37,62 @@ async function accumulate(chunks: CherryUIMessageChunk[]): Promise<CherryUIMessa
   for await (const snapshot of readUIMessageStream<CherryUIMessage>({ stream })) last = snapshot
   if (!last) throw new Error('no message produced')
   return last
+}
+
+/** Real Anthropic-family api behind a recording fetch, so the wire payload is the assertion target. */
+async function anthropicProviderSource(bodies: unknown[]): Promise<PiChatProviderSource> {
+  const anthropic = await import('@earendil-works/pi-ai/api/anthropic-messages')
+  const config = {
+    name: 'Anthropic Probe',
+    api: 'anthropic-messages',
+    baseUrl: 'https://api.anthropic.com',
+    apiKey: 'placeholder',
+    models: [
+      {
+        id: 'claude-x',
+        name: 'Claude X',
+        api: 'anthropic-messages',
+        reasoning: true,
+        input: ['text', 'image'],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 200_000,
+        maxTokens: 8_000
+      }
+    ],
+    streamSimple: (model: never, context: never, options: { [key: string]: unknown } | undefined) =>
+      anthropic.streamSimple(model, context, {
+        ...options,
+        apiKey: 'test-key',
+        maxRetries: 0,
+        fetch: async (_input: unknown, init?: { body?: unknown }) => {
+          bodies.push(JSON.parse(String(init?.body)))
+          return new Response(JSON.stringify({ error: { message: 'recording fetch stops the turn' } }), {
+            status: 400,
+            headers: { 'content-type': 'application/json' }
+          })
+        }
+      })
+  }
+  return { name: 'anthropic-probe', apiKey: 'test-key', modelId: 'claude-x', config: config as never }
+}
+
+async function runAnthropicTurn(options: {
+  provider: PiChatProviderSource
+  history: CherryUIMessage[]
+  isSameModelAsTurn?: (message: CherryUIMessage) => boolean
+}): Promise<void> {
+  const stream = await streamPiChatTurn(
+    {
+      executionId: 'exec-signature',
+      provider: options.provider,
+      history: options.history,
+      prompt: userTurn('follow-up'),
+      ...(options.isSameModelAsTurn && { isSameModelAsTurn: options.isSameModelAsTurn })
+    },
+    new AbortController().signal
+  )
+  // The recording fetch fails the turn on purpose; the captured body is the artifact.
+  await drain(stream).catch(() => undefined)
 }
 
 type FauxCore = ReturnType<Faux['createFauxCore']>
@@ -86,6 +143,24 @@ function echoTool(execute: ToolDefinition['execute']): ToolDefinition {
   }
 }
 
+/** The turn's trailing user message, as the seam hands it over (history excludes it). */
+function userTurn(text: string, messageId = 'p1'): { messageId: string; text: string } {
+  return { messageId, text }
+}
+
+/** A served history message (not the trailing turn). */
+function historyText(id: string, role: CherryUIMessage['role'], text: string): CherryUIMessage {
+  return { id, role, parts: [{ type: 'text', text }] }
+}
+
+function userTextOf(context: TranscriptContext): string | undefined {
+  const user = [...context.messages].reverse().find((message) => message.role === 'user')
+  if (typeof user?.content === 'string') return user.content
+  return Array.isArray(user?.content)
+    ? (user.content.find((block) => block.type === 'text') as { text?: string } | undefined)?.text
+    : undefined
+}
+
 describe('streamPiChatTurn', () => {
   it('streams a text turn as a chunk sequence with finish parity', async () => {
     const faux = await importFaux()
@@ -94,7 +169,7 @@ describe('streamPiChatTurn', () => {
 
     const chunks = await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-text', provider, history: [], prompt: { text: 'hi' } },
+        { executionId: 'exec-text', provider, history: [], prompt: userTurn('hi') },
         new AbortController().signal
       )
     )
@@ -126,7 +201,7 @@ describe('streamPiChatTurn', () => {
           provider,
           systemPrompt: 'You are a chat assistant.',
           history: [],
-          prompt: { text: 'hi' }
+          prompt: userTurn('hi')
         },
         new AbortController().signal
       )
@@ -144,7 +219,7 @@ describe('streamPiChatTurn', () => {
 
     await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-noprompt', provider, history: [], prompt: { text: 'hi' } },
+        { executionId: 'exec-noprompt', provider, history: [], prompt: userTurn('hi') },
         new AbortController().signal
       )
     )
@@ -162,7 +237,7 @@ describe('streamPiChatTurn', () => {
 
     await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-slash', provider, history: [], prompt: { text: '/help me' } },
+        { executionId: 'exec-slash', provider, history: [], prompt: userTurn('/help me') },
         new AbortController().signal
       )
     )
@@ -198,7 +273,7 @@ describe('streamPiChatTurn', () => {
           executionId: 'exec-tool',
           provider,
           history: [],
-          prompt: { text: 'echo hi' },
+          prompt: userTurn('echo hi'),
           tools: [echoTool(execute)]
         },
         new AbortController().signal
@@ -225,7 +300,7 @@ describe('streamPiChatTurn', () => {
 
     const controller = new AbortController()
     const stream = await streamPiChatTurn(
-      { executionId: 'exec-abort', provider, history: [], prompt: { text: 'hi' } },
+      { executionId: 'exec-abort', provider, history: [], prompt: userTurn('hi') },
       controller.signal
     )
     const reader = stream.getReader()
@@ -250,17 +325,23 @@ describe('streamPiChatTurn', () => {
       ])
 
     const stream = await streamPiChatTurn(
-      { executionId: 'exec-error', provider, history: [], prompt: { text: 'hi' } },
+      { executionId: 'exec-error', provider, history: [], prompt: userTurn('hi') },
       new AbortController().signal
     )
     await expect(drain(stream)).rejects.toThrow('provider exploded')
   })
 
-  it('reports one usage invocation per provider call with normalized token math', async () => {
+  it('reports one usage invocation with the inclusive/exclusive token split the accounting expects', async () => {
     const faux = await importFaux()
     const provider = await fauxProviderSource(faux, 'exec-usage')
-    fauxStates.get('exec-usage')!.core.setResponses([faux.fauxAssistantMessage('answer')])
-    const invocations: PiChatProviderInvocation[] = []
+    fauxStates.get('exec-usage')!.core.setResponses([
+      (): ReturnType<typeof faux.fauxAssistantMessage> => ({
+        ...faux.fauxAssistantMessage('answer'),
+        responseId: 'resp-1',
+        responseModel: 'faux-model-2'
+      })
+    ])
+    const invocations: AgentRuntimeUsageInvocation[] = []
 
     await drain(
       await streamPiChatTurn(
@@ -268,7 +349,7 @@ describe('streamPiChatTurn', () => {
           executionId: 'exec-usage',
           provider,
           history: [],
-          prompt: { text: 'hi' },
+          prompt: userTurn('hi'),
           onInvocation: (invocation) => invocations.push(invocation)
         },
         new AbortController().signal
@@ -276,12 +357,21 @@ describe('streamPiChatTurn', () => {
     )
 
     expect(invocations).toHaveLength(1)
-    expect(invocations[0].requestId).toMatch(/^pi-chat:exec-usage:/)
-    expect(invocations[0].usage).toMatchObject({
-      inputTokens: expect.any(Number),
-      outputTokens: expect.any(Number),
-      totalTokens: expect.any(Number)
+    expect(invocations[0]).toMatchObject({
+      requestId: 'pi-chat:exec-usage:resp-1',
+      model: 'faux-model-2',
+      messageAssociation: 'current-turn'
     })
+    // pi's `usage.input` is the UNCACHED prompt count; the record's `inputTokens` is the
+    // inclusive total (legacy AI SDK semantics) with the buckets kept alongside it.
+    const usage = invocations[0].usage
+    expect(usage).toBeDefined()
+    expect(usage!.cacheWriteTokens).toBeGreaterThan(0)
+    expect(usage!.inputTokens).toBe(usage!.noCacheTokens + usage!.cacheReadTokens + usage!.cacheWriteTokens)
+    expect(usage!.totalTokens).toBe(usage!.inputTokens + usage!.outputTokens)
+    // The faux reports no reasoning breakdown, so the field must be absent, not zeroed.
+    expect('reasoningTokens' in usage!).toBe(false)
+    expect(invocations[0].metrics?.timeCompletionMs).toBeGreaterThanOrEqual(0)
   })
 
   it('replays history through the converter and round-trips its own output (W2 guard)', async () => {
@@ -293,7 +383,7 @@ describe('streamPiChatTurn', () => {
 
     const chunks = await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-roundtrip', provider, history: [], prompt: { text: 'q' } },
+        { executionId: 'exec-roundtrip', provider, history: [], prompt: userTurn('q') },
         new AbortController().signal
       )
     )
@@ -313,5 +403,140 @@ describe('streamPiChatTurn', () => {
     // Documented gap: pi emits no reasoning signature today, so replay carries none.
     const thinking = (entries[0].message as unknown as { content: Array<Record<string, unknown>> }).content[0]
     expect('thinkingSignature' in thinking).toBe(false)
+  })
+
+  it('replays served history into the provider request', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-history')
+    fauxStates.get('exec-history')!.core.setResponses([faux.fauxAssistantMessage('answer')])
+
+    await drain(
+      await streamPiChatTurn(
+        {
+          executionId: 'exec-history',
+          provider,
+          history: [historyText('u0', 'user', 'earlier question'), historyText('a0', 'assistant', 'earlier answer')],
+          prompt: userTurn('follow-up')
+        },
+        new AbortController().signal
+      )
+    )
+
+    const context = fauxStates.get('exec-history')!.capturedContexts[0]
+    // A leading system message always exists (pi's shape; empty text with no chat prompt).
+    expect(context.messages.map((message) => message.role)).toEqual(['system', 'user', 'assistant', 'user'])
+    expect(userTextOf(context)).toBe('follow-up')
+  })
+
+  it('refuses a turn whose history still contains its prompt message', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-dupe')
+    fauxStates.get('exec-dupe')!.core.setResponses([faux.fauxAssistantMessage('answer')])
+
+    await expect(
+      streamPiChatTurn(
+        {
+          executionId: 'exec-dupe',
+          provider,
+          history: [historyText('p1', 'user', 'the same question')],
+          prompt: userTurn('the same question', 'p1')
+        },
+        new AbortController().signal
+      )
+    ).rejects.toThrow(/history already contains the prompt message p1/)
+  })
+
+  it('closes without prompting when the signal was already aborted', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-preabort')
+    const core = fauxStates.get('exec-preabort')!.core
+    core.setResponses([faux.fauxAssistantMessage('must not be generated')])
+    const controller = new AbortController()
+    controller.abort()
+
+    const chunks = await drain(
+      await streamPiChatTurn(
+        { executionId: 'exec-preabort', provider, history: [], prompt: userTurn('hi') },
+        controller.signal
+      )
+    )
+
+    expect(chunks.map((chunk) => chunk.type)).toEqual(['start'])
+    expect(core.getPendingResponseCount()).toBe(1)
+  })
+
+  it('errors the stream when the model stops at the output limit', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-length')
+    fauxStates.get('exec-length')!.core.setResponses([faux.fauxAssistantMessage('truncated', { stopReason: 'length' })])
+
+    await expect(
+      drain(
+        await streamPiChatTurn(
+          { executionId: 'exec-length', provider, history: [], prompt: userTurn('hi') },
+          new AbortController().signal
+        )
+      )
+    ).rejects.toThrow(/output limit/)
+  })
+
+  it('keeps a signed reasoning block for same-model history only', async () => {
+    const history = [
+      historyText('u0', 'user', 'earlier question'),
+      {
+        id: 'a0',
+        role: 'assistant',
+        parts: [
+          { type: 'reasoning', text: 'plan', state: 'done', providerMetadata: { anthropic: { signature: 'sig-abc' } } },
+          { type: 'text', text: 'earlier answer' }
+        ]
+      } as unknown as CherryUIMessage
+    ]
+
+    const sameModelBodies: unknown[] = []
+    const sameModel = await anthropicProviderSource(sameModelBodies)
+    await runAnthropicTurn({ provider: sameModel, history, isSameModelAsTurn: () => true })
+
+    const foreignBodies: unknown[] = []
+    const foreign = await anthropicProviderSource(foreignBodies)
+    await runAnthropicTurn({ provider: foreign, history })
+
+    const assistantContent = (bodies: unknown[]): Array<{ type: string; signature?: string; text?: string }> => {
+      const body = bodies[0] as { messages: Array<{ role: string; content: unknown }> }
+      return body.messages[1].content as Array<{ type: string; signature?: string; text?: string }>
+    }
+    expect(assistantContent(sameModelBodies)[0]).toEqual({ type: 'thinking', thinking: 'plan', signature: 'sig-abc' })
+    // Without the caller's same-model answer the block rides as text: pi drops the signature.
+    expect(assistantContent(foreignBodies)[0]).toEqual({ type: 'text', text: 'plan' })
+  })
+
+  it('runs concurrent executions on isolated provider registrations', async () => {
+    const faux = await importFaux()
+    const first = await fauxProviderSource(faux, 'exec-fanout-a')
+    const second = await fauxProviderSource(faux, 'exec-fanout-b')
+    fauxStates.get('exec-fanout-a')!.core.setResponses([faux.fauxAssistantMessage('answer A')])
+    fauxStates.get('exec-fanout-b')!.core.setResponses([faux.fauxAssistantMessage('answer B')])
+
+    const textOf = async (provider: PiChatProviderSource, executionId: string, text: string): Promise<string> => {
+      const chunks = await drain(
+        await streamPiChatTurn(
+          { executionId, provider, history: [], prompt: userTurn(text) },
+          new AbortController().signal
+        )
+      )
+      return chunks
+        .filter((chunk) => chunk.type === 'text-delta')
+        .map((chunk) => (chunk as { delta?: string }).delta)
+        .join('')
+    }
+    const [a, b] = await Promise.all([
+      textOf(first, 'exec-fanout-a', 'question A'),
+      textOf(second, 'exec-fanout-b', 'question B')
+    ])
+
+    expect(a).toBe('answer A')
+    expect(b).toBe('answer B')
+    expect(userTextOf(fauxStates.get('exec-fanout-a')!.capturedContexts[0])).toBe('question A')
+    expect(userTextOf(fauxStates.get('exec-fanout-b')!.capturedContexts[0])).toBe('question B')
   })
 })

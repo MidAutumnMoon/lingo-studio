@@ -16,8 +16,10 @@ import { application } from '@application'
 import type { AiUsageCredentialReceipt } from '@data/services/AiUsageRecordService'
 import { modelService } from '@data/services/ModelService'
 import { providerService } from '@data/services/ProviderService'
+import { customFetch } from '@main/ai/utils/customFetch'
 import { getExtraHeaders } from '@main/ai/utils/provider'
 import { createAiUsagePricingSnapshot } from '@main/ai/utils/usageCapture'
+import { CHERRY_NODE_PROXY_RULES_ENV, getProxyEnvironment, proxyUrlHasCredentials } from '@main/services/proxy/proxyEnv'
 import { mapEndpointToPiApi, type PiApi } from '@shared/ai/piModelCompatibility'
 import { isCodexProviderId } from '@shared/data/presets/codex'
 import { hasRuntimeTransportAdapter } from '@shared/data/presets/runtimeTransport'
@@ -113,7 +115,14 @@ export interface PiGatewayProviderInjection extends PiProviderInjectionBase {
 
 export type PiProviderInjection = PiDirectProviderInjection | PiGatewayProviderInjection
 
-/** Materialize provider-specific stream compatibility before the connection consumes it. */
+/** Materialize provider-specific stream compatibility before the connection consumes it.
+ *
+ * The returned `streamSimple` is the COMPLETE transport for this injection: provider
+ * compatibility wrappers, Cherry's request environment (proxy rules + Electron fetch),
+ * and — when the provider config declares none — pi's builtin api stream. Consumers must
+ * not wrap it again: one prepared artifact is what keeps the agent connection and the pi
+ * chat engine on the same network path.
+ */
 export async function materializePiProviderStream(injection: PiProviderInjection): Promise<{
   providerConfig: ProviderConfig
   streamSimple: NonNullable<ProviderConfig['streamSimple']>
@@ -123,9 +132,32 @@ export async function materializePiProviderStream(injection: PiProviderInjection
     : injection.providerName === 'cherryin' && injection.api === 'anthropic-messages'
       ? withCherryInThinkingReplay(injection.providerConfig, (await loadPiAnthropicMessagesApi()).streamSimple)
       : injection.providerConfig
-  return {
-    providerConfig,
-    streamSimple: providerConfig.streamSimple ?? (await loadPiApiStreamSimple(injection.api))
+  const streamSimple = withPiRequestEnvironment(
+    providerConfig.streamSimple ?? (await loadPiApiStreamSimple(injection.api)),
+    injection.requestEnvironment
+  )
+  return { providerConfig: { ...providerConfig, streamSimple }, streamSimple }
+}
+
+/**
+ * Layer Cherry's request environment onto a provider stream: proxy rules from Cherry's
+ * own config (undici does not read them by itself) and the Electron-aware `customFetch`
+ * unless the proxy authenticates in the Node dispatcher, which `net.fetch` cannot do.
+ */
+function withPiRequestEnvironment(
+  streamSimple: NonNullable<ProviderConfig['streamSimple']>,
+  providerEnvironment: Record<string, string> | undefined
+): NonNullable<ProviderConfig['streamSimple']> {
+  return (model, context, options) => {
+    const proxyEnvironment = getProxyEnvironment(process.env)
+    const usesAuthenticatedNodeProxy = proxyUrlHasCredentials(proxyEnvironment[CHERRY_NODE_PROXY_RULES_ENV])
+
+    // Electron net.fetch cannot authenticate these proxies; retain NodeProxyBackend's credential-aware dispatcher.
+    return streamSimple(model, context, {
+      ...options,
+      env: { ...options?.env, ...proxyEnvironment, ...providerEnvironment },
+      ...(!usesAuthenticatedNodeProxy && { fetch: customFetch })
+    })
   }
 }
 

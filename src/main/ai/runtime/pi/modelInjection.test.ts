@@ -35,10 +35,13 @@ vi.mock('@main/ai/runtime/agentApiGateway', async (importOriginal) => ({
   resolveApiGatewayRuntime: serviceMocks.resolveApiGatewayRuntime
 }))
 
+import { customFetch } from '@main/ai/utils/customFetch'
+
 import {
   assertPiProviderUsable,
   buildPiGatewayInjection,
   buildPiProviderInjection,
+  materializePiProviderStream,
   PI_PLACEHOLDER_API_KEY,
   PiMissingApiKeyError,
   PiUnsupportedProviderError,
@@ -850,6 +853,89 @@ describe('modelInjection service resolution', () => {
 // pi defaults its thinking level to `medium` and clamps it against the model's ladder. Cherry used to
 // send no ladder, so pi assumed medium was available and emitted it verbatim — rejected by endpoints
 // serving Kimi K3, whose vocabulary is low/high/max (#20029).
+describe('materializePiProviderStream', () => {
+  const ANTHROPIC_PROVIDER: Partial<Provider> = {
+    id: 'anthropic',
+    name: 'Anthropic',
+    defaultChatEndpoint: 'anthropic-messages',
+    endpointConfigs: {
+      'anthropic-messages': { adapterFamily: 'anthropic', baseUrl: 'https://api.anthropic.com' }
+    }
+  }
+  const ANTHROPIC_MODEL: Partial<Model> = {
+    id: 'anthropic::claude',
+    apiModelId: 'claude-sonnet-4',
+    contextWindow: 200_000
+  }
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  function injectionWithRecordingInnerStream() {
+    const inner = vi.fn(() => {
+      throw new Error('inner stream reached')
+    })
+    const injection = buildPiProviderInjection(makeProvider(ANTHROPIC_PROVIDER), makeModel(ANTHROPIC_MODEL), REAL_KEY)
+    return {
+      inner,
+      injection: {
+        ...injection,
+        requestEnvironment: { AZURE_OPENAI_API_VERSION: '2025-04-01-preview' },
+        providerConfig: { ...injection.providerConfig, streamSimple: inner as never }
+      }
+    }
+  }
+
+  it('returns one prepared stream that carries Cherry proxy env and the provider request environment', async () => {
+    const { inner, injection } = injectionWithRecordingInnerStream()
+    const materialized = await materializePiProviderStream(injection)
+    vi.stubEnv('HTTP_PROXY', 'http://127.0.0.1:7890')
+    vi.stubEnv('HTTPS_PROXY', 'http://127.0.0.1:7890')
+    vi.stubEnv('NO_PROXY', 'localhost,127.0.0.1')
+
+    const model = injection.providerConfig.models![0] as unknown as PiModel<PiApi>
+    expect(() =>
+      materialized.streamSimple(model, normalizeContext({ messages: [] }), { env: { REQUEST_SCOPED: 'preserved' } })
+    ).toThrow('inner stream reached')
+
+    expect(inner).toHaveBeenCalledWith(
+      model,
+      expect.anything(),
+      expect.objectContaining({
+        // Ambient proxy vars from the host may add lowercase duplicates; the contract is that
+        // Cherry's proxy env and the provider's request environment both land here.
+        env: expect.objectContaining({
+          REQUEST_SCOPED: 'preserved',
+          HTTP_PROXY: 'http://127.0.0.1:7890',
+          HTTPS_PROXY: 'http://127.0.0.1:7890',
+          NO_PROXY: 'localhost,127.0.0.1',
+          AZURE_OPENAI_API_VERSION: '2025-04-01-preview'
+        }),
+        fetch: customFetch
+      })
+    )
+    // Config and returned stream are the same artifact — consumers must not wrap again.
+    expect(materialized.providerConfig.streamSimple).toBe(materialized.streamSimple)
+  })
+
+  it('keeps authenticated proxy requests on the credential-aware Node transport', async () => {
+    const { inner, injection } = injectionWithRecordingInnerStream()
+    const materialized = await materializePiProviderStream(injection)
+    vi.stubEnv('CHERRY_STUDIO_NODE_PROXY_RULES', 'socks5://user:password@127.0.0.1:1080')
+    vi.stubEnv('SOCKS_PROXY', 'socks5://user:password@127.0.0.1:1080')
+
+    const model = injection.providerConfig.models![0] as unknown as PiModel<PiApi>
+    expect(() => materialized.streamSimple(model, normalizeContext({ messages: [] }), {})).toThrow(
+      'inner stream reached'
+    )
+
+    // `net.fetch` cannot authenticate these proxies: leave pi's own Node dispatcher in place.
+    const options = (inner.mock.calls[0] as unknown[])[2]
+    expect(options).not.toHaveProperty('fetch')
+  })
+})
+
 describe('pi thinking level ladder', () => {
   const relay = () =>
     makeProvider({
