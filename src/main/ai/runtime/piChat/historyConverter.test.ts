@@ -313,16 +313,89 @@ describe('tool replay', () => {
       { type: 'toolCall', id: 'c1', name: 'weather.get_forecast', arguments: {} }
     ])
   })
+
+  it('renders an MCP call result through the tool summary, never the raw payload', () => {
+    const entries = toPiSessionEntries([
+      msg('assistant', [
+        toolPart({
+          type: 'dynamic-tool',
+          toolName: 'mcp__browser__screenshot_0f1e2d3c',
+          output: {
+            content: [
+              { type: 'image', data: 'cG5nLWJ5dGVz', mimeType: 'image/png' },
+              { type: 'text', text: 'viewport 1280x800' }
+            ],
+            structuredContent: { viewport: '1280x800' }
+          }
+        })
+      ])
+    ])
+    const result = entries[1].message
+    expect(result).toMatchObject({
+      role: 'toolResult',
+      content: [{ type: 'text', text: '[Image: image/png, delivered to user]\nviewport 1280x800' }],
+      // The live pi MCP path keeps structured content in the sidecar, never the media payload.
+      details: { viewport: '1280x800' }
+    })
+    expect(JSON.stringify(result)).not.toContain('cG5nLWJ5dGVz')
+  })
+
+  it('keeps JSON text for object outputs that are not MCP results', () => {
+    const entries = toPiSessionEntries([
+      msg('assistant', [toolPart({ output: { content: [{ type: 'text', text: 'x' }], extra: 1 } })])
+    ])
+    expect(entries[1].message).toMatchObject({
+      role: 'toolResult',
+      content: [{ type: 'text', text: '{"content":[{"type":"text","text":"x"}],"extra":1}' }],
+      details: { content: [{ type: 'text', text: 'x' }], extra: 1 }
+    })
+  })
+
+  it('keeps a non-object persisted input under `input`, an absent one as no argument', () => {
+    const stringInput = toPiSessionEntries([msg('assistant', [toolPart({ input: 'raw query' })])])
+    expect(assistantEntry(stringInput).content).toStrictEqual([
+      { type: 'toolCall', id: 'call-1', name: 'web_search', arguments: { input: 'raw query' } }
+    ])
+    const noInput = toPiSessionEntries([msg('assistant', [toolPart({ input: undefined })])])
+    expect(assistantEntry(noInput).content).toStrictEqual([
+      { type: 'toolCall', id: 'call-1', name: 'web_search', arguments: {} }
+    ])
+  })
 })
 
 describe('model identity and usage', () => {
+  /** 1000 prompt tokens = 200 uncached + 500 read + 300 written, as `MessageStats` records them. */
   const stats = {
-    inputTokens: 10,
+    inputTokens: 1000,
     outputTokens: 20,
-    totalTokens: 30,
-    inputTokenDetails: { cacheReadTokens: 4, cacheWriteTokens: 6 },
+    totalTokens: 1020,
+    inputTokenDetails: { noCacheTokens: 200, cacheReadTokens: 500, cacheWriteTokens: 300 },
     outputTokenDetails: { reasoningTokens: 8 }
   }
+
+  it('replays a persisted provider signature only for the mapped api family', () => {
+    const reasoning: CherryMessagePart = {
+      type: 'reasoning',
+      text: 'plan',
+      state: 'done',
+      providerMetadata: { anthropic: { signature: 'sig-abc' } }
+    }
+    const asAnthropic = toPiSessionEntries([msg('assistant', [reasoning])], {
+      resolveHistoryModel: () => ({ api: 'anthropic-messages', provider: 'cherry-p', model: 'm1' })
+    })
+    expect(assistantEntry(asAnthropic).content).toEqual([
+      { type: 'thinking', thinking: 'plan', thinkingSignature: 'sig-abc' }
+    ])
+
+    // Placeholder and other api families: pi degrades the unsigned block itself, so an
+    // anthropic signature must not travel with a non-anthropic replay.
+    for (const descriptor of [undefined, { api: 'openai-responses', provider: 'cherry-p', model: 'm1' } as const]) {
+      const entries = toPiSessionEntries([msg('assistant', [reasoning])], {
+        ...(descriptor && { resolveHistoryModel: () => descriptor })
+      })
+      expect(assistantEntry(entries).content).toEqual([{ type: 'thinking', thinking: 'plan' }])
+    }
+  })
 
   it('uses the placeholder descriptor when no resolver resolves', () => {
     const entries = toPiSessionEntries([msg('assistant', [{ type: 'text', text: 'x' }])])
@@ -347,13 +420,14 @@ describe('model identity and usage', () => {
     )
     const first = assistantEntry(entries)
     expect({ api: first.api, provider: first.provider, model: first.model }).toEqual(anthropic)
+    // pi's `input` excludes the cache buckets it carries separately; Cherry's total is inclusive.
     expect(first.usage).toEqual({
-      input: 10,
+      input: 200,
       output: 20,
-      cacheRead: 4,
-      cacheWrite: 6,
+      cacheRead: 500,
+      cacheWrite: 300,
       reasoning: 8,
-      totalTokens: 30,
+      totalTokens: 1020,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
     })
     const second = assistantEntry(entries, 1)
@@ -367,6 +441,15 @@ describe('model identity and usage', () => {
       totalTokens: 0,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
     })
+  })
+
+  it('derives the uncached input count when a row predates the breakdown', () => {
+    const entries = toPiSessionEntries([
+      msg('assistant', [{ type: 'text', text: 'x' }], {
+        stats: { inputTokens: 100, outputTokens: 5, inputTokenDetails: { cacheReadTokens: 40 } }
+      })
+    ])
+    expect(assistantEntry(entries).usage).toMatchObject({ input: 60, output: 5, cacheRead: 40, totalTokens: 105 })
   })
 })
 

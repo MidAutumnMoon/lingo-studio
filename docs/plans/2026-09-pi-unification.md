@@ -146,6 +146,22 @@ the mapping is lossy by design and documented.
 Ship/verify: converter unit tests over the full part corpus + golden conversations;
 property: converter output is a function of input only (no persistence side effects).
 
+Landed. Post-landing review (2026-09-26) exercised the real path —
+`toPiSessionEntries` → `SessionManager.inMemory` → `buildSessionContext` → captured
+provider payloads — and fixed four mapping defects in place: MCP call results now
+render through the summary the MCP tool declares instead of the raw response (which
+put base64 media into the prompt, and `trimToolOutputs` cannot cover non-text
+content), reasoning replays the persisted provider signature (anthropic), `usage.input`
+carries the uncached count pi expects, and the wire-name policy has one home
+(`messageRules.resolveReplayToolName`). Deferred findings are recorded as W2
+deliverables below and in the W5 register; nothing here blocks W2.
+
+Known debt, deliberately deferred: `timestampMs` yields NaN for a malformed
+`metadata.createdAt` (in-memory entries only, inert); a terminal part whose output is
+absent replays as the literal text `undefined`; the pi-emitted part vocabulary
+(`providerExecuted`/`dynamic`) replays as local calls — correct for pi, but a topic
+abandoned between flag levels needs the W6 spot-check.
+
 **W2 — Pi chat engine module** (`src/main/ai/runtime/piChat/` — placement settled,
 see architecture decisions).
 Builds the in-memory session per execution: provider injection via the existing
@@ -161,6 +177,19 @@ the W5 register. pi has no `AiPlugin` surface, so this inventory — not the
 streaming plumbing — is where parity risk concentrates.
 Ship/verify: engine-level streaming tests against `pi-ai` faux provider — text
 turn, tool round-trip, abort mid-stream, usage events.
+
+W2 also owns the **persisted part vocabulary** and the converter wiring (W1 review):
+
+- Emit `start-step` per pi assistant message. The trunk's accumulator turns that
+  chunk into a `step-start` part for every engine, and both the message-edit path and
+  the legacy boundary restoration derive step boundaries from it — a turn persisted
+  without it cannot be split back later (`piStreamAdapter` currently emits none).
+- Pass the converter options: `resolveHistoryModel` (per-message identity; signature
+  replay and pi's same-model thinking rules are inert without it),
+  `mediaCapabilities`, `declaredToolNames` (the pi tool names as declared).
+- Round-trip test: captured `piStreamAdapter` parts → converter → only the documented
+  matrix gaps. This is the mechanical guard for the irreversible class of findings —
+  anything the engine fails to persist or the converter fails to read back.
 
 **W3 — Provider coverage: agent whitelist → every chat-usable provider.**
 `modelInjection`/`assertPiProviderUsable` currently serve agent-approved providers.
@@ -206,6 +235,9 @@ MCP tool test reusing `piMcpToolAdapter` fixtures.
 | Reasoning effort / service tier / fast mode | `modelInjection` thinking-level map extended to chat params; verify per family |
 | Defer exposition (`tool_search`) | Port `piCodeMode` catalog for chat when tool counts demand it; v1 may ship without (chat tool sets are small) |
 | Steering semantics | Chat steer = enqueue + yield + chained continuation (host-owned, engine-agnostic) — no change; pi-native steer is not used for chat in Phase 1 |
+| Replayed step boundaries | One persisted message collapses to one assistant entry, so tool calls from different steps share one wire turn. W2 emits `start-step`; splitting the entries in `toAssistantTurn` at those boundaries is the follow-up (pi's own sessions keep one assistant message per step) |
+| Replayed tool-result rendering (builtin outputs) | MCP call results render through `mcpResultToTextSummary` (`messages/toolResultRendering.ts`, the same summary the MCP tool declares); the knowledge / fs / web / painting `toModelOutput` views are unported, so those replayed results show raw JSON text. Port into the same shared module (it survives Phase 2 — the ai-sdk adapter dir does not) |
+| Reasoning signature replay (non-anthropic families) | `providerMetadata.anthropic.signature` replays today; google (`thoughtSignature`) and openai-responses (`itemId` blob) keys are unmapped. Inert until `resolveHistoryModel` resolves per-message identity — land them together in W3 |
 
 **W6 — Rollout flag.**
 Preference flag (e.g. `AiChat.piEngine`), levels: off → dogfood (team topics) →
@@ -217,7 +249,10 @@ Per-level manual checklist: plain send; tool call + approval; image attachment;
 multi-model topic; regenerate; branch/merge; abort mid-stream; kill the app
 mid-stream and relaunch (attach + persistence); translate feature (rides the same
 engine when flag on — verify or explicitly exclude in flag scope); API-gateway
-round-trip (the public SSE contract rides the engine from day one).
+round-trip (the public SSE contract rides the engine from day one); a topic written
+with the flag on, then replayed after flipping the flag back off — the pi engine
+stamps tool parts `providerExecuted`/`dynamic`, which the legacy conversion treats
+differently.
 
 ### Phase 1 exit criteria
 

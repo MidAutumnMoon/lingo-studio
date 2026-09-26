@@ -3,6 +3,7 @@ import { type JSONSchema7, type Tool } from 'ai'
 import { application } from '@application'
 import { loggerService } from '@logger'
 import type { McpCallToolResponse } from '@main/ai/mcp/types'
+import { mcpResultToTextSummary } from '@main/ai/messages/toolResultRendering'
 import { mcpServerService } from '@main/data/services/McpServerService'
 import { isMcpToolForcePromptBySource } from '@shared/ai/tools/mcpSourcePolicy'
 import type { McpServer } from '@shared/data/types/mcpServer'
@@ -12,7 +13,6 @@ import { getRequestContext } from '../context'
 import { createMcpInputSchema } from '../mcpSchema'
 import { registry, type ToolRegistry } from '../registry'
 import type { ToolEntry } from '../types'
-import { mcpResultToTextSummary } from './utils'
 
 const logger = loggerService.withContext('mcpTools')
 

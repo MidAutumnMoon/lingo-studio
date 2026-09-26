@@ -3,6 +3,9 @@
  *
  * Kept as one exported pipeline (`toModelMessages`) so the whole chain is testable
  * end-to-end. Each step is pure and preserves element references when it changes nothing.
+ *
+ * The shaping passes it runs and the wire-name policy are shared with the pi chat history
+ * converter (`runtime/piChat/`), which applies them to pi messages instead of `ModelMessage`s.
  */
 
 import { createHash } from 'node:crypto'
@@ -118,6 +121,16 @@ export function toWireToolName(name: string): string {
 }
 
 /**
+ * The wire name for a replayed tool call: a name this request declares passes verbatim (the
+ * provider's tool list holds it), an illegal legacy name gets the digest scheme. Shared with the
+ * pi chat history converter — which parts get rewritten stays the caller's scope.
+ */
+export function resolveReplayToolName(name: string, isDeclared?: (name: string) => boolean): string {
+  if (WIRE_TOOL_NAME.test(name) || isDeclared?.(name)) return name
+  return toWireToolName(name)
+}
+
+/**
  * Make an illegal `dynamic-tool` name wire-legal. The v1 migrator joins `"{server}: {tool}"` into
  * `toolName` for display (`ChatMappings`), and unlike v1 — which never replayed tool blocks —
  * v2 sends that field as `function_call.name`, which providers reject (#18199). Call and result
@@ -128,14 +141,18 @@ export function toWireToolName(name: string): string {
  * rewriting it would desync history from the declaration and skip the tool's `toModelOutput`.
  */
 export function sanitizeDynamicToolNames<T extends UIMessage>(messages: T[], tools?: ToolSet): T[] {
+  const isDeclared = tools ? (name: string) => Boolean(tools[name]) : undefined
   let out: T[] | undefined
   messages.forEach((message, messageIndex) => {
     let parts: T['parts'] | undefined
     message.parts.forEach((part, partIndex) => {
-      if (part.type !== 'dynamic-tool' || WIRE_TOOL_NAME.test(part.toolName) || tools?.[part.toolName]) return
+      if (part.type !== 'dynamic-tool') return
+      const toolName = resolveReplayToolName(part.toolName, isDeclared)
+      if (toolName === part.toolName) return
       parts ??= [...message.parts]
-      parts[partIndex] = { ...part, toolName: toWireToolName(part.toolName) }
+      parts[partIndex] = { ...part, toolName }
     })
+
     if (parts) {
       out ??= [...messages]
       out[messageIndex] = { ...message, parts }

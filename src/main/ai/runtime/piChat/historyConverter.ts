@@ -3,8 +3,10 @@ import type {
   AssistantMessage,
   ImageContent,
   JsonObject,
+  JsonValue,
   SystemMessage,
   TextContent,
+  ThinkingContent,
   ToolCall,
   ToolResultMessage,
   Usage,
@@ -19,7 +21,8 @@ import type {
  * compaction summaries are host-owned upstream (`PersistentChatContextProvider`) — so
  * this module maps parts only and never writes. Its one read dependency is the shared
  * persisted-output marker rendering (the same pass the legacy engine runs before
- * conversion), so replayed prompt bytes stay identical and provider prefix caches hold.
+ * conversion), so the marker bytes stay identical to the legacy engine's and provider
+ * prefix caches hold.
  *
  * Fidelity matrix (persisted part → pi representation). "Lossy" rows are by design,
  * not omissions; every gap here has an owner in the plan's W5 register.
@@ -27,14 +30,16 @@ import type {
  * | Cherry part                          | pi mapping                                             | Fidelity |
  * |--------------------------------------|--------------------------------------------------------|----------|
  * | text                                 | TextContent                                            | full     |
- * | reasoning                            | ThinkingContent (no signature persisted; pi's signed-thinking recovery handles replay) | text only |
+ * | reasoning                            | ThinkingContent, carrying the persisted provider signature where the api family is mapped (anthropic today) | text; pi degrades an unsigned block itself |
  * | file (image, data URL)               | ImageContent                                           | full     |
  * | file (image, remote/unsupported URL) | text note                                              | lossy — converter is offline/pure, never fetches |
  * | file (non-image: pdf/audio/video/…)  | text note                                              | lossy — pi-ai has no native file input (W5 attachments row) |
- * | tool-* / dynamic-tool, terminal      | ToolCall in AssistantMessage + paired ToolResultMessage | output JSON kept structurally in `details` |
+ * | tool-* / dynamic-tool, terminal      | ToolCall in AssistantMessage + paired ToolResultMessage | object output kept structurally in `details` |
+ * | ↳ MCP call-tool output               | the summary the MCP tool itself declares (`mcpResultToTextSummary`) | full — media becomes placeholders, never base64 |
+ * | ↳ other builtin outputs              | JSON text                                              | lossy — their `toModelOutput` views are unported (W5 register) |
  * | tool-* / dynamic-tool, non-terminal  | dropped (call and result)                              | by design — a dangling call breaks provider pairing rules |
  * | source-url / source-document         | dropped                                                | lossy — citations metadata (W5 register row) |
- * | step-start                           | dropped                                                | pi replay has no step markers |
+ * | step-start                           | dropped                                                | lossy — one persisted message becomes one assistant entry, so tool calls from different steps share one wire turn (W5 register) |
  * | data-error / data-translation / data-code | dropped                                          | UI-only projections; matches the legacy engine's treatment |
  * | data-compact / data-compaction-anchor| dropped                                                | markers of host-owned durable compaction |
  * | data-clear / data-knowledge-scope / data-conversation-reset | dropped                          | hidden control parts, never model content |
@@ -43,8 +48,11 @@ import type {
  * Message-level rules: a message that converts to no content is skipped (empty user
  * turn, assistant turn holding only non-content parts); replayed AssistantMessages
  * carry zero cost (billing is host-side) and token counts from persisted stats when
- * present. Deterministic: output is a pure function of (input, options) — ids derive
- * from message ids, timestamps from `metadata.createdAt` (epoch 0 when absent).
+ * present. `stopReason` is synthesized (`toolUse` when the turn carries results, else
+ * `stop`) because pi drops error/aborted assistant messages outright — a replay must
+ * keep the partial turn the app already showed. Deterministic: output is a pure
+ * function of (input, options) — ids derive from message ids, timestamps from
+ * `metadata.createdAt` (epoch 0 when absent).
  */
 import type { SessionMessageEntry } from '@earendil-works/pi-coding-agent'
 import { isToolUIPart } from 'ai'
@@ -53,8 +61,9 @@ import type { CherryMessagePart, CherryUIMessage, MessageStats } from '@shared/d
 import { parseDataUrl } from '@shared/utils/dataUrl'
 
 import { ALL_MEDIA, type MediaCapabilities, stripUnsupportedMedia } from '../../messages/messageCapabilities'
-import { dropUnansweredApprovals, toWireToolName, WIRE_TOOL_NAME } from '../../messages/messageRules'
+import { dropUnansweredApprovals, resolveReplayToolName } from '../../messages/messageRules'
 import { renderPersistedToolOutputs } from '../../messages/persistedOutputRendering'
+import { isMcpCallToolResult, mcpResultToTextSummary } from '../../messages/toolResultRendering'
 
 /** pi identity fields for a replayed assistant message (required by pi's AssistantMessage). */
 export interface PiHistoryModelDescriptor {
@@ -65,9 +74,11 @@ export interface PiHistoryModelDescriptor {
 
 export interface PiChatHistoryOptions {
   /**
-   * Resolve a persisted assistant message's model into pi's identity fields. The wire
-   * serialization of replayed turns (notably thinking replay per api family) depends on
-   * these. Unresolvable or absent → placeholder descriptor.
+   * Resolve a persisted assistant message's model into pi's identity fields. Wire
+   * serialization of replayed turns depends on these: pi keeps a signed thinking block
+   * only when provider+api+model all match the live request, and this converter replays
+   * the persisted signature only for a mapped api family (`thinkingBlock`). Unresolvable
+   * or absent → placeholder descriptor, i.e. cross-model treatment.
    */
   resolveHistoryModel?: (message: CherryUIMessage) => PiHistoryModelDescriptor | undefined
   /** Media the target model accepts; unsupported file parts become text notes. */
@@ -96,12 +107,6 @@ function toolPartName(part: CherryUIMessage['parts'][number]): string | undefine
   return undefined
 }
 
-/** Wire-legal replay name: declared names pass verbatim, legacy-illegal names get the digest scheme. */
-function wireToolName(name: string, declared: ReadonlySet<string> | undefined): string {
-  if (WIRE_TOOL_NAME.test(name) || declared?.has(name)) return name
-  return toWireToolName(name)
-}
-
 function timestampMs(message: CherryUIMessage): number {
   const createdAt = message.metadata?.createdAt
   return createdAt ? Date.parse(createdAt) : 0
@@ -128,10 +133,13 @@ function filePartContent(part: { mediaType: string; url: string; filename?: stri
 
 /** Token counts from persisted stats; cost stays zero — billing is owned by the host. */
 function toPiUsage(stats: MessageStats | undefined): Usage {
-  const input = stats?.inputTokens ?? 0
-  const output = stats?.outputTokens ?? 0
   const cacheRead = stats?.inputTokenDetails?.cacheReadTokens ?? 0
   const cacheWrite = stats?.inputTokenDetails?.cacheWriteTokens ?? 0
+  // Cherry's `inputTokens` is the inclusive total (AI SDK `LanguageModelUsage`); pi's `input`
+  // excludes the cache buckets it reports separately.
+  const input =
+    stats?.inputTokenDetails?.noCacheTokens ?? Math.max(0, (stats?.inputTokens ?? 0) - cacheRead - cacheWrite)
+  const output = stats?.outputTokens ?? 0
   const reasoning = stats?.outputTokenDetails?.reasoningTokens
   return {
     input,
@@ -139,13 +147,56 @@ function toPiUsage(stats: MessageStats | undefined): Usage {
     cacheRead,
     cacheWrite,
     ...(reasoning !== undefined && { reasoning }),
-    totalTokens: stats?.totalTokens ?? input + output,
+    totalTokens: stats?.totalTokens ?? input + output + cacheRead + cacheWrite,
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
   }
 }
 
 function asJsonObject(value: unknown): JsonObject | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as JsonObject) : undefined
+}
+
+/** pi replays `arguments` as a JSON object; a non-object persisted input keeps its value under `input`. */
+function toToolArguments(input: unknown): JsonObject {
+  const object = asJsonObject(input)
+  if (object !== undefined) return object
+  if (input === undefined) return {}
+  const json = JSON.stringify(input)
+  return json === undefined ? {} : { input: JSON.parse(json) as JsonValue }
+}
+
+/**
+ * Model-facing text for a replayed tool output. An MCP call result renders through the summary the
+ * MCP tool itself declares (`toModelOutput`) — the raw response would put base64 media into the
+ * prompt, and the persist-lane trim never covers non-text content. Other outputs keep their JSON.
+ */
+function toolResultText(output: unknown): string {
+  if (isMcpCallToolResult(output)) return mcpResultToTextSummary(output)
+  return JSON.stringify(output) ?? 'undefined'
+}
+
+/**
+ * pi's `details` sidecar (never sent to a provider). An MCP result keeps the live pi MCP
+ * convention — structured content only, so media payloads stay out of the message.
+ */
+function toolResultDetails(output: unknown): JsonObject | undefined {
+  if (isMcpCallToolResult(output)) return asJsonObject(output.structuredContent)
+  return asJsonObject(output)
+}
+
+/** A persisted reasoning part (`text` + the provider signature pi replays verbatim). */
+type ReasoningPart = Extract<CherryMessagePart, { type: 'reasoning' }>
+
+/**
+ * A persisted reasoning part keeps its provider signature in `providerMetadata` — preserved
+ * exactly so a same-model replay can send it back (`withReasoningTimingMetadata`) — and pi needs
+ * it on the block. Families without a mapping here are W5 register rows.
+ */
+function thinkingBlock(part: ReasoningPart, api: Api): ThinkingContent {
+  const block: ThinkingContent = { type: 'thinking', thinking: part.text }
+  if (api !== 'anthropic-messages') return block
+  const signature = part.providerMetadata?.anthropic?.signature
+  return typeof signature === 'string' && signature.length > 0 ? { ...block, thinkingSignature: signature } : block
 }
 
 /** Any tool-shaped part: `tool-${name}` or `dynamic-tool`. */
@@ -173,10 +224,10 @@ function buildToolResult(tool: ToolPart, toolName: string, timestamp: number): T
   if (typeof output === 'string') {
     return { ...base, content: [{ type: 'text', text: output }], isError: false }
   }
-  const details = asJsonObject(output)
+  const details = toolResultDetails(output)
   return {
     ...base,
-    content: [{ type: 'text', text: JSON.stringify(output) ?? 'undefined' }],
+    content: [{ type: 'text', text: toolResultText(output) }],
     ...(details !== undefined && { details }),
     isError: false
   }
@@ -211,6 +262,9 @@ function toAssistantTurn(
   options: PiChatHistoryOptions,
   timestamp: number
 ): { assistant: AssistantMessage; toolResults: ToolResultMessage[] } | undefined {
+  const descriptor = options.resolveHistoryModel?.(message) ?? HISTORY_MODEL_PLACEHOLDER
+  const declared = options.declaredToolNames
+  const isDeclared = declared ? (name: string) => declared.has(name) : undefined
   const content: AssistantMessage['content'] = []
   const toolResults: ToolResultMessage[] = []
   for (const part of message.parts) {
@@ -219,7 +273,7 @@ function toAssistantTurn(
       if (part.type === 'text' && part.text) {
         content.push({ type: 'text', text: part.text })
       } else if (part.type === 'reasoning' && part.text) {
-        content.push({ type: 'thinking', thinking: part.text })
+        content.push(thinkingBlock(part, descriptor.api))
       } else if (part.type === 'file') {
         // Assistant content has no image slot in pi — generated media degrades to a note.
         content.push(attachmentNote(`${part.filename ?? 'file'} (${part.mediaType})`))
@@ -228,20 +282,18 @@ function toAssistantTurn(
     }
     const tool = part as ToolPart
     if (!isTerminalToolState(tool.state)) continue // dangling call — dropped pair (matrix)
-    const wireName = wireToolName(name, options.declaredToolNames)
-    const input = 'input' in tool ? tool.input : undefined
+    const wireName = resolveReplayToolName(name, isDeclared)
     const call: ToolCall = {
       type: 'toolCall',
       id: tool.toolCallId,
       name: wireName,
-      arguments: asJsonObject(input) ?? { input: input as never }
+      arguments: toToolArguments('input' in tool ? tool.input : undefined)
     }
     content.push(call)
     toolResults.push(buildToolResult(tool, wireName, timestamp))
   }
   if (content.length === 0) return undefined
 
-  const descriptor = options.resolveHistoryModel?.(message) ?? HISTORY_MODEL_PLACEHOLDER
   const assistant: AssistantMessage = {
     role: 'assistant',
     content,
