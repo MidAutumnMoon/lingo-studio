@@ -1,10 +1,10 @@
 # Pi 0.80 → 0.87 Upgrade Notes — Phase 0 working record
 
-Status: 0.83.0 rung complete (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10
+Status: 0.84.x series complete (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10
 (including the 0.80.8 auth-refactor rewrite onto `ModelRuntime`, now behind the
-`createIsolatedPiModelRuntime()` helper in `piSdk.ts`) → 0.81.1 → 0.82.x → 0.83.0, with
-patch regeneration at every rung; that history lives in git. This doc keeps only what the
-remaining rungs need.
+`createIsolatedPiModelRuntime()` helper in `piSdk.ts`) → 0.81.1 → 0.82.x → 0.83.0 →
+0.84.0–0.84.4, with patch regeneration at every rung; that history lives in git. This doc
+keeps only what the remaining rungs need.
 Companion to [2026-09-pi-unification.md](./2026-09-pi-unification.md); research verified
 against a local clone of `earendil-works/pi` (all `v0.8x` tags available for diffing).
 
@@ -12,7 +12,7 @@ against a local clone of `earendil-works/pi` (all `v0.8x` tags available for dif
 
 | Fact | Value |
 |---|---|
-| Pins | riding the ladder to 0.87.1 — currently `pi-ai` 0.83.0, `pi-coding-agent` 0.83.0. The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
+| Pins | riding the ladder to 0.87.1 — currently `pi-ai` 0.84.4, `pi-coding-agent` 0.84.4. The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
 | Package ↔ dir mapping | one repo (`earendil-works/pi`), one version line: `packages/ai` → pi-ai, `packages/coding-agent` → pi-coding-agent, `packages/agent` → pi-agent-core; `pi-coding-agent` depends on same-line `pi-ai`/`pi-agent-core`/`pi-tui` |
 | Cherry import surface | **entirely confined to `src/main/ai/runtime/pi/`** — all runtime (value) imports go through dynamic `import()` in `piSdk.ts`; every other file is `import type` only |
 | pi test provider | `pi-ai/providers/faux` (engine tests run without network) — unchanged across the range |
@@ -53,7 +53,7 @@ fix-only.
 
 | Patch | Verdict | Evidence |
 |---|---|---|
-| `pi-coding-agent` — #7540 backport (context-clamped length-stop recovery) | **Drop at 0.84.0** — shipped natively there; `piLengthRecovery.test.ts` stays as the regression pin | 0.84.0 changelog + `git log` |
+| `pi-coding-agent` — #7540 backport (context-clamped length-stop recovery) | **Dropped at the 0.84.0 rung** — shipped natively there (`isRecoverableLength` in `agent-session`); `piLengthRecovery.test.ts` stayed green unchanged as the regression pin | 0.84.0 changelog + dist |
 | `pi-ai` — fetch threading (openai-completions/responses clients accept `options.fetch`) | **Dropped at the 0.83.0 rung** — native per-request `fetch` injection arrived (`ProviderRequestOptions.fetch`); the `fetch: customFetch` call site in `PiRuntimeConnection` works unpatched, `piProviderFetch.test.ts` pins it end-to-end | 0.83.0 changelog + `pi-ai/src/types.ts` |
 | `pi-ai` — `ultra` reasoning effort (`EXTENDED_THINKING_LEVELS` + level guard in `models.js`, `ThinkingLevel` union in `types.d.ts`, openai/codex `.d.ts` effort unions) | **Regenerate at every rung** — no `ultra` upstream at `v0.87.1` (levels end at `"max"`) | `packages/ai/src/models.ts` at `v0.87.1` |
 
@@ -108,6 +108,12 @@ the SDK subscription `piStreamAdapter` consumes.
   compaction and branch summaries are no longer cached and summarization requests are
   isolated. All flow through our suites unchanged — no host action, but expect slightly
   more retry persistence on flaky networks and richer provider-error text in streams.
+- **0.84.x quiet improvements** — strict tool schemas auto-convert to provider-compatible
+  closed objects (better MCP tool-call fidelity, free); upstream request buffer-limit
+  failures auto-retry; Google/Vertex no longer misclassify output-limit stops as tool use;
+  `Agent.reset()` rejects mid-run (we never reset); `session_compact_failed` events expose
+  compaction failure reasons (ignored by `piStreamAdapter` like other unknown events).
+  Suites unchanged across 0.84.0–0.84.4.
 - **Google adapters reject non-global `fetch` implementations** (0.83.0) — irrelevant for
   the agent-approved provider set, relevant for Phase 1 W3 chat provider matrix.
 
@@ -124,9 +130,8 @@ the SDK subscription `piStreamAdapter` consumes.
 
 ## 8. Remaining rungs & per-rung procedure
 
-1. **0.84.4** — drop the coding-agent patch; `piLengthRecovery.test.ts` pins native #7540.
-2. **0.86.1** — `TranscriptContext` type rework (§3).
-3. **0.87.1** — final rung: regenerate the `ultra` patch once, re-run
+1. **0.86.1** — `TranscriptContext` type rework (§3).
+2. **0.87.1** — final rung: regenerate the `ultra` patch once, re-run
    `piBundlingViability`, full gate + smoke.
 
 Per-rung procedure:
@@ -140,6 +145,9 @@ Per-rung procedure:
 3. `pnpm install --no-frozen-lockfile` (bumping the overrides makes a frozen install
    fail with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`); `pnpm typecheck:node` +
    `pnpm test:main` for `runtime/pi` + `agentSession`; `pnpm lint`; manual smoke.
+   Run these as separate foreground commands — a backgrounded verification chain
+   that ends in `jj describe` races with the next rung's manifest edits and
+   snapshots them into the wrong change (happened at 0.84.2; repaired via `jj edit`).
 4. Record the rung with jj — no branch, no `git commit`: `jj describe -m
    "chore(deps): update pi line to vX.Y.Z"`, then `jj new` before the next rung.
    Undo mid-rung with `jj restore <paths>`; drop a finished rung with `jj abandon`.
@@ -154,6 +162,12 @@ Phase 1 inputs:
   loop drives its own tool use today.
 - **`agent_settled`** event (0.80.4) — revisit only if work wants pi-native settled
   hooks (the host owns idle semantics via `AsyncEventQueue`).
+- **Deferred responses** (pi-ai 0.83-era surface, live at 0.84.4): `SimpleStreamOptions.deferred`
+  (`boolean | { window }`), `StopReason: "deferred"`, `DeferredHandle`,
+  `fetchDeferred()`/`cancelDeferred()` on provider streams — long-running provider
+  requests return a durable handle and are polled/resumed later. Unreachable for us
+  (we never set `deferred: true`), and the Phase 1 W5 defer-exposition row should
+  evaluate this machinery before inventing host-side equivalents.
 - **0.81 line** (assessed at the 0.81.1 rung, none adopted — Phase 0 non-goal):
   `contentText()` joins *message* content only — none of our three text-join sites
   (`piCodeMode`, `piMcpToolAdapter`, `piStreamAdapter` — all tool/MCP content) match
@@ -172,6 +186,15 @@ Phase 1 inputs:
   so all are unused by design. `getBuiltinModelDataUrl` → `getBuiltinModelDataGeneratedAt()`
   rename and the provider-verified effort-level pruning of built-in catalogs don't
   reach us (no builtin-catalog reads; injected models carry their own reasoning config).
+- **0.84 line** (assessed across the 0.84.x rungs, none adopted — Phase 0 non-goal):
+  provider-neutral `toolChoice` on simple streams (chat-side control; agent loop drives
+  its own tool use — Phase 1 W3 input alongside the 0.80.7 OpenAI/Codex variant),
+  `session_compact_failed` events (Phase 1 compaction-UX input), `AssistantMessage.endTurn`
+  diagnostics, `createGatewayBindingFetch()` (Cloudflare Workers AI), OpenAI-compatible
+  `thinking_token_budget` fields, and `supportsMidConvoEffort` — all Phase 1 parity
+  inputs; none remove a patch or existing maintenance. 0.84.0's breaking custom-provider
+  surface (`ModelsRequestTransforms` rename, abort-signal auth callbacks, `context.stored`
+  / `context.publish()`) is untouched by our minimal `pi.registerProvider` extension.
 
 Open item for the owner: the "plan D1…D8" vocabulary used across
 `src/main/ai/runtime/pi/` comments has no doc in `docs/plans/` — host a legend or
