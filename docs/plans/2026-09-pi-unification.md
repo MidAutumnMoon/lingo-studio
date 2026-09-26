@@ -1,8 +1,8 @@
 # Pi Unification Plan — one engine for chat and work
 
-Status: executing — 2026-09-26. Phase 0 under way: triage done, 0.80.x + 0.81.x series
-complete (notes doc §8); remaining rungs 0.83.0 → 0.84.4 → 0.86.1 → 0.87.1. Phases 1–3 remain
-draft.
+Status: executing — 2026-09-26. Phase 0 ladder **complete**: all rungs through 0.87.1
+landed and verified (notes doc §8); remaining Phase 0 item is the 0.6 manual smoke.
+Phases 1–3 remain draft.
 
 Decision context: pi (in-process, loop owned by us, `pi-ai` wire layer shared with dsh)
 is the base for unification. dsh stays as an opt-in agent runtime behind the existing
@@ -29,7 +29,7 @@ The plan below phases the work so the app is shippable after every step.
 
 | Fact | Value |
 |---|---|
-| Pinned pi versions | riding the ladder to 0.87.1 — currently `@earendil-works/pi-ai` 0.86.1, `@earendil-works/pi-coding-agent` 0.86.1; the pi line (including transitive `pi-agent-core`/`pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides (see upgrade-notes §8) |
+| Pinned pi versions | ladder complete at the target — `@earendil-works/pi-ai` 0.87.1, `@earendil-works/pi-coding-agent` 0.87.1; the pi line (including transitive `pi-agent-core`/`pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides (see upgrade-notes §8) |
 | Upgrade target | 0.87.1 — all three packages align on one line |
 | pi patches in `patches/` | `pi-ai` (keyed to the current pin): add `ultra` reasoning effort — the only surviving patch (fetch threading dropped at 0.83.0, #7540 backport dropped at 0.84.0, both native upstream) |
 | dsh coupling to pi upgrade | None at runtime — dsh's `pi-ai ^0.84.x` (resolves 0.84.4) is inlined into the `packages/dsh-bridge` dist at build time and lives on its own lockfile lane, deliberately not forced to the root pin (see the override comment in `pnpm-workspace.yaml`) |
@@ -53,8 +53,8 @@ Phase 1 on 0.80 would just defer this upgrade into the middle of the migration).
 
 Non-goals: any behavioral change to chat (chat is untouched); any dsh change.
 
-Phase 0 research and the 0.80.x series are complete; the working record for the
-remaining rungs lives in [2026-09-pi-upgrade-notes.md](./2026-09-pi-upgrade-notes.md)
+Phase 0 research is complete and the ladder landed; the working record lives in
+[2026-09-pi-upgrade-notes.md](./2026-09-pi-upgrade-notes.md)
 (break→touchpoint table, patch verdicts, data-compatibility findings, step ladder,
 per-rung procedure). Headlines, verified against a local clone at `v0.87.1`:
 
@@ -86,10 +86,9 @@ Ship: nothing (findings recorded in the notes doc).
 
 ### 0.3 Upgrade rung by rung
 
-Remaining work: the `TranscriptContext` type fixes at 0.86 and the patch drops keyed
-to their rungs. Step ladder with manual-check rungs (notes §8): **0.83.0 → 0.84.4 →
-0.86.1 → 0.87.1** — each rung drops one patch half or lands one type change; skipped
-intermediates are fix-only.
+Complete — every rung 0.81.1 → 0.87.1 landed with per-rung verification (notes §8);
+the two patch halves dropped at their rungs (fetch threading 0.83.0, #7540 backport
+0.84.0), and the `TranscriptContext` rework landed at 0.86.0 as test-layer-only.
 
 Ship: behind no flag — pi is an implementation detail of "work"; the upgrade ships
 when its own verification passes.
@@ -109,6 +108,11 @@ Verify: the named suites green.
 
 Run the full main suite and fix adapter drift (event shapes, compaction semantics,
 retry classification — candidate drift list in notes doc §6). Then `pnpm build:check`.
+
+Complete — `pnpm build:check` run at the 0.87.1 tip: lint, docs, and every test
+project green except 6 `provider-registry` catalog-sync failures that predate the
+ladder entirely (zero `provider-registry` paths touched in `main..@`; regeneration
+reads live upstream — an owner data decision, recorded in notes §8).
 
 Ship: combined with 0.3/0.4 as one merge or a short series — app must work at each merge.
 Verify: `pnpm build:check` green.

@@ -1,10 +1,11 @@
 # Pi 0.80 → 0.87 Upgrade Notes — Phase 0 working record
 
-Status: 0.86.x series complete (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10
+Status: **ladder complete** (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10
 (including the 0.80.8 auth-refactor rewrite onto `ModelRuntime`, now behind the
 `createIsolatedPiModelRuntime()` helper in `piSdk.ts`) → 0.81.1 → 0.82.x → 0.83.0 →
-0.84.0–0.84.4 → 0.85.0–0.85.1 → 0.86.0–0.86.1, with patch regeneration at every rung;
-that history lives in git. This doc keeps only what the remaining rungs need.
+0.84.0–0.84.4 → 0.85.0–0.85.1 → 0.86.0–0.86.1 → 0.87.1 (the target), with patch
+regeneration at every rung; that history lives in git. Remaining Phase 0 item: the
+manual smoke checklist (unification plan §0.6).
 Companion to [2026-09-pi-unification.md](./2026-09-pi-unification.md); research verified
 against a local clone of `earendil-works/pi` (all `v0.8x` tags available for diffing).
 
@@ -12,12 +13,12 @@ against a local clone of `earendil-works/pi` (all `v0.8x` tags available for dif
 
 | Fact | Value |
 |---|---|
-| Pins | riding the ladder to 0.87.1 — currently `pi-ai` 0.86.1, `pi-coding-agent` 0.86.1. The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
+| Pins | **final** — `pi-ai` 0.87.1, `pi-coding-agent` 0.87.1 (ladder target reached). The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
 | Package ↔ dir mapping | one repo (`earendil-works/pi`), one version line: `packages/ai` → pi-ai, `packages/coding-agent` → pi-coding-agent, `packages/agent` → pi-agent-core; `pi-coding-agent` depends on same-line `pi-ai`/`pi-agent-core`/`pi-tui` |
 | Cherry import surface | **entirely confined to `src/main/ai/runtime/pi/`** — all runtime (value) imports go through dynamic `import()` in `piSdk.ts`; every other file is `import type` only |
 | pi test provider | `pi-ai/providers/faux` (engine tests run without network) — unchanged across the range |
 
-## 2. Remaining breaks by release (0.81 → 0.87.1)
+## 2. Breaks by release (0.81 → 0.87.1)
 
 "None" means verified by symbol grep, not assumed from the changelog.
 
@@ -31,22 +32,22 @@ against a local clone of `earendil-works/pi` (all `v0.8x` tags available for dif
 | 0.84.4 | pi-agent-core `prepareNextTurn*` hooks run only before another turn; harness manual-drive APIs removed | None — hooks unused |
 | 0.85.0 | pi-ai `createGatewayBindingFetch()` → `createAiBindingFetch()` | None — unused. **Upstream packaging bug #9132**: the coding-agent barrel re-exported CLI `main`, whose `experimental/server.js` imported the undeclared `@earendil-works/pi-server` — plain installs failed to import the SDK. Worked around for this rung with an explicit `pi-server@0.85.0` dep; 0.85.1 fixed the package (harness code excluded from dist, dep dev-only) and the workaround was dropped there. Additions matter later: `SessionManager.inMemory(cwd, opts, entries)` restores external entries — the Phase 1 chat engine's entry point; narrow `api`/`providers`/`utils` subpath exports |
 | 0.86.0 | **pi-ai provider stream inputs `Context` → normalized `TranscriptContext`** — system prompt and tool declarations move into transcript system messages read via `getCurrentSystemPrompt()`/`getCurrentTools()`; `ToolCall.arguments`/`ToolResultMessage.details` restricted to JSON values; `ToolResultMessage` conditional type; `JsonValue` arrays readonly; coding-agent `user_bash` fails closed | **Resolved at the 0.86.0 rung** — production code needed zero edits (`ProviderConfig['streamSimple']` aliases picked up `TranscriptContext` automatically; we pass `model, context, options` through). All 11 type errors were test files hand-building `Context` literals; they now build branded contexts via pi's `normalizeContext()`. Adapters were verified JSON-safe by the suites. No `user_bash` handler exists in Cherry |
-| 0.87.0 | pi-agent-core `shouldStopAfterTurn` removed → `finishTurn` returning `{action: "end"}`; coding-agent `ContextEditEntry` added to `SessionEntry` union; `SessionManager` canonical (assigning `session.agent.state.messages` no longer replaces request history); `TurnEndEvent` boundary fields + `AgentBeforeSettleEvent`; `ExtensionRunner.emit()` rejects `turn_end` | None found — no `shouldStopAfterTurn` use, no exhaustive `SessionEntry`/`ExtensionEvent` switches, no direct `agent.state.messages` assignment in Cherry code |
-| 0.87.1 | — (fixes only) | None |
+| 0.87.0 | pi-agent-core `shouldStopAfterTurn` removed → `finishTurn` returning `{action: "end"}`; coding-agent `ContextEditEntry` added to `SessionEntry` union; `SessionManager` canonical (assigning `session.agent.state.messages` no longer replaces request history); `TurnEndEvent` boundary fields + `AgentBeforeSettleEvent`; `ExtensionRunner.emit()` rejects `turn_end` | **Verified at the 0.87.1 rung** — none reach Cherry: no `shouldStopAfterTurn` use, no exhaustive `SessionEntry`/`ExtensionEvent` switches, no direct `agent.state.messages` assignment; typecheck + both suites green at the final pin |
+| 0.87.1 | — (fixes only) | Verified — green at the final pin |
 
 Minor releases not listed (0.81.1, 0.82.1, 0.84.1/2, 0.85.1, 0.86.1) are additive or
 fix-only.
 
-## 3. Break → touchpoint (remaining rungs)
+## 3. Break → touchpoint (all rungs resolved)
 
 | Touchpoint | Breaks that reach it | Required action |
 |---|---|---|
 | `SessionManager` surface — `resolveSessionManager` (`open`/`create`), `piFork` (`getEntry`/`createBranchedSession`/`getSessionId`), `getLeafId()`, and `piSessionFile`'s direct `<timestamp>_<id>.jsonl` filename parsing | none — all signatures and the file convention verified identical at `v0.87.1` | None. The 0.85 fork fixes (compaction-boundary #8990, pre-settle #8937) landed upstream and passed `PiRuntimeConnection.sdkContract.test.ts` + the agentSession fork/publication tests unchanged at 0.85.0–0.86.1 |
-| `PiRuntimeConnection` `loadPiAiCompat().unregisterApiProviders(sourceId)` | none yet — `pi-ai/compat` survives through 0.87.1 (slated for removal "eventually") | None; re-check each rung |
+| `PiRuntimeConnection` `loadPiAiCompat().unregisterApiProviders(sourceId)` | none — `pi-ai/compat` still exports `unregisterApiProviders` at 0.87.1 (verified at install; still slated for removal "eventually") | None |
 | `piTransportStream.ts` + `modelInjection.ts` + `piThinkingReplay.ts` (`streamSimple` delegation, `onPayload` composition) | 0.86.0 `TranscriptContext` | **Resolved at 0.86.0** — zero production edits (context flows through untouched); test files build branded contexts via `normalizeContext()` |
 | `piStreamAdapter.ts` (`session.subscribe` events) | none — SDK `MessageUpdateEvent` still carries `message` + `assistantMessageEvent`; the 0.84 delta-only change was the JSON/RPC wire layer, not SDK events. Behavioral drift only (§6) | None at upgrade; watch drift |
 | `approvalExtension.ts`, `providerExtension.ts` (extension API) | none — `tool_call` handler shape and the `pi.registerProvider` extension form unchanged | None; 0.86 exported more event types than before, nothing removed |
-| `piSdk.ts` dynamic imports (`.`, `pi-ai`, `pi-ai/compat`, `pi-ai/api/*`) | none — subpath exports intact (0.85 *added* narrow subpaths) | None; re-run `piBundlingViability` at 0.87.1 (0.84.3 moved CLI/RPC entrypoints to a bundled runtime; the library entry is documented to stay modular) |
+| `piSdk.ts` dynamic imports (`.`, `pi-ai`, `pi-ai/compat`, `pi-ai/api/*`) | none — subpath exports intact through 0.87.1 | `piBundlingViability` green at 0.87.1 (library entry stayed modular through the 0.84.3 bundled-runtime move) |
 | `piCodeMode.ts`, `piMcpToolAdapter.ts` (`ToolDefinition` JSON schemas) | 0.86.0 JSON-only `ToolCall.arguments`/`ToolResultMessage.details` | **Resolved at 0.86.0** — adapters already emit JSON-only values (MCP results are JSON by protocol); typecheck + suites green without edits |
 
 ## 4. Patch triage & regeneration recipe
@@ -137,10 +138,17 @@ the SDK subscription `piStreamAdapter` consumes.
   created by the released build) stays in the checklist as confirmation; the
   cold-sessions fallback is not expected to be needed.
 
-## 8. Remaining rungs & per-rung procedure
+## 8. Rung status & per-rung procedure
 
-1. **0.87.1** — final rung: regenerate the `ultra` patch once, re-run
-   `piBundlingViability`, full gate + smoke.
+**Ladder complete — no rungs remain.** Final-gate status at the 0.87.1 tip:
+`pnpm build:check` ran with lint, docs, and every test project green except 6
+`provider-registry` catalog-sync failures that predate the ladder entirely (zero
+`provider-registry` paths in `main..@`; regeneration reads live upstream, so fixing
+them is an owner data decision, not an upgrade step). The one full-gate failure the
+ladder *did* own — `chromiumFlags.test.ts` pinning the `wm-window-animations-disabled`
+switch removed by `f3ec23a5e` — was deleted as its own change
+(`test(preboot): drop assertions for removed window-animations switch`). Remaining
+Phase 0 item: the manual smoke checklist (unification plan §0.6).
 
 Per-rung procedure:
 
@@ -194,6 +202,14 @@ Phase 1 inputs:
   so all are unused by design. `getBuiltinModelDataUrl` → `getBuiltinModelDataGeneratedAt()`
   rename and the provider-verified effort-level pruning of built-in catalogs don't
   reach us (no builtin-catalog reads; injected models carry their own reasoning config).
+- **0.87 line** (assessed at the 0.87.1 rung, none adopted — Phase 0 non-goal):
+  append-only model-context edits (`sessionManager.appendContextEdit(entryId, null)`
+  omits a message from future provider context without touching raw history — strong
+  Phase 1 input for transcript editing), the `context_with_system` extension event,
+  retain-none compaction (`appendCompaction(summary, null, tokensBefore)`),
+  `emitBoundary` actionable turn boundaries + `AgentBeforeSettleEvent`, `finishTurn`
+  (replaces `shouldStopAfterTurn`), and per-model image-resize profiles
+  (`inputLimits.images.resize`).
 - **0.85 line** (assessed at the 0.85.0/0.85.1 rungs, none adopted — Phase 0 non-goal):
   `AssistantMessageFrameEncoder`/`reduceAssistantMessageFrames()` (compact persistable
   assistant frames — Phase 1 session-persistence input), Anthropic per-turn effort
