@@ -1,5 +1,5 @@
 diff --git a/dist/core/agent-session.js b/dist/core/agent-session.js
-index 64f82bf..4acebc0 100644
+index c99a78f..743f62d 100644
 --- a/dist/core/agent-session.js
 +++ b/dist/core/agent-session.js
 @@ -369,7 +369,7 @@ export class AgentSession {
@@ -29,7 +29,7 @@ index 64f82bf..4acebc0 100644
              const willRetry = assistantMessage.stopReason !== "stop";
              if (!willRetry) {
                  return await this._runAutoCompaction("overflow", false);
-@@ -1704,7 +1705,7 @@ export class AgentSession {
+@@ -1699,7 +1700,7 @@ export class AgentSession {
              if (willRetry) {
                  const messages = this.agent.state.messages;
                  const lastMsg = messages[messages.length - 1];

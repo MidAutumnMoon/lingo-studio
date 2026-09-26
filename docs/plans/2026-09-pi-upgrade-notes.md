@@ -1,8 +1,8 @@
 # Pi 0.80 → 0.87 Upgrade Notes — Phase 0 working record
 
-Status: 0.81.x series complete (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10
+Status: 0.82.x series complete (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10
 (including the 0.80.8 auth-refactor rewrite onto `ModelRuntime`, now behind the
-`createIsolatedPiModelRuntime()` helper in `piSdk.ts`) → 0.81.1, with patch
+`createIsolatedPiModelRuntime()` helper in `piSdk.ts`) → 0.81.1 → 0.82.0 → 0.82.1, with patch
 regeneration at every rung; that history lives in git. This doc keeps only what the
 remaining rungs need.
 Companion to [2026-09-pi-unification.md](./2026-09-pi-unification.md); research verified
@@ -12,7 +12,7 @@ against a local clone of `earendil-works/pi` (all `v0.8x` tags available for dif
 
 | Fact | Value |
 |---|---|
-| Pins | riding the ladder to 0.87.1 — currently `pi-ai` 0.81.1, `pi-coding-agent` 0.81.1. The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
+| Pins | riding the ladder to 0.87.1 — currently `pi-ai` 0.82.1, `pi-coding-agent` 0.82.1. The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
 | Package ↔ dir mapping | one repo (`earendil-works/pi`), one version line: `packages/ai` → pi-ai, `packages/coding-agent` → pi-coding-agent, `packages/agent` → pi-agent-core; `pi-coding-agent` depends on same-line `pi-ai`/`pi-agent-core`/`pi-tui` |
 | Cherry import surface | **entirely confined to `src/main/ai/runtime/pi/`** — all runtime (value) imports go through dynamic `import()` in `piSdk.ts`; every other file is `import type` only |
 | pi test provider | `pi-ai/providers/faux` (engine tests run without network) — unchanged across the range |
@@ -102,6 +102,12 @@ the SDK subscription `piStreamAdapter` consumes.
   passes no retry override at `PiRuntimeConnection.ts:276`, so this is live for work
   sessions). `summarization_retry_*` lifecycle events are intentionally ignored by
   `piStreamAdapter` — retries are silent but bounded.
+- **0.82.x retry/error behavior** — DNS failures (`getaddrinfo`, `ENOTFOUND`, `EAI_AGAIN`)
+  now join pi's automatic assistant retries (#6946); retry waits honor abort signals and
+  configured delay limits (#6980); `ModelsError` messages chain the underlying cause; write
+  compaction and branch summaries are no longer cached and summarization requests are
+  isolated. All flow through our suites unchanged — no host action, but expect slightly
+  more retry persistence on flaky networks and richer provider-error text in streams.
 - **Google adapters reject non-global `fetch` implementations** (0.83.0) — irrelevant for
   the agent-approved provider set, relevant for Phase 1 W3 chat provider matrix.
 
@@ -159,6 +165,16 @@ Phase 1 inputs:
   `retryAssistantCall()` — retry ownership stays host `createRetryableWrap` (W5).
   `summarization_retry_*` events — ignored by design (§6). Full provider extensions
   via `pi.registerProvider` (auth/refresh/custom streaming) — Phase 1 W3 input.
+- **0.82 line** (assessed at the 0.82.1 rung, none adopted — Phase 0 non-goal):
+  `ToolDefinition.constrainedSampling` (`prefer`/`require` strict JSON-Schema
+  sampling, OpenAI Lark/regex grammars; pi gates by model capability) sits directly
+  on the type `piMcpToolAdapter` builds — a Phase 1 candidate for cutting malformed
+  MCP tool-call JSON, to be evaluated with real providers. `ANTHROPIC_AUTH_TOKEN`
+  gateway bearer auth, OpenRouter/Kimi OAuth login, and catalog ETag machinery —
+  Cherry injects providers/models with explicit credentials via `modelInjection`,
+  so all are unused by design. `getBuiltinModelDataUrl` → `getBuiltinModelDataGeneratedAt()`
+  rename and the provider-verified effort-level pruning of built-in catalogs don't
+  reach us (no builtin-catalog reads; injected models carry their own reasoning config).
 
 Open item for the owner: the "plan D1…D8" vocabulary used across
 `src/main/ai/runtime/pi/` comments has no doc in `docs/plans/` — host a legend or
