@@ -28,8 +28,10 @@ import type { AssistantMessage, ImageContent, ThinkingLevel } from '@earendil-wo
  */
 import type {
   CreateAgentSessionOptions,
+  ExtensionContext,
   ExtensionFactory,
   ProviderConfig,
+  ToolCallEvent,
   ToolDefinition
 } from '@earendil-works/pi-coding-agent'
 import { context as otelContext, SpanKind, SpanStatusCode, trace, type Span } from '@opentelemetry/api'
@@ -77,8 +79,15 @@ export interface PiChatTurnRequest {
   /** The turn's user content: text verbatim (no command expansion), images inline. */
   prompt: { messageId: string; text: string; images?: ImageContent[] }
   thinkingLevel?: ThinkingLevel
-  /** pi tools for the turn (W4 supplies the registry bridge; omitted ⇒ tool-less turn). */
+  /** pi tools for the turn (W4a's `chatToolAdapter` converts the registry; omitted ⇒ tool-less turn). */
   tools?: readonly ToolDefinition[]
+  /**
+   * W4a per-tool-call authorization. Supplied by the seam (built from the registry via
+   * `createChatToolAuthorizer`); the engine itself stays gate-free. While this decides,
+   * the session holds the tool-call promise in-process — the resume mechanics differ from
+   * the legacy engine's pause-and-redispatch, the approval card contract does not.
+   */
+  authorizer?: PiChatToolAuthorizer
   /**
    * Whether a persisted assistant message came from the same provider+model as this turn.
    * pi replays signed thinking (and tool-call signatures) only for same-model messages, and
@@ -95,6 +104,63 @@ export interface PiChatTurnRequest {
 
 function finiteTokenCount(value: number | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
+/** One tool call the engine is about to execute, as pi's `tool_call` hook sees it. */
+export interface PiChatToolCallRequest {
+  toolName: string
+  toolCallId: string
+  /** Mutated in place when an approval decision carries an edited input. */
+  input: Record<string, unknown>
+  signal?: AbortSignal
+}
+
+export interface PiChatToolCallVerdict {
+  block: true
+  reason: string
+  /**
+   * A user denial (not a policy block): the call surfaces as `tool-output-denied`
+   * — the state the renderer card and the history converter treat as a denial —
+   * instead of pi's default error result for a blocked call.
+   */
+  denied?: boolean
+}
+
+/**
+ * Authorize one tool call; `undefined` allows it. `emit` pushes a chunk into this
+ * turn's stream (how the `tool-approval-request` chunk reaches the trunk).
+ */
+export type PiChatToolAuthorizer = (
+  call: PiChatToolCallRequest,
+  emit: (chunk: CherryUIMessageChunk) => void
+) => Promise<PiChatToolCallVerdict | undefined>
+
+/**
+ * W4a: wrap the seam's authorizer in pi's `tool_call` hook. The hook fires after
+ * `tool_execution_start`, so the tool part exists before the approval chunk
+ * references its id (same ordering the agent approval pipeline relies on).
+ */
+function createToolAuthorizationExtension(
+  authorizer: PiChatToolAuthorizer,
+  emit: (chunk: CherryUIMessageChunk) => void,
+  onDenied: (toolCallId: string) => void
+): ExtensionFactory {
+  return (pi) => {
+    pi.on('tool_call', async (event: ToolCallEvent, extCtx: ExtensionContext) => {
+      const verdict = await authorizer(
+        {
+          toolName: event.toolName,
+          toolCallId: event.toolCallId,
+          input: event.input,
+          signal: extCtx.signal
+        },
+        emit
+      )
+      if (verdict === undefined) return undefined
+      if (verdict.denied) onDenied(event.toolCallId)
+      return { block: true, reason: verdict.reason }
+    })
+  }
 }
 
 /**
@@ -283,6 +349,23 @@ export async function streamPiChatTurn(
     ...(request.tools && { declaredToolNames: new Set(request.tools.map((tool) => tool.name)) })
   })
 
+  // Stream plumbing first: the authorization extension (built below) emits through the
+  // same enqueue path as the adapter, and the reader may not exist yet when it does.
+  let streamSettled = false
+  let controllerRef: ReadableStreamDefaultController<CherryUIMessageChunk> | undefined
+  const enqueueChunk = (chunk: CherryUIMessageChunk): void => {
+    if (streamSettled || !controllerRef) return
+    try {
+      controllerRef.enqueue(chunk)
+    } catch (error) {
+      logger.warn('pi chat chunk dropped after stream settle', { error })
+    }
+  }
+
+  // A denied call arrives from pi as an error result (the block reason); the trunk's
+  // denial state is what the renderer card and the history converter expect.
+  const deniedToolCalls = new Set<string>()
+
   const settingsManager = pi.SettingsManager.inMemory({}, { projectTrusted: true })
   const resourceLoader = new pi.DefaultResourceLoader({
     cwd: piDir,
@@ -298,7 +381,10 @@ export async function streamPiChatTurn(
     noContextFiles: true,
     extensionFactories: [
       createPiProviderExtension(runtimeProviderName, capturedConfig),
-      createChatPromptExtension(request.systemPrompt ?? '')
+      createChatPromptExtension(request.systemPrompt ?? ''),
+      ...(request.authorizer
+        ? [createToolAuthorizationExtension(request.authorizer, enqueueChunk, (id) => deniedToolCalls.add(id))]
+        : [])
     ],
     // Belt-only (the forcing extension is the real gate): the loader override at
     // least keeps pi's default persona out of the options the extension observes.
@@ -327,18 +413,15 @@ export async function streamPiChatTurn(
 
   let lastStopReason: string | undefined
   let lastAgentError: string | undefined
-  let streamSettled = false
-  let controllerRef: ReadableStreamDefaultController<CherryUIMessageChunk> | undefined
-  const enqueueChunk = (chunk: CherryUIMessageChunk): void => {
-    if (streamSettled || !controllerRef) return
-    try {
-      controllerRef.enqueue(chunk)
-    } catch (error) {
-      logger.warn('pi chat chunk dropped after stream settle', { error })
+  const adapter = new PiStreamAdapter({
+    enqueue: (chunk) => {
+      if (chunk.type === 'tool-output-error' && deniedToolCalls.has(chunk.toolCallId)) {
+        enqueueChunk({ type: 'tool-output-denied', toolCallId: chunk.toolCallId })
+        return
+      }
+      enqueueChunk(chunk)
     }
-  }
-
-  const adapter = new PiStreamAdapter({ enqueue: enqueueChunk })
+  })
   const unsubscribe = session.subscribe((event) => {
     // Content/tool/usage projection first; lifecycle bookkeeping after, mirroring
     // the agent connection's handlePiEvent ordering.

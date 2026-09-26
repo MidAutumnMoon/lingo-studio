@@ -391,7 +391,7 @@ register below, dispositions recorded here):
 | skip-gemini-thought-signature | native on the google family (signature replay, W3); needs port only for gemini-via-openai-compat (pi's openai-completions injects no skip sentinel) |
 | steer-yield | host-owned, engine-agnostic (existing row) |
 | strip-reasoning-replay (HF) | mostly native (pi drops unsigned thinking on responses replay); signed same-model replay on HF needs a port if that combo matters |
-| terminal-tool-failure | W4a territory — stop conditions move with the tools bridge |
+| terminal-tool-failure | **Landed in W4a**: the branded trusted-local output maps onto pi's native per-result `terminate` hint in `chatToolAdapter` — the loop stops after the batch, the failure still reaches model + card |
 | tool-schema-compatibility | native — google rides `parametersJsonSchema` (full JSON Schema; the enum/keyword/propertyNames drops don't arise), and we don't enable strict-mode compilation; W4a hands pi plain JSON Schema |
 
 **W4 — Tools: bridge first, re-home later.**
@@ -411,6 +411,50 @@ register below, dispositions recorded here):
   phase-exit requirement.
 Ship/verify: per-builtin-tool round-trip tests; approval pause/resume/deny test;
 MCP tool test reusing `piMcpToolAdapter` fixtures.
+
+W4a landed (2026-09-26): `runtime/piChat/chatToolAdapter.ts` +
+`chatToolApproval.ts` + the engine's authorizer hook. Deviations from the plan
+text above, both grounded:
+
+- **One uniform registry bridge, not a TypeBox pipeline.** Every entry — zod
+  builtin, MCP, meta — converts through `asSchema(inputSchema).jsonSchema`:
+  pi validates RAW JSON Schema natively (`validateToolArguments` carries a
+  JSON-Schema path for schemas without TypeBox kind symbols — the same contract
+  `piMcpToolAdapter` already relies on), so `Type.Unsafe` buys nothing. The
+  result split is `content` = the entry's `toModelOutput` view (else raw JSON
+  text — legacy parity) while `details` = the raw execute output: the stream
+  adapter projects `details` onto the tool part, so renderer cards and replay
+  see byte-identical outputs to the legacy engine. MCP entries route through
+  their REGISTRY execute (`McpRuntimeService.callTool`: per-topic abort scope,
+  catalog routing) — NOT the plan's InMemoryTransport bridge, which assembles
+  its own server instances per session and would double-connect every server
+  per chat turn while bypassing chat-side selection semantics. The trusted
+  terminal-failure stop condition ports natively: the branded output maps onto
+  pi's per-result `terminate` hint (`AgentToolResult.terminate`).
+- **Approval resume mechanics, as designed.** `createChatToolAuthorizer` gates
+  on the registry's `needsApproval` (`isApprovalGated` — chat's gate, not agent
+  permission modes), registers in the NEUTRAL `toolApprovalRegistry`, and emits
+  the AI SDK `tool-approval-request` chunk into the engine's stream; the
+  existing `ai.tool.respond_approval` IPC resolves it — the responder peeks the
+  neutral registry by approval id, so chat entries dispatch exactly like agent
+  ones, and the engine stays resident while the promise pends. Two wrinkles,
+  recorded: (a) the responder's follow-up `resolveToolApproval` call targets an
+  agent-session topic id and no-ops for chat scopes — the seam's
+  `onApprovalResolved` callback is the correct lever (wire it to
+  `AiStreamManager.resolveToolApproval(topicId, …)` so the card advances
+  immediately on approve instead of waiting for the tool's output); (b) pi
+  reports a BLOCKED call as an error result, so the engine translates the
+  denied call's chunk to `tool-output-denied` (the state the renderer card and
+  the history converter treat as a denial) — the translation lives in the
+  engine because that is where the adapter's chunk flows.
+- Coverage: a per-builtin sweep (every registered builtin converts — a new or
+  changed tool fails the suite on schema shape), execute bridges (context
+  threading, model view vs raw details), an MCP-shaped entry (raw JSON Schema
+  parameters + summary view + legacy-identical part output), terminal-failure
+  terminate, and engine-level approval flows: pause→approve (edited input
+  executes; `finish` lands), deny (no execution, `tool-output-denied`, no
+  error), ungated (no card), plus authorizer-level edge cases (out-of-registry
+  call, synchronous-resolution abort).
 
 **W5 — Parity gap register** (each entry ships or is explicitly deferred):
 
@@ -485,8 +529,12 @@ purpose; these are the obligations that used to be implicit, from the W2 review)
 - Accounting: `onInvocation` → the same attribution/analytics sink the agent path uses
   (`AgentRuntimeUsageInvocation`), with the chat `tokenUsageSource` and the execution's
   anchor message id.
-- Tools: only after W4a's authorizer exists — the engine executes whatever it is handed,
-  with no approval gate of its own.
+- Tools: `toPiChatTools(registry.selectActive(scope), { requestContext })` → the
+  engine's `tools`, plus `createChatToolAuthorizer({ approvalScope:
+  'pi-chat:<executionId>', entries, onApprovalResolved })` → `authorizer` — wire
+  `onApprovalResolved` to `AiStreamManager.resolveToolApproval(topicId, …)` (the
+  shared responder's own call targets an agent topic and no-ops for chat, see
+  the W4a record).
 
 ### Phase 1 exit criteria
 

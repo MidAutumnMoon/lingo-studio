@@ -1,12 +1,16 @@
 import type { TranscriptContext } from '@earendil-works/pi-ai'
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent'
-import { readUIMessageStream } from 'ai'
-import { describe, expect, it, vi } from 'vitest'
+import { readUIMessageStream, tool } from 'ai'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as z from 'zod'
 
 import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/message'
 
+import { toolApprovalRegistry } from '../../toolApproval/ToolApprovalRegistry'
 import type { AgentRuntimeUsageInvocation } from '../types'
 import { streamPiChatTurn, type PiChatProviderSource } from './chatEngine'
+import { toPiChatToolDefinition } from './chatToolAdapter'
+import { createChatToolAuthorizer } from './chatToolApproval'
 import { toPiSessionEntries } from './historyConverter'
 
 type Faux = Awaited<ReturnType<typeof importFaux>>
@@ -163,7 +167,6 @@ function echoTool(execute: ToolDefinition['execute']): ToolDefinition {
 function userTurn(text: string, messageId = 'p1'): { messageId: string; text: string } {
   return { messageId, text }
 }
-
 /** A served history message (not the trailing turn). */
 function historyText(id: string, role: CherryUIMessage['role'], text: string): CherryUIMessage {
   return { id, role, parts: [{ type: 'text', text }] }
@@ -699,5 +702,184 @@ describe('streamPiChatTurn', () => {
     expect(b).toBe('answer B')
     expect(userTextOf(fauxStates.get('exec-fanout-a')!.capturedContexts[0])).toBe('question A')
     expect(userTextOf(fauxStates.get('exec-fanout-b')!.capturedContexts[0])).toBe('question B')
+  })
+
+  describe('tool-call authorization (W4a)', () => {
+    /** Drain the stream while answering approval requests as they surface. */
+    async function drainWithApprovals(
+      stream: ReadableStream<CherryUIMessageChunk>,
+      respond: (approvalId: string) => { approved: boolean; reason?: string; updatedInput?: Record<string, unknown> }
+    ): Promise<CherryUIMessageChunk[]> {
+      const reader = stream.getReader()
+      const chunks: CherryUIMessageChunk[] = []
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+        if (value.type === 'tool-approval-request') {
+          const { approved, reason, updatedInput } = respond(value.approvalId)
+          toolApprovalRegistry.dispatch(value.approvalId, {
+            approved,
+            ...(reason !== undefined && { reason }),
+            ...(updatedInput !== undefined && { updatedInput })
+          })
+        }
+      }
+      return chunks
+    }
+
+    /** A gated registry entry + its pi tool + the authorizer, wired like the W6 seam will. */
+    function gatedTool(executionId: string, onApprovalResolved?: (toolCallId: string, approved: boolean) => void) {
+      const execute = vi.fn(async ({ q }: { q: string }) => ({ echoed: q }))
+      const entry = {
+        name: 'echo',
+        namespace: 'test',
+        description: 'Echo',
+        defer: 'never' as const,
+        tool: tool({
+          description: 'Echo the query back',
+          inputSchema: z.object({ q: z.string() }),
+          needsApproval: true,
+          execute
+        })
+      }
+      return {
+        execute,
+        tools: [toPiChatToolDefinition(entry, { requestContext: { requestId: `req-${executionId}` } })],
+        authorizer: createChatToolAuthorizer({
+          approvalScope: `pi-chat:${executionId}`,
+          entries: new Map([[entry.name, entry]]),
+          ...(onApprovalResolved && { onApprovalResolved })
+        })
+      }
+    }
+
+    afterEach(() => {
+      toolApprovalRegistry.clear('test-cleanup')
+    })
+
+    it('pauses on a gated call, executes after approval, and reports the input edit', async () => {
+      const faux = await importFaux()
+      const provider = await fauxProviderSource(faux, 'exec-approve')
+      fauxStates
+        .get('exec-approve')!
+        .core.setResponses([
+          faux.fauxAssistantMessage([faux.fauxToolCall('echo', { q: 'hi' })]),
+          faux.fauxAssistantMessage('Done')
+        ])
+      const onApprovalResolved = vi.fn()
+      const wiring = gatedTool('exec-approve', onApprovalResolved)
+
+      const chunks = await drainWithApprovals(
+        await streamPiChatTurn(
+          {
+            executionId: 'exec-approve',
+            provider,
+            history: [],
+            prompt: userTurn('echo hi'),
+            tools: wiring.tools,
+            authorizer: wiring.authorizer
+          },
+          new AbortController().signal
+        ),
+        () => ({ approved: true, updatedInput: { q: 'edited' } })
+      )
+
+      // The approval card surfaced mid-stream; the edited input is what executed.
+      expect(chunks.some((chunk) => chunk.type === 'tool-approval-request')).toBe(true)
+      expect(wiring.execute).toHaveBeenCalledTimes(1)
+      expect(wiring.execute.mock.calls[0]?.[0]).toEqual({ q: 'edited' })
+      expect(onApprovalResolved).toHaveBeenCalledWith(expect.any(String), true)
+      const message = await accumulate(chunks)
+      const toolPart = message.parts.find((part) => part.type === 'dynamic-tool')
+      expect(toolPart).toMatchObject({ toolName: 'echo', state: 'output-available' })
+      expect(chunks.at(-1)).toMatchObject({ type: 'finish' })
+      expect(toolApprovalRegistry.size()).toBe(0)
+    })
+
+    it('surfaces a denial as tool-output-denied without executing the tool', async () => {
+      const faux = await importFaux()
+      const provider = await fauxProviderSource(faux, 'exec-deny')
+      fauxStates
+        .get('exec-deny')!
+        .core.setResponses([
+          faux.fauxAssistantMessage([faux.fauxToolCall('echo', { q: 'hi' })]),
+          faux.fauxAssistantMessage('Done')
+        ])
+      const onApprovalResolved = vi.fn()
+      const wiring = gatedTool('exec-deny', onApprovalResolved)
+
+      const chunks = await drainWithApprovals(
+        await streamPiChatTurn(
+          {
+            executionId: 'exec-deny',
+            provider,
+            history: [],
+            prompt: userTurn('echo hi'),
+            tools: wiring.tools,
+            authorizer: wiring.authorizer
+          },
+          new AbortController().signal
+        ),
+        () => ({ approved: false, reason: 'not today' })
+      )
+
+      // pi reports a blocked call as an error result; the engine translates it to the
+      // denial state the renderer card and the history converter expect.
+      expect(wiring.execute).not.toHaveBeenCalled()
+      expect(chunks.some((chunk) => chunk.type === 'tool-output-denied')).toBe(true)
+      expect(chunks.some((chunk) => chunk.type === 'tool-output-error')).toBe(false)
+      expect(onApprovalResolved).toHaveBeenCalledWith(expect.any(String), false)
+      const message = await accumulate(chunks)
+      expect(message.parts.find((part) => part.type === 'dynamic-tool')).toMatchObject({
+        state: 'output-denied'
+      })
+      expect(chunks.at(-1)).toMatchObject({ type: 'finish' })
+    })
+
+    it('does not gate ungated tools', async () => {
+      const faux = await importFaux()
+      const provider = await fauxProviderSource(faux, 'exec-ungated')
+      fauxStates
+        .get('exec-ungated')!
+        .core.setResponses([
+          faux.fauxAssistantMessage([faux.fauxToolCall('echo', { q: 'hi' })]),
+          faux.fauxAssistantMessage('Done')
+        ])
+      const execute = vi.fn(async ({ q }: { q: string }) => ({ echoed: q }))
+      const entry = {
+        name: 'echo',
+        namespace: 'test',
+        description: 'Echo',
+        defer: 'never' as const,
+        tool: tool({
+          description: 'Echo the query back',
+          inputSchema: z.object({ q: z.string() }),
+          execute
+        })
+      }
+      const authorizer = createChatToolAuthorizer({
+        approvalScope: 'pi-chat:exec-ungated',
+        entries: new Map([[entry.name, entry]])
+      })
+
+      const chunks = await drain(
+        await streamPiChatTurn(
+          {
+            executionId: 'exec-ungated',
+            provider,
+            history: [],
+            prompt: userTurn('echo hi'),
+            tools: [toPiChatToolDefinition(entry, { requestContext: { requestId: 'r' } })],
+            authorizer
+          },
+          new AbortController().signal
+        )
+      )
+
+      expect(chunks.some((chunk) => chunk.type === 'tool-approval-request')).toBe(false)
+      expect(execute).toHaveBeenCalledTimes(1)
+      expect(chunks.at(-1)).toMatchObject({ type: 'finish' })
+    })
   })
 })

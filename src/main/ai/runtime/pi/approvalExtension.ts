@@ -235,7 +235,7 @@ export function createPiToolAuthorizer(ctx: PiApprovalContext): PiToolAuthorizer
     if (!decision.approved) {
       return { block: true, reason: decision.reason ?? 'User denied permission for this tool.' }
     }
-    if (decision.updatedInput) applyInputEdit(input, decision.updatedInput)
+    if (decision.updatedInput) applyPiToolInputEdit(input, decision.updatedInput)
     return
   }
 }
@@ -348,8 +348,9 @@ function resolveToolPath(raw: string, workspacePath: string): string | undefined
   return path.isAbsolute(p) ? path.resolve(p) : path.resolve(workspacePath, p)
 }
 
-/** Replace the tool input in place with the renderer's edited copy (pi mutates `event.input`). */
-function applyInputEdit(input: Record<string, unknown>, updated: Record<string, unknown>): void {
+/** Replace the tool input in place with the renderer's edited copy (pi mutates `event.input`).
+ *  Shared by the chat tool authorizer, which applies the same edited-input contract. */
+export function applyPiToolInputEdit(input: Record<string, unknown>, updated: Record<string, unknown>): void {
   for (const key of Object.keys(input)) delete input[key]
   Object.assign(input, updated)
 }

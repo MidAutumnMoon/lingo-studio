@@ -1,0 +1,122 @@
+/**
+ * W4a — chat tool registry → pi `ToolDefinition`s (plan:
+ * docs/plans/2026-09-pi-unification.md, W4).
+ *
+ * One uniform bridge over `ToolEntry`: builtin (Zod), MCP (raw JSON Schema behind
+ * the AI SDK `jsonSchema()` wrapper), and meta tools all convert the same way,
+ * because the registry entry — not the pi adapter — owns execution. MCP tools keep
+ * routing through their registry execute (`McpRuntimeService.callTool` with its
+ * per-topic abort scope and catalog routing); the agent path's InMemoryTransport
+ * bridge (`piMcpToolAdapter`) assembles its OWN server instances per session and
+ * does not fit the chat registry model.
+ *
+ * Schema pivot: `asSchema(entry.tool.inputSchema).jsonSchema` normalizes every
+ * AI SDK `FlexibleSchema` variant to raw JSON Schema. pi validates raw JSON
+ * Schema natively (`validateToolArguments` falls back to a JSON-Schema path for
+ * schemas without TypeBox kind symbols — same contract the pi MCP adapter relies
+ * on), so no TypeBox rewrite is needed.
+ *
+ * Result split (`AgentToolResult`): `content` is the MODEL-facing view — the
+ * entry's `toModelOutput` when it declares one, else the raw output as JSON text
+ * (legacy parity) — while `details` carries the raw execute output. The stream
+ * adapter projects `details` onto the tool part, so the renderer's tool card and
+ * the history converter's replay see exactly what the legacy engine persisted.
+ */
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent'
+import { asSchema } from 'ai'
+
+import type { RequestContext } from '../../tools/adapters/aiSdk/context'
+import type { ToolEntry } from '../../tools/adapters/aiSdk/types'
+import { getTrustedLocalToolTerminalFailure } from '../aiSdk'
+
+/** The `toModelOutput` return shape (not exported by `ai`; structural mirror). */
+type ToolModelOutput =
+  | { type: 'text'; value: string }
+  | { type: 'json'; value: unknown }
+  | { type: 'error-text'; value: string }
+  | { type: 'error-json'; value: unknown }
+  | { type: 'execution-denied'; reason?: string }
+  | { type: 'content'; value: Array<{ type: string; text?: string }> }
+
+/** pi content blocks for tool results (the multimodal subset the adapter projects). */
+type PiToolContent = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
+
+export interface PiChatToolContext {
+  /**
+   * Threaded to every registry execute as AI SDK `experimental_context`; the tools
+   * read it via `getToolCallContext` (a missing context throws there, so it is
+   * required here too — the W6 seam builds it from the request).
+   */
+  requestContext: RequestContext
+}
+
+/** Convert one registry entry into the pi tool the chat engine hands to the session. */
+export function toPiChatToolDefinition(entry: ToolEntry, context: PiChatToolContext): ToolDefinition {
+  const tool = entry.tool
+  return {
+    name: entry.name,
+    label: entry.namespaceLabel ?? entry.name,
+    description: tool.description ?? entry.description,
+    parameters: asSchema(tool.inputSchema).jsonSchema,
+    async execute(toolCallId, params, signal) {
+      const execute = tool.execute
+      if (!execute) {
+        throw new Error(`Chat tool "${entry.name}" has no execute implementation`)
+      }
+      const output = await execute(params, {
+        toolCallId,
+        messages: [],
+        ...(signal && { abortSignal: signal }),
+        experimental_context: context.requestContext
+      })
+      const view = tool.toModelOutput && (await tool.toModelOutput({ toolCallId, input: params, output }))
+      // Trusted local tools brand terminal failures the legacy loop stopped on; pi's
+      // native per-result `terminate` hint is the same stop (the branding is
+      // process-local, and the tool ran in this process).
+      const terminalFailure = getTrustedLocalToolTerminalFailure(output)
+      return {
+        content: [toPiContent(view, output)],
+        details: output ?? null,
+        ...(terminalFailure && { terminate: true })
+      }
+    }
+  }
+}
+
+/** Convert the turn's selected registry entries; selection (`selectActive`) is the seam's job. */
+export function toPiChatTools(entries: readonly ToolEntry[], context: PiChatToolContext): ToolDefinition[] {
+  return entries.map((entry) => toPiChatToolDefinition(entry, context))
+}
+
+/**
+ * The model-facing content block. `toModelOutput` is the registry contract for
+ * what the model sees next turn (citation markers, summaries); without one the
+ * legacy loop sent the raw output as JSON — same here.
+ */
+function toPiContent(view: ToolModelOutput | undefined, output: unknown): PiToolContent {
+  if (view === undefined) {
+    return { type: 'text', text: stringify(output) }
+  }
+  switch (view.type) {
+    case 'text':
+      return { type: 'text', text: view.value }
+    case 'json':
+    case 'error-json':
+      return { type: 'text', text: stringify(view.value) }
+    case 'error-text':
+      return { type: 'text', text: view.value }
+    case 'execution-denied':
+      return { type: 'text', text: view.reason ?? 'Tool execution was denied.' }
+    case 'content': {
+      const firstText = view.value.find((block) => block.type === 'text' && typeof block.text === 'string')
+      return firstText?.text !== undefined
+        ? { type: 'text', text: firstText.text }
+        : { type: 'text', text: stringify(view.value) }
+    }
+  }
+}
+
+function stringify(value: unknown): string {
+  const json = JSON.stringify(value)
+  return json === undefined ? String(value) : json
+}
