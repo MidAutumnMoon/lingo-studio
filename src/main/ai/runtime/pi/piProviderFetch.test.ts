@@ -1,7 +1,8 @@
 import http from 'node:http'
 import net from 'node:net'
 
-import type { Api, Context, Model } from '@earendil-works/pi-ai'
+import type { Api, Model } from '@earendil-works/pi-ai'
+import { normalizeContext } from '@earendil-works/pi-ai'
 import { streamSimple as streamOpenAICompletions } from '@earendil-works/pi-ai/api/openai-completions'
 import { streamSimple as streamOpenAIResponses } from '@earendil-works/pi-ai/api/openai-responses'
 import { fetch as undiciFetch, ProxyAgent } from 'undici'
@@ -98,9 +99,7 @@ function createModel<TApi extends Api>(api: TApi, baseUrl: string): Model<TApi> 
   }
 }
 
-const context: Context = {
-  messages: [{ role: 'user', content: 'hello', timestamp: 1 }]
-}
+const context = normalizeContext({ messages: [{ role: 'user', content: 'hello', timestamp: 1 }] })
 
 afterEach(async () => {
   if (nodeProxyController) {

@@ -1,3 +1,4 @@
+import { normalizeContext } from '@earendil-works/pi-ai'
 import { describe, expect, it, vi } from 'vitest'
 
 import { normalizeCherryInThinkingReplay, withCherryInThinkingReplay } from './piThinkingReplay'
@@ -24,24 +25,22 @@ describe('CherryIN thinking replay', () => {
       stopReason: 'toolUse' as const,
       timestamp: 1
     }
-    const context = { messages: [message] }
+    const context = normalizeContext({ messages: [message] })
 
-    expect(normalizeCherryInThinkingReplay(context)).toEqual({
-      messages: [
-        {
-          ...message,
-          content: [
-            { type: 'thinking', thinking: '\u200B', thinkingSignature: '67d1dfdd-27df-953a-ad66-7347035d7b35' },
-            ...message.content
-          ]
-        }
-      ]
-    })
+    expect(normalizeCherryInThinkingReplay(context).messages).toEqual([
+      {
+        ...message,
+        content: [
+          { type: 'thinking', thinking: '\u200B', thinkingSignature: '67d1dfdd-27df-953a-ad66-7347035d7b35' },
+          ...message.content
+        ]
+      }
+    ])
     expect(context.messages[0]).toBe(message)
   })
 
   it('leaves messages with existing thinking and non-tool messages unchanged', () => {
-    const context = {
+    const context = normalizeContext({
       messages: [
         { role: 'user' as const, content: 'hello', timestamp: 1 },
         {
@@ -58,7 +57,7 @@ describe('CherryIN thinking replay', () => {
           timestamp: 2
         }
       ]
-    }
+    })
 
     expect(normalizeCherryInThinkingReplay(context)).toBe(context)
   })
@@ -70,7 +69,7 @@ describe('CherryIN thinking replay', () => {
       { name: 'CherryIN', baseUrl: '', api: 'anthropic-messages', models: [] },
       delegate
     )
-    const context = {
+    const context = normalizeContext({
       messages: [
         {
           role: 'assistant' as const,
@@ -84,7 +83,7 @@ describe('CherryIN thinking replay', () => {
           timestamp: 1
         }
       ]
-    }
+    })
 
     expect(config.streamSimple!({} as never, context, {})).toBe(stream)
     const delegatedContext = (delegate.mock.calls as unknown as [unknown, typeof context][])[0]?.[1]

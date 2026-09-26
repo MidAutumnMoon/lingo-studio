@@ -1,4 +1,5 @@
 import type { Api as PiApi, Model as PiModel } from '@earendil-works/pi-ai'
+import { normalizeContext } from '@earendil-works/pi-ai'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as AgentApiGateway from '@main/ai/runtime/agentApiGateway'
@@ -938,7 +939,7 @@ describe('pi thinking level ladder', () => {
     let requestBody: any
     const stream = streamOpenAIResponses(
       { ...piModel, api: 'openai-responses' },
-      { messages: [{ role: 'user', content: 'hello', timestamp: 1 }] },
+      normalizeContext({ messages: [{ role: 'user', content: 'hello', timestamp: 1 }] }),
       {
         apiKey: REAL_KEY,
         reasoning: 'ultra',
