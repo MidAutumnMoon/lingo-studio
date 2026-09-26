@@ -16,9 +16,9 @@ overrides:
   # fail to typecheck where pi-ai and pi-coding-agent types meet. Without this, fresh
   # lockfile resolutions drift to the newest 0.8x patch. Bump with the root pins each
   # upgrade rung (docs/plans/2026-09-pi-upgrade-notes.md §8).
-  "@earendil-works/pi-coding-agent>@earendil-works/pi-ai": "0.84.3"
-  "@earendil-works/pi-coding-agent>@earendil-works/pi-agent-core": "0.84.3"
-  "@earendil-works/pi-agent-core>@earendil-works/pi-ai": "0.84.3"
+  "@earendil-works/pi-coding-agent>@earendil-works/pi-ai": "0.84.4"
+  "@earendil-works/pi-coding-agent>@earendil-works/pi-agent-core": "0.84.4"
+  "@earendil-works/pi-agent-core>@earendil-works/pi-ai": "0.84.4"
   # Temporary: the SDK umbrella is only needed without dshBin; Cherry always supplies its bundled runtime.
   # Remove when upstream makes this optional/peer (PR #20214, discussion_r3965278746).
   "@deepseek-ai/dsh-sdk-client@0.1.2-rc.1>@deepseek-ai/dsh": "-"
@@ -113,7 +113,7 @@ patchedDependencies:
   # Regenerated per pi upgrade rung (Phase 0 ladder, docs/plans/2026-09-pi-upgrade-notes.md §8).
   # pi-ai adds the `ultra` reasoning effort; fetch threading dropped at 0.83.0 (native injection upstream).
   # pi-coding-agent's #7540 backport dropped at 0.84.0 (shipped natively there).
-  "@earendil-works/pi-ai@0.84.3": patches/@earendil-works__pi-ai@0.84.3.patch
+  "@earendil-works/pi-ai@0.84.4": patches/@earendil-works__pi-ai@0.84.4.patch
   # #20329: preserve current animation targets when React Activity reconnects.
   # Remove when an upstream release includes the blocked-initial-animation remount fix.
   motion-dom@12.42.0: patches/motion-dom@12.42.0.patch
