@@ -39,19 +39,29 @@ async function accumulate(chunks: CherryUIMessageChunk[]): Promise<CherryUIMessa
   return last
 }
 
-/** Real Anthropic-family api behind a recording fetch, so the wire payload is the assertion target. */
-async function anthropicProviderSource(bodies: unknown[]): Promise<PiChatProviderSource> {
-  const anthropic = await import('@earendil-works/pi-ai/api/anthropic-messages')
+/** A real pi-ai api family behind a recording fetch, so the wire payload is the assertion target. */
+async function recordingProviderSource(
+  api: 'anthropic-messages' | 'google-generative-ai' | 'openai-responses',
+  modelId: string,
+  bodies: unknown[]
+): Promise<PiChatProviderSource> {
+  // Static import expressions per family: the bundler must see them to inline the ESM ids.
+  const apiModule =
+    api === 'anthropic-messages'
+      ? await import('@earendil-works/pi-ai/api/anthropic-messages')
+      : api === 'google-generative-ai'
+        ? await import('@earendil-works/pi-ai/api/google-generative-ai')
+        : await import('@earendil-works/pi-ai/api/openai-responses')
   const config = {
-    name: 'Anthropic Probe',
-    api: 'anthropic-messages',
-    baseUrl: 'https://api.anthropic.com',
+    name: 'Wire Probe',
+    api,
+    baseUrl: 'https://probe.invalid',
     apiKey: 'placeholder',
     models: [
       {
-        id: 'claude-x',
-        name: 'Claude X',
-        api: 'anthropic-messages',
+        id: modelId,
+        name: modelId,
+        api,
         reasoning: true,
         input: ['text', 'image'],
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -60,23 +70,29 @@ async function anthropicProviderSource(bodies: unknown[]): Promise<PiChatProvide
       }
     ],
     streamSimple: (model: never, context: never, options: { [key: string]: unknown } | undefined) =>
-      anthropic.streamSimple(model, context, {
+      (apiModule as { streamSimple: (m: never, c: never, o: never) => unknown }).streamSimple(model, context, {
         ...options,
         apiKey: 'test-key',
         maxRetries: 0,
-        fetch: async (_input: unknown, init?: { body?: unknown }) => {
-          bodies.push(JSON.parse(String(init?.body)))
-          return new Response(JSON.stringify({ error: { message: 'recording fetch stops the turn' } }), {
-            status: 400,
-            headers: { 'content-type': 'application/json' }
-          })
-        }
-      })
+        // The Google adapter rejects a custom fetch (it drives @google/genai's own
+        // client), so its wire payload is captured through the onPayload hook instead.
+        ...(api === 'google-generative-ai'
+          ? { onPayload: (params: unknown) => bodies.push(params) }
+          : {
+              fetch: async (_input: unknown, init?: { body?: unknown }) => {
+                bodies.push(JSON.parse(String(init?.body)))
+                return new Response(JSON.stringify({ error: { message: 'recording fetch stops the turn' } }), {
+                  status: 400,
+                  headers: { 'content-type': 'application/json' }
+                })
+              }
+            })
+      } as never)
   }
-  return { name: 'anthropic-probe', apiKey: 'test-key', modelId: 'claude-x', config: config as never }
+  return { name: 'wire-probe', apiKey: 'test-key', modelId, config: config as never }
 }
 
-async function runAnthropicTurn(options: {
+async function runRecordingTurn(options: {
   provider: PiChatProviderSource
   history: CherryUIMessage[]
   isSameModelAsTurn?: (message: CherryUIMessage) => boolean
@@ -513,12 +529,12 @@ describe('streamPiChatTurn', () => {
     ]
 
     const sameModelBodies: unknown[] = []
-    const sameModel = await anthropicProviderSource(sameModelBodies)
-    await runAnthropicTurn({ provider: sameModel, history, isSameModelAsTurn: () => true })
+    const sameModel = await recordingProviderSource('anthropic-messages', 'claude-x', sameModelBodies)
+    await runRecordingTurn({ provider: sameModel, history, isSameModelAsTurn: () => true })
 
     const foreignBodies: unknown[] = []
-    const foreign = await anthropicProviderSource(foreignBodies)
-    await runAnthropicTurn({ provider: foreign, history })
+    const foreign = await recordingProviderSource('anthropic-messages', 'claude-x', foreignBodies)
+    await runRecordingTurn({ provider: foreign, history })
 
     const assistantContent = (bodies: unknown[]): Array<{ type: string; signature?: string; text?: string }> => {
       const body = bodies[0] as { messages: Array<{ role: string; content: unknown }> }
@@ -527,6 +543,92 @@ describe('streamPiChatTurn', () => {
     expect(assistantContent(sameModelBodies)[0]).toEqual({ type: 'thinking', thinking: 'plan', signature: 'sig-abc' })
     // Without the caller's same-model answer the block rides as text: pi drops the signature.
     expect(assistantContent(foreignBodies)[0]).toEqual({ type: 'text', text: 'plan' })
+  })
+
+  it('replays google thought signatures on the wire for same-model history only', async () => {
+    // Google validates signatures as base64 (TYPE_BYTES) and drops anything else.
+    const history = [
+      historyText('u0', 'user', 'earlier question'),
+      {
+        id: 'a0',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'reasoning',
+            text: 'plan',
+            state: 'done',
+            providerMetadata: { google: { thoughtSignature: 'c2lnLXI=' } }
+          },
+          { type: 'text', text: 'earlier answer', providerMetadata: { google: { thoughtSignature: 'c2lnLXQ=' } } }
+        ]
+      } as unknown as CherryUIMessage
+    ]
+
+    const sameModelBodies: unknown[] = []
+    const sameModel = await recordingProviderSource('google-generative-ai', 'gemini-x', sameModelBodies)
+    await runRecordingTurn({ provider: sameModel, history, isSameModelAsTurn: () => true })
+
+    const foreignBodies: unknown[] = []
+    const foreign = await recordingProviderSource('google-generative-ai', 'gemini-x', foreignBodies)
+    await runRecordingTurn({ provider: foreign, history })
+
+    /** The model-turn parts of a `contents` payload (the replayed assistant turn). */
+    const modelParts = (bodies: unknown[]): Array<Record<string, unknown>> => {
+      const body = bodies[0] as { contents: Array<{ role: string; parts: Array<Record<string, unknown>> }> }
+      return body.contents.find((content) => content.role === 'model')!.parts
+    }
+    expect(modelParts(sameModelBodies)).toEqual([
+      { thought: true, text: 'plan', thoughtSignature: 'c2lnLXI=' },
+      { text: 'earlier answer', thoughtSignature: 'c2lnLXQ=' }
+    ])
+    // Cross-model: both signatures drop and the thinking degrades to a plain text part.
+    expect(modelParts(foreignBodies)).toEqual([{ text: 'plan' }, { text: 'earlier answer' }])
+  })
+
+  it('reconstructs the openai-responses reasoning item for same-model history only', async () => {
+    const history = [
+      historyText('u0', 'user', 'earlier question'),
+      {
+        id: 'a0',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'reasoning',
+            text: 'plan',
+            state: 'done',
+            providerMetadata: { openai: { itemId: 'rs_1', reasoningEncryptedContent: 'enc-blob' } }
+          },
+          { type: 'text', text: 'earlier answer' }
+        ]
+      } as unknown as CherryUIMessage
+    ]
+
+    const sameModelBodies: unknown[] = []
+    const sameModel = await recordingProviderSource('openai-responses', 'gpt-x', sameModelBodies)
+    await runRecordingTurn({ provider: sameModel, history, isSameModelAsTurn: () => true })
+
+    const foreignBodies: unknown[] = []
+    const foreign = await recordingProviderSource('openai-responses', 'gpt-x', foreignBodies)
+    await runRecordingTurn({ provider: foreign, history })
+
+    const inputItems = (bodies: unknown[]): Array<{ type?: string; role?: string }> => {
+      const body = bodies[0] as { input: Array<{ type?: string; role?: string }> }
+      return body.input
+    }
+    // Same-model: the persisted item id + encrypted blob ride back as a reasoning item,
+    // between the original user item and the replayed assistant message.
+    expect(inputItems(sameModelBodies).slice(1, 3)).toEqual([
+      {
+        type: 'reasoning',
+        id: 'rs_1',
+        summary: [{ type: 'summary_text', text: 'plan' }],
+        encrypted_content: 'enc-blob'
+      },
+      expect.objectContaining({ type: 'message', role: 'assistant' })
+    ])
+    // Cross-model: pi drops an unsigned reasoning block entirely rather than degrading it.
+    expect(inputItems(foreignBodies).filter((item) => item.type === 'reasoning')).toEqual([])
+    expect(inputItems(foreignBodies).some((item) => item.type === 'message' && item.role === 'assistant')).toBe(true)
   })
 
   it('runs concurrent executions on isolated provider registrations', async () => {

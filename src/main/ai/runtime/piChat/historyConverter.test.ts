@@ -397,6 +397,126 @@ describe('model identity and usage', () => {
     }
   })
 
+  it('replays google thought signatures on reasoning, text, and tool-call parts', () => {
+    const google: PiHistoryModelDescriptor = { api: 'google-generative-ai', provider: 'cherry-p', model: 'm1' }
+    const entries = toPiSessionEntries(
+      [
+        msg('assistant', [
+          {
+            type: 'reasoning',
+            text: 'plan',
+            state: 'done',
+            providerMetadata: { google: { thoughtSignature: 'sig-r' } }
+          },
+          { type: 'text', text: 'answer', providerMetadata: { google: { thoughtSignature: 'sig-t' } } },
+          toolPart({ providerMetadata: { google: { thoughtSignature: 'sig-c' } } })
+        ])
+      ],
+      { resolveHistoryModel: () => google }
+    )
+
+    expect(assistantEntry(entries).content).toEqual([
+      { type: 'thinking', thinking: 'plan', thinkingSignature: 'sig-r' },
+      { type: 'text', text: 'answer', textSignature: 'sig-t' },
+      {
+        type: 'toolCall',
+        id: 'call-1',
+        name: 'web_search',
+        arguments: { query: 'cherry studio' },
+        thoughtSignature: 'sig-c'
+      }
+    ])
+  })
+
+  it('keeps a google text part that carries only a thought signature', () => {
+    // Gemini can sign a part whose visible text is empty; pi keeps such parts, so
+    // dropping one would break the replayed reasoning chain.
+    const google: PiHistoryModelDescriptor = { api: 'google-generative-ai', provider: 'cherry-p', model: 'm1' }
+    const entries = toPiSessionEntries(
+      [msg('assistant', [{ type: 'text', text: '', providerMetadata: { google: { thoughtSignature: 'sig-only' } } }])],
+      { resolveHistoryModel: () => google }
+    )
+    expect(assistantEntry(entries).content).toEqual([{ type: 'text', text: '', textSignature: 'sig-only' }])
+  })
+
+  it('reconstructs the openai-responses reasoning item from the persisted itemId blob', () => {
+    const responses: PiHistoryModelDescriptor = { api: 'openai-responses', provider: 'cherry-p', model: 'm1' }
+    const entries = toPiSessionEntries(
+      [
+        msg('assistant', [
+          {
+            type: 'reasoning',
+            text: 'summary text',
+            state: 'done',
+            providerMetadata: { openai: { itemId: 'rs_1', reasoningEncryptedContent: 'enc-blob' } }
+          }
+        ])
+      ],
+      { resolveHistoryModel: () => responses }
+    )
+
+    // pi stores the API's own output item as the block signature and replays it verbatim.
+    expect(assistantEntry(entries).content).toEqual([
+      {
+        type: 'thinking',
+        thinking: 'summary text',
+        thinkingSignature: JSON.stringify({
+          type: 'reasoning',
+          id: 'rs_1',
+          summary: [{ type: 'summary_text', text: 'summary text' }],
+          encrypted_content: 'enc-blob'
+        })
+      }
+    ])
+
+    // Without encrypted content the item still replays with its summary (legacy parity).
+    const unencrypted = toPiSessionEntries(
+      [
+        msg('assistant', [
+          { type: 'reasoning', text: 'bare', state: 'done', providerMetadata: { openai: { itemId: 'rs_2' } } }
+        ])
+      ],
+      { resolveHistoryModel: () => responses }
+    )
+    expect(assistantEntry(unencrypted).content).toEqual([
+      {
+        type: 'thinking',
+        thinking: 'bare',
+        thinkingSignature: JSON.stringify({
+          type: 'reasoning',
+          id: 'rs_2',
+          summary: [{ type: 'summary_text', text: 'bare' }]
+        })
+      }
+    ])
+  })
+
+  it('replays pi-written signatures from the pi namespace for any mapped family', () => {
+    // pi-engine turns persist pi's opaque replay strings; the descriptor family matches
+    // by the same-model gate, so the value replays without family translation.
+    for (const api of ['anthropic-messages', 'google-generative-ai', 'openai-responses'] as const) {
+      const entries = toPiSessionEntries(
+        [
+          msg('assistant', [
+            { type: 'reasoning', text: 'p', state: 'done', providerMetadata: { pi: { thinkingSignature: 'pi-sig' } } },
+            { type: 'text', text: 'a', providerMetadata: { pi: { textSignature: 'pi-text' } } }
+          ])
+        ],
+        { resolveHistoryModel: () => ({ api, provider: 'cherry-p', model: 'm1' }) }
+      )
+      expect(assistantEntry(entries).content).toEqual([
+        { type: 'thinking', thinking: 'p', thinkingSignature: 'pi-sig' },
+        { type: 'text', text: 'a', textSignature: 'pi-text' }
+      ])
+    }
+
+    const signedTool = toPiSessionEntries(
+      [msg('assistant', [toolPart({ providerMetadata: { pi: { thoughtSignature: 'pi-tool' } } })])],
+      { resolveHistoryModel: () => ({ api: 'google-generative-ai', provider: 'cherry-p', model: 'm1' }) }
+    )
+    expect(assistantEntry(signedTool).content[0]).toMatchObject({ thoughtSignature: 'pi-tool' })
+  })
+
   it('uses the placeholder descriptor when no resolver resolves', () => {
     const entries = toPiSessionEntries([msg('assistant', [{ type: 'text', text: 'x' }])])
     const assistant = assistantEntry(entries)

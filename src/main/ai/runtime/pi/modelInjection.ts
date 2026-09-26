@@ -35,7 +35,7 @@ import {
 import type { ApiKeyEntry, Provider } from '@shared/data/types/provider'
 import { formatApiHost, withoutTrailingApiVersion } from '@shared/utils/api'
 import { formatGatewayModelId } from '@shared/utils/apiGateway'
-import { getRawModelId } from '@shared/utils/model'
+import { getRawModelId, isQwenModel } from '@shared/utils/model'
 import { isLoginBasedProvider, matchesPreset, resolveEndpointDialect } from '@shared/utils/provider'
 import { SystemProviderIds } from '@shared/utils/systemProviderId'
 
@@ -134,7 +134,8 @@ export async function materializePiProviderStream(injection: PiProviderInjection
       : injection.providerConfig
   const streamSimple = withPiRequestEnvironment(
     providerConfig.streamSimple ?? (await loadPiApiStreamSimple(injection.api)),
-    injection.requestEnvironment
+    injection.requestEnvironment,
+    injection.api
   )
   return { providerConfig: { ...providerConfig, streamSimple }, streamSimple }
 }
@@ -143,10 +144,15 @@ export async function materializePiProviderStream(injection: PiProviderInjection
  * Layer Cherry's request environment onto a provider stream: proxy rules from Cherry's
  * own config (undici does not read them by itself) and the Electron-aware `customFetch`
  * unless the proxy authenticates in the Node dispatcher, which `net.fetch` cannot do.
+ *
+ * The Google adapter is exempt from the `customFetch` half: pi-ai drives it through the
+ * `@google/genai` client, which hard-rejects a custom fetch — requests there ride the
+ * Node dispatcher directly (proxy parity gap recorded in the plan's W5 register).
  */
 function withPiRequestEnvironment(
   streamSimple: NonNullable<ProviderConfig['streamSimple']>,
-  providerEnvironment: Record<string, string> | undefined
+  providerEnvironment: Record<string, string> | undefined,
+  api: PiApi
 ): NonNullable<ProviderConfig['streamSimple']> {
   return (model, context, options) => {
     const proxyEnvironment = getProxyEnvironment(process.env)
@@ -156,7 +162,7 @@ function withPiRequestEnvironment(
     return streamSimple(model, context, {
       ...options,
       env: { ...options?.env, ...proxyEnvironment, ...providerEnvironment },
-      ...(!usesAuthenticatedNodeProxy && { fetch: customFetch })
+      ...(api !== 'google-generative-ai' && !usesAuthenticatedNodeProxy && { fetch: customFetch })
     })
   }
 }
@@ -449,6 +455,22 @@ function buildThinkingLevelMap(model: Model): ProviderModelConfig['thinkingLevel
   return map
 }
 
+/**
+ * Explicit compat overrides where pi-ai's URL/provider auto-detection cannot identify
+ * the dialect. Most families are detected from the baseUrl (deepseek.com → deepseek
+ * thinking + reasoning-content echo, open.bigmodel.cn → zai, api.together.ai → together,
+ * openrouter.ai → openrouter, api.moonshot. → moonshot); DashScope's compatible-mode
+ * host is not. Its Qwen models speak `enable_thinking` (the legacy
+ * `qwenEnableThinking` plugin's gating), while its other models ride the registry's
+ * openai-chat dialect — so the override is model-gated, not provider-wide.
+ */
+function piDialectCompat(provider: Provider, model: Model, api: PiApi): ProviderModelConfig['compat'] | undefined {
+  if (provider.id === SystemProviderIds.dashscope && api === 'openai-completions' && isQwenModel(model)) {
+    return { thinkingFormat: 'qwen' }
+  }
+  return undefined
+}
+
 function buildPiModelConfig(
   provider: Provider,
   model: Model,
@@ -464,6 +486,18 @@ function buildPiModelConfig(
     input.push('image')
   }
   const thinkingLevelMap = buildThinkingLevelMap(model)
+  // Compat overrides stack: endpoint dialect first, then provider dialects, then the
+  // CherryIN signature replay flag — all touch disjoint keys.
+  const compat = {
+    ...(api === 'openai-completions' || api === 'openai-responses'
+      ? // Cherry's provider capability is the source of truth; pi otherwise infers
+        // developer-role support from the endpoint URL.
+        { supportsDeveloperRole: resolveEndpointDialect(provider, endpointType).developerRole }
+      : {}),
+    ...piDialectCompat(provider, model, api),
+    // CherryIN requires replaying its thinking block even when the compatible endpoint omits a signature delta.
+    ...(provider.id === 'cherryin' && api === 'anthropic-messages' ? { allowEmptySignature: true } : {})
+  }
 
   return {
     id,
@@ -477,13 +511,7 @@ function buildPiModelConfig(
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: resolveAgentContextWindow(model),
     maxTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKENS,
-    // Cherry's provider capability is the source of truth; pi otherwise infers
-    // developer-role support from the endpoint URL.
-    ...(api === 'openai-completions' || api === 'openai-responses'
-      ? { compat: { supportsDeveloperRole: resolveEndpointDialect(provider, endpointType).developerRole } }
-      : {}),
-    // CherryIN requires replaying its thinking block even when the compatible endpoint omits a signature delta.
-    ...(provider.id === 'cherryin' && api === 'anthropic-messages' ? { compat: { allowEmptySignature: true } } : {})
+    ...(Object.keys(compat).length > 0 ? { compat } : {})
     // thinkingLevelMap intentionally omitted: Cherry does not wire pi
     // thinking-level control in v1 (see capability matrix).
   }

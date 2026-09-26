@@ -275,6 +275,80 @@ bedrock, mistral, azure, codex — mirroring `loadPiApiStreamSimple`). Gateway
 routing parity (`buildPiGatewayInjection`) for Cherry Cloud models.
 Ship/verify: matrix test green; one live spot-check per family in dev.
 
+Landed (2026-09-26), mechanical half: `runtime/pi/providerMatrix.test.ts` —
+exhaustive endpoint-type classification (every `ENDPOINT_TYPE` member is chat-mapped
+or rejected, so a new registry endpoint type fails until classified), adapter-family
+refinements (azure-responses → the azure family; azure chat-completions, bedrock,
+both vertex families → unsupported; mistral/openrouter/deepseek/groq ride
+openai-completions), a sweep over the registry's own `data/providers.json` (every
+chat endpoint of all 63 preset providers resolves a family except the explicit
+unsupported list; login-based providers pass through their transport adapters), the
+builtin-stream load for all five families, and gateway parity for every family
+(`buildPiGatewayInjection` preserves each wire protocol and the `provider:model`
+gateway id). **The live spot-check per family in dev remains the manual half.**
+
+Also landed with it, three family findings the probes caught:
+
+- **pi-ai's Google adapter rejects a custom `fetch` outright** ("Custom fetch is
+  not supported" — it drives `@google/genai`'s own client). `withPiRequestEnvironment`
+  stamped `customFetch` on every family, so ANY google-family turn through the
+  prepared stream would have died at request time — including agent sessions since
+  the W2 review moved the wrapper into `materializePiProviderStream`. The google
+  family is now exempt (pinned in the matrix suite); consequence recorded in the
+  register: that family rides the Node dispatcher directly, so Electron `net.fetch`
+  session sharing and the proxy env layering do not apply to it.
+- **Signature replay is complete across families.** The converter now maps
+  `providerMetadata.google.thoughtSignature` (reasoning, text, AND tool-call parts —
+  pi strips tool-call signatures cross-model itself, and Gemini 3 400s without
+  them) and reconstructs the openai-responses reasoning item from
+  `providerMetadata.openai.{itemId, reasoningEncryptedContent}` (`{type:'reasoning',
+  id, summary, encrypted_content}` — the shape pi stores and replays verbatim).
+  And pi-WRITTEN turns now round-trip: `piStreamAdapter` persists pi's opaque
+  `thinkingSignature`/`textSignature`/tool `thoughtSignature` from the finished
+  blocks (`event.partial`) under `providerMetadata.pi`, which the converter replays
+  without family translation. Wire probes (real serializers + recording fetch; the
+  google one captures through pi's `onPayload` hook because of the fetch rejection)
+  pin same-model replay and cross-model degradation for all three families. Google
+  validates signatures as base64 and drops anything else; a signature-bearing EMPTY
+  text part survives the converter (Gemini signs empty parts; dropping breaks the
+  reasoning chain).
+- **Reasoning dialects are mostly native.** pi-ai auto-detects deepseek (thinking
+  `{type}` + reasoning-content echo on replay), zai (bigmodel.cn), together,
+  openrouter, and moonshot from the provider baseUrl, and carries native
+  `thinkingFormat` compat for qwen (`enable_thinking`), qwen-chat-template, baseten,
+  string-thinking, and ant-ling. The one registry gap: DashScope's compatible-mode
+  host is not detected — `piDialectCompat` marks qwen models there
+  (`thinkingFormat: 'qwen'`), model-gated exactly like the legacy
+  `qwenEnableThinking` plugin (DashScope also serves deepseek et al., which ride the
+  detected openai dialect).
+
+**W3 feature-plugin parity inventory** (the deliverable deferred from W2; every
+`runtime/aiSdk/params/features/` behavior mapped — new rows landed in the W5
+register below, dispositions recorded here):
+
+| aiSdk feature | pi disposition |
+|---|---|
+| anthropic-cache | native, different policy — pi places `cache_control` itself (system + last tool + trailing message; `cacheRetention` option); Cherry's threshold/last-N/budget knobs and provider ttl setting are inert. Optional seam port: map the ttl setting → `cacheRetention` |
+| anthropic-headers | native — pi sends `interleaved-thinking-2025-05-14` itself and merges caller beta headers; the remaining flag (Vertex web search) is on an unsupported family |
+| context-build (in-flight truncate/offload) | needs port — register row; served history is sliced upstream, but tool results generated INSIDE pi's loop get no Cherry truncation |
+| deepseek-dsml-parser | needs port (stream wrapper) if DSML-emitting deployments must run on pi |
+| deepseek-responses-reasoning-replay | needs port — pi drops UNSIGNED thinking on responses replay, and DeepSeek's responses dialect requires reasoning passed back (#18150); the completions dialect is auto-covered (`requiresReasoningContentOnAssistantMessages`) |
+| devtools (ai-sdk) | N/A on pi (AI SDK devtools is middleware-shaped); drop for pi turns |
+| gateway-usage-normalize | native — pi-ai normalizes usage itself; the flat shape was an ai-sdk adapter artifact |
+| in-loop-compaction | needs decision — turn-start durable compaction is upstream of the seam (keeps working); compaction inside pi's tool loop is a register row |
+| no-think (ovms) | needs port (prompt suffix) or keep ovms on legacy; the matrix cannot key it (provider-id gate at the seam) |
+| openrouter-reasoning | needs port (strip `[REDACTED]`) — cosmetic; register row |
+| provider-url-context / provider-web-search | accepted delta (existing rows) |
+| qwen-enable-thinking | native via `thinkingFormat: 'qwen'` (dashscope wired; qwen-on-other-hosts = live spot-check row) |
+| qwen-thinking (/think suffix) | needs port only for qwen on nvidia/gpustack via pi (the other suffix providers — ollama/lmstudio — are not pi families) |
+| reasoning-extraction (<think> tags) | needs port — pi-ai reads `reasoning_content`/`reasoning`/`reasoning_text` fields but does not extract inline tag markup |
+| simulate-streaming | matrix exclusion — `streamSimple` is SSE-only; `streamOutput === false` providers must fail the matrix gate to legacy (W6 seam note) |
+| skip-gemini-thought-signature | native on the google family (signature replay, W3); needs port only for gemini-via-openai-compat (pi's openai-completions injects no skip sentinel) |
+| steer-yield | host-owned, engine-agnostic (existing row) |
+| strip-reasoning-replay (HF) | mostly native (pi drops unsigned thinking on responses replay); signed same-model replay on HF needs a port if that combo matters |
+| terminal-tool-failure | W4a territory — stop conditions move with the tools bridge |
+| tool-schema-compatibility | native — google rides `parametersJsonSchema` (full JSON Schema; the enum/keyword/propertyNames drops don't arise), and we don't enable strict-mode compilation; W4a hands pi plain JSON Schema |
+
 **W4 — Tools: bridge first, re-home later.**
 - W4a (phase exit requires): adapter from the existing chat tool registry to pi
   `ToolDefinition`s. MCP-backed tools: reuse `piMcpToolAdapter` unchanged (same
@@ -307,7 +381,18 @@ MCP tool test reusing `piMcpToolAdapter` fixtures.
 | Steering semantics | Chat steer = enqueue + yield + chained continuation (host-owned, engine-agnostic) — no change; pi-native steer is not used for chat in Phase 1 |
 | Replayed step boundaries | One persisted message collapses to one assistant entry, so tool calls from different steps share one wire turn. W2 emits `start-step`; splitting the entries in `toAssistantTurn` at those boundaries is the follow-up (pi's own sessions keep one assistant message per step) |
 | Replayed tool-result rendering (builtin outputs) | MCP call results render through `mcpResultToTextSummary` (`messages/toolResultRendering.ts`, the same summary the MCP tool declares); the knowledge / fs / web / painting `toModelOutput` views are unported, so those replayed results show raw JSON text. Port into the same shared module (it survives Phase 2 — the ai-sdk adapter dir does not) |
-| Reasoning signature replay (non-anthropic families) | `providerMetadata.anthropic.signature` replays today; google (`thoughtSignature`) and openai-responses (`itemId` blob) keys are unmapped. The engine's `isSameModelAsTurn` identity is what makes any of this reach the wire — land them together in W3, and note that cross-model treatment also strips tool-call `thoughtSignature` and normalizes tool-call ids (`transform-messages`) |
+| Reasoning signature replay (non-anthropic families) | **Landed in W3**: google (`thoughtSignature` on reasoning/text/tool parts) and openai-responses (`itemId`+`reasoningEncryptedContent` → reconstructed reasoning item) replay via the converter; pi-written turns round-trip through `providerMetadata.pi` signatures persisted by `piStreamAdapter`. Wire-probed same-model vs cross-model per family. Cross-model treatment (pi strips tool-call `thoughtSignature`, normalizes tool-call ids) is pi's own |
+| Google family proxy transport | pi-ai's google adapter rejects custom fetch (drives `@google/genai`'s client), so the family is exempt from `customFetch` — no Electron session sharing or Cherry proxy env layering there. Requests ride the Node dispatcher directly; if that breaks proxy users, the port is a pi-ai change (fetch support in the google adapter), not a Cherry workaround |
+| Anthropic cache user knobs | pi places `cache_control` natively with its own policy (system + last tool + trailing message); Cherry's per-provider cache settings (threshold, last-N, ttl) are inert on pi. Optional seam port maps the ttl setting → `cacheRetention` |
+| Mid-loop tool-output truncation | `contextBuild`'s in-flight truncate/offload lanes are aiCore middlewares; tool results generated inside pi's tool loop get none of it (served history is fine — sliced upstream). Port = trimming at the W4a tool-result boundary or a pi stream wrapper |
+| In-loop compaction inside pi's loop | Cherry's `prepareStep` compaction cannot run inside pi's tool loop; turn-start durable compaction is upstream and unaffected. Either accept the gap for multi-step turns or port a budget check between pi steps |
+| DeepSeek DSML tool calls | some DeepSeek deployments emit tool calls as DSML markup in text; pi has no parser. Port as a stream wrapper in `materializePiProviderStream` if affected deployments must run on pi |
+| Inline `<think>` reasoning extraction | pi-ai reads `reasoning_content`/`reasoning`/`reasoning_text` fields but not inline tag markup — openai-compat servers that emit `<think>` in text would show tags as content. Port at the adapter layer |
+| DeepSeek Responses reasoning replay (#18150) | pi drops UNSIGNED thinking on responses replay; DeepSeek's responses dialect requires reasoning passed back. Synthesize a raw reasoning item from persisted text for that dialect, or matrix-exclude it |
+| Non-streaming providers | `streamSimple` is SSE-only: `capabilities.streamOutput === false` providers must FAIL the matrix gate to legacy (the W6 seam checks this — it is not keyed on endpoint type) |
+| Qwen on nvidia/gpustack (pi path) | the `/think`-suffix fallback applies to qwen models on providers without `enable_thinking` that ARE pi-mappable; needs the suffix port or spot-check exclusion |
+| OpenRouter `[REDACTED]` blocks / HF signed replay | two small stream wrappers if those combos matter on pi; both are cosmetic-or-narrow today |
+| ovms `/no_think` | provider-id-keyed suffix; port into prompt assembly or keep ovms on legacy via the seam's provider gate |
 | Stop-reason `length` policy | Both pi paths fail the turn with an actionable error (`turnVerdict` / `finishPromptRun`), while the legacy chat path finishes successfully at `finishReason: 'length'` and the gateway maps it to `max_tokens`. Decide once (keep pi's behavior ⇒ a UX delta users will see: truncation surfaces as an error row; partial text is still persisted). Legacy parity claim in the W6 checklist must match the decision |
 | Resumed-session reasoning replay (agent path) | The agent connection names the provider `${providerId}:${sessionId}:${generation}` and rewrites the pi api per generation, and pi stores those names in session JSONL — so after a resume every replayed assistant message is cross-model and signed thinking degrades to text. Chat fixed this by owning the descriptor (`isSameModelAsTurn`); the agent path needs the same identity treatment (fits the unification, see Phase 3) |
 | Tool timing in `runtimeTiming` (pi chat) | `MessageRuntimeTimingCollector` is fed by the legacy engine's `onToolExecutionStart/End` hooks only, so pi chat turns persist no tool spans and the perf panel's tool lane attributes tool time to the model. Either derive spans from chunks in the trunk (`withReasoningTimingMetadata` is the precedent transform) or feed the collector from the pi adapter |
@@ -334,6 +419,9 @@ purpose; these are the obligations that used to be implicit, from the W2 review)
 - Provider: `resolvePiProviderInjection` → `materializePiProviderStream` — the returned
   `streamSimple`/config is the complete transport (compat wrappers, Cherry proxy env,
   Electron fetch); hand `{name, config, apiKey, modelId}` to the engine and do not wrap.
+  The per-execution matrix gate (flag fallback) resolves here: `resolvePiApi` + the
+  non-streaming exclusion (`streamOutput === false` → legacy, register row) +
+  provider-id keeps (ovms) until their ports land.
 - Prompt: assembled chat prompt string; the trailing user message's text verbatim
   (no template expansion) + its **images mapped to pi `ImageContent`** (pi resizes/omits
   unusable ones itself).

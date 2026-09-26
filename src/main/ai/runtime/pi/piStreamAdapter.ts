@@ -14,6 +14,12 @@
  *
  * Tool parts are stamped with the pi runtime transport tag
  * (D8) so the renderer routes them to the generic pi tool card.
+ *
+ * Reasoning/text/tool parts also persist pi's replay signatures
+ * (`thinkingSignature`, `textSignature`, tool `thoughtSignature`) under
+ * `providerMetadata.pi` — the history converter replays them for same-model
+ * turns the same way it replays the legacy AI SDK provider keys
+ * (`anthropic.signature`, `google.thoughtSignature`, `openai.itemId`).
  */
 import type { AgentSessionEvent, AgentToolResult } from '@earendil-works/pi-coding-agent'
 
@@ -48,6 +54,9 @@ export class PiStreamAdapter {
    *  (pi resets `contentIndex` to 0 per message). */
   private messageSeq = 0
   private readonly startedTools = new Set<string>()
+  /** Tool-call signatures captured from `message_update` blocks, keyed by toolCallId —
+   *  attached to the `tool_execution_*` chunks that carry the call to the trunk. */
+  private readonly toolSignatures = new Map<string, string>()
   /** Running token totals for the current turn (`agent_start` → `agent_end`).
    *  pi's `Usage` is per-assistant-message, but a Cherry turn spans N `turn_end`s
    *  (one per LLM response in the tool loop) that accumulate into a single message
@@ -109,35 +118,85 @@ export class PiStreamAdapter {
       case 'text_delta':
         this.sink.enqueue({ type: 'text-delta', id: this.textId(event.contentIndex), delta: event.delta })
         return
-      case 'text_end':
-        this.sink.enqueue({ type: 'text-end', id: this.textId(event.contentIndex) })
+      case 'text_end': {
+        const textSignature = this.blockSignature(event, 'textSignature')
+        this.sink.enqueue({
+          type: 'text-end',
+          id: this.textId(event.contentIndex),
+          ...(textSignature && { providerMetadata: { pi: { textSignature } } })
+        })
         return
+      }
       case 'thinking_start':
         this.sink.enqueue({ type: 'reasoning-start', id: this.reasoningId(event.contentIndex) })
         return
       case 'thinking_delta':
         this.sink.enqueue({ type: 'reasoning-delta', id: this.reasoningId(event.contentIndex), delta: event.delta })
         return
-      case 'thinking_end':
-        this.sink.enqueue({ type: 'reasoning-end', id: this.reasoningId(event.contentIndex) })
+      case 'thinking_end': {
+        const thinkingSignature = this.blockSignature(event, 'thinkingSignature')
+        this.sink.enqueue({
+          type: 'reasoning-end',
+          id: this.reasoningId(event.contentIndex),
+          ...(thinkingSignature && { providerMetadata: { pi: { thinkingSignature } } })
+        })
+        return
+      }
+      case 'toolcall_end':
+        this.captureToolSignature(event)
         return
       default:
-        // start/done/error and toolcall_* deltas — tool calls are surfaced via
+        // start/done/error and toolcall_start/delta — tool calls are surfaced via
         // the tool_execution_* events instead, which carry the executed args.
         return
     }
   }
 
+  /** pi's replay signature for the finished content block, if the provider sent one. */
+  private blockSignature(
+    event: Extract<AssistantMessageEventLike, { contentIndex: number; partial?: unknown }>,
+    key: 'thinkingSignature' | 'textSignature'
+  ): string | undefined {
+    const block = this.contentBlock(event)
+    if (block === undefined) return undefined
+    const signature = block[key]
+    return typeof signature === 'string' && signature.length > 0 ? signature : undefined
+  }
+
+  private contentBlock(event: { contentIndex: number; partial?: unknown }): Record<string, unknown> | undefined {
+    const content = (event.partial as { content?: unknown[] } | undefined)?.content
+    const block = content?.[event.contentIndex]
+    return block !== null && typeof block === 'object' ? (block as Record<string, unknown>) : undefined
+  }
+
+  /** A finished tool-call block may carry a `thoughtSignature` (Google) — keep it for the
+   *  `tool_execution_*` chunks, which is where the call reaches the trunk. */
+  private captureToolSignature(event: { contentIndex: number; partial?: unknown }): void {
+    const block = this.contentBlock(event)
+    if (block === undefined || block.type !== 'toolCall') return
+    const signature = block.thoughtSignature
+    if (typeof signature === 'string' && signature.length > 0 && typeof block.id === 'string') {
+      this.toolSignatures.set(block.id, signature)
+    }
+  }
+
+  /** Transport routing metadata plus the call's replay signature when the provider sent one. */
+  private toolMetadataFor(toolCallId: string, toolName: string): ReturnType<typeof toolProviderMetadata> {
+    const thoughtSignature = this.toolSignatures.get(toolCallId)
+    return toolProviderMetadata(toolName, thoughtSignature !== undefined ? { thoughtSignature } : undefined)
+  }
+
   private handleToolStart(toolCallId: string, toolName: string, args: unknown): void {
     if (this.startedTools.has(toolCallId)) return
     this.startedTools.add(toolCallId)
+    const metadata = this.toolMetadataFor(toolCallId, toolName)
     this.sink.enqueue({
       type: 'tool-input-start',
       toolCallId,
       toolName,
       providerExecuted: true,
       dynamic: true,
-      providerMetadata: toolProviderMetadata(toolName)
+      providerMetadata: metadata
     })
     this.sink.enqueue({
       type: 'tool-input-available',
@@ -146,13 +205,14 @@ export class PiStreamAdapter {
       input: args ?? {},
       providerExecuted: true,
       dynamic: true,
-      providerMetadata: toolProviderMetadata(toolName)
+      providerMetadata: metadata
     })
   }
 
   private handleToolEnd(toolCallId: string, toolName: string, result: unknown, isError: boolean): void {
     // A tool result with no preceding start (defensive) still needs its input parts.
     if (!this.startedTools.has(toolCallId)) this.handleToolStart(toolCallId, toolName, {})
+    const metadata = this.toolMetadataFor(toolCallId, toolName)
     if (isError) {
       this.sink.enqueue({
         type: 'tool-output-error',
@@ -160,7 +220,7 @@ export class PiStreamAdapter {
         errorText: stringifyResult(result),
         dynamic: true,
         providerExecuted: true,
-        providerMetadata: toolProviderMetadata(toolName)
+        providerMetadata: metadata
       })
       return
     }
@@ -170,7 +230,7 @@ export class PiStreamAdapter {
       output: projectPiToolOutput(toolName, result),
       dynamic: true,
       providerExecuted: true,
-      providerMetadata: toolProviderMetadata(toolName)
+      providerMetadata: metadata
     })
   }
 
@@ -257,16 +317,19 @@ function emptyTurnUsage(): TurnUsageTotals {
 /**
  * Structural shape of the pi-ai `AssistantMessageEvent` variants we consume.
  * The connection casts pi's full event to this before dispatch; unlisted
- * variants (start/done/error, toolcall_*) fall through the adapter's `default`.
+ * variants (start/done/error, toolcall_start/delta) fall through the adapter's
+ * `default`. `partial` (present on every pi event) is read only where a
+ * finished block's replay signature lives on it.
  */
 type AssistantMessageEventLike =
   | { type: 'text_start'; contentIndex: number }
   | { type: 'text_delta'; contentIndex: number; delta: string }
-  | { type: 'text_end'; contentIndex: number }
+  | { type: 'text_end'; contentIndex: number; partial?: unknown }
   | { type: 'thinking_start'; contentIndex: number }
   | { type: 'thinking_delta'; contentIndex: number; delta: string }
-  | { type: 'thinking_end'; contentIndex: number }
-  | { type: 'start' | 'done' | 'error' | 'toolcall_start' | 'toolcall_delta' | 'toolcall_end' }
+  | { type: 'thinking_end'; contentIndex: number; partial?: unknown }
+  | { type: 'toolcall_end'; contentIndex: number; partial?: unknown }
+  | { type: 'start' | 'done' | 'error' | 'toolcall_start' | 'toolcall_delta' }
 
 interface PiUsageLike {
   input: number

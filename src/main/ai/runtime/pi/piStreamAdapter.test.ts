@@ -342,4 +342,89 @@ describe('PiStreamAdapter', () => {
       output: content
     })
   })
+
+  describe('replay signature persistence', () => {
+    // `partial` is the live assistant message; by a block's *_end event its
+    // content array carries the finished block with the provider signature.
+    const partialWith = (blocks: unknown[]) => ({ role: 'assistant', content: blocks })
+
+    it('persists thinking and text signatures from the finished blocks', async () => {
+      const partial = partialWith([
+        { type: 'thinking', thinking: 'plan', thinkingSignature: 'sig-think' },
+        { type: 'text', text: 'answer', textSignature: 'sig-text' }
+      ])
+      const chunks = collect([
+        assistantEvent({ type: 'thinking_start', contentIndex: 0 }),
+        assistantEvent({ type: 'thinking_end', contentIndex: 0, partial }),
+        assistantEvent({ type: 'text_start', contentIndex: 1 }),
+        assistantEvent({ type: 'text_end', contentIndex: 1, partial })
+      ])
+
+      expect(chunks.find((chunk) => chunk.type === 'reasoning-end')).toMatchObject({
+        providerMetadata: { pi: { thinkingSignature: 'sig-think' } }
+      })
+      expect(chunks.find((chunk) => chunk.type === 'text-end')).toMatchObject({
+        providerMetadata: { pi: { textSignature: 'sig-text' } }
+      })
+
+      // Through the real accumulator: the part carries what the converter reads back.
+      const message = await accumulate(
+        collect([
+          { type: 'message_start', message: {} } as unknown as AgentSessionEvent,
+          assistantEvent({ type: 'thinking_start', contentIndex: 0 }),
+          assistantEvent({ type: 'thinking_end', contentIndex: 0, partial }),
+          assistantEvent({ type: 'text_start', contentIndex: 1 }),
+          assistantEvent({ type: 'text_end', contentIndex: 1, partial })
+        ])
+      )
+      expect(message.parts.find((part) => part.type === 'reasoning')).toMatchObject({
+        providerMetadata: { pi: { thinkingSignature: 'sig-think' } }
+      })
+      expect(message.parts.find((part) => part.type === 'text')).toMatchObject({
+        providerMetadata: { pi: { textSignature: 'sig-text' } }
+      })
+    })
+
+    it('omits the providerMetadata key when the block carries no signature', () => {
+      const partial = partialWith([{ type: 'text', text: 'plain' }])
+      const chunks = collect([assistantEvent({ type: 'text_end', contentIndex: 0, partial })])
+      expect(chunks[0]).not.toHaveProperty('providerMetadata')
+    })
+
+    it('stamps a signed tool call captured from the finished tool-call block', () => {
+      const partial = partialWith([
+        { type: 'toolCall', id: 'call-9', name: 'bash', arguments: {}, thoughtSignature: 'sig-tool' }
+      ])
+      const chunks = collect([
+        assistantEvent({ type: 'toolcall_end', contentIndex: 0, partial }),
+        { type: 'tool_execution_start', toolCallId: 'call-9', toolName: 'bash', args: {} },
+        {
+          type: 'tool_execution_end',
+          toolCallId: 'call-9',
+          toolName: 'bash',
+          result: { content: [{ type: 'text', text: 'ok' }], details: null },
+          isError: false
+        }
+      ])
+
+      expect(chunks.find((chunk) => chunk.type === 'tool-input-available')).toMatchObject({
+        providerMetadata: { pi: { toolName: 'bash', thoughtSignature: 'sig-tool' } }
+      })
+      // The execution chunks follow the block, so the signature is in hand by then.
+      expect(chunks.find((chunk) => chunk.type === 'tool-output-available')).toMatchObject({
+        providerMetadata: { pi: { toolName: 'bash', thoughtSignature: 'sig-tool' } }
+      })
+    })
+
+    it('leaves unsigned tool calls without a signature key', () => {
+      const partial = partialWith([{ type: 'toolCall', id: 'call-10', name: 'edit', arguments: {} }])
+      const chunks = collect([
+        assistantEvent({ type: 'toolcall_end', contentIndex: 0, partial }),
+        { type: 'tool_execution_start', toolCallId: 'call-10', toolName: 'edit', args: {} }
+      ])
+      expect(chunks.find((chunk) => chunk.type === 'tool-input-available')).toMatchObject({
+        providerMetadata: { pi: { toolName: 'edit' } }
+      })
+    })
+  })
 })

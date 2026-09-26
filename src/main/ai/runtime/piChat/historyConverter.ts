@@ -30,11 +30,11 @@ import type {
  * | Cherry part                          | pi mapping                                             | Fidelity |
  * |--------------------------------------|--------------------------------------------------------|----------|
  * | text                                 | TextContent                                            | full     |
- * | reasoning                            | ThinkingContent, carrying the persisted provider signature where the api family is mapped (anthropic today) | text; pi degrades an unsigned block itself |
+ * | reasoning                            | ThinkingContent, carrying the persisted provider signature where the api family is mapped (anthropic, google, openai-responses/azure; pi-native `thinkingSignature` for pi-written turns) | text; pi degrades an unsigned block itself |
  * | file (image, data URL)               | ImageContent                                           | full     |
  * | file (image, remote/unsupported URL) | text note                                              | lossy — converter is offline/pure, never fetches |
  * | file (non-image: pdf/audio/video/…)  | text note                                              | lossy — pi-ai has no native file input (W5 attachments row) |
- * | tool-* / dynamic-tool, terminal      | ToolCall in AssistantMessage + paired ToolResultMessage | object output kept structurally in `details` |
+ * | tool-* / dynamic-tool, terminal      | ToolCall in AssistantMessage + paired ToolResultMessage | object output kept structurally in `details`; google tool signatures replayed when persisted |
  * | ↳ MCP call-tool output               | the summary the MCP tool itself declares (`mcpResultToTextSummary`) | full — media becomes placeholders, never base64 |
  * | ↳ other builtin outputs              | JSON text                                              | lossy — their `toModelOutput` views are unported (W5 register) |
  * | tool-* / dynamic-tool, non-terminal  | dropped (call and result)                              | by design — a dangling call breaks provider pairing rules |
@@ -189,16 +189,75 @@ function toolResultDetails(output: unknown): JsonObject | undefined {
 /** A persisted reasoning part (`text` + the provider signature pi replays verbatim). */
 type ReasoningPart = Extract<CherryMessagePart, { type: 'reasoning' }>
 
+/** Narrow a persisted providerMetadata entry to a non-empty string. */
+function providerMetadataString(part: unknown, namespace: string, key: string): string | undefined {
+  const metadata = (part as { providerMetadata?: unknown }).providerMetadata as
+    | Record<string, Record<string, unknown>>
+    | undefined
+  const value = metadata?.[namespace]?.[key]
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+/**
+ * The openai-responses reasoning item pi replays. pi stores the API's own output
+ * item JSON as the block signature; a legacy part carries only `itemId` (+ optional
+ * encrypted content), so the item is reconstructed in the same shape the API returned.
+ */
+function openaiResponsesReasoningBlob(part: ReasoningPart): string | undefined {
+  const itemId = providerMetadataString(part, 'openai', 'itemId')
+  if (itemId === undefined) return undefined
+  const encryptedContent = providerMetadataString(part, 'openai', 'reasoningEncryptedContent')
+  return JSON.stringify({
+    type: 'reasoning',
+    id: itemId,
+    summary: [{ type: 'summary_text', text: part.text }],
+    ...(encryptedContent !== undefined && { encrypted_content: encryptedContent })
+  })
+}
+
 /**
  * A persisted reasoning part keeps its provider signature in `providerMetadata` — preserved
- * exactly so a same-model replay can send it back (`withReasoningTimingMetadata`) — and pi needs
- * it on the block. Families without a mapping here are W5 register rows.
+ * exactly so a same-model replay can send it back — and pi needs it on the block. pi-written
+ * turns carry pi's opaque `thinkingSignature` under the `pi` namespace; legacy AI SDK turns
+ * carry the family key (`anthropic.signature`, `google.thoughtSignature`, or the
+ * `openai.itemId` blob reconstructed above). Families without a mapping here are W5 rows.
  */
 function thinkingBlock(part: ReasoningPart, api: Api): ThinkingContent {
   const block: ThinkingContent = { type: 'thinking', thinking: part.text }
-  if (api !== 'anthropic-messages') return block
-  const signature = part.providerMetadata?.anthropic?.signature
-  return typeof signature === 'string' && signature.length > 0 ? { ...block, thinkingSignature: signature } : block
+  const piSignature = providerMetadataString(part, 'pi', 'thinkingSignature')
+  const signature =
+    piSignature ??
+    (api === 'anthropic-messages'
+      ? providerMetadataString(part, 'anthropic', 'signature')
+      : api === 'google-generative-ai'
+        ? providerMetadataString(part, 'google', 'thoughtSignature')
+        : api === 'openai-responses' || api === 'azure-openai-responses'
+          ? openaiResponsesReasoningBlob(part)
+          : undefined)
+  return signature !== undefined ? { ...block, thinkingSignature: signature } : block
+}
+
+/**
+ * Google attaches thought signatures to plain text parts too; pi replays them as
+ * `textSignature`. A signature-bearing part survives even with empty visible text —
+ * dropping it breaks Gemini's reasoning chain (pi keeps such parts for the same reason).
+ */
+function textBlock(part: Extract<CherryMessagePart, { type: 'text' }>, api: Api): TextContent | undefined {
+  const signature =
+    providerMetadataString(part, 'pi', 'textSignature') ??
+    (api === 'google-generative-ai' ? providerMetadataString(part, 'google', 'thoughtSignature') : undefined)
+  if (!part.text && signature === undefined) return undefined
+  return signature === undefined
+    ? { type: 'text', text: part.text }
+    : { type: 'text', text: part.text, textSignature: signature }
+}
+
+/** Google signs tool calls as well (Gemini 3 400s without them); replayed when persisted. */
+function toolSignature(part: ToolPart, api: Api): string | undefined {
+  return (
+    providerMetadataString(part, 'pi', 'thoughtSignature') ??
+    (api === 'google-generative-ai' ? providerMetadataString(part, 'google', 'thoughtSignature') : undefined)
+  )
 }
 
 /** Any tool-shaped part: `tool-${name}` or `dynamic-tool`. */
@@ -272,8 +331,9 @@ function toAssistantTurn(
   for (const part of message.parts) {
     const name = toolPartName(part)
     if (name === undefined) {
-      if (part.type === 'text' && part.text) {
-        content.push({ type: 'text', text: part.text })
+      const text = part.type === 'text' ? textBlock(part, descriptor.api) : undefined
+      if (text) {
+        content.push(text)
       } else if (part.type === 'reasoning' && part.text) {
         content.push(thinkingBlock(part, descriptor.api))
       } else if (part.type === 'file') {
@@ -285,11 +345,13 @@ function toAssistantTurn(
     const tool = part as ToolPart
     if (!isTerminalToolState(tool.state)) continue // dangling call — dropped pair (matrix)
     const wireName = resolveReplayToolName(name, isDeclared)
+    const thoughtSignature = toolSignature(tool, descriptor.api)
     const call: ToolCall = {
       type: 'toolCall',
       id: tool.toolCallId,
       name: wireName,
-      arguments: toToolArguments('input' in tool ? tool.input : undefined)
+      arguments: toToolArguments('input' in tool ? tool.input : undefined),
+      ...(thoughtSignature !== undefined && { thoughtSignature })
     }
     content.push(call)
     toolResults.push(buildToolResult(tool, wireName, timestamp))

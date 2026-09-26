@@ -936,6 +936,61 @@ describe('materializePiProviderStream', () => {
   })
 })
 
+describe('pi provider dialect compat', () => {
+  const dashscope = () =>
+    makeProvider({
+      id: 'dashscope',
+      name: 'DashScope',
+      defaultChatEndpoint: 'openai-chat-completions',
+      endpointConfigs: {
+        // The compatible-mode host pi-ai cannot auto-detect (no dashscope matcher).
+        'openai-chat-completions': {
+          adapterFamily: 'openai-compatible',
+          baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/'
+        }
+      }
+    })
+
+  it('marks qwen models on DashScope with the qwen thinking dialect', () => {
+    const injection = buildPiProviderInjection(
+      dashscope(),
+      makeModel({ id: 'dashscope::qwen3-max', apiModelId: 'qwen3-max' }),
+      REAL_KEY
+    )
+    expect(injection.providerConfig.models?.[0]?.compat).toMatchObject({ thinkingFormat: 'qwen' })
+  })
+
+  it('leaves non-qwen DashScope models on the detected openai dialect', () => {
+    // DashScope also serves deepseek and other vendors; the legacy enable_thinking
+    // injection is qwen-gated, so the pi dialect override must be too.
+    const injection = buildPiProviderInjection(
+      dashscope(),
+      makeModel({ id: 'dashscope::deepseek-v3', apiModelId: 'deepseek-v3' }),
+      REAL_KEY
+    )
+    expect(injection.providerConfig.models?.[0]?.compat).not.toHaveProperty('thinkingFormat')
+  })
+
+  it('relies on URL auto-detection for providers pi-ai identifies itself', () => {
+    // deepseek.com / open.bigmodel.cn / api.together.ai / openrouter.ai carry their own
+    // detection inside pi-ai — the injection adds nothing on top.
+    for (const [providerId, baseUrl] of [
+      ['deepseek', 'https://api.deepseek.com'],
+      ['zhipu', 'https://open.bigmodel.cn/api/paas/v4/'],
+      ['together', 'https://api.together.ai'],
+      ['openrouter', 'https://openrouter.ai/api']
+    ] as const) {
+      const provider = makeProvider({
+        id: providerId,
+        defaultChatEndpoint: 'openai-chat-completions',
+        endpointConfigs: { 'openai-chat-completions': { adapterFamily: 'openai-compatible', baseUrl } }
+      })
+      const injection = buildPiProviderInjection(provider, makeModel({ id: `${providerId}::m` }), REAL_KEY)
+      expect(injection.providerConfig.models?.[0]?.compat, providerId).not.toHaveProperty('thinkingFormat')
+    }
+  })
+})
+
 describe('pi thinking level ladder', () => {
   const relay = () =>
     makeProvider({
