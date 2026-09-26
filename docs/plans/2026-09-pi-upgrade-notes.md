@@ -1,9 +1,9 @@
 # Pi 0.80 → 0.87 Upgrade Notes — Phase 0 working record
 
-Status: 0.82.x series complete (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10
+Status: 0.83.0 rung complete (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10
 (including the 0.80.8 auth-refactor rewrite onto `ModelRuntime`, now behind the
-`createIsolatedPiModelRuntime()` helper in `piSdk.ts`) → 0.81.1 → 0.82.0 → 0.82.1, with patch
-regeneration at every rung; that history lives in git. This doc keeps only what the
+`createIsolatedPiModelRuntime()` helper in `piSdk.ts`) → 0.81.1 → 0.82.x → 0.83.0, with
+patch regeneration at every rung; that history lives in git. This doc keeps only what the
 remaining rungs need.
 Companion to [2026-09-pi-unification.md](./2026-09-pi-unification.md); research verified
 against a local clone of `earendil-works/pi` (all `v0.8x` tags available for diffing).
@@ -12,7 +12,7 @@ against a local clone of `earendil-works/pi` (all `v0.8x` tags available for dif
 
 | Fact | Value |
 |---|---|
-| Pins | riding the ladder to 0.87.1 — currently `pi-ai` 0.82.1, `pi-coding-agent` 0.82.1. The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
+| Pins | riding the ladder to 0.87.1 — currently `pi-ai` 0.83.0, `pi-coding-agent` 0.83.0. The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
 | Package ↔ dir mapping | one repo (`earendil-works/pi`), one version line: `packages/ai` → pi-ai, `packages/coding-agent` → pi-coding-agent, `packages/agent` → pi-agent-core; `pi-coding-agent` depends on same-line `pi-ai`/`pi-agent-core`/`pi-tui` |
 | Cherry import surface | **entirely confined to `src/main/ai/runtime/pi/`** — all runtime (value) imports go through dynamic `import()` in `piSdk.ts`; every other file is `import type` only |
 | pi test provider | `pi-ai/providers/faux` (engine tests run without network) — unchanged across the range |
@@ -54,8 +54,8 @@ fix-only.
 | Patch | Verdict | Evidence |
 |---|---|---|
 | `pi-coding-agent` — #7540 backport (context-clamped length-stop recovery) | **Drop at 0.84.0** — shipped natively there; `piLengthRecovery.test.ts` stays as the regression pin | 0.84.0 changelog + `git log` |
-| `pi-ai` — fetch threading (openai-completions/responses clients accept `options.fetch`) | **Drop at 0.83.0** — native per-request `fetch` injection (`ProviderRequestOptions.fetch`); the existing `fetch: customFetch` call site in `PiRuntimeConnection` works unpatched | 0.83.0 changelog + `pi-ai/src/types.ts` |
-| `pi-ai` — `ultra` reasoning effort (`EXTENDED_THINKING_LEVELS`, openai/codex `.d.ts` unions, `simple-options` mapping) | **Regenerate at every rung** — no `ultra` upstream at `v0.87.1` (levels end at `"max"`) | `packages/ai/src/models.ts` at `v0.87.1` |
+| `pi-ai` — fetch threading (openai-completions/responses clients accept `options.fetch`) | **Dropped at the 0.83.0 rung** — native per-request `fetch` injection arrived (`ProviderRequestOptions.fetch`); the `fetch: customFetch` call site in `PiRuntimeConnection` works unpatched, `piProviderFetch.test.ts` pins it end-to-end | 0.83.0 changelog + `pi-ai/src/types.ts` |
+| `pi-ai` — `ultra` reasoning effort (`EXTENDED_THINKING_LEVELS` + level guard in `models.js`, `ThinkingLevel` union in `types.d.ts`, openai/codex `.d.ts` effort unions) | **Regenerate at every rung** — no `ultra` upstream at `v0.87.1` (levels end at `"max"`) | `packages/ai/src/models.ts` at `v0.87.1` |
 
 The two pi-ai halves drop at different rungs, so that patch changes scope mid-ladder;
 every rung regenerates whatever survives.
@@ -124,12 +124,9 @@ the SDK subscription `piStreamAdapter` consumes.
 
 ## 8. Remaining rungs & per-rung procedure
 
-1. **0.83.0** — drop the fetch half of the pi-ai patch (`piProviderFetch.test.ts` proves
-   native injection end-to-end). The 0.81 `streamFn` → `streamFunction` rename already
-   landed at the 0.81.1 rung; nothing else owed from 0.81.
-2. **0.84.4** — drop the coding-agent patch; `piLengthRecovery.test.ts` pins native #7540.
-3. **0.86.1** — `TranscriptContext` type rework (§3).
-4. **0.87.1** — final rung: regenerate the `ultra` patch once, re-run
+1. **0.84.4** — drop the coding-agent patch; `piLengthRecovery.test.ts` pins native #7540.
+2. **0.86.1** — `TranscriptContext` type rework (§3).
+3. **0.87.1** — final rung: regenerate the `ultra` patch once, re-run
    `piBundlingViability`, full gate + smoke.
 
 Per-rung procedure:
