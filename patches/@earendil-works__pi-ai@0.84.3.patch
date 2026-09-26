@@ -47,13 +47,13 @@ index 2e415e0..06ce935 100644
          return true;
      });
 diff --git a/dist/types.d.ts b/dist/types.d.ts
-index 77b46da..dd3246c 100644
+index 5bba63f..5c76df6 100644
 --- a/dist/types.d.ts
 +++ b/dist/types.d.ts
-@@ -20,7 +20,7 @@ export type KnownProvider = "amazon-bedrock" | "ant-ling" | "anthropic" | "googl
- export type ProviderId = KnownProvider | string;
+@@ -21,7 +21,7 @@ export type ProviderId = KnownProvider | string;
  export type KnownImagesProvider = "openrouter";
  export type ImagesProviderId = KnownImagesProvider | string;
+ export type ToolChoice = "auto" | "none";
 -export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 +export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
  export type ModelThinkingLevel = "off" | ThinkingLevel;
