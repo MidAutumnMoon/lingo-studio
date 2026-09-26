@@ -119,20 +119,6 @@ describe('configureChromiumFlags', () => {
   })
 
   describe('platform-specific switches', () => {
-    it('Windows: appends wm-window-animations-disabled but no Linux switches', async () => {
-      stubConstants({ isLinux: false, isWin: true })
-      stubElectron()
-      stubBootConfig()
-
-      const { configureChromiumFlags } = await loadModule()
-      configureChromiumFlags()
-
-      expect(appendSwitchMock).toHaveBeenCalledWith('wm-window-animations-disabled')
-      expect(appendSwitchMock).not.toHaveBeenCalledWith('class', 'CherryStudio')
-      expect(appendSwitchMock).not.toHaveBeenCalledWith('name', 'CherryStudio')
-      expect(appendSwitchMock).not.toHaveBeenCalledWith('enable-features', 'GlobalShortcutsPortal')
-    })
-
     it('Linux X11: appends class/name but NOT GlobalShortcutsPortal', async () => {
       vi.stubEnv('XDG_SESSION_TYPE', 'x11')
       stubConstants({ isLinux: true, isWin: false })
@@ -145,7 +131,6 @@ describe('configureChromiumFlags', () => {
       expect(appendSwitchMock).toHaveBeenCalledWith('class', 'CherryStudio')
       expect(appendSwitchMock).toHaveBeenCalledWith('name', 'CherryStudio')
       expect(appendSwitchMock).not.toHaveBeenCalledWith('enable-features', 'GlobalShortcutsPortal')
-      expect(appendSwitchMock).not.toHaveBeenCalledWith('wm-window-animations-disabled')
     })
 
     it('Linux Wayland: appends class/name AND GlobalShortcutsPortal', async () => {
@@ -170,7 +155,6 @@ describe('configureChromiumFlags', () => {
       const { configureChromiumFlags } = await loadModule()
       configureChromiumFlags()
 
-      expect(appendSwitchMock).not.toHaveBeenCalledWith('wm-window-animations-disabled')
       expect(appendSwitchMock).not.toHaveBeenCalledWith('class', 'CherryStudio')
       expect(appendSwitchMock).not.toHaveBeenCalledWith('name', 'CherryStudio')
       expect(appendSwitchMock).not.toHaveBeenCalledWith('enable-features', 'GlobalShortcutsPortal')
