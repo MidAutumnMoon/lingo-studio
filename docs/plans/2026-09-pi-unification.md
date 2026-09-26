@@ -246,6 +246,21 @@ W2 post-landing review (2026-09-26) — probes against the real pi runtime, then
   buckets); same-model signature at the wire (real anthropic serializer + recording fetch);
   two concurrent executions on isolated registrations.
 
+W2 finish-up review (2026-09-26) — fresh-eyes pass over both W2 changesets; the four pi
+suites verified green (159 tests) with typecheck and oxlint clean, all seven fixes above
+present in the code. One code change and one recorded decision came out of it:
+
+- **A pi-side `aborted` stop reason no longer masquerades as `finish: stop`.**
+  `turnVerdict` special-cased only `error`/`length`, so an abort reaching the verdict
+  with a live signal — reader cancel today, the W4a approval pipeline later — would
+  surface as a successful turn with partial content. `aborted` now closes the stream
+  cleanly, exactly like a signal abort (tested via the faux provider's aborted stop).
+- **`finish-step` stays un-emitted, deliberately.** The legacy engine emits
+  start/finish step pairs; no consumer reads `step-finish` parts and the gateway SSE
+  adapters ignore both step chunks, so the pi adapter emits `start-step` only. Verified
+  benign end to end (the accumulator settles tool parts regardless); revisit only if a
+  consumer ever keys on step ends.
+
 **W3 — Provider coverage: agent whitelist → every chat-usable provider.**
 `modelInjection`/`assertPiProviderUsable` currently serve agent-approved providers.
 Chat must cover the full provider matrix (`provider/extensions.ts` + customs +
@@ -404,7 +419,7 @@ of four policies, and one copy has already drifted:
 
 | Policy | Agent connection | Chat engine | Drift |
 |---|---|---|---|
-| Provider-invocation accounting | `recordProviderInvocation` | `buildInvocation` | shapes converge (`AgentRuntimeUsageInvocation`); `finiteTokenCount` exists 3× (dsh too) |
+| Provider-invocation accounting | `recordProviderInvocation` | `buildInvocation` | shapes converge (`AgentRuntimeUsageInvocation`); `finiteTokenCount` exists 3× (dsh too); the responseId-less fallback id (`${timestamp}:${model}`) is shared too — same-ms invocations dedup-collide and drop a record |
 | Provider span mapping | `startProviderSpan` | `startProviderSpan` | agent marks `error`/`aborted` calls `ERROR`, chat always `OK` — provider failures arrive as resolved messages, so chat's spans never go red |
 | Turn verdict (stop reason / error extraction) | `handlePiEvent` + `finishPromptRun` | session-event handler + `turnVerdict` | same `turn_end` cast, `willRetry` reset, `lastErrorMessage`, identical `length` text |
 | Provider teardown | `unregisterApiProvider` | (removed in W2 review) | dead on pi 0.87: nothing registers under `provider:…` in the global api registry |

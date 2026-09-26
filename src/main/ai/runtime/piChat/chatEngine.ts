@@ -115,7 +115,8 @@ type TurnVerdict = { finishReason: FinishReason } | { failure: Error }
 /**
  * Terminal verdict for a completed pi run. `error` and `length` are failures (pi's
  * `stopReason` vocabulary has no other failure mode); everything else finishes. Aborts never
- * reach here — the caller closes the stream on the signal instead.
+ * reach here — the caller closes the stream on the signal, or on pi's own `aborted`
+ * stop reason.
  */
 function turnVerdict(stopReason: string | undefined, agentError: string | undefined): TurnVerdict {
   if (stopReason === 'error') return { failure: new Error(agentError ?? 'pi chat turn failed') }
@@ -416,7 +417,9 @@ export async function streamPiChatTurn(
         })
         .then(
           () => {
-            if (signal.aborted || streamSettled) {
+            // A pi-side abort (reader cancel today, W4a approval flows later) with a live
+            // signal closes cleanly like a signal abort — an aborted turn never emits `finish`.
+            if (signal.aborted || lastStopReason === 'aborted' || streamSettled) {
               settleClosed()
               return
             }

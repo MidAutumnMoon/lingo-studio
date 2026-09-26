@@ -315,6 +315,25 @@ describe('streamPiChatTurn', () => {
     expect(chunks.some((chunk) => chunk.type === 'finish')).toBe(false)
   })
 
+  it('closes cleanly when pi aborts on its own (no finish chunk)', async () => {
+    const faux = await importFaux()
+    // pi stops the turn itself — the signal stays live, so the verdict must not
+    // dress the abort up as a successful `finish: stop` (W4a approval flows rely on this).
+    const provider = await fauxProviderSource(faux, 'exec-pi-abort')
+    fauxStates
+      .get('exec-pi-abort')!
+      .core.setResponses([faux.fauxAssistantMessage('partial', { stopReason: 'aborted' })])
+
+    const chunks = await drain(
+      await streamPiChatTurn(
+        { executionId: 'exec-pi-abort', provider, history: [], prompt: userTurn('hi') },
+        new AbortController().signal
+      )
+    )
+
+    expect(chunks.some((chunk) => chunk.type === 'finish')).toBe(false)
+  })
+
   it('errors the stream for an errored provider turn', async () => {
     const faux = await importFaux()
     const provider = await fauxProviderSource(faux, 'exec-error')
