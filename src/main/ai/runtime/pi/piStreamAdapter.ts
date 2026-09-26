@@ -65,7 +65,17 @@ export class PiStreamAdapter {
    *  Claude driver, whose SDK `result` usage is already a turn total. */
   private turnUsage = emptyTurnUsage()
 
-  constructor(private readonly sink: PiStreamSink) {}
+  constructor(
+    private readonly sink: PiStreamSink,
+    /**
+     * Tool names whose part payload is the result's `details` rather than pi's native
+     * `AgentToolResult` envelope: Cherry's own tool surfaces (the chat engine's registry
+     * tools). Renderer cards, deferred-output lookups and the history converter read the
+     * raw payload for those tools — the same shape the legacy engine persisted — while
+     * pi's builtin tools keep the envelope their cards are built on.
+     */
+    private readonly payloadToolNames?: ReadonlySet<string>
+  ) {}
 
   handleEvent(event: AgentSessionEvent): void {
     switch (event.type) {
@@ -231,7 +241,7 @@ export class PiStreamAdapter {
       this.sink.enqueue({
         type: 'tool-output-error',
         toolCallId,
-        errorText: stringifyResult(result),
+        errorText: errorTextFor(toolName, result, this.payloadToolNames),
         dynamic: true,
         providerExecuted: true,
         providerMetadata: metadata
@@ -241,7 +251,7 @@ export class PiStreamAdapter {
     this.sink.enqueue({
       type: 'tool-output-available',
       toolCallId,
-      output: projectPiToolOutput(toolName, result),
+      output: projectPiToolOutput(toolName, result, this.payloadToolNames),
       dynamic: true,
       providerExecuted: true,
       providerMetadata: metadata
@@ -292,13 +302,28 @@ function asToolResult(result: unknown): AgentToolResult<unknown> | undefined {
   return candidate && Array.isArray(candidate.content) ? candidate : undefined
 }
 
-function projectPiToolOutput(toolName: string, result: unknown): unknown {
+function projectPiToolOutput(toolName: string, result: unknown, payloadToolNames?: ReadonlySet<string>): unknown {
   const toolResult = asToolResult(result)
   if (!toolResult) return result ?? null
+  // Cherry tool surfaces: the card/replay payload is the execute output, not the envelope.
+  if (payloadToolNames?.has(toolName)) return toolResult.details ?? null
   if (toolName === PI_TOOL_SEARCH_TOOL_NAME || toolName === PI_TOOL_EXEC_TOOL_NAME) {
     return toolResult.details ?? toolResult
   }
   return toolName === PI_TOOL_CALL_TOOL_NAME ? unwrapMcpContent(toolResult) : toolResult
+}
+
+/**
+ * pi reports a thrown tool as an error result (`{content:[{type:'text',text:message}]}`),
+ * which the adapter would hand the trunk as JSON. Cherry tool surfaces show the message.
+ */
+function errorTextFor(toolName: string, result: unknown, payloadToolNames?: ReadonlySet<string>): string {
+  if (!payloadToolNames?.has(toolName)) return stringifyResult(result)
+  const text = asToolResult(result)
+    ?.content.filter(isTextContent)
+    .map((block) => block.text)
+    .join('\n')
+  return text || stringifyResult(result)
 }
 
 /**

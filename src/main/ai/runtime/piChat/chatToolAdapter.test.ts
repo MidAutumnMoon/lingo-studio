@@ -1,3 +1,4 @@
+import { validateToolArguments } from '@earendil-works/pi-ai'
 import { jsonSchema, tool } from 'ai'
 import { describe, expect, it, vi } from 'vitest'
 import * as z from 'zod'
@@ -135,6 +136,83 @@ describe('toPiChatToolDefinition', () => {
     await expect(definition.execute('call-4', { q: 'x' }, undefined, undefined, {} as never)).rejects.toThrow(
       /no execute implementation/
     )
+  })
+
+  it('carries a multimodal model view into pi content blocks', async () => {
+    const entry = zodEntry({
+      tool: tool({
+        description: 'screenshot',
+        inputSchema: z.object({}),
+        execute: async () => ({ blob: 'aGk=', text: 'shot' }),
+        toModelOutput: () => ({
+          type: 'content' as const,
+          value: [
+            { type: 'text' as const, text: '{"shot":1}' },
+            { type: 'image-data' as const, data: 'aGk=', mediaType: 'image/png' }
+          ]
+        })
+      })
+    })
+
+    const result = await toPiChatToolDefinition(entry, { requestContext }).execute(
+      'call-6',
+      {},
+      undefined,
+      undefined,
+      {} as never
+    )
+
+    // pi tool results carry text AND images (AgentToolResult.content); the MCP resource-read
+    // and browser screenshot views depend on both — dropping the image loses model input.
+    expect(result.content).toEqual([
+      { type: 'text', text: '{"shot":1}' },
+      { type: 'image', data: 'aGk=', mimeType: 'image/png' }
+    ])
+    expect(result.details).toEqual({ blob: 'aGk=', text: 'shot' })
+
+    // Blocks pi cannot carry (file data, urls) become a note — never a silent drop.
+    const fileEntry = zodEntry({
+      tool: tool({
+        description: 'attachment',
+        inputSchema: z.object({}),
+        execute: async () => ({ ok: true }),
+        toModelOutput: () => ({
+          type: 'content' as const,
+          value: [{ type: 'file-data' as const, data: 'aGk=', mediaType: 'application/pdf' }]
+        })
+      })
+    })
+    const fileResult = await toPiChatToolDefinition(fileEntry, { requestContext }).execute(
+      'call-7',
+      {},
+      undefined,
+      undefined,
+      {} as never
+    )
+    expect(fileResult.content).toEqual([
+      { type: 'text', text: '[file-data block omitted: pi tool results carry text and images only]' }
+    ])
+  })
+
+  it('compiles every registered builtin parameters under pi argument validation', () => {
+    const registry = new ToolRegistry()
+    registerBuiltinTools(registry)
+
+    for (const entry of registry.getAll()) {
+      const definition = toPiChatToolDefinition(entry, { requestContext })
+      // pi compiles raw JSON Schema through TypeBox; an unsupported keyword/shape throws a
+      // TypeBox error here instead of the validator's own "Validation failed for tool" message.
+      let message = ''
+      try {
+        validateToolArguments(
+          { name: definition.name, parameters: definition.parameters } as never,
+          { name: definition.name, arguments: {} } as never
+        )
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error)
+      }
+      expect(message, `${entry.name}: ${message}`).toMatch(/^Validation failed for tool|^$/)
+    }
   })
 
   it('maps a trusted terminal failure onto pi terminate hint', async () => {

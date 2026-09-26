@@ -79,11 +79,17 @@ export interface PiChatTurnRequest {
   /** The turn's user content: text verbatim (no command expansion), images inline. */
   prompt: { messageId: string; text: string; images?: ImageContent[] }
   thinkingLevel?: ThinkingLevel
-  /** pi tools for the turn (W4a's `chatToolAdapter` converts the registry; omitted ⇒ tool-less turn). */
+  /**
+   * pi tools for the turn (W4a's `chatToolAdapter` converts the registry; omitted ⇒
+   * tool-less turn). Every handed tool is a Cherry registry tool, so its part payload is
+   * the result's `details` — the raw execute output the cards, deferred-output lookups
+   * and the history converter read.
+   */
   tools?: readonly ToolDefinition[]
   /**
    * W4a per-tool-call authorization. Supplied by the seam (built from the registry via
-   * `createChatToolAuthorizer`); the engine itself stays gate-free. While this decides,
+   * `toPiChatToolSurface`, which pairs it with the tools it guards); the engine itself
+   * stays gate-free. While this decides,
    * the session holds the tool-call promise in-process — the resume mechanics differ from
    * the legacy engine's pause-and-redispatch, the approval card contract does not.
    */
@@ -413,15 +419,21 @@ export async function streamPiChatTurn(
 
   let lastStopReason: string | undefined
   let lastAgentError: string | undefined
-  const adapter = new PiStreamAdapter({
-    enqueue: (chunk) => {
-      if (chunk.type === 'tool-output-error' && deniedToolCalls.has(chunk.toolCallId)) {
-        enqueueChunk({ type: 'tool-output-denied', toolCallId: chunk.toolCallId })
-        return
+  const adapter = new PiStreamAdapter(
+    {
+      enqueue: (chunk) => {
+        if (chunk.type === 'tool-output-error' && deniedToolCalls.has(chunk.toolCallId)) {
+          enqueueChunk({ type: 'tool-output-denied', toolCallId: chunk.toolCallId })
+          return
+        }
+        enqueueChunk(chunk)
       }
-      enqueueChunk(chunk)
-    }
-  })
+    },
+    // Chat tool parts carry the raw execute output (legacy parity for cards, deferred
+    // lookups and replay); pi's native `{content, details}` envelope is what the agent
+    // path's pi-owned tools keep.
+    new Set(tools.map((tool) => tool.name))
+  )
   const unsubscribe = session.subscribe((event) => {
     // Content/tool/usage projection first; lifecycle bookkeeping after, mirroring
     // the agent connection's handlePiEvent ordering.

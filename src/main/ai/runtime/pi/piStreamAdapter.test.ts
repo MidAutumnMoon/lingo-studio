@@ -116,6 +116,42 @@ describe('PiStreamAdapter', () => {
     })
   })
 
+  it('projects a payload tool result as its details and its error as the message', () => {
+    const chunks: CherryUIMessageChunk[] = []
+    // The chat engine declares its registry tools here; pi's own tools keep the envelope.
+    const adapter = new PiStreamAdapter({ enqueue: (chunk) => chunks.push(chunk) }, new Set(['kb_search']))
+    const start = (toolCallId: string) =>
+      adapter.handleEvent({
+        type: 'tool_execution_start',
+        toolCallId,
+        toolName: 'kb_search',
+        args: {}
+      } as unknown as AgentSessionEvent)
+
+    start('c1')
+    adapter.handleEvent({
+      type: 'tool_execution_end',
+      toolCallId: 'c1',
+      toolName: 'kb_search',
+      result: { content: [{ type: 'text', text: '{"rows":1}' }], details: { rows: 1 } },
+      isError: false
+    } as unknown as AgentSessionEvent)
+    start('c2')
+    adapter.handleEvent({
+      type: 'tool_execution_end',
+      toolCallId: 'c2',
+      toolName: 'kb_search',
+      result: { content: [{ type: 'text', text: 'knowledge base not found' }], details: {} },
+      isError: true
+    } as unknown as AgentSessionEvent)
+
+    expect(chunks.find((chunk) => chunk.type === 'tool-output-available')).toMatchObject({ output: { rows: 1 } })
+    // The card shows the failure message, not pi's error result as JSON.
+    expect(chunks.find((chunk) => chunk.type === 'tool-output-error')).toMatchObject({
+      errorText: 'knowledge base not found'
+    })
+  })
+
   it('stamps the pi transport on tool error output', () => {
     const chunks = collect([
       { type: 'tool_execution_start', toolCallId: 'e1', toolName: 'edit', args: {} },

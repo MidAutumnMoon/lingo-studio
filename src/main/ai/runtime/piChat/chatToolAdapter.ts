@@ -1,3 +1,4 @@
+import type { ToolResultOutput } from '@ai-sdk/provider-utils'
 /**
  * W4a — chat tool registry → pi `ToolDefinition`s (plan:
  * docs/plans/2026-09-pi-unification.md, W4).
@@ -18,9 +19,10 @@
  *
  * Result split (`AgentToolResult`): `content` is the MODEL-facing view — the
  * entry's `toModelOutput` when it declares one, else the raw output as JSON text
- * (legacy parity) — while `details` carries the raw execute output. The stream
- * adapter projects `details` onto the tool part, so the renderer's tool card and
- * the history converter's replay see exactly what the legacy engine persisted.
+ * (legacy parity) — while `details` carries the raw execute output. The chat engine
+ * declares these tool names to the stream adapter (`payloadToolNames`), which projects
+ * `details` onto the part so the renderer's tool card and the history converter's
+ * replay see exactly what the legacy engine persisted.
  */
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent'
 import { asSchema } from 'ai'
@@ -29,17 +31,11 @@ import type { RequestContext } from '../../tools/adapters/aiSdk/context'
 import type { ToolEntry } from '../../tools/adapters/aiSdk/types'
 import { getTrustedLocalToolTerminalFailure } from '../aiSdk'
 
-/** The `toModelOutput` return shape (not exported by `ai`; structural mirror). */
-type ToolModelOutput =
-  | { type: 'text'; value: string }
-  | { type: 'json'; value: unknown }
-  | { type: 'error-text'; value: string }
-  | { type: 'error-json'; value: unknown }
-  | { type: 'execution-denied'; reason?: string }
-  | { type: 'content'; value: Array<{ type: string; text?: string }> }
-
 /** pi content blocks for tool results (the multimodal subset the adapter projects). */
 type PiToolContent = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
+
+/** A block of a `content` view — the AI SDK's own union, not a restated mirror. */
+type ToolContentBlock = Extract<ToolResultOutput, { type: 'content' }>['value'][number]
 
 export interface PiChatToolContext {
   /**
@@ -65,6 +61,8 @@ export function toPiChatToolDefinition(entry: ToolEntry, context: PiChatToolCont
       }
       const output = await execute(params, {
         toolCallId,
+        // Inert for registry tools (they read `experimental_context` via
+        // `getToolCallContext`); the field is part of the AI SDK's execute options.
         messages: [],
         ...(signal && { abortSignal: signal }),
         experimental_context: context.requestContext
@@ -75,7 +73,7 @@ export function toPiChatToolDefinition(entry: ToolEntry, context: PiChatToolCont
       // process-local, and the tool ran in this process).
       const terminalFailure = getTrustedLocalToolTerminalFailure(output)
       return {
-        content: [toPiContent(view, output)],
+        content: toPiContent(view, output),
         details: output ?? null,
         ...(terminalFailure && { terminate: true })
       }
@@ -89,31 +87,45 @@ export function toPiChatTools(entries: readonly ToolEntry[], context: PiChatTool
 }
 
 /**
- * The model-facing content block. `toModelOutput` is the registry contract for
- * what the model sees next turn (citation markers, summaries); without one the
+ * The model-facing content blocks. `toModelOutput` is the registry contract for what
+ * the model sees next turn (citation markers, summaries, screenshots); without one the
  * legacy loop sent the raw output as JSON — same here.
+ *
+ * `content` views map block by block: pi tool results carry text and images
+ * (`AgentToolResult.content`), and its per-family adapters do the rest — Anthropic
+ * gets native image blocks, the OpenAI families hoist them into a following user
+ * message ("Attached image(s) from tool result:"). Anything else (file data, urls)
+ * has no pi representation and becomes a note, never a silent drop.
  */
-function toPiContent(view: ToolModelOutput | undefined, output: unknown): PiToolContent {
+function toPiContent(view: ToolResultOutput | undefined, output: unknown): PiToolContent[] {
   if (view === undefined) {
-    return { type: 'text', text: stringify(output) }
+    return [{ type: 'text', text: stringify(output) }]
   }
   switch (view.type) {
     case 'text':
-      return { type: 'text', text: view.value }
+      return [{ type: 'text', text: view.value }]
     case 'json':
     case 'error-json':
-      return { type: 'text', text: stringify(view.value) }
+      return [{ type: 'text', text: stringify(view.value) }]
     case 'error-text':
-      return { type: 'text', text: view.value }
+      return [{ type: 'text', text: view.value }]
     case 'execution-denied':
-      return { type: 'text', text: view.reason ?? 'Tool execution was denied.' }
+      return [{ type: 'text', text: view.reason ?? 'Tool execution was denied.' }]
     case 'content': {
-      const firstText = view.value.find((block) => block.type === 'text' && typeof block.text === 'string')
-      return firstText?.text !== undefined
-        ? { type: 'text', text: firstText.text }
-        : { type: 'text', text: stringify(view.value) }
+      const blocks = view.value.flatMap(toPiContentBlock)
+      return blocks.length > 0 ? blocks : [{ type: 'text', text: stringify(view.value) }]
     }
   }
+}
+
+/** One AI SDK tool-content block as a pi block, or a note when pi cannot carry it. */
+function toPiContentBlock(block: ToolContentBlock): PiToolContent[] {
+  if (block.type === 'text') return [{ type: 'text', text: block.text }]
+  // `media` is the deprecated image variant; both carry base64 image data.
+  if (block.type === 'image-data' || block.type === 'media') {
+    return [{ type: 'image', data: block.data, mimeType: block.mediaType }]
+  }
+  return [{ type: 'text', text: `[${block.type} block omitted: pi tool results carry text and images only]` }]
 }
 
 function stringify(value: unknown): string {

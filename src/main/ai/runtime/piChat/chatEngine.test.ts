@@ -9,8 +9,7 @@ import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/m
 import { toolApprovalRegistry } from '../../toolApproval/ToolApprovalRegistry'
 import type { AgentRuntimeUsageInvocation } from '../types'
 import { streamPiChatTurn, type PiChatProviderSource } from './chatEngine'
-import { toPiChatToolDefinition } from './chatToolAdapter'
-import { createChatToolAuthorizer } from './chatToolApproval'
+import { toPiChatToolSurface } from './chatToolSurface'
 import { toPiSessionEntries } from './historyConverter'
 
 type Faux = Awaited<ReturnType<typeof importFaux>>
@@ -283,7 +282,7 @@ describe('streamPiChatTurn', () => {
       ])
     const execute = vi.fn(async (_toolCallId: string, params: unknown) => ({
       content: [{ type: 'text' as const, text: `echoed: ${(params as { q: string }).q}` }],
-      details: null
+      details: { echoed: (params as { q: string }).q }
     }))
 
     const chunks = await drain(
@@ -304,7 +303,9 @@ describe('streamPiChatTurn', () => {
     const message = await accumulate(chunks)
     const toolPart = message.parts.find((part) => part.type === 'dynamic-tool')
     expect(toolPart).toMatchObject({ toolName: 'echo', state: 'output-available' })
-    expect((toolPart as { output?: unknown }).output).toMatchObject({ content: [{ type: 'text', text: 'echoed: hi' }] })
+    // The part payload is the result's `details` (the raw execute output a registry tool
+    // hands over), not pi's `{content, details}` envelope.
+    expect((toolPart as { output?: unknown }).output).toEqual({ echoed: 'hi' })
     expect(chunks.at(-1)).toMatchObject({ type: 'finish' })
   })
 
@@ -743,15 +744,15 @@ describe('streamPiChatTurn', () => {
           execute
         })
       }
-      return {
-        execute,
-        tools: [toPiChatToolDefinition(entry, { requestContext: { requestId: `req-${executionId}` } })],
-        authorizer: createChatToolAuthorizer({
+      const surface = toPiChatToolSurface(
+        [entry],
+        { requestContext: { requestId: `req-${executionId}` } },
+        {
           approvalScope: `pi-chat:${executionId}`,
-          entries: new Map([[entry.name, entry]]),
           ...(onApprovalResolved && { onApprovalResolved })
-        })
-      }
+        }
+      )
+      return { execute, tools: surface.tools, authorizer: surface.authorizer }
     }
 
     afterEach(() => {
@@ -793,6 +794,9 @@ describe('streamPiChatTurn', () => {
       const message = await accumulate(chunks)
       const toolPart = message.parts.find((part) => part.type === 'dynamic-tool')
       expect(toolPart).toMatchObject({ toolName: 'echo', state: 'output-available' })
+      // Legacy parity: the persisted part output is the raw execute output, not pi's
+      // `{content, details}` envelope the stream adapter projects for pi's own tools.
+      expect(toolPart).toMatchObject({ output: { echoed: 'edited' } })
       expect(chunks.at(-1)).toMatchObject({ type: 'finish' })
       expect(toolApprovalRegistry.size()).toBe(0)
     })
@@ -858,10 +862,13 @@ describe('streamPiChatTurn', () => {
           execute
         })
       }
-      const authorizer = createChatToolAuthorizer({
-        approvalScope: 'pi-chat:exec-ungated',
-        entries: new Map([[entry.name, entry]])
-      })
+      const surface = toPiChatToolSurface(
+        [entry],
+        { requestContext: { requestId: 'r' } },
+        {
+          approvalScope: 'pi-chat:exec-ungated'
+        }
+      )
 
       const chunks = await drain(
         await streamPiChatTurn(
@@ -870,8 +877,8 @@ describe('streamPiChatTurn', () => {
             provider,
             history: [],
             prompt: userTurn('echo hi'),
-            tools: [toPiChatToolDefinition(entry, { requestContext: { requestId: 'r' } })],
-            authorizer
+            tools: surface.tools,
+            authorizer: surface.authorizer
           },
           new AbortController().signal
         )

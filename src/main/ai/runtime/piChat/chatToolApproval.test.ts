@@ -5,6 +5,7 @@ import * as z from 'zod'
 import type { CherryUIMessageChunk } from '@shared/data/types/message'
 
 import { toolApprovalRegistry } from '../../toolApproval/ToolApprovalRegistry'
+import { getToolCallContext } from '../../tools/adapters/aiSdk/context'
 import type { ToolEntry } from '../../tools/adapters/aiSdk/types'
 import { createChatToolAuthorizer } from './chatToolApproval'
 
@@ -34,7 +35,8 @@ function harness(entry: ToolEntry, options: Partial<Parameters<typeof createChat
   const onApprovalResolved = vi.fn()
   const authorizer = createChatToolAuthorizer({
     approvalScope: 'pi-chat:test-exec',
-    entries: new Map([[entry.name, entry]]),
+    entries: [entry],
+    context: { requestContext: { requestId: 'req-test' } },
     onApprovalResolved,
     ...options
   })
@@ -76,6 +78,42 @@ describe('createChatToolAuthorizer', () => {
     expect(verdict).toBeUndefined()
     expect(emitted).toEqual([])
   })
+
+  it('evaluates an input-dependent gate with the request context', async () => {
+    // Mirrors `McpResourceReadTool.needsApproval`, which reads the policy off
+    // `getToolCallContext(options)` and fails closed when it is absent. The context must
+    // therefore reach the GATE, not only `execute` — otherwise a context-reading gate
+    // always prompts (the wildcard-server policy reads as "gated" for every read).
+    const entry: ToolEntry = {
+      name: 'dangerous',
+      namespace: 'test',
+      description: 'A context-gated tool',
+      defer: 'never',
+      tool: tool({
+        description: 'A context-gated tool',
+        inputSchema: z.object({ path: z.string() }),
+        needsApproval: async (input: { path: string }, options) => {
+          try {
+            return input.path === 'blocked' || getToolCallContext(options).request.requestId !== 'req-open'
+          } catch {
+            return true
+          }
+        },
+        execute: vi.fn(async () => ({ ok: true }))
+      })
+    }
+
+    const allowed = harness(entry, { context: { requestContext: { requestId: 'req-open' } } })
+    // Settles without a card and without an answer: the gate saw the request context.
+    expect(await allowed.authorizer(allowed.call, (chunk) => allowed.emitted.push(chunk))).toBeUndefined()
+    expect(allowed.emitted).toEqual([])
+
+    const foreign = harness(entry, { context: { requestContext: { requestId: 'req-other' } } })
+    const verdict = foreign.authorizer(foreign.call, (chunk) => foreign.emitted.push(chunk))
+    await vi.waitFor(() => expect(foreign.emitted).toHaveLength(1))
+    toolApprovalRegistry.dispatch(approvalIdOf(foreign.emitted), { approved: false, reason: 'not our request' })
+    expect(await verdict).toMatchObject({ block: true })
+  }, 3000)
 
   it('registers, emits the approval chunk, and applies an approved input edit', async () => {
     const { authorizer, emitted, onApprovalResolved, call } = harness(gatedEntry(true))

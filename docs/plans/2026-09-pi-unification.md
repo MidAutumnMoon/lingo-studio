@@ -422,9 +422,11 @@ text above, both grounded:
   JSON-Schema path for schemas without TypeBox kind symbols — the same contract
   `piMcpToolAdapter` already relies on), so `Type.Unsafe` buys nothing. The
   result split is `content` = the entry's `toModelOutput` view (else raw JSON
-  text — legacy parity) while `details` = the raw execute output: the stream
-  adapter projects `details` onto the tool part, so renderer cards and replay
-  see byte-identical outputs to the legacy engine. MCP entries route through
+  text — legacy parity) while `details` = the raw execute output, which the
+  stream adapter now projects onto the tool part for chat tools
+  (`payloadToolNames`) — as landed it did NOT (the projection unwrapped
+  `details` for pi's own code-mode tools only), so cards and replay saw pi's
+  `{content, details}` envelope; see the review record below. MCP entries route through
   their REGISTRY execute (`McpRuntimeService.callTool`: per-topic abort scope,
   catalog routing) — NOT the plan's InMemoryTransport bridge, which assembles
   its own server instances per session and would double-connect every server
@@ -456,6 +458,56 @@ text above, both grounded:
   error), ungated (no card), plus authorizer-level edge cases (out-of-registry
   call, synchronous-resolution abort).
 
+W4a post-landing review (2026-09-26) — probes against the real pi runtime, pi's
+own argument validator and the trunk accumulator, then fixed:
+
+- **Chat tool parts carried pi's result envelope, not the Cherry payload.** The stream
+  adapter's projection unwraps `details` only for pi's own code-mode tools, so every chat
+  tool part persisted `{content, details}` where the renderer
+  (`extractOutputMetadata`), the deferred-output lookups and the history converter read
+  the raw output — and an errored call carried the whole error envelope as JSON instead
+  of its message (probed through the engine: the accumulated part output was the
+  envelope, not the execute output the landed block above claimed was byte-identical to
+  legacy). Fixed: the engine passes its registry tool names to `PiStreamAdapter`
+  (`payloadToolNames`), which projects `details` as the part output and the result's
+  text as the error text for exactly those tools — pi's own tools keep the envelope
+  their cards are built on, and the agent path passes no set. Tests: an adapter-level
+  projection case plus engine assertions on the accumulated part payload.
+- **The approval gate never saw the request context.** `isApprovalGated` was called with
+  `{input, toolCallId}` only, so a gate reading `getToolCallContext(options)` (the MCP
+  resource-read policy) failed closed and prompted on *every* call — a spurious card that
+  holds the tool-call promise until the user answers (probed: the authorizer never
+  settles without a decision). Fixed at the root: tools and gate now come from one call,
+  `toPiChatToolSurface(entries, context, {approvalScope, onApprovalResolved})` →
+  `{tools, authorizer}` — one selection, one context, and the authorizer derives its
+  entry map from the same array it converts (two independent inputs is what let the
+  contexts diverge; a mismatched map would also silently leave tools ungated). The gate
+  still receives an empty `messages` — no registry gate reads it today, and the pi path
+  has no `ModelMessage[]` to give.
+- **Multimodal `content` views lost their images.** `toPiContent` kept only the first
+  text block, so `McpResourceReadTool` (resource images) and `BrowserTools` (screenshots)
+  sent no image to the model. pi tool results carry text *and* images
+  (`AgentToolResult.content`), and pi's OpenAI-family adapters hoist tool-result images
+  into a following user message themselves — the hoisting legacy's `routeToolResultMedia`
+  does — so the block-by-block mapping is the whole fix: text, `image-data` (and the
+  deprecated `media`) map; anything else becomes a note instead of a silent drop. The
+  hand-rolled `ToolResultOutput` mirror is gone — `@ai-sdk/provider-utils` (a direct
+  dependency) exports the real type, so block narrowing is compiler-checked.
+- **The schema pivot is verified against pi's own validator.** New sweep: every
+  registered builtin's pivoted JSON Schema compiles (`TypeBox Compile`) and validates
+  under `validateToolArguments`; the guarded failure is an unsupported keyword or shape,
+  which surfaces as a TypeBox error rather than the validator's own message. Recorded
+  with it: pi's JSON-Schema path is *lenient* (`Value.Convert` plus
+  `coerceWithJsonSchema` coerce primitives and drop optional nulls), so a call the legacy
+  zod validation would have rejected can execute with coerced arguments; `Type.Unsafe`
+  would not be stricter (both paths run `Value.Convert`), so the deviation stands.
+- **A denial can reach the trunk twice — benign, but the seam should know.** Wiring
+  `onApprovalResolved` to `AiStreamManager.resolveToolApproval` makes the trunk emit its
+  own `tool-output-denied` on deny, and the engine translates pi's blocked-call error
+  too. Both writes are idempotent (the trunk keys pending approvals by toolCallId, the
+  accumulator sets one state), so the recorded wiring is safe for approve and deny
+  alike — approve is the half the card actually needs (the buffered-input replay).
+
 **W5 — Parity gap register** (each entry ships or is explicitly deferred):
 
 | Gap | Plan |
@@ -485,6 +537,8 @@ text above, both grounded:
 | OpenRouter `[REDACTED]` blocks / HF signed replay | two small stream wrappers if those combos matter on pi; both are cosmetic-or-narrow today |
 | ovms `/no_think` | provider-id-keyed suffix; port into prompt assembly or keep ovms on legacy via the seam's provider gate |
 | Stop-reason `length` policy | Both pi paths fail the turn with an actionable error (`turnVerdict` / `finishPromptRun`), while the legacy chat path finishes successfully at `finishReason: 'length'` and the gateway maps it to `max_tokens`. Decide once (keep pi's behavior ⇒ a UX delta users will see: truncation surfaces as an error row; partial text is still persisted). Legacy parity claim in the W6 checklist must match the decision |
+| Trusted terminal-failure surface | A branded trusted-local failure (web search / fetch) stops pi's loop via the native per-result `terminate` hint, but the turn then ends as a *success* — the model gets no further turn and the user sees the failure only inside the tool card. Legacy ended the turn with a `ToolLoopTerminalError`: an error row carrying `userMessage`/`i18nKey`. Also note pi stops only when EVERY finalized result in the batch sets `terminate` (`pi-agent-core` `agent-loop.js`: `finalizedCalls.every(...)`), where legacy stopped on ANY. Decide the surface before these failures ship to users: map the brand to an engine-level turn error at the adapter boundary (the brand is process-local and the engine sees `details`), or accept the clean stop and drop `i18nKey`/`userMessage` with it |
+| Tool `outputSchema` validation | The AI SDK validated `entry.tool.outputSchema` on every execute; the pi bridge ignores it, so a tool whose output drifts from its declared schema now succeeds with the drifted shape (the shape-sensitive consumers are the tool cards and the history converter's replay). Port = validate in `chatToolAdapter.execute` before returning |
 | Resumed-session reasoning replay (agent path) | The agent connection names the provider `${providerId}:${sessionId}:${generation}` and rewrites the pi api per generation, and pi stores those names in session JSONL — so after a resume every replayed assistant message is cross-model and signed thinking degrades to text. Chat fixed this by owning the descriptor (`isSameModelAsTurn`); the agent path needs the same identity treatment (fits the unification, see Phase 3) |
 | Tool timing in `runtimeTiming` (pi chat) | `MessageRuntimeTimingCollector` is fed by the legacy engine's `onToolExecutionStart/End` hooks only, so pi chat turns persist no tool spans and the perf panel's tool lane attributes tool time to the model. Either derive spans from chunks in the trunk (`withReasoningTimingMetadata` is the precedent transform) or feed the collector from the pi adapter |
 | `timeThinkingMs` in usage metrics | The legacy billing middleware records thinking duration; `PiInvocationMetrics` has no such field, so both pi paths leave `timeThinkingMs` null in `aiUsageRecord`. Needs a pi-side thinking-duration measurement (the adapter already sees `thinking_start/end`) |
@@ -529,12 +583,13 @@ purpose; these are the obligations that used to be implicit, from the W2 review)
 - Accounting: `onInvocation` → the same attribution/analytics sink the agent path uses
   (`AgentRuntimeUsageInvocation`), with the chat `tokenUsageSource` and the execution's
   anchor message id.
-- Tools: `toPiChatTools(registry.selectActive(scope), { requestContext })` → the
-  engine's `tools`, plus `createChatToolAuthorizer({ approvalScope:
-  'pi-chat:<executionId>', entries, onApprovalResolved })` → `authorizer` — wire
-  `onApprovalResolved` to `AiStreamManager.resolveToolApproval(topicId, …)` (the
-  shared responder's own call targets an agent topic and no-ops for chat, see
-  the W4a record).
+- Tools: `toPiChatToolSurface(registry.selectActive(scope), context, { approvalScope:
+  'pi-chat:<executionId>', onApprovalResolved })` → `{ tools, authorizer }` — one call so
+  the gate and the definitions share one selection and one context (the W4a review's
+  context bug). Wire `onApprovalResolved` to `AiStreamManager.resolveToolApproval(topicId,
+  …)`: the shared responder's own call targets an agent topic and no-ops for chat (see
+  the W4a record). The engine projects raw `details` as the part payload for every handed
+  tool name — hand it registry entries only.
 
 ### Phase 1 exit criteria
 

@@ -22,6 +22,7 @@ import { isApprovalGated } from '../../tools/adapters/aiSdk/isApprovalGated'
 import type { ToolEntry } from '../../tools/adapters/aiSdk/types'
 import { applyPiToolInputEdit } from '../pi/approvalExtension'
 import type { PiChatToolAuthorizer } from './chatEngine'
+import type { PiChatToolContext } from './chatToolAdapter'
 
 const logger = loggerService.withContext('PiChatToolApproval')
 
@@ -32,8 +33,18 @@ export interface ChatToolApprovalOptions {
    * responder would otherwise resolve approvals against a live agent stream).
    */
   approvalScope: string
-  /** The turn's registry entries by wire name — the gate reads `tool.needsApproval`. */
-  entries: ReadonlyMap<string, ToolEntry>
+  /**
+   * The turn's registry entries by wire name — the gate reads `tool.needsApproval`.
+   * Prefer `toPiChatToolSurface`, which derives this from the same array it converts
+   * into pi tools so the gate can never guard a different set than the engine runs.
+   */
+  entries: readonly ToolEntry[]
+  /**
+   * The turn's tool context. `needsApproval` reads it through
+   * `getToolCallContext(options)` (the MCP resource-read policy does), and a gate that
+   * cannot resolve its context fails closed — i.e. prompts on every call.
+   */
+  context: PiChatToolContext
   /**
    * Fires the moment a decision lands. The seam wires this to
    * `AiStreamManager.resolveToolApproval(topicId, …)`: on approve the trunk replays
@@ -46,12 +57,17 @@ export interface ChatToolApprovalOptions {
 
 /** Build the engine's tool-call authorizer from the turn's registry entries. */
 export function createChatToolAuthorizer(options: ChatToolApprovalOptions): PiChatToolAuthorizer {
+  const entries = new Map(options.entries.map((entry) => [entry.name, entry]))
   return async (call, emit) => {
-    const entry = options.entries.get(call.toolName)
+    const entry = entries.get(call.toolName)
     // Tools the caller handed the engine directly (not from this registry) are not
     // ours to gate — the seam decides what reaches the engine.
     if (!entry) return undefined
-    const gated = await isApprovalGated(entry.tool, { input: call.input, toolCallId: call.toolCallId })
+    const gated = await isApprovalGated(entry.tool, {
+      input: call.input,
+      toolCallId: call.toolCallId,
+      experimental_context: options.context.requestContext
+    })
     if (!gated) return undefined
 
     const approvalId = randomUUID()
