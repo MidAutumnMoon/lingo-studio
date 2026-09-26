@@ -53,6 +53,10 @@ If a host-wide search really seems necessary, ask user first.
 
 Avoid bash `sed`. Prefer builtin tools. `sed` is useful for batch editing. Don't use `sed` for targeted editing. Don't use `sed` to workaround tool use mistakes you made.
 
+## No `| tail`/` or head`
+
+Do not pipe any command output through `head` or `tail`, tools will properly handle large output natively.
+
 ## Look Things Up
 
 - When unsure about a library, tool, or API, use web search or Context7 before guessing.

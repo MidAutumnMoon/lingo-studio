@@ -1,7 +1,7 @@
 # Pi Unification Plan — one engine for chat and work
 
 Status: executing — 2026-09-26. Phase 0 ladder **complete**: all rungs through 0.87.1
-landed and verified (notes doc §8); remaining Phase 0 item is the 0.6 manual smoke.
+landed and verified; remaining Phase 0 item is the 0.6 manual smoke.
 Phases 1–3 remain draft.
 
 Decision context: pi (in-process, loop owned by us, `pi-ai` wire layer shared with dsh)
@@ -29,14 +29,14 @@ The plan below phases the work so the app is shippable after every step.
 
 | Fact | Value |
 |---|---|
-| Pinned pi versions | ladder complete at the target — `@earendil-works/pi-ai` 0.87.1, `@earendil-works/pi-coding-agent` 0.87.1; the pi line (including transitive `pi-agent-core`/`pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides (see upgrade-notes §8) |
+| Pinned pi versions | ladder complete at the target — `@earendil-works/pi-ai` 0.87.1, `@earendil-works/pi-coding-agent` 0.87.1; the pi line (including transitive `pi-agent-core`/`pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides (see upgrade-notes §2) |
 | Upgrade target | 0.87.1 — all three packages align on one line |
 | pi patches in `patches/` | `pi-ai` (keyed to the current pin): add `ultra` reasoning effort — the only surviving patch (fetch threading dropped at 0.83.0, #7540 backport dropped at 0.84.0, both native upstream) |
 | dsh coupling to pi upgrade | None at runtime — dsh's `pi-ai ^0.84.x` (resolves 0.84.4) is inlined into the `packages/dsh-bridge` dist at build time and lives on its own lockfile lane, deliberately not forced to the root pin (see the override comment in `pnpm-workspace.yaml`) |
 | Engine seam | `src/main/ai/AiService.ts:555` `streamText()` — already branches on `request.runtime?.kind === 'agent-session'` (line 565) → `AgentSessionRuntimeService.openTurnStream()`; a chat-on-pi branch slots in identically |
 | Chat engine today | `AiService.streamText` → `buildAgentParams` → `src/main/ai/runtime/aiSdk/Agent.ts` → `@cherrystudio/ai-core` `createAgent` → Vercel AI SDK `ToolLoopAgent` |
 | Work engine today | `AgentSessionRuntimeService` → driver registry → `PiRuntimeConnection` (in-process) or `DshRuntimeDriver` (Bun child) |
-| Chat test surface | `runtime/pi/*.test.ts` (14 files, the upgrade safety net); chat suites in `streamManager/`, `tools/`, renderer chat tests |
+| Chat test surface | `runtime/pi/*.test.ts` (16 files, the upgrade safety net); chat suites in `streamManager/`, `tools/`, renderer chat tests |
 | pi test provider | `pi-ai/providers/faux` — lets engine tests run without network |
 
 Scale reminder from the earlier survey: 345 files / ~103K lines import the Vercel AI
@@ -53,71 +53,16 @@ Phase 1 on 0.80 would just defer this upgrade into the middle of the migration).
 
 Non-goals: any behavioral change to chat (chat is untouched); any dsh change.
 
-Phase 0 research is complete and the ladder landed; the working record lives in
-[2026-09-pi-upgrade-notes.md](./2026-09-pi-upgrade-notes.md)
-(break→touchpoint table, patch verdicts, data-compatibility findings, step ladder,
-per-rung procedure). Headlines, verified against a local clone at `v0.87.1`:
+Ladder complete (2026-09-26): every rung 0.81.1 → 0.87.1 landed with per-rung
+verification (typecheck, `runtime/pi` + `agentSession` suites, lint); both patch
+halves dropped at their rungs (fetch threading 0.83.0, #7540 backport 0.84.0 — both
+native upstream) and the 0.86 `TranscriptContext` rework needed zero production
+edits. Full `pnpm build:check` at the tip: every project green except 6 pre-existing
+`provider-registry` catalog-sync failures that predate the ladder (owner data
+decision — upgrade-notes §6). Upgrade procedure and patch state for future bumps:
+upgrade-notes §2–3.
 
-- The upgrade is narrower than feared: the 0.84 "session model replacement" hits
-  pi-agent-core's harness — unused by Cherry — not our `SessionManager` path, whose
-  signatures are identical at 0.87.1. Session JSONL format is unchanged (v3 at both ends).
-- The 0.80.8 auth refactor (`AuthStorage`/`ModelRegistry` → `ModelRuntime`) is behind
-  us; it was the only removed API Cherry used.
-- What remains: 0.86's `TranscriptContext` (type-level; `piTransportStream`,
-  `modelInjection`, `piThinkingReplay`) and the patch drops keyed to their rungs.
-
-### 0.1 Changelog triage — DONE
-
-Break→touchpoint table: notes doc §3, cross-checked against a grep inventory of every
-`@earendil-works/*` import in `src/main/` (all confined to `src/main/ai/runtime/pi/`).
-Ship: doc update only (this doc + the notes doc).
-
-### 0.2 Patch triage — DONE
-
-Verdicts with evidence in notes doc §4:
-
-- `pi-coding-agent` patch (#7540 backport) → **drop** — shipped natively in 0.84.0;
-  `piLengthRecovery.test.ts` stays as the regression pin.
-- `pi-ai` fetch threading → **drop** — native per-request `fetch` injection since 0.83.0;
-  the existing `fetch: customFetch` call site (`PiRuntimeConnection.ts:961`) works unpatched.
-- `pi-ai` `ultra` reasoning effort → **regenerate** — no `ultra` upstream at `v0.87.1`.
-
-Ship: nothing (findings recorded in the notes doc).
-
-### 0.3 Upgrade rung by rung
-
-Complete — every rung 0.81.1 → 0.87.1 landed with per-rung verification (notes §8);
-the two patch halves dropped at their rungs (fetch threading 0.83.0, #7540 backport
-0.84.0), and the `TranscriptContext` rework landed at 0.86.0 as test-layer-only.
-
-Ship: behind no flag — pi is an implementation detail of "work"; the upgrade ships
-when its own verification passes.
-Verify: `pnpm typecheck:node`; `pnpm test:main` for `runtime/pi` + `agentSession` suites.
-
-### 0.4 Contract tests to current API
-
-Update `piBundlingViability`, `PiRuntimeConnection.sdkContract`, `piFork`,
-`piStreamAdapter`, `piCompactionBudget`, `piThinkingReplay` to the 0.87 API shapes.
-These tests are the ones that caught merge-lost registration and fork semantics
-before — keep their assertions, update their calls.
-
-Ship: with 0.3 or as its own PR.
-Verify: the named suites green.
-
-### 0.5 Behavior fixes + full gate
-
-Run the full main suite and fix adapter drift (event shapes, compaction semantics,
-retry classification — candidate drift list in notes doc §6). Then `pnpm build:check`.
-
-Complete — `pnpm build:check` run at the 0.87.1 tip: lint, docs, and every test
-project green except 6 `provider-registry` catalog-sync failures that predate the
-ladder entirely (zero `provider-registry` paths touched in `main..@`; regeneration
-reads live upstream — an owner data decision, recorded in notes §8).
-
-Ship: combined with 0.3/0.4 as one merge or a short series — app must work at each merge.
-Verify: `pnpm build:check` green.
-
-### 0.6 Manual smoke (cherry-electron-dev)
+### 0.6 Manual smoke (cherry-electron-dev) — the remaining Phase 0 gate
 
 Work checklist: new agent session; plain text turn; MCP tool call; approval prompt
 approve + deny; mid-turn steer; `/compact`; fork from message; edit-resend; quit +
@@ -126,7 +71,7 @@ one dsh agent session still runs; `pnpm smoke:dsh-runtime` green. Chat spot-chec
 one normal chat message round-trips (chat was untouched, prove it).
 
 **Data-compatibility gate:** session JSONL format verified stable across the range
-(v3 at both 0.80.3 and 0.87.1; older versions migrated on read — notes doc §7). The
+(v3 at both 0.80.3 and 0.87.1; older versions migrated on read — notes doc §1). The
 cold-sessions fallback is not expected to be needed; before shipping, still resume a
 session created by the currently released app build as live confirmation.
 
@@ -290,7 +235,7 @@ ever want multi-model fan-out; where do overlay branches and session forks unify
 
 | Phase | Automated | Manual smoke | Rollback |
 |---|---|---|---|
-| 0 each step | typecheck + `runtime/pi`/`agentSession` suites; full gate at 0.5 | work checklist (0.6) incl. pre-upgrade session resume | jj abandon the rung |
+| 0 each step | typecheck + `runtime/pi`/`agentSession` suites; full gate at the end | work checklist (0.6) incl. pre-upgrade session resume | jj abandon the rung |
 | 1 each workstream | converter corpus tests; faux-provider engine tests; provider matrix; tool round-trips; chat suites | per-flag-level chat checklist | flag off |
 | 1 exit | full `pnpm build:check` | both checklists | revert deletion PR |
 | 2 each step | per-site suites; gateway SSE contract test | aux features (naming, translate, knowledge indexing, paintings) | revert step |
