@@ -878,12 +878,19 @@ export class PiRuntimeConnection implements AgentRuntimeConnection {
 }
 
 /** Wall-clock timing of one pi provider invocation; mirrors the usage-event metrics the host persists for TPS display. */
-interface PiInvocationMetrics {
+export interface PiInvocationMetrics {
   timeFirstTokenMs?: number
   timeCompletionMs?: number
 }
 
-function withPiInvocationCapture(
+/**
+ * Wrap a provider config's `streamSimple` so each invocation reports its terminal
+ * `AssistantMessage` (usage, stop reason, response ids) plus first-token/completion
+ * timing to `onComplete`, and opens a provider span via `startTrace`. Shared by the
+ * agent-session connection and the pi chat engine — capture happens at the provider
+ * stream boundary so compaction calls and ordinary turns share one owner.
+ */
+export function withPiInvocationCapture(
   config: ProviderConfig,
   streamSimple: NonNullable<ProviderConfig['streamSimple']>,
   onComplete: (message: AssistantMessage, metrics?: PiInvocationMetrics) => void,

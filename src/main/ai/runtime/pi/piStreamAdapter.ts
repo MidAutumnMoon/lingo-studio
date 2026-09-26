@@ -65,8 +65,12 @@ export class PiStreamAdapter {
         this.turnUsage = emptyTurnUsage()
         return
       case 'message_start':
-        // User-role starts also bump this. Harmless: ids only need to be unique, and skipping a
-        // sequence avoids reusing ids after a delivered steer's user message.
+        // An assistant message opens a step: the trunk's accumulator materialises
+        // `start-step` into a `step-start` part, which message-edit and legacy step
+        // restoration derive boundaries from — a turn persisted without it cannot be
+        // split back later. User/toolResult starts only bump the id sequence
+        // (harmless: ids just need to be unique).
+        if (event.message.role === 'assistant') this.sink.enqueue({ type: 'start-step' })
         this.messageSeq += 1
         return
       case 'message_update':

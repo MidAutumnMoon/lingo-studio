@@ -33,6 +33,26 @@ const assistantEvent = (inner: Record<string, unknown>): AgentSessionEvent =>
   ({ type: 'message_update', message: {} as never, assistantMessageEvent: inner }) as unknown as AgentSessionEvent
 
 describe('PiStreamAdapter', () => {
+  it('opens a step for assistant message starts only', () => {
+    const chunks = collect([
+      { type: 'message_start', message: { role: 'user', content: 'q' } } as unknown as AgentSessionEvent,
+      { type: 'message_start', message: { role: 'assistant', content: [] } } as unknown as AgentSessionEvent,
+      assistantEvent({ type: 'text_start', contentIndex: 0 }),
+      assistantEvent({ type: 'text_delta', contentIndex: 0, delta: 'a' }),
+      assistantEvent({ type: 'text_end', contentIndex: 0 }),
+      // A second assistant message in the same turn (the tool loop) opens another step.
+      { type: 'message_start', message: { role: 'assistant', content: [] } } as unknown as AgentSessionEvent,
+      assistantEvent({ type: 'text_start', contentIndex: 0 }),
+      assistantEvent({ type: 'text_end', contentIndex: 0 }),
+      { type: 'message_start', message: { role: 'toolResult', content: [] } } as unknown as AgentSessionEvent
+    ])
+
+    expect(chunks.filter((chunk) => chunk.type === 'start-step')).toHaveLength(2)
+    // Step boundaries precede their message's parts: the first chunk of each
+    // assistant message group is the step marker, never content.
+    expect(chunks[0].type).toBe('start-step')
+  })
+
   it('maps a text + tool-call turn to the expected chunk sequence', () => {
     const chunks = collect([
       { type: 'message_start', message: {} } as unknown as AgentSessionEvent,

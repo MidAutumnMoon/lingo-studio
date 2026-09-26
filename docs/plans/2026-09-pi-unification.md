@@ -191,6 +191,20 @@ W2 also owns the **persisted part vocabulary** and the converter wiring (W1 revi
   matrix gaps. This is the mechanical guard for the irreversible class of findings —
   anything the engine fails to persist or the converter fails to read back.
 
+Landed (2026-09-26): `runtime/piChat/chatEngine.ts` + faux-provider engine suite
+(text/tool/abort/error/usage turns, prompt forcing, verbatim slash text, round-trip
+guard); `piStreamAdapter` emits `start-step` on assistant `message_start`. Findings
+the engine tests caught, for the record: pi's structured system-prompt path appends
+a `<cwd>` block unconditionally — chat forces its prompt through a
+`before_agent_start` extension (the opaque `forceSystemPrompt` path; empty prompt ⇒
+no system message at all), NOT the loader override, which only feeds the structured
+sections; `ThinkingLevel` unions disagree across pi packages (pi-ai carries the
+patched `ultra`, pi-agent-core's copy lags) — cast at the session boundary. Deferred:
+the feature-plugin parity inventory rides W3 (per-family plugins are where it lands);
+request→engine-input preparation is the W6 seam wiring; the engine imports
+`withPiInvocationCapture` from `PiRuntimeConnection.ts` — extract to a shared
+`runtime/pi/` module when a third consumer appears.
+
 **W3 — Provider coverage: agent whitelist → every chat-usable provider.**
 `modelInjection`/`assertPiProviderUsable` currently serve agent-approved providers.
 Chat must cover the full provider matrix (`provider/extensions.ts` + customs +
