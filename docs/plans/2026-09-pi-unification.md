@@ -29,10 +29,10 @@ The plan below phases the work so the app is shippable after every step.
 
 | Fact | Value |
 |---|---|
-| Pinned pi versions | riding the ladder to 0.87.1 — currently `@earendil-works/pi-ai` 0.84.4, `@earendil-works/pi-coding-agent` 0.84.4; the pi line (including transitive `pi-agent-core`/`pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides (see upgrade-notes §8) |
+| Pinned pi versions | riding the ladder to 0.87.1 — currently `@earendil-works/pi-ai` 0.86.1, `@earendil-works/pi-coding-agent` 0.86.1; the pi line (including transitive `pi-agent-core`/`pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides (see upgrade-notes §8) |
 | Upgrade target | 0.87.1 — all three packages align on one line |
 | pi patches in `patches/` | `pi-ai` (keyed to the current pin): add `ultra` reasoning effort — the only surviving patch (fetch threading dropped at 0.83.0, #7540 backport dropped at 0.84.0, both native upstream) |
-| dsh coupling to pi upgrade | None at runtime — dsh's `pi-ai ^0.84.2` is inlined into the `packages/dsh-bridge` dist at build time |
+| dsh coupling to pi upgrade | None at runtime — dsh's `pi-ai ^0.84.x` (resolves 0.84.4) is inlined into the `packages/dsh-bridge` dist at build time and lives on its own lockfile lane, deliberately not forced to the root pin (see the override comment in `pnpm-workspace.yaml`) |
 | Engine seam | `src/main/ai/AiService.ts:555` `streamText()` — already branches on `request.runtime?.kind === 'agent-session'` (line 565) → `AgentSessionRuntimeService.openTurnStream()`; a chat-on-pi branch slots in identically |
 | Chat engine today | `AiService.streamText` → `buildAgentParams` → `src/main/ai/runtime/aiSdk/Agent.ts` → `@cherrystudio/ai-core` `createAgent` → Vercel AI SDK `ToolLoopAgent` |
 | Work engine today | `AgentSessionRuntimeService` → driver registry → `PiRuntimeConnection` (in-process) or `DshRuntimeDriver` (Bun child) |

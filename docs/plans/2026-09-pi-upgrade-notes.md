@@ -1,10 +1,10 @@
 # Pi 0.80 → 0.87 Upgrade Notes — Phase 0 working record
 
-Status: 0.84.x series complete (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10
+Status: 0.86.x series complete (2026-09-26) — pins rode 0.80.3/0.80.6 → 0.80.10
 (including the 0.80.8 auth-refactor rewrite onto `ModelRuntime`, now behind the
 `createIsolatedPiModelRuntime()` helper in `piSdk.ts`) → 0.81.1 → 0.82.x → 0.83.0 →
-0.84.0–0.84.4, with patch regeneration at every rung; that history lives in git. This doc
-keeps only what the remaining rungs need.
+0.84.0–0.84.4 → 0.85.0–0.85.1 → 0.86.0–0.86.1, with patch regeneration at every rung;
+that history lives in git. This doc keeps only what the remaining rungs need.
 Companion to [2026-09-pi-unification.md](./2026-09-pi-unification.md); research verified
 against a local clone of `earendil-works/pi` (all `v0.8x` tags available for diffing).
 
@@ -12,7 +12,7 @@ against a local clone of `earendil-works/pi` (all `v0.8x` tags available for dif
 
 | Fact | Value |
 |---|---|
-| Pins | riding the ladder to 0.87.1 — currently `pi-ai` 0.84.4, `pi-coding-agent` 0.84.4. The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
+| Pins | riding the ladder to 0.87.1 — currently `pi-ai` 0.86.1, `pi-coding-agent` 0.86.1. The whole pi line (including transitive `pi-agent-core` and its `pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides — see §8 |
 | Package ↔ dir mapping | one repo (`earendil-works/pi`), one version line: `packages/ai` → pi-ai, `packages/coding-agent` → pi-coding-agent, `packages/agent` → pi-agent-core; `pi-coding-agent` depends on same-line `pi-ai`/`pi-agent-core`/`pi-tui` |
 | Cherry import surface | **entirely confined to `src/main/ai/runtime/pi/`** — all runtime (value) imports go through dynamic `import()` in `piSdk.ts`; every other file is `import type` only |
 | pi test provider | `pi-ai/providers/faux` (engine tests run without network) — unchanged across the range |
@@ -29,8 +29,8 @@ against a local clone of `earendil-works/pi` (all `v0.8x` tags available for dif
 | 0.84.0 | pi-agent-core harness session model → v4 lane-based `Session`/`SessionStorage`/`SessionRepo`; legacy harness JSONL/in-memory repos removed; JSON/RPC `message_update` wire events delta-only; `ModelRegistry.getApiKeyAndHeaders()` returns nullable `ProviderHeaders`; `ModelsStreamTransforms` → `ModelsRequestTransforms` | **None on Cherry's path** — see §5 (harness ≠ `SessionManager`; wire ≠ SDK events; `getApiKeyAndHeaders` unused). #7540 lands natively here → coding-agent patch droppable |
 | 0.84.3 | pi-ai `GoogleThinkingLevel` → `GoogleApiThinkingLevel` | None — symbol unused in `src/` |
 | 0.84.4 | pi-agent-core `prepareNextTurn*` hooks run only before another turn; harness manual-drive APIs removed | None — hooks unused |
-| 0.85.0 | pi-ai `createGatewayBindingFetch()` → `createAiBindingFetch()` | None — unused. (Additions matter later: `SessionManager.inMemory(cwd, opts, entries)` restores external entries — the Phase 1 chat engine's entry point; narrow `api`/`providers`/`utils` subpath exports) |
-| 0.86.0 | **pi-ai provider stream inputs `Context` → normalized `TranscriptContext`** — system prompt and tool declarations move into transcript system messages read via `getCurrentSystemPrompt()`/`getCurrentTools()`; `ToolCall.arguments`/`ToolResultMessage.details` restricted to JSON values; `ToolResultMessage` conditional type; `JsonValue` arrays readonly; coding-agent `user_bash` fails closed | **The remaining type-level change** — `piTransportStream.ts` / `modelInjection.ts` / `piThinkingReplay.ts` (our `ProviderConfig['streamSimple']` alias picks up the new shape automatically; the `onPayload` composition and tool-result details need review). No `user_bash` handler exists in Cherry |
+| 0.85.0 | pi-ai `createGatewayBindingFetch()` → `createAiBindingFetch()` | None — unused. **Upstream packaging bug #9132**: the coding-agent barrel re-exported CLI `main`, whose `experimental/server.js` imported the undeclared `@earendil-works/pi-server` — plain installs failed to import the SDK. Worked around for this rung with an explicit `pi-server@0.85.0` dep; 0.85.1 fixed the package (harness code excluded from dist, dep dev-only) and the workaround was dropped there. Additions matter later: `SessionManager.inMemory(cwd, opts, entries)` restores external entries — the Phase 1 chat engine's entry point; narrow `api`/`providers`/`utils` subpath exports |
+| 0.86.0 | **pi-ai provider stream inputs `Context` → normalized `TranscriptContext`** — system prompt and tool declarations move into transcript system messages read via `getCurrentSystemPrompt()`/`getCurrentTools()`; `ToolCall.arguments`/`ToolResultMessage.details` restricted to JSON values; `ToolResultMessage` conditional type; `JsonValue` arrays readonly; coding-agent `user_bash` fails closed | **Resolved at the 0.86.0 rung** — production code needed zero edits (`ProviderConfig['streamSimple']` aliases picked up `TranscriptContext` automatically; we pass `model, context, options` through). All 11 type errors were test files hand-building `Context` literals; they now build branded contexts via pi's `normalizeContext()`. Adapters were verified JSON-safe by the suites. No `user_bash` handler exists in Cherry |
 | 0.87.0 | pi-agent-core `shouldStopAfterTurn` removed → `finishTurn` returning `{action: "end"}`; coding-agent `ContextEditEntry` added to `SessionEntry` union; `SessionManager` canonical (assigning `session.agent.state.messages` no longer replaces request history); `TurnEndEvent` boundary fields + `AgentBeforeSettleEvent`; `ExtensionRunner.emit()` rejects `turn_end` | None found — no `shouldStopAfterTurn` use, no exhaustive `SessionEntry`/`ExtensionEvent` switches, no direct `agent.state.messages` assignment in Cherry code |
 | 0.87.1 | — (fixes only) | None |
 
@@ -41,13 +41,13 @@ fix-only.
 
 | Touchpoint | Breaks that reach it | Required action |
 |---|---|---|
-| `SessionManager` surface — `resolveSessionManager` (`open`/`create`), `piFork` (`getEntry`/`createBranchedSession`/`getSessionId`), `getLeafId()`, and `piSessionFile`'s direct `<timestamp>_<id>.jsonl` filename parsing | none — all signatures and the file convention verified identical at `v0.87.1` | None (0.85 fork fixes land upstream and are *desirable*: compaction-boundary + pre-settle fork bugs) |
+| `SessionManager` surface — `resolveSessionManager` (`open`/`create`), `piFork` (`getEntry`/`createBranchedSession`/`getSessionId`), `getLeafId()`, and `piSessionFile`'s direct `<timestamp>_<id>.jsonl` filename parsing | none — all signatures and the file convention verified identical at `v0.87.1` | None. The 0.85 fork fixes (compaction-boundary #8990, pre-settle #8937) landed upstream and passed `PiRuntimeConnection.sdkContract.test.ts` + the agentSession fork/publication tests unchanged at 0.85.0–0.86.1 |
 | `PiRuntimeConnection` `loadPiAiCompat().unregisterApiProviders(sourceId)` | none yet — `pi-ai/compat` survives through 0.87.1 (slated for removal "eventually") | None; re-check each rung |
-| `piTransportStream.ts` + `modelInjection.ts` + `piThinkingReplay.ts` (`streamSimple` delegation, `onPayload` composition) | 0.86.0 `TranscriptContext` | Type-level rework; runtime logic likely unchanged (we pass `model, context, options` through) |
+| `piTransportStream.ts` + `modelInjection.ts` + `piThinkingReplay.ts` (`streamSimple` delegation, `onPayload` composition) | 0.86.0 `TranscriptContext` | **Resolved at 0.86.0** — zero production edits (context flows through untouched); test files build branded contexts via `normalizeContext()` |
 | `piStreamAdapter.ts` (`session.subscribe` events) | none — SDK `MessageUpdateEvent` still carries `message` + `assistantMessageEvent`; the 0.84 delta-only change was the JSON/RPC wire layer, not SDK events. Behavioral drift only (§6) | None at upgrade; watch drift |
 | `approvalExtension.ts`, `providerExtension.ts` (extension API) | none — `tool_call` handler shape and the `pi.registerProvider` extension form unchanged | None; 0.86 exported more event types than before, nothing removed |
 | `piSdk.ts` dynamic imports (`.`, `pi-ai`, `pi-ai/compat`, `pi-ai/api/*`) | none — subpath exports intact (0.85 *added* narrow subpaths) | None; re-run `piBundlingViability` at 0.87.1 (0.84.3 moved CLI/RPC entrypoints to a bundled runtime; the library entry is documented to stay modular) |
-| `piCodeMode.ts`, `piMcpToolAdapter.ts` (`ToolDefinition` JSON schemas) | 0.86.0 JSON-only `ToolCall.arguments`/`ToolResultMessage.details` | Check adapters emit JSON-safe details (they wrap MCP results; likely already JSON) |
+| `piCodeMode.ts`, `piMcpToolAdapter.ts` (`ToolDefinition` JSON schemas) | 0.86.0 JSON-only `ToolCall.arguments`/`ToolResultMessage.details` | **Resolved at 0.86.0** — adapters already emit JSON-only values (MCP results are JSON by protocol); typecheck + suites green without edits |
 
 ## 4. Patch triage & regeneration recipe
 
@@ -93,7 +93,9 @@ the SDK subscription `piStreamAdapter` consumes.
   longer auto-context-overflow; Cloudflare 520 / Azure capacity now retryable).
 - **0.84.1 `Agent.reset()` rejects while a run is active** — only relevant if we ever reset.
 - **0.85.0 fork fixes** (compaction-boundary retention #8990, pre-settle in-memory forks
-  #8937) — behavior our `piFork.test.ts` pins; assertions may legitimately need updating.
+  #8937) — landed upstream; our fork coverage (`PiRuntimeConnection.sdkContract.test.ts`
+  + agentSession publication tests) passed unchanged at 0.85.0–0.86.1. No assertion
+  updates were needed.
 - **0.87.0** deferred `agent_settled`-triggered runs; error-retry attempts omitted from
   future provider context (was: abandoned attempts retained) — changes what resumed
   transcripts replay after a failed turn.
@@ -114,6 +116,13 @@ the SDK subscription `piStreamAdapter` consumes.
   `Agent.reset()` rejects mid-run (we never reset); `session_compact_failed` events expose
   compaction failure reasons (ignored by `piStreamAdapter` like other unknown events).
   Suites unchanged across 0.84.0–0.84.4.
+- **0.86.x quiet changes** — built-in tools (`read`/`bash`/`powershell`/`edit`/`write`)
+  now default to strict-prefer JSON-schema sampling (better structured args, free);
+  the extension compiler and bundled virtual modules load lazily (smaller baseline SDK
+  import); mid-conversation system-prompt/tool changes survive resume via transcript
+  system messages; z.ai `Prompt too long` and bodyless 400/413 classification, Cloudflare
+  520 / Azure capacity retryability shifted (see 0.83 bullet). Suites unchanged across
+  0.86.0–0.86.1.
 - **Google adapters reject non-global `fetch` implementations** (0.83.0) — irrelevant for
   the agent-approved provider set, relevant for Phase 1 W3 chat provider matrix.
 
@@ -130,8 +139,7 @@ the SDK subscription `piStreamAdapter` consumes.
 
 ## 8. Remaining rungs & per-rung procedure
 
-1. **0.86.1** — `TranscriptContext` type rework (§3).
-2. **0.87.1** — final rung: regenerate the `ultra` patch once, re-run
+1. **0.87.1** — final rung: regenerate the `ultra` patch once, re-run
    `piBundlingViability`, full gate + smoke.
 
 Per-rung procedure:
@@ -162,7 +170,7 @@ Phase 1 inputs:
   loop drives its own tool use today.
 - **`agent_settled`** event (0.80.4) — revisit only if work wants pi-native settled
   hooks (the host owns idle semantics via `AsyncEventQueue`).
-- **Deferred responses** (pi-ai 0.83-era surface, live at 0.84.4): `SimpleStreamOptions.deferred`
+- **Deferred responses** (pi-ai 0.83-era surface, live through 0.86.1): `SimpleStreamOptions.deferred`
   (`boolean | { window }`), `StopReason: "deferred"`, `DeferredHandle`,
   `fetchDeferred()`/`cancelDeferred()` on provider streams — long-running provider
   requests return a durable handle and are polled/resumed later. Unreachable for us
@@ -186,6 +194,25 @@ Phase 1 inputs:
   so all are unused by design. `getBuiltinModelDataUrl` → `getBuiltinModelDataGeneratedAt()`
   rename and the provider-verified effort-level pruning of built-in catalogs don't
   reach us (no builtin-catalog reads; injected models carry their own reasoning config).
+- **0.85 line** (assessed at the 0.85.0/0.85.1 rungs, none adopted — Phase 0 non-goal):
+  `AssistantMessageFrameEncoder`/`reduceAssistantMessageFrames()` (compact persistable
+  assistant frames — Phase 1 session-persistence input), Anthropic per-turn effort
+  persistence + signed-thinking mismatch recovery (server-side adaptive-thinking config
+  plus empty-signature history handling — neither synthesizes thinking for tool-only
+  messages, so our `normalizeCherryInThinkingReplay` shim keeps its job), `vllmPriority` /
+  `supportsMaxOutputTokens` model settings (pass-through in `modelInjection` if ever
+  needed), and `SessionManager.inMemory(cwd, opts, entries)` external-entry restore —
+  the Phase 1 chat engine's designated entry point. The 0.85 narrow subpaths were
+  assessed and rejected for `piSdk.ts`: `lazyStream` could move to `pi-ai/api/lazy`,
+  but `InMemoryCredentialStore` is barrel-only (`auth/` sits under no exports wildcard),
+  so the barrel loads either way — splitting one consumer saves nothing.
+- **0.86 line** (assessed at the 0.86.0/0.86.1 rungs, none adopted — Phase 0 non-goal):
+  transcript-backed mid-conversation system-prompt/tool changes (`before_agent_start`
+  hook; survives resume — Phase 1 dynamic-prompt input), `ctx.modelRegistry.stream()`/
+  `streamSimple()` for extension-initiated model calls (Phase 1 W3), per-model
+  compaction budgets (`compaction.modelOverrides`), `compat.allowedFallbackModels`,
+  cost-aware prompt-cache warming, `RetryPolicy.maxAgentDelayMs`, Meta/Muse provider,
+  and `pi.on()` unsubscribe. Nothing removes a patch or existing maintenance.
 - **0.84 line** (assessed across the 0.84.x rungs, none adopted — Phase 0 non-goal):
   provider-neutral `toolChoice` on simple streams (chat-side control; agent loop drives
   its own tool use — Phase 1 W3 input alongside the 0.80.7 OpenAI/Codex variant),
