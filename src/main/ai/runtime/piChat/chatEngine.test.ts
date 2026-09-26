@@ -545,6 +545,46 @@ describe('streamPiChatTurn', () => {
     expect(assistantContent(foreignBodies)[0]).toEqual({ type: 'text', text: 'plan' })
   })
 
+  it('replays a redacted thinking block as redacted_thinking on the wire', async () => {
+    // Both writers: the pi engine stores the opaque payload under `pi.thinkingSignature`
+    // with the redacted marker, a legacy AI SDK turn under `anthropic.redactedData` with no
+    // visible text. Anthropic only accepts the payload back as a `redacted_thinking` block.
+    const history = [
+      historyText('u0', 'user', 'earlier question'),
+      {
+        id: 'a0',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'reasoning',
+            text: '[Reasoning redacted]',
+            state: 'done',
+            providerMetadata: { pi: { thinkingSignature: 'pi-payload', redacted: true } }
+          },
+          {
+            type: 'reasoning',
+            text: '',
+            state: 'done',
+            providerMetadata: { anthropic: { redactedData: 'legacy-payload' } }
+          }
+        ]
+      } as unknown as CherryUIMessage
+    ]
+
+    const bodies: unknown[] = []
+    const provider = await recordingProviderSource('anthropic-messages', 'claude-x', bodies)
+    await runRecordingTurn({ provider, history, isSameModelAsTurn: () => true })
+
+    const body = bodies[0] as { messages: Array<{ role: string; content: Array<Record<string, unknown>> }> }
+    const assistant = body.messages.find((message) => message.role === 'assistant')!
+    expect(
+      assistant.content.filter((block) => block.type === 'redacted_thinking' || block.type === 'thinking')
+    ).toEqual([
+      { type: 'redacted_thinking', data: 'pi-payload' },
+      { type: 'redacted_thinking', data: 'legacy-payload' }
+    ])
+  })
+
   it('replays google thought signatures on the wire for same-model history only', async () => {
     // Google validates signatures as base64 (TYPE_BYTES) and drops anything else.
     const history = [

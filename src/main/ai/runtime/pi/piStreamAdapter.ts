@@ -134,11 +134,11 @@ export class PiStreamAdapter {
         this.sink.enqueue({ type: 'reasoning-delta', id: this.reasoningId(event.contentIndex), delta: event.delta })
         return
       case 'thinking_end': {
-        const thinkingSignature = this.blockSignature(event, 'thinkingSignature')
+        const thinking = this.thinkingMetadata(event)
         this.sink.enqueue({
           type: 'reasoning-end',
           id: this.reasoningId(event.contentIndex),
-          ...(thinkingSignature && { providerMetadata: { pi: { thinkingSignature } } })
+          ...(thinking && { providerMetadata: { pi: thinking } })
         })
         return
       }
@@ -161,6 +161,20 @@ export class PiStreamAdapter {
     if (block === undefined) return undefined
     const signature = block[key]
     return typeof signature === 'string' && signature.length > 0 ? signature : undefined
+  }
+
+  /**
+   * The `pi` metadata for a finished thinking block: its replay signature plus pi's
+   * `redacted` marker. The Anthropic serializer only emits `redacted_thinking` for a
+   * flagged block, and refuses the opaque payload as a normal thinking signature — so the
+   * flag is what keeps redacted reasoning replayable at all.
+   */
+  private thinkingMetadata(
+    event: Extract<AssistantMessageEventLike, { contentIndex: number; partial?: unknown }>
+  ): { thinkingSignature: string; redacted?: true } | undefined {
+    const thinkingSignature = this.blockSignature(event, 'thinkingSignature')
+    if (thinkingSignature === undefined) return undefined
+    return this.contentBlock(event)?.redacted === true ? { thinkingSignature, redacted: true } : { thinkingSignature }
   }
 
   private contentBlock(event: { contentIndex: number; partial?: unknown }): Record<string, unknown> | undefined {

@@ -973,7 +973,7 @@ describe('pi provider dialect compat', () => {
 
   it('relies on URL auto-detection for providers pi-ai identifies itself', () => {
     // deepseek.com / open.bigmodel.cn / api.together.ai / openrouter.ai carry their own
-    // detection inside pi-ai — the injection adds nothing on top.
+    // reasoning dialect inside pi-ai — our override would replace it, so it yields.
     for (const [providerId, baseUrl] of [
       ['deepseek', 'https://api.deepseek.com'],
       ['zhipu', 'https://open.bigmodel.cn/api/paas/v4/'],
@@ -985,7 +985,54 @@ describe('pi provider dialect compat', () => {
         defaultChatEndpoint: 'openai-chat-completions',
         endpointConfigs: { 'openai-chat-completions': { adapterFamily: 'openai-compatible', baseUrl } }
       })
-      const injection = buildPiProviderInjection(provider, makeModel({ id: `${providerId}::m` }), REAL_KEY)
+      const injection = buildPiProviderInjection(
+        provider,
+        makeModel({ id: `${providerId}::qwen3-max`, apiModelId: 'qwen3-max' }),
+        REAL_KEY
+      )
+      expect(injection.providerConfig.models?.[0]?.compat, providerId).not.toHaveProperty('thinkingFormat')
+    }
+  })
+
+  it('marks qwen models on any other enable_thinking provider, not just DashScope', () => {
+    // Legacy parity: `qwenEnableThinking` injects for every provider outside
+    // NOT_SUPPORT_QWEN3_ENABLE_THINKING_PROVIDERS whose host pi-ai does not detect —
+    // a self-hosted/custom openai-compatible endpoint serving Qwen is the common case.
+    for (const [providerId, baseUrl] of [
+      ['siliconflow', 'https://api.siliconflow.cn/v1'],
+      ['modelscope', 'https://api-inference.modelscope.cn/v1'],
+      ['my-vllm', 'https://gpu.internal.example:8000/v1']
+    ] as const) {
+      const provider = makeProvider({
+        id: providerId,
+        defaultChatEndpoint: 'openai-chat-completions',
+        endpointConfigs: { 'openai-chat-completions': { adapterFamily: 'openai-compatible', baseUrl } }
+      })
+      const injection = buildPiProviderInjection(
+        provider,
+        makeModel({ id: `${providerId}::qwen3-max`, apiModelId: 'qwen3-max' }),
+        REAL_KEY
+      )
+      expect(injection.providerConfig.models?.[0]?.compat, providerId).toMatchObject({ thinkingFormat: 'qwen' })
+    }
+  })
+
+  it('leaves the suffix-handled providers off the dialect', () => {
+    // ollama/lmstudio/nvidia/gpustack are excluded by the shared predicate: legacy
+    // control for them is the `/think` prompt suffix, not an enable_thinking parameter.
+    for (const providerId of ['ollama', 'lmstudio', 'nvidia', 'gpustack'] as const) {
+      const provider = makeProvider({
+        id: providerId,
+        defaultChatEndpoint: 'openai-chat-completions',
+        endpointConfigs: {
+          'openai-chat-completions': { adapterFamily: 'openai-compatible', baseUrl: 'https://probe.invalid/v1' }
+        }
+      })
+      const injection = buildPiProviderInjection(
+        provider,
+        makeModel({ id: `${providerId}::qwen3-max`, apiModelId: 'qwen3-max' }),
+        REAL_KEY
+      )
       expect(injection.providerConfig.models?.[0]?.compat, providerId).not.toHaveProperty('thinkingFormat')
     }
   })

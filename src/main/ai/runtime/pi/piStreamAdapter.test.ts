@@ -385,6 +385,34 @@ describe('PiStreamAdapter', () => {
       })
     })
 
+    it("carries pi's redacted marker beside the thinking signature", () => {
+      // pi represents an Anthropic `redacted_thinking` block as empty thinking text plus
+      // the opaque payload in `thinkingSignature` and `redacted: true`; the serializer
+      // only emits `redacted_thinking` for a flagged block.
+      const partial = partialWith([
+        { type: 'thinking', thinking: '[Reasoning redacted]', thinkingSignature: 'payload', redacted: true }
+      ])
+      const chunks = collect([
+        assistantEvent({ type: 'thinking_start', contentIndex: 0 }),
+        assistantEvent({ type: 'thinking_end', contentIndex: 0, partial })
+      ])
+      expect(chunks.find((chunk) => chunk.type === 'reasoning-end')).toMatchObject({
+        providerMetadata: { pi: { thinkingSignature: 'payload', redacted: true } }
+      })
+
+      const block = partialWith([{ type: 'thinking', thinking: 'plan', thinkingSignature: 'sig-think' }])
+      const plain = collect([
+        assistantEvent({ type: 'thinking_start', contentIndex: 0 }),
+        assistantEvent({ type: 'thinking_end', contentIndex: 0, partial: block })
+      ])
+      expect(plain.find((chunk) => chunk.type === 'reasoning-end')).toMatchObject({
+        providerMetadata: { pi: { thinkingSignature: 'sig-think' } }
+      })
+      expect(plain.find((chunk) => chunk.type === 'reasoning-end')).not.toMatchObject({
+        providerMetadata: { pi: { redacted: true } }
+      })
+    })
+
     it('omits the providerMetadata key when the block carries no signature', () => {
       const partial = partialWith([{ type: 'text', text: 'plain' }])
       const chunks = collect([assistantEvent({ type: 'text_end', contentIndex: 0, partial })])

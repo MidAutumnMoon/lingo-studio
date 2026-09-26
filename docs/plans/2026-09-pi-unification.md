@@ -276,16 +276,21 @@ routing parity (`buildPiGatewayInjection`) for Cherry Cloud models.
 Ship/verify: matrix test green; one live spot-check per family in dev.
 
 Landed (2026-09-26), mechanical half: `runtime/pi/providerMatrix.test.ts` —
-exhaustive endpoint-type classification (every `ENDPOINT_TYPE` member is chat-mapped
-or rejected, so a new registry endpoint type fails until classified), adapter-family
-refinements (azure-responses → the azure family; azure chat-completions, bedrock,
-both vertex families → unsupported; mistral/openrouter/deepseek/groq ride
-openai-completions), a sweep over the registry's own `data/providers.json` (every
-chat endpoint of all 63 preset providers resolves a family except the explicit
-unsupported list; login-based providers pass through their transport adapters), the
+adapter-family refinements (azure-responses → the azure family; azure
+chat-completions, bedrock, both vertex families → unsupported;
+mistral/openrouter/deepseek/groq ride openai-completions), a sweep over the
+registry's own `data/providers.json` (every chat endpoint of all 63 preset
+providers resolves a family except the explicit unsupported list; login-based
+providers pass through their transport adapters), the
 builtin-stream load for all five families, and gateway parity for every family
 (`buildPiGatewayInjection` preserves each wire protocol and the `provider:model`
 gateway id). **The live spot-check per family in dev remains the manual half.**
+Endpoint-type classification is compile-enforced, not test-enforced:
+`ENDPOINT_PI_API` in `@shared/ai/piModelCompatibility` is a total
+`Record<EndpointType, PiApi | undefined>`, so a new registry endpoint member is a
+typecheck failure until it is classified — the same guarantee
+`loadPiApiStreamSimple`'s family switch gives (see the W3 review record below for
+why the test-local version of this gate was removed).
 
 Also landed with it, three family findings the probes caught:
 
@@ -294,16 +299,17 @@ Also landed with it, three family findings the probes caught:
   stamped `customFetch` on every family, so ANY google-family turn through the
   prepared stream would have died at request time — including agent sessions since
   the W2 review moved the wrapper into `materializePiProviderStream`. The google
-  family is now exempt (pinned in the matrix suite); consequence recorded in the
-  register: that family rides the Node dispatcher directly, so Electron `net.fetch`
-  session sharing and the proxy env layering do not apply to it.
-- **Signature replay is complete across families.** The converter now maps
+  family is now exempt (pinned in the matrix suite) via
+  `PI_API_SUPPORTS_CUSTOM_FETCH`, an exhaustive per-family table next to the family
+  loader; consequence recorded in the register: that family rides the Node
+  dispatcher directly, so Electron `net.fetch` session sharing does not apply to it.
+- **Signature replay covers the reasoning families.** The converter maps
   `providerMetadata.google.thoughtSignature` (reasoning, text, AND tool-call parts —
   pi strips tool-call signatures cross-model itself, and Gemini 3 400s without
   them) and reconstructs the openai-responses reasoning item from
   `providerMetadata.openai.{itemId, reasoningEncryptedContent}` (`{type:'reasoning',
   id, summary, encrypted_content}` — the shape pi stores and replays verbatim).
-  And pi-WRITTEN turns now round-trip: `piStreamAdapter` persists pi's opaque
+  pi-WRITTEN turns round-trip: `piStreamAdapter` persists pi's opaque
   `thinkingSignature`/`textSignature`/tool `thoughtSignature` from the finished
   blocks (`event.partial`) under `providerMetadata.pi`, which the converter replays
   without family translation. Wire probes (real serializers + recording fetch; the
@@ -311,16 +317,55 @@ Also landed with it, three family findings the probes caught:
   pin same-model replay and cross-model degradation for all three families. Google
   validates signatures as base64 and drops anything else; a signature-bearing EMPTY
   text part survives the converter (Gemini signs empty parts; dropping breaks the
-  reasoning chain).
+  reasoning chain). The one hole this pass left — redacted thinking, which is
+  signature-only — is fixed in the review record below.
 - **Reasoning dialects are mostly native.** pi-ai auto-detects deepseek (thinking
   `{type}` + reasoning-content echo on replay), zai (bigmodel.cn), together,
   openrouter, and moonshot from the provider baseUrl, and carries native
   `thinkingFormat` compat for qwen (`enable_thinking`), qwen-chat-template, baseten,
-  string-thinking, and ant-ling. The one registry gap: DashScope's compatible-mode
-  host is not detected — `piDialectCompat` marks qwen models there
-  (`thinkingFormat: 'qwen'`), model-gated exactly like the legacy
-  `qwenEnableThinking` plugin (DashScope also serves deepseek et al., which ride the
-  detected openai dialect).
+  string-thinking, and ant-ling. DashScope's compatible-mode host is not detected —
+  `piDialectCompat` marks qwen models there (`thinkingFormat: 'qwen'`), model-gated
+  like the legacy `qwenEnableThinking` plugin (DashScope also serves deepseek et al.,
+  which ride the detected openai dialect). The gate was broadened to that plugin's
+  real reach in the review record below.
+
+**W3 post-landing review (2026-09-26)** — probes against the real pi runtime and the
+trunk accumulator, then fixed. The review's raw findings are recorded, so a later
+reader can tell deliberate decisions from oversights:
+
+- **Redacted thinking was not replayable** (probed end to end). pi represents an
+  Anthropic `redacted_thinking` block as `{thinking: '[Reasoning redacted]',
+  thinkingSignature: <opaque payload>, redacted: true}`, and its serializer emits
+  `redacted_thinking` *only* for a flagged block — otherwise the payload ships as a
+  normal thinking block's `signature`, which Anthropic rejects. The adapter dropped
+  the flag and the converter rebuilt the block without it. The legacy writer has the
+  mirror-image shape (`{text: ''}` + `anthropic.redactedData`, drop-by-the-empty-text
+  guard). Fixed: the adapter persists `redacted: true` under `providerMetadata.pi`,
+  the converter resolves **signature + redacted flag** per family (including
+  `anthropic.redactedData`) and keeps a signature-only block. Regression tests: an
+  adapter/accumulator case, two converter cases, and one engine wire test asserting
+  `{type:'redacted_thinking', data}` for both writers.
+- **The matrix's endpoint axis gated nothing.** The two "exhaustive classification"
+  assertions were tautologies — adding a fake `ENDPOINT_TYPE` member kept the suite
+  green (probed). Fixed by moving the classification to the total `ENDPOINT_PI_API`
+  record (compile-enforced) and deleting the hollow assertions; the chat-protocol
+  table in the test is now derived from production instead of restated.
+- **The qwen dialect gate was DashScope-only** while the legacy plugin's gate is
+  `isQwenModel` on every provider outside `NOT_SUPPORT_QWEN3_ENABLE_THINKING_PROVIDERS`
+  (i.e. also self-hosted and custom openai-compatible endpoints serving Qwen). Fixed:
+  the shared predicate now gates `piDialectCompat`, minus hosts where pi-ai detects a
+  *different* reasoning dialect (deepseek/zai/together/ant-ling/openrouter — an
+  explicit override there would replace pi's detection). Tests cover both directions.
+- **A stale comment contradicted the code** in `buildPiModelConfig` ("thinkingLevelMap
+  intentionally omitted") after the map was wired; removed.
+
+The family/endpoint facts now have three compile-enforced homes — endpoint → family
+(`ENDPOINT_PI_API`), family → loader (`loadPiApiStreamSimple`), family → transport
+(`PI_API_SUPPORTS_CUSTOM_FETCH`) — so a new family or endpoint member is a typecheck
+failure in each dimension; the deliberate unsupported-provider list stays in the matrix
+test where it is checked against the registry data. Left as-is, recorded: the
+auto-detection case asserts only that our injection adds nothing for hosts pi detects
+(asserting pi's detection itself needs a `detectCompat` export pi-ai does not provide).
 
 **W3 feature-plugin parity inventory** (the deliverable deferred from W2; every
 `runtime/aiSdk/params/features/` behavior mapped — new rows landed in the W5
@@ -339,7 +384,7 @@ register below, dispositions recorded here):
 | no-think (ovms) | needs port (prompt suffix) or keep ovms on legacy; the matrix cannot key it (provider-id gate at the seam) |
 | openrouter-reasoning | needs port (strip `[REDACTED]`) — cosmetic; register row |
 | provider-url-context / provider-web-search | accepted delta (existing rows) |
-| qwen-enable-thinking | native via `thinkingFormat: 'qwen'` (dashscope wired; qwen-on-other-hosts = live spot-check row) |
+| qwen-enable-thinking | native via `thinkingFormat: 'qwen'`, gated by the shared `isQwenModel` + `isSupportEnableThinkingProvider` predicate (W3 review) — i.e. every provider outside the `NOT_SUPPORT_QWEN3_ENABLE_THINKING_PROVIDERS` deny list whose host pi-ai does not detect. Remaining deltas: (a) providers whose host pi-ai *does* detect keep pi's dialect (openrouter/deepseek/zai/together/ant-ling — deliberate, our override would replace their reasoning protocol; legacy injected `enable_thinking` for openrouter-class hosts, so verify per host when the flag goes default-on); (b) pi always sends `enable_thinking` (`!!reasoningEffort`), while legacy skipped the parameter entirely for `reasoning.kind === 'omit'` — decide when the W6 seam maps reasoning modes to `thinkingLevel`; (c) qwen on nvidia/gpustack rides the `/think`-suffix row below |
 | qwen-thinking (/think suffix) | needs port only for qwen on nvidia/gpustack via pi (the other suffix providers — ollama/lmstudio — are not pi families) |
 | reasoning-extraction (<think> tags) | needs port — pi-ai reads `reasoning_content`/`reasoning`/`reasoning_text` fields but does not extract inline tag markup |
 | simulate-streaming | matrix exclusion — `streamSimple` is SSE-only; `streamOutput === false` providers must fail the matrix gate to legacy (W6 seam note) |
@@ -382,7 +427,9 @@ MCP tool test reusing `piMcpToolAdapter` fixtures.
 | Replayed step boundaries | One persisted message collapses to one assistant entry, so tool calls from different steps share one wire turn. W2 emits `start-step`; splitting the entries in `toAssistantTurn` at those boundaries is the follow-up (pi's own sessions keep one assistant message per step) |
 | Replayed tool-result rendering (builtin outputs) | MCP call results render through `mcpResultToTextSummary` (`messages/toolResultRendering.ts`, the same summary the MCP tool declares); the knowledge / fs / web / painting `toModelOutput` views are unported, so those replayed results show raw JSON text. Port into the same shared module (it survives Phase 2 — the ai-sdk adapter dir does not) |
 | Reasoning signature replay (non-anthropic families) | **Landed in W3**: google (`thoughtSignature` on reasoning/text/tool parts) and openai-responses (`itemId`+`reasoningEncryptedContent` → reconstructed reasoning item) replay via the converter; pi-written turns round-trip through `providerMetadata.pi` signatures persisted by `piStreamAdapter`. Wire-probed same-model vs cross-model per family. Cross-model treatment (pi strips tool-call `thoughtSignature`, normalizes tool-call ids) is pi's own |
-| Google family proxy transport | pi-ai's google adapter rejects custom fetch (drives `@google/genai`'s client), so the family is exempt from `customFetch` — no Electron session sharing or Cherry proxy env layering there. Requests ride the Node dispatcher directly; if that breaks proxy users, the port is a pi-ai change (fetch support in the google adapter), not a Cherry workaround |
+| Redacted thinking replay | **Fixed in the W3 review**: pi persists `redacted: true` beside `pi.thinkingSignature`, the converter resolves the flag for both writers (`anthropic.redactedData` for legacy turns) and keeps a signature-only block, so Anthropic receives `redacted_thinking` instead of an invalid signature. The legacy engine replaying a pi-written redacted turn still drops the block (its `reasoningMetadata` has no `signature`/`redactedData` key — a logged warning, not an error): see the W6 flip-back clause |
+| Flag flip-back reasoning replay | The legacy engine reads only its own signature keys (`anthropic.signature`, `anthropic.redactedData`, google/openai keys), so a pi-written turn replayed after flipping the flag off loses its reasoning replay (dropped with a logged warning, not an error) — the mirror of the line above. Options: dual-write the family key from the pi adapter, or accept it for the flag period and let the Phase 1 exit (legacy path deletion) close it. Only matters while the flag can flip back |
+| Google family proxy transport | pi-ai's google adapter rejects custom fetch (drives `@google/genai`'s client), so `PI_API_SUPPORTS_CUSTOM_FETCH['google-generative-ai'] = false` — no Electron session sharing and no `net.fetch` there; the Cherry proxy **env is still passed** (only the Node dispatcher could read it, and the google client uses the plain Node fetch). Requests ride the Node dispatcher directly; if that breaks proxy users, the port is a pi-ai change (fetch support in the google adapter), not a Cherry workaround |
 | Anthropic cache user knobs | pi places `cache_control` natively with its own policy (system + last tool + trailing message); Cherry's per-provider cache settings (threshold, last-N, ttl) are inert on pi. Optional seam port maps the ttl setting → `cacheRetention` |
 | Mid-loop tool-output truncation | `contextBuild`'s in-flight truncate/offload lanes are aiCore middlewares; tool results generated inside pi's tool loop get none of it (served history is fine — sliced upstream). Port = trimming at the W4a tool-result boundary or a pi stream wrapper |
 | In-loop compaction inside pi's loop | Cherry's `prepareStep` compaction cannot run inside pi's tool loop; turn-start durable compaction is upstream and unaffected. Either accept the gap for multi-step turns or port a budget check between pi steps |
@@ -411,7 +458,10 @@ engine when flag on — verify or explicitly exclude in flag scope); API-gateway
 round-trip (the public SSE contract rides the engine from day one); a topic written
 with the flag on, then replayed after flipping the flag back off — the pi engine
 stamps tool parts `providerExecuted`/`dynamic`, which the legacy conversion treats
-differently.
+differently, and its reasoning replay lives under `providerMetadata.pi`, which the
+legacy providers cannot read (they look for their own keys, so the reasoning part is
+dropped with a logged warning — no error, but signed-thinking continuity is lost for
+that turn; see the register's redacted-thinking row).
 
 **W6 seam — request→engine-input preparation** (the engine takes prepared input on
 purpose; these are the obligations that used to be implicit, from the W2 review):

@@ -191,11 +191,15 @@ type ReasoningPart = Extract<CherryMessagePart, { type: 'reasoning' }>
 
 /** Narrow a persisted providerMetadata entry to a non-empty string. */
 function providerMetadataString(part: unknown, namespace: string, key: string): string | undefined {
-  const metadata = (part as { providerMetadata?: unknown }).providerMetadata as
-    | Record<string, Record<string, unknown>>
-    | undefined
-  const value = metadata?.[namespace]?.[key]
+  const value = providerMetadataEntry(part, namespace)?.[key]
   return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+/** The raw providerMetadata namespace object a writer (legacy AI SDK or the pi engine) persisted. */
+function providerMetadataEntry(part: unknown, namespace: string): Record<string, unknown> | undefined {
+  const metadata = (part as { providerMetadata?: unknown }).providerMetadata as Record<string, unknown> | undefined
+  const entry = metadata?.[namespace]
+  return entry !== null && typeof entry === 'object' ? (entry as Record<string, unknown>) : undefined
 }
 
 /**
@@ -216,25 +220,56 @@ function openaiResponsesReasoningBlob(part: ReasoningPart): string | undefined {
 }
 
 /**
- * A persisted reasoning part keeps its provider signature in `providerMetadata` — preserved
- * exactly so a same-model replay can send it back — and pi needs it on the block. pi-written
- * turns carry pi's opaque `thinkingSignature` under the `pi` namespace; legacy AI SDK turns
- * carry the family key (`anthropic.signature`, `google.thoughtSignature`, or the
- * `openai.itemId` blob reconstructed above). Families without a mapping here are W5 rows.
+ * A persisted reasoning block's replay signature, plus whether it is a *redacted* block.
+ *
+ * pi's Anthropic serializer emits `redacted_thinking` only for blocks flagged `redacted`
+ * (the opaque payload rides `thinkingSignature`), and rejects a redacted payload sent as a
+ * normal thinking block's signature — so the flag has to survive the round trip. pi-written
+ * turns carry it under `pi`; legacy AI SDK turns carry the payload as `anthropic.redactedData`.
  */
-function thinkingBlock(part: ReasoningPart, api: Api): ThinkingContent {
-  const block: ThinkingContent = { type: 'thinking', thinking: part.text }
+interface ReplaySignature {
+  value: string
+  redacted?: true
+}
+
+function reasoningSignature(part: ReasoningPart, api: Api): ReplaySignature | undefined {
   const piSignature = providerMetadataString(part, 'pi', 'thinkingSignature')
-  const signature =
-    piSignature ??
-    (api === 'anthropic-messages'
-      ? providerMetadataString(part, 'anthropic', 'signature')
-      : api === 'google-generative-ai'
-        ? providerMetadataString(part, 'google', 'thoughtSignature')
-        : api === 'openai-responses' || api === 'azure-openai-responses'
-          ? openaiResponsesReasoningBlob(part)
-          : undefined)
-  return signature !== undefined ? { ...block, thinkingSignature: signature } : block
+  if (piSignature !== undefined) {
+    return providerMetadataEntry(part, 'pi')?.redacted === true
+      ? { value: piSignature, redacted: true }
+      : { value: piSignature }
+  }
+  if (api === 'anthropic-messages') {
+    const redactedData = providerMetadataString(part, 'anthropic', 'redactedData')
+    if (redactedData !== undefined) return { value: redactedData, redacted: true }
+    const signature = providerMetadataString(part, 'anthropic', 'signature')
+    return signature !== undefined ? { value: signature } : undefined
+  }
+  if (api === 'google-generative-ai') {
+    const signature = providerMetadataString(part, 'google', 'thoughtSignature')
+    return signature !== undefined ? { value: signature } : undefined
+  }
+  if (api === 'openai-responses' || api === 'azure-openai-responses') {
+    const blob = openaiResponsesReasoningBlob(part)
+    return blob !== undefined ? { value: blob } : undefined
+  }
+  return undefined
+}
+
+/**
+ * A persisted reasoning part keeps its provider signature in `providerMetadata` — preserved
+ * exactly so a same-model replay can send it back — and pi needs it on the block. A
+ * signature-only block survives even with no visible text: redacted thinking has none, and
+ * dropping it loses the payload the API needs back. Families without a mapping here are W5 rows.
+ */
+function thinkingBlock(part: ReasoningPart, api: Api): ThinkingContent | undefined {
+  const signature = reasoningSignature(part, api)
+  if (!part.text && signature === undefined) return undefined
+  const block: ThinkingContent = { type: 'thinking', thinking: part.text }
+  if (signature === undefined) return block
+  return signature.redacted === true
+    ? { ...block, thinkingSignature: signature.value, redacted: true }
+    : { ...block, thinkingSignature: signature.value }
 }
 
 /**
@@ -334,8 +369,9 @@ function toAssistantTurn(
       const text = part.type === 'text' ? textBlock(part, descriptor.api) : undefined
       if (text) {
         content.push(text)
-      } else if (part.type === 'reasoning' && part.text) {
-        content.push(thinkingBlock(part, descriptor.api))
+      } else if (part.type === 'reasoning') {
+        const thinking = thinkingBlock(part, descriptor.api)
+        if (thinking) content.push(thinking)
       } else if (part.type === 'file') {
         // Assistant content has no image slot in pi — generated media degrades to a note.
         content.push(attachmentNote(`${part.filename ?? 'file'} (${part.mediaType})`))

@@ -36,7 +36,12 @@ import type { ApiKeyEntry, Provider } from '@shared/data/types/provider'
 import { formatApiHost, withoutTrailingApiVersion } from '@shared/utils/api'
 import { formatGatewayModelId } from '@shared/utils/apiGateway'
 import { getRawModelId, isQwenModel } from '@shared/utils/model'
-import { isLoginBasedProvider, matchesPreset, resolveEndpointDialect } from '@shared/utils/provider'
+import {
+  isLoginBasedProvider,
+  isSupportEnableThinkingProvider,
+  matchesPreset,
+  resolveEndpointDialect
+} from '@shared/utils/provider'
 import { SystemProviderIds } from '@shared/utils/systemProviderId'
 
 import { resolveEffectiveEndpoint } from '../../provider/endpoint'
@@ -45,7 +50,7 @@ import { requiresAgentGateway, resolveApiGatewayRuntime } from '../agentApiGatew
 import { resolveAgentContextWindow } from '../agentContextWindow'
 import { toAgentProviderHeaders } from '../agentProviderHeaders'
 import type { AgentSessionUsageCapture } from '../types'
-import { loadPiAnthropicMessagesApi, loadPiApiStreamSimple } from './piSdk'
+import { loadPiAnthropicMessagesApi, loadPiApiStreamSimple, PI_API_SUPPORTS_CUSTOM_FETCH } from './piSdk'
 import { withCherryInThinkingReplay } from './piThinkingReplay'
 import { loadPiAiStreamFns, withTransportStream } from './piTransportStream'
 
@@ -145,9 +150,8 @@ export async function materializePiProviderStream(injection: PiProviderInjection
  * own config (undici does not read them by itself) and the Electron-aware `customFetch`
  * unless the proxy authenticates in the Node dispatcher, which `net.fetch` cannot do.
  *
- * The Google adapter is exempt from the `customFetch` half: pi-ai drives it through the
- * `@google/genai` client, which hard-rejects a custom fetch — requests there ride the
- * Node dispatcher directly (proxy parity gap recorded in the plan's W5 register).
+ * The fetch half is per-family: see {@link PI_API_SUPPORTS_CUSTOM_FETCH} for the
+ * Google exemption and the proxy parity gap it implies.
  */
 function withPiRequestEnvironment(
   streamSimple: NonNullable<ProviderConfig['streamSimple']>,
@@ -162,7 +166,7 @@ function withPiRequestEnvironment(
     return streamSimple(model, context, {
       ...options,
       env: { ...options?.env, ...proxyEnvironment, ...providerEnvironment },
-      ...(api !== 'google-generative-ai' && !usesAuthenticatedNodeProxy && { fetch: customFetch })
+      ...(PI_API_SUPPORTS_CUSTOM_FETCH[api] && !usesAuthenticatedNodeProxy && { fetch: customFetch })
     })
   }
 }
@@ -212,7 +216,7 @@ export function buildPiProviderInjection(
     ? formatApiHost(resolvedEndpoint.baseUrl, false)
     : formatPiBaseUrl(resolvedEndpoint.baseUrl, api)
   const modelId = getRawModelId(model)
-  const modelConfig = buildPiModelConfig(provider, model, modelId, api, resolvedEndpoint.endpointType)
+  const modelConfig = buildPiModelConfig(provider, model, modelId, api, resolvedEndpoint.endpointType, baseUrl)
 
   const providerConfig: ProviderConfig = {
     name: provider.name,
@@ -284,7 +288,16 @@ export function buildPiGatewayInjection(
   if (!api) throw new PiUnsupportedProviderError(provider.id)
 
   const modelId = formatGatewayModelId(provider.id, getRawModelId(model))
-  const modelConfig = buildPiModelConfig(provider, model, modelId, api, resolvedEndpoint.endpointType)
+  // Dialect input is the provider's own host: the local gateway URL says nothing about
+  // which upstream dialect the request will reach.
+  const modelConfig = buildPiModelConfig(
+    provider,
+    model,
+    modelId,
+    api,
+    resolvedEndpoint.endpointType,
+    resolvedEndpoint.baseUrl
+  )
   const headers = Object.keys(gateway.usageHeaders).length ? gateway.usageHeaders : undefined
 
   return {
@@ -456,19 +469,55 @@ function buildThinkingLevelMap(model: Model): ProviderModelConfig['thinkingLevel
 }
 
 /**
- * Explicit compat overrides where pi-ai's URL/provider auto-detection cannot identify
- * the dialect. Most families are detected from the baseUrl (deepseek.com → deepseek
- * thinking + reasoning-content echo, open.bigmodel.cn → zai, api.together.ai → together,
- * openrouter.ai → openrouter, api.moonshot. → moonshot); DashScope's compatible-mode
- * host is not. Its Qwen models speak `enable_thinking` (the legacy
- * `qwenEnableThinking` plugin's gating), while its other models ride the registry's
- * openai-chat dialect — so the override is model-gated, not provider-wide.
+ * Hosts/providers pi-ai's own openai-completions `detectCompat` (0.87.1) already maps to a
+ * NON-'openai' reasoning dialect — deepseek's `reasoning_content` echo, zai, together,
+ * ant-ling, openrouter. Where pi detected one, an explicit `thinkingFormat: 'qwen'` would
+ * replace it; where it detected nothing (or plain `openai`), our override only adds
+ * `enable_thinking`, which is exactly the legacy `qwenEnableThinking` plugin's reach.
  */
-function piDialectCompat(provider: Provider, model: Model, api: PiApi): ProviderModelConfig['compat'] | undefined {
-  if (provider.id === SystemProviderIds.dashscope && api === 'openai-completions' && isQwenModel(model)) {
-    return { thinkingFormat: 'qwen' }
-  }
-  return undefined
+const PI_DETECTED_OPENAI_DIALECTS = [
+  'deepseek.com',
+  'api.z.ai',
+  'open.bigmodel.cn',
+  'api.together.ai',
+  'api.together.xyz',
+  'api.ant-ling.com',
+  'openrouter.ai'
+] as const
+const PI_DETECTED_OPENAI_DIALECT_PROVIDER_IDS = [
+  'deepseek',
+  'zai',
+  'zai-coding-cn',
+  'together',
+  'ant-ling',
+  'openrouter'
+] as const
+
+function piDetectsOwnDialect(provider: Provider, baseUrl: string): boolean {
+  const host = baseUrl.toLowerCase()
+  return (
+    PI_DETECTED_OPENAI_DIALECT_PROVIDER_IDS.some((id) => id === provider.id) ||
+    PI_DETECTED_OPENAI_DIALECTS.some((fragment) => host.includes(fragment))
+  )
+}
+
+/**
+ * Explicit compat overrides where pi-ai's URL/provider auto-detection cannot identify
+ * the dialect. DashScope's compatible-mode host is one such case: its Qwen models speak
+ * `enable_thinking` (the legacy `qwenEnableThinking` plugin's gate — `isQwenModel` on any
+ * provider that is not in `NOT_SUPPORT_QWEN3_ENABLE_THINKING_PROVIDERS`), while its other
+ * models ride the registry's openai-chat dialect. So the override is model-gated, not
+ * provider-wide, and it yields to pi's own detection where that exists.
+ */
+function piDialectCompat(
+  provider: Provider,
+  model: Model,
+  api: PiApi,
+  baseUrl: string
+): ProviderModelConfig['compat'] | undefined {
+  if (api !== 'openai-completions' || !isQwenModel(model)) return undefined
+  if (!isSupportEnableThinkingProvider(provider) || piDetectsOwnDialect(provider, baseUrl)) return undefined
+  return { thinkingFormat: 'qwen' }
 }
 
 function buildPiModelConfig(
@@ -476,7 +525,8 @@ function buildPiModelConfig(
   model: Model,
   id: string,
   api: PiApi,
-  endpointType: EndpointType | undefined
+  endpointType: EndpointType | undefined,
+  baseUrl: string
 ): ProviderModelConfig {
   const input: ('text' | 'image')[] = ['text']
   const supportsImage =
@@ -494,7 +544,7 @@ function buildPiModelConfig(
         // developer-role support from the endpoint URL.
         { supportsDeveloperRole: resolveEndpointDialect(provider, endpointType).developerRole }
       : {}),
-    ...piDialectCompat(provider, model, api),
+    ...piDialectCompat(provider, model, api, baseUrl),
     // CherryIN requires replaying its thinking block even when the compatible endpoint omits a signature delta.
     ...(provider.id === 'cherryin' && api === 'anthropic-messages' ? { allowEmptySignature: true } : {})
   }
@@ -512,7 +562,5 @@ function buildPiModelConfig(
     contextWindow: resolveAgentContextWindow(model),
     maxTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKENS,
     ...(Object.keys(compat).length > 0 ? { compat } : {})
-    // thinkingLevelMap intentionally omitted: Cherry does not wire pi
-    // thinking-level control in v1 (see capability matrix).
   }
 }

@@ -44,6 +44,31 @@ export type PiApi =
   | 'google-generative-ai'
 
 /**
+ * Endpoint type → pi api family, total over `EndpointType` on purpose: adding a
+ * registry endpoint member without classifying it here is a typecheck failure,
+ * the same guarantee `loadPiApiStreamSimple`'s family switch gives in the main
+ * process. `undefined` means "not a chat protocol pi drives" — rerank,
+ * embeddings, audio, image, video, ollama, and text-completions endpoints.
+ */
+export const ENDPOINT_PI_API: Readonly<Record<EndpointType, PiApi | undefined>> = {
+  [ENDPOINT_TYPE.ANTHROPIC_MESSAGES]: 'anthropic-messages',
+  [ENDPOINT_TYPE.OPENAI_RESPONSES]: 'openai-responses',
+  [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: 'openai-completions',
+  [ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT]: 'google-generative-ai',
+  [ENDPOINT_TYPE.JINA_RERANK]: undefined,
+  [ENDPOINT_TYPE.OLLAMA_CHAT]: undefined,
+  [ENDPOINT_TYPE.OLLAMA_GENERATE]: undefined,
+  [ENDPOINT_TYPE.OPENAI_AUDIO_TRANSCRIPTION]: undefined,
+  [ENDPOINT_TYPE.OPENAI_AUDIO_TRANSLATION]: undefined,
+  [ENDPOINT_TYPE.OPENAI_EMBEDDINGS]: undefined,
+  [ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]: undefined,
+  [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: undefined,
+  [ENDPOINT_TYPE.OPENAI_TEXT_COMPLETIONS]: undefined,
+  [ENDPOINT_TYPE.OPENAI_TEXT_TO_SPEECH]: undefined,
+  [ENDPOINT_TYPE.OPENAI_VIDEO_GENERATION]: undefined
+}
+
+/**
  * Map a Cherry endpoint (`endpointType` + resolved `adapterFamily`) to the pi
  * `api` family, or `undefined` when pi cannot speak that provider's protocol.
  *
@@ -73,20 +98,7 @@ export function mapEndpointToPiApi(
     return undefined
   }
 
-  switch (endpointType) {
-    case ENDPOINT_TYPE.ANTHROPIC_MESSAGES:
-      return 'anthropic-messages'
-    case ENDPOINT_TYPE.OPENAI_RESPONSES:
-      return 'openai-responses'
-    case ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS:
-      return 'openai-completions'
-    case ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT:
-      return 'google-generative-ai'
-    // Rerank / embeddings / audio / image / video / ollama / text-completions
-    // endpoints are not chat protocols pi drives.
-    default:
-      return undefined
-  }
+  return endpointType ? ENDPOINT_PI_API[endpointType] : undefined
 }
 
 /**

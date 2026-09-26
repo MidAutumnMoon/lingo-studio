@@ -517,6 +517,60 @@ describe('model identity and usage', () => {
     expect(assistantEntry(signedTool).content[0]).toMatchObject({ thoughtSignature: 'pi-tool' })
   })
 
+  it('replays redacted thinking as a redacted block, from either writer', () => {
+    const anthropic = { api: 'anthropic-messages', provider: 'cherry-p', model: 'm1' } as const
+    // pi-written: pi keeps the payload in `thinkingSignature` and marks the block; the
+    // serializer emits `redacted_thinking` only for a flagged block, and rejects the
+    // payload as a normal thinking signature.
+    const piWritten = toPiSessionEntries(
+      [
+        msg('assistant', [
+          {
+            type: 'reasoning',
+            text: '[Reasoning redacted]',
+            state: 'done',
+            providerMetadata: { pi: { thinkingSignature: 'pi-payload', redacted: true } }
+          }
+        ])
+      ],
+      { resolveHistoryModel: () => anthropic }
+    )
+    expect(assistantEntry(piWritten).content).toEqual([
+      { type: 'thinking', thinking: '[Reasoning redacted]', thinkingSignature: 'pi-payload', redacted: true }
+    ])
+
+    // Legacy AI SDK turn: the payload is `anthropic.redactedData` and there is no visible
+    // text at all — a signature-only block must still survive.
+    const legacyWritten = toPiSessionEntries(
+      [
+        msg('assistant', [
+          {
+            type: 'reasoning',
+            text: '',
+            state: 'done',
+            providerMetadata: { anthropic: { redactedData: 'legacy-payload' } }
+          }
+        ])
+      ],
+      { resolveHistoryModel: () => anthropic }
+    )
+    expect(assistantEntry(legacyWritten).content).toEqual([
+      { type: 'thinking', thinking: '', thinkingSignature: 'legacy-payload', redacted: true }
+    ])
+  })
+
+  it('keeps a signature-only thinking block that is not redacted', () => {
+    const entries = toPiSessionEntries(
+      [
+        msg('assistant', [
+          { type: 'reasoning', text: '', state: 'done', providerMetadata: { pi: { thinkingSignature: 'pi-sig' } } }
+        ])
+      ],
+      { resolveHistoryModel: () => ({ api: 'google-generative-ai', provider: 'cherry-p', model: 'm1' }) }
+    )
+    expect(assistantEntry(entries).content).toEqual([{ type: 'thinking', thinking: '', thinkingSignature: 'pi-sig' }])
+  })
+
   it('uses the placeholder descriptor when no resolver resolves', () => {
     const entries = toPiSessionEntries([msg('assistant', [{ type: 'text', text: 'x' }])])
     const assistant = assistantEntry(entries)

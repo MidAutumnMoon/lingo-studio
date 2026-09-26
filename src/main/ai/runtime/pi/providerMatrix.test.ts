@@ -5,9 +5,10 @@
  * The matrix is the gate W6's per-execution fallback consults: a chat execution runs
  * on pi exactly when its provider+model resolves a pi api family here. Three layers:
  *
- * 1. Exhaustive endpoint-type coverage — every `ENDPOINT_TYPE` member is classified
- *    (chat protocol → pi family, or not-pi-chat → undefined), so a new registry
- *    endpoint type fails this suite until it is classified.
+ * 1. The chat-protocol set, derived from the production table (`ENDPOINT_PI_API`).
+ *    Endpoint-type classification itself is compile-enforced there: a new
+ *    `ENDPOINT_TYPE` member that is not classified fails the typecheck, so this file
+ *    does not restate it.
  * 2. Adapter-family refinements within chat endpoint types (azure, bedrock, vertex),
  *    asserted through `mapEndpointToPiApi` — the same mapping `resolvePiApi` applies.
  * 3. A sweep over the registry's own provider data (`data/providers.json`): every
@@ -23,46 +24,19 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 
 import { ENDPOINT_TYPE, type EndpointType } from '@cherrystudio/provider-registry'
-import { resolvePiApi, type PiApi } from '@shared/ai/piModelCompatibility'
+import { ENDPOINT_PI_API, resolvePiApi, type PiApi } from '@shared/ai/piModelCompatibility'
 import type { Model } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
 
 import { buildPiGatewayInjection, materializePiProviderStream, type PiProviderInjection } from './modelInjection'
 import { loadPiApiStreamSimple } from './piSdk'
 
-/** The four chat protocols pi drives, each with its pi api family. */
-const CHAT_ENDPOINT_TO_PI_API: Record<string, PiApi> = {
-  [ENDPOINT_TYPE.ANTHROPIC_MESSAGES]: 'anthropic-messages',
-  [ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT]: 'google-generative-ai',
-  [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: 'openai-completions',
-  [ENDPOINT_TYPE.OPENAI_RESPONSES]: 'openai-responses'
-}
+/** The chat protocols pi drives, each with its pi api family — the production table, filtered. */
+const CHAT_ENDPOINT_TO_PI_API = Object.fromEntries(
+  Object.entries(ENDPOINT_PI_API).filter((entry): entry is [string, PiApi] => entry[1] !== undefined)
+)
 
-const ALL_ENDPOINT_TYPES = Object.values(ENDPOINT_TYPE) as EndpointType[]
-
-describe('pi provider matrix — endpoint-type axis', () => {
-  it('classifies every endpoint type exactly once', () => {
-    const chat = Object.keys(CHAT_ENDPOINT_TO_PI_API)
-    const classified = new Set([...chat, ...ALL_ENDPOINT_TYPES])
-    // Every enum member is either a mapped chat protocol or a non-chat endpoint —
-    // a new member that is neither fails both sides of this assertion.
-    expect(classified.size).toBe(ALL_ENDPOINT_TYPES.length)
-    expect(chat.every((type) => ALL_ENDPOINT_TYPES.includes(type as EndpointType))).toBe(true)
-  })
-
-  it('maps the chat protocols and rejects everything else', () => {
-    for (const type of ALL_ENDPOINT_TYPES) {
-      const mapped = CHAT_ENDPOINT_TO_PI_API[type]
-      if (mapped !== undefined) {
-        expect(CHAT_ENDPOINT_TO_PI_API[type]).toBeDefined()
-      } else {
-        // Rerank / embeddings / audio / image / video / ollama / text-completions
-        // endpoints are not chat protocols pi drives.
-        expect(Object.keys(CHAT_ENDPOINT_TO_PI_API)).not.toContain(type)
-      }
-    }
-  })
-
+describe('pi provider matrix — adapter-family refinements', () => {
   it('maps azure-responses to the azure family and excludes azure chat-completions', () => {
     // Azure speaks a distinct wire (deployment + api-version URL); pi ships only
     // an Azure *responses* family, so plain `openai-completions` would target the

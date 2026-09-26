@@ -58,6 +58,23 @@ export function loadPiAnthropicMessagesApi() {
 
 type PiStreamSimple = NonNullable<ProviderConfig['streamSimple']>
 
+/**
+ * Whether Cherry's Electron-aware `customFetch` can be layered on a family's stream.
+ *
+ * The Google adapter drives `@google/genai`'s own client, which hard-rejects a custom
+ * fetch, so requests there ride the Node dispatcher directly — no Electron session
+ * sharing and no `net.fetch` (the proxy *env* is still passed, but only the Node
+ * dispatcher could read it). Exhaustive on purpose: a new family must declare its
+ * transport support here rather than silently inherit a fetch it cannot take.
+ */
+export const PI_API_SUPPORTS_CUSTOM_FETCH: Record<PiApi, boolean> = {
+  'anthropic-messages': true,
+  'openai-completions': true,
+  'openai-responses': true,
+  'azure-openai-responses': true,
+  'google-generative-ai': false
+}
+
 /** Load the exact builtin stream used for a Cherry-supported Pi API family. */
 export async function loadPiApiStreamSimple(api: PiApi): Promise<PiStreamSimple> {
   switch (api) {
