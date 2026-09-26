@@ -9,8 +9,10 @@ pi upstream clones locally at `~/Code/pi` with all `v0.8x` tags for diffing.
 
 - One repo (`earendil-works/pi`), one version line: `packages/ai` → pi-ai,
   `packages/coding-agent` → pi-coding-agent, `packages/agent` → pi-agent-core.
-- Cherry's pi import surface is entirely confined to `src/main/ai/runtime/pi/`; runtime
-  (value) imports go only through dynamic `import()` in `piSdk.ts`, everything else is
+- Cherry's pi import surface is confined to the pi runtime directories —
+  `src/main/ai/runtime/pi/` today, joined by the `runtime/pi-chat/` sibling in
+  Phase 1 (unification plan §Phase 1 placement decision). Runtime (value) imports
+  go only through dynamic `import()` in `piSdk.ts`, everything else is
   `import type`. Context types derive from pi signatures
   (`Parameters<PiStreamSimple>[1]`), so pi-side type changes flow in without edits —
   the 0.86 `TranscriptContext` rework needed zero production changes for exactly this
@@ -75,6 +77,10 @@ Ordered by expected value:
 
 ## 5. Gotchas to carry into Phase 1
 
+- The chat engine must repeat pi's discovery-suppression ceremony
+  (`noExtensions`/`noSkills`/`noPromptTemplates`/`noThemes` +
+  `systemPromptOverride` — see `PiRuntimeConnection.ts`) or pi's disk-discovered
+  persona/system prompts leak into chat turns.
 - `StopReason` includes `"pending"` (partials) and `"deferred"`;
   `PiRuntimeConnection` assigns `lastStopReason` only from `turn_end`, so partial stop
   reasons are structurally inert — keep it that way when touching stop-reason handling.

@@ -2,7 +2,8 @@
 
 Status: executing — 2026-09-26. Phase 0 ladder **complete**: all rungs through 0.87.1
 landed and verified; remaining Phase 0 item is the 0.6 manual smoke.
-Phases 1–3 remain draft.
+Phase 1 architecture decisions are **settled** (pre-implementation review, recorded
+in the Phase 1 section); Phases 2–3 remain draft.
 
 Decision context: pi (in-process, loop owned by us, `pi-ai` wire layer shared with dsh)
 is the base for unification. dsh stays as an opt-in agent runtime behind the existing
@@ -32,9 +33,11 @@ The plan below phases the work so the app is shippable after every step.
 | Pinned pi versions | ladder complete at the target — `@earendil-works/pi-ai` 0.87.1, `@earendil-works/pi-coding-agent` 0.87.1; the pi line (including transitive `pi-agent-core`/`pi-ai`) is forced to the root pin via `pnpm-workspace.yaml` overrides (see upgrade-notes §2) |
 | Upgrade target | 0.87.1 — all three packages align on one line |
 | pi patches in `patches/` | `pi-ai` (keyed to the current pin): add `ultra` reasoning effort — the only surviving patch (fetch threading dropped at 0.83.0, #7540 backport dropped at 0.84.0, both native upstream) |
-| dsh coupling to pi upgrade | None at runtime — dsh's `pi-ai ^0.84.x` (resolves 0.84.4) is inlined into the `packages/dsh-bridge` dist at build time and lives on its own lockfile lane, deliberately not forced to the root pin (see the override comment in `pnpm-workspace.yaml`) |
+| dsh coupling to pi upgrade | None at runtime — dsh's `pi-ai ^0.84.x` (resolves 0.84.4) is inlined into the `packages/dsh-bridge` dist at build time and lives on its own lockfile lane, deliberately not forced to the root pin (see the override comment in `pnpm-workspace.yaml`). Zero code shared between `runtime/pi/` and `runtime/dsh/` — parallel `modelInjection`/stream-adapter implementations of the same problems (a Phase 3 consolidation candidate) |
 | Engine seam | `src/main/ai/AiService.ts:555` `streamText()` — already branches on `request.runtime?.kind === 'agent-session'` (line 565) → `AgentSessionRuntimeService.openTurnStream()`; a chat-on-pi branch slots in identically |
 | Chat engine today | `AiService.streamText` → `buildAgentParams` → `src/main/ai/runtime/aiSdk/Agent.ts` → `@cherrystudio/ai-core` `createAgent` → Vercel AI SDK `ToolLoopAgent` |
+| Chat ↔ aiCore surface | One call site: `createAgent` (`runtime/aiSdk/Agent.ts:118`). Everything else chat touches is `ai`-package types; aiCore's remaining surface (embed/rerank/image/one-shot generate) serves auxiliary callers only |
+| Gateway ↔ engine | The local API gateway subscribes to the trunk (`proxyStream.ts`, `SseListener`, `contextOwner: 'caller'`) — it rides whatever engine `streamText` selects, so the public SSE contract follows the flag from dogfood day |
 | Work engine today | `AgentSessionRuntimeService` → driver registry → `PiRuntimeConnection` (in-process) or `DshRuntimeDriver` (Bun child) |
 | Chat test surface | `runtime/pi/*.test.ts` (16 files, the upgrade safety net); chat suites in `streamManager/`, `tools/`, renderer chat tests |
 | pi test provider | `pi-ai/providers/faux` — lets engine tests run without network |
@@ -99,6 +102,35 @@ branch, exactly like the existing `agent-session` branch at `AiService.ts:565`:
 - Chunks flow through the existing `piStreamAdapter` (extended for chat part types)
   into the untouched trunk.
 
+Settled in the pre-implementation review (2026-09-26, grounded against code):
+
+- **Placement**: `src/main/ai/runtime/pi-chat/`, sibling of `aiSdk/`/`dsh/`/`pi/`,
+  and **not** registered in `registerDrivers.ts` (that registry is
+  agent-session-only). The pi-import confinement invariant widens to
+  `runtime/pi*/` (upgrade-notes §1).
+- **No new abstraction**: the seam signature — `streamText(request)` →
+  `ReadableStream<UIMessageChunk>` — *is* the engine interface for the flag
+  period; a `ChatEngine` interface in front of two implementations with different
+  param surfaces buys nothing. `'chat-turn'` stays a reserved capability in
+  `runtime/types.ts`; formalize only if chat grows session semantics (Phase 3).
+- **`AgentSession`, not pi-agent-core `Agent`**: the in-memory `AgentSession` is
+  what makes `piStreamAdapter` (it consumes `AgentSessionEvent`s — raw
+  `streamSimple` or a pi-agent-core loop emits different vocabularies), the
+  approval-extension pipeline, and the provider extension reusable as-is. The
+  lighter pi-agent-core path (cherry-studio-pi's choice) needs a fresh adapter and
+  loses the approval pipeline entirely. Cost of `AgentSession`: repeating pi's
+  discovery-suppression ceremony (`noExtensions`/`noSkills`/`noPromptTemplates`/
+  `noThemes` + `systemPromptOverride` — the list `PiRuntimeConnection.ts` already
+  carries) so nothing disk-discovered leaks into chat turns.
+- **Flag fallback resolves per-execution**: while the W3 matrix is incomplete, an
+  execution runs "pi if the provider passes the matrix, else legacy (logged)".
+  The matrix going fully green is the gate for default-on, so default users never
+  see the mixed state. During dogfood the two engines may coexist within one
+  multi-model topic — fan-out creates one execution per model.
+- **The gateway rides the flag from day one**: dogfood turns already exercise the
+  public SSE contract on the pi engine (see snapshot table) — gateway
+  spot-checks belong in the W6 per-level checklist, not Phase 2.
+
 What explicitly does NOT change in Phase 1: renderer (zero diff), IPC schemas,
 SQLite schema, i18n, `AiService.generateText` and all auxiliary callers.
 
@@ -114,19 +146,30 @@ the mapping is lossy by design and documented.
 Ship/verify: converter unit tests over the full part corpus + golden conversations;
 property: converter output is a function of input only (no persistence side effects).
 
-**W2 — Pi chat engine module** (`src/main/ai/runtime/pi-chat/` or sibling).
+**W2 — Pi chat engine module** (`src/main/ai/runtime/pi-chat/` — placement settled,
+see architecture decisions).
 Builds the in-memory session per execution: provider injection via the existing
 `modelInjection.ts`, system prompt via the existing chat prompt assembly (not the
 agent `buildAgentRuntimePrompt` — chat keeps its own prompt until Phase 3), tools
 per W4, abort wired to `session.abort()`, usage → billing hook parity with the
 current `createAiUsagePlugin` accounting, OTel spans in the existing shape.
+Deliverable inside W2/W3: a **feature-plugin parity inventory** — every behavior in
+`runtime/aiSdk/params/features/` (anthropic cache headers, DeepSeek DSML parsing,
+qwen thinking toggles, OpenRouter reasoning params, tool-schema compatibility,
+in-loop compaction, …) mapped to *native in pi-ai / needs port / deferred*, feeding
+the W5 register. pi has no `AiPlugin` surface, so this inventory — not the
+streaming plumbing — is where parity risk concentrates.
 Ship/verify: engine-level streaming tests against `pi-ai` faux provider — text
 turn, tool round-trip, abort mid-stream, usage events.
 
 **W3 — Provider coverage: agent whitelist → every chat-usable provider.**
 `modelInjection`/`assertPiProviderUsable` currently serve agent-approved providers.
 Chat must cover the full provider matrix (`provider/extensions.ts` + customs +
-gateway). Build a compatibility test keyed on `@cherrystudio/provider-registry`
+gateway). The engine reuses `runtime/pi/modelInjection.ts` wholesale — do not fork
+a chat variant, so provider mapping stays at two implementations (aiSdk provider
+config + pi); dsh's parallel `runtime/dsh/modelInjection.ts` remains the lone
+outlier, a Phase 3 consolidation candidate.
+Build a compatibility test keyed on `@cherrystudio/provider-registry`
 endpoint types as the axis; every endpoint type gets a family-mapping case
 (openai-completions, openai-responses, anthropic-messages, google-generative-ai,
 bedrock, mistral, azure, codex — mirroring `loadPiApiStreamSimple`). Gateway
@@ -166,11 +209,15 @@ MCP tool test reusing `piMcpToolAdapter` fixtures.
 
 **W6 — Rollout flag.**
 Preference flag (e.g. `AiChat.piEngine`), levels: off → dogfood (team topics) →
-default on → remove the legacy path. Each level is its own merge.
+default on → remove the legacy path. Each level is its own merge. The flag
+resolves **per-execution** with silent logged legacy fallback while the W3 matrix
+is incomplete (see architecture decisions); default-on requires the matrix fully
+green so the mixed state never ships to default users.
 Per-level manual checklist: plain send; tool call + approval; image attachment;
 multi-model topic; regenerate; branch/merge; abort mid-stream; kill the app
 mid-stream and relaunch (attach + persistence); translate feature (rides the same
-engine when flag on — verify or explicitly exclude in flag scope).
+engine when flag on — verify or explicitly exclude in flag scope); API-gateway
+round-trip (the public SSE contract rides the engine from day one).
 
 ### Phase 1 exit criteria
 
@@ -223,6 +270,14 @@ Candidate directions, deliberately undecided:
 - Formalize the chat engine as a `chat-turn` capability in the driver registry
   (the reserved slots in `runtime/types.ts`) once it has session-ish semantics.
 - Single tool home: everything MCP (`cherry-tools` et al.), adapter layers deleted.
+  Alternative pattern worth evaluating (from the dormant `CherryHQ/cherry-studio-pi`
+  fork, June–July 2026): internal app operations as an in-process, risk-typed
+  capability registry with search-over-capabilities + call-by-id tools
+  (`AppSearchCapabilities`/`AppCallCapability` — same exposition shape as
+  `piCodeMode`'s tool search).
+- Provider-mapping consolidation: fold `runtime/dsh/modelInjection.ts` behind the
+  pi mapper — after Phase 1 there are otherwise three parallel implementations
+  (aiSdk provider config, `runtime/pi/`, `runtime/dsh/`).
 - Single prompt/permission model: converge `buildAgentRuntimePrompt` and the chat
   prompt assembly.
 
