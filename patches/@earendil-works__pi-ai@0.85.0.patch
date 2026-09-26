@@ -25,10 +25,10 @@ index 41267bd..f29497b 100644
      serviceTier?: ResponseCreateParamsStreaming["service_tier"];
      toolChoice?: ResponseCreateParamsStreaming["tool_choice"];
 diff --git a/dist/models.js b/dist/models.js
-index 2e415e0..06ce935 100644
+index 0de1898..edb72b7 100644
 --- a/dist/models.js
 +++ b/dist/models.js
-@@ -544,7 +544,7 @@ export function calculateCost(model, usage) {
+@@ -547,7 +547,7 @@ export function calculateCost(model, usage) {
      usage.cost.total = usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
      return usage.cost;
  }
@@ -37,7 +37,7 @@ index 2e415e0..06ce935 100644
  export function getSupportedThinkingLevels(model) {
      if (!model.reasoning)
          return ["off"];
-@@ -552,7 +552,7 @@ export function getSupportedThinkingLevels(model) {
+@@ -555,7 +555,7 @@ export function getSupportedThinkingLevels(model) {
          const mapped = model.thinkingLevelMap?.[level];
          if (mapped === null)
              return false;
@@ -47,7 +47,7 @@ index 2e415e0..06ce935 100644
          return true;
      });
 diff --git a/dist/types.d.ts b/dist/types.d.ts
-index 2bb2365..c231879 100644
+index 85f9521..e01c6f8 100644
 --- a/dist/types.d.ts
 +++ b/dist/types.d.ts
 @@ -21,7 +21,7 @@ export type ProviderId = KnownProvider | string;
