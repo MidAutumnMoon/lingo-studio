@@ -104,7 +104,7 @@ branch, exactly like the existing `agent-session` branch at `AiService.ts:565`:
 
 Settled in the pre-implementation review (2026-09-26, grounded against code):
 
-- **Placement**: `src/main/ai/runtime/pi-chat/`, sibling of `aiSdk/`/`dsh/`/`pi/`,
+- **Placement**: `src/main/ai/runtime/piChat/`, sibling of `aiSdk/`/`dsh/`/`pi/`,
   and **not** registered in `registerDrivers.ts` (that registry is
   agent-session-only). The pi-import confinement invariant widens to
   `runtime/pi*/` (upgrade-notes §1).
@@ -146,7 +146,7 @@ the mapping is lossy by design and documented.
 Ship/verify: converter unit tests over the full part corpus + golden conversations;
 property: converter output is a function of input only (no persistence side effects).
 
-**W2 — Pi chat engine module** (`src/main/ai/runtime/pi-chat/` — placement settled,
+**W2 — Pi chat engine module** (`src/main/ai/runtime/piChat/` — placement settled,
 see architecture decisions).
 Builds the in-memory session per execution: provider injection via the existing
 `modelInjection.ts`, system prompt via the existing chat prompt assembly (not the
@@ -298,5 +298,5 @@ ever want multi-model fan-out; where do overlay branches and session forks unify
 ## Appendix — load-bearing files
 
 - Phase 0: `src/main/ai/runtime/pi/*` (esp. `PiRuntimeConnection.ts`, `piSdk.ts`, `piSessionFile.ts`, `piFork.ts`, `piTransportStream.ts`, `modelInjection.ts`), `patches/@earendil-works__*`, `src/main/ai/agentSession/` (resume-token hydration).
-- Phase 1: `src/main/ai/AiService.ts` (seam), new `runtime/pi-chat/`, `piStreamAdapter.ts`, `messages/` (converter input), `src/main/ai/tools/adapters/aiSdk/registry.ts` (W4a source), `approvalExtension.ts` + `toolApproval/` (approval resume mechanics), `streamManager/` (unchanged — proof by diff).
+- Phase 1: `src/main/ai/AiService.ts` (seam), new `runtime/piChat/`, `piStreamAdapter.ts`, `messages/` (converter input), `src/main/ai/tools/adapters/aiSdk/registry.ts` (W4a source), `approvalExtension.ts` + `toolApproval/` (approval resume mechanics), `streamManager/` (unchanged — proof by diff).
 - Phase 2: `packages/aiCore/src/core/runtime/executor.ts` (swap target), `src/main/features/apiGateway/proxyStream.ts` (contract freeze), `src/shared/data/types/` (D3), `src/renderer/hooks/useChatWithHistory.ts` (2.4).

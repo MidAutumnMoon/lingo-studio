@@ -10,7 +10,7 @@ pi upstream clones locally at `~/Code/pi` with all `v0.8x` tags for diffing.
 - One repo (`earendil-works/pi`), one version line: `packages/ai` → pi-ai,
   `packages/coding-agent` → pi-coding-agent, `packages/agent` → pi-agent-core.
 - Cherry's pi import surface is confined to the pi runtime directories —
-  `src/main/ai/runtime/pi/` today, joined by the `runtime/pi-chat/` sibling in
+  `src/main/ai/runtime/pi/` today, joined by the `runtime/piChat/` sibling in
   Phase 1 (unification plan §Phase 1 placement decision). Runtime (value) imports
   go only through dynamic `import()` in `piSdk.ts`, everything else is
   `import type`. Context types derive from pi signatures

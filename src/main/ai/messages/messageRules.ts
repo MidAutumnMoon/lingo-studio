@@ -102,7 +102,7 @@ export function ensureNonEmptyAssistantContent(messages: ModelMessage[]): ModelM
 }
 
 /** Intersection of the provider rules: OpenAI `^[a-zA-Z0-9_-]{1,64}$`, Gemini's leading letter/underscore. */
-const WIRE_TOOL_NAME = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/
+export const WIRE_TOOL_NAME = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/
 const NAME_DIGEST_LENGTH = 8
 
 /**
@@ -110,7 +110,7 @@ const NAME_DIGEST_LENGTH = 8
  * keeps two legacy names distinct — `@ai-sdk/google` serializes `functionCall`/`functionResponse`
  * history by name with no tool-call id, so a collision there mispairs calls with results.
  */
-function toWireToolName(name: string): string {
+export function toWireToolName(name: string): string {
   const digest = createHash('sha1').update(name).digest('hex').slice(0, NAME_DIGEST_LENGTH)
   const sanitized = name.replace(/[^A-Za-z0-9_-]/g, '_')
   const head = (/^[A-Za-z_]/.test(sanitized) ? sanitized : `_${sanitized}`).slice(0, 63 - NAME_DIGEST_LENGTH)
