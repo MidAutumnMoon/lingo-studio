@@ -47,7 +47,7 @@ index 2e415e0..06ce935 100644
          return true;
      });
 diff --git a/dist/types.d.ts b/dist/types.d.ts
-index 6ea9e39..456a1ba 100644
+index 77b46da..dd3246c 100644
 --- a/dist/types.d.ts
 +++ b/dist/types.d.ts
 @@ -20,7 +20,7 @@ export type KnownProvider = "amazon-bedrock" | "ant-ling" | "anthropic" | "googl
