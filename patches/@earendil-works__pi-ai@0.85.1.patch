@@ -47,7 +47,7 @@ index 0de1898..edb72b7 100644
          return true;
      });
 diff --git a/dist/types.d.ts b/dist/types.d.ts
-index 85f9521..e01c6f8 100644
+index f61c9ea..24bbbc7 100644
 --- a/dist/types.d.ts
 +++ b/dist/types.d.ts
 @@ -21,7 +21,7 @@ export type ProviderId = KnownProvider | string;
