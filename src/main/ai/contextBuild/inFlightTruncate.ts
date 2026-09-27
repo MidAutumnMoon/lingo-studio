@@ -18,10 +18,7 @@ import {
 } from '@main/ai/constants'
 import { resolveContextWindow } from '@main/ai/contextBuild/resolveContextWindow'
 import { resolveInputRoom } from '@main/ai/contextBuild/resolveInputRoom'
-
-/** head/tail kept inline around a truncation marker (carried from P1 / #14916). */
-export const IN_FLIGHT_HEAD_CHARS = 500
-export const IN_FLIGHT_TAIL_CHARS = 1_000
+import { TOOL_OUTPUT_EXCERPT_HEAD_CHARS, TOOL_OUTPUT_EXCERPT_TAIL_CHARS } from '@shared/ai/transport'
 
 /**
  * In-flight trim threshold for a request: the smaller of the user's character setting
@@ -49,8 +46,8 @@ export interface InFlightTruncateOptions {
 
 /** The opaque truncation lane over one tool-result text. */
 export async function truncateInFlightToolResultText(text: string, options: InFlightTruncateOptions): Promise<string> {
-  const headChars = IN_FLIGHT_HEAD_CHARS
-  const tailChars = IN_FLIGHT_TAIL_CHARS
+  const headChars = TOOL_OUTPUT_EXCERPT_HEAD_CHARS
+  const tailChars = TOOL_OUTPUT_EXCERPT_TAIL_CHARS
   if (text.length <= options.thresholdChars || headChars + tailChars >= text.length) return text
   // Never re-truncate an already-persisted marker: with a threshold below the marker
   // size, the marker itself would be offloaded recursively — a marker pointing at one.

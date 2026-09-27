@@ -3,7 +3,12 @@ import { getToolName, isToolUIPart } from 'ai'
 
 import type { McpToolResponse, McpToolResponseStatus, NormalToolResponse } from '@renderer/types/mcpTool'
 import type { BaseTool, McpTool } from '@renderer/types/tool'
-import { extractOutputMetadata, isToolType, type ToolMetadata, type ToolType } from '@renderer/utils/message/toolOutput'
+import {
+  extractOutputMetadata,
+  extractToolMetadataFromPart,
+  type ToolMetadata,
+  type ToolType
+} from '@renderer/utils/message/toolOutput'
 import { AGENT_RUNTIME_CAPABILITIES } from '@shared/ai/agentRuntimeCapabilities'
 import { GENERATE_IMAGE_TOOL_NAME } from '@shared/ai/builtinTools'
 import { parseFunctionCallToolName } from '@shared/ai/tools/mcpToolName'
@@ -91,30 +96,6 @@ function mapPartStateToStatus(state: string | undefined, approved?: boolean): Mc
 
 function isLegacyAgentToolName(toolName: string): boolean {
   return AGENT_TOOL_NAMES.has(toolName) || toolName.startsWith(AGENT_MCP_TOOLS_PREFIX)
-}
-
-function extractCherryToolMetadataFrom(metadata: unknown): ToolMetadata | undefined {
-  if (!isRecord(metadata)) return undefined
-  const cherry = isRecord(metadata.cherry) ? metadata.cherry : undefined
-  const tool = cherry && isRecord(cherry.tool) ? cherry.tool : undefined
-  if (!tool) return undefined
-  return {
-    description: typeof tool.description === 'string' ? tool.description : undefined,
-    name: typeof tool.name === 'string' ? tool.name : undefined,
-    serverId: typeof tool.serverId === 'string' ? tool.serverId : undefined,
-    serverName: typeof tool.serverName === 'string' ? tool.serverName : undefined,
-    type: isToolType(tool.type) ? tool.type : undefined
-  }
-}
-
-function extractCherryToolMetadata(part: ToolResponsePart): ToolMetadata | undefined {
-  const resultProviderMetadata = 'resultProviderMetadata' in part ? part.resultProviderMetadata : undefined
-  const toolMetadata = 'toolMetadata' in part ? part.toolMetadata : undefined
-  return (
-    extractCherryToolMetadataFrom(toolMetadata) ??
-    extractCherryToolMetadataFrom(part.callProviderMetadata) ??
-    extractCherryToolMetadataFrom(resultProviderMetadata)
-  )
 }
 
 function extractParentToolCallIdFrom(metadata: ProviderMetadata | undefined): string | undefined {
@@ -209,7 +190,7 @@ export function buildToolResponseFromPart(part: CherryMessagePart, fallbackId?: 
   const status = mapPartStateToStatus(toolPart.state, approval?.approved)
 
   const { response: rawResponse, metadata: outputMetadata } = extractOutputMetadata(toolPart.output)
-  const cherryMetadata = extractCherryToolMetadata(toolPart)
+  const cherryMetadata = extractToolMetadataFromPart(toolPart)
   const metadata = outputMetadata ?? cherryMetadata
   const toolType = resolveToolType(toolPart, toolName, metadata)
   const response = status === 'error' ? normalizeErrorOutput(toolPart) : rawResponse

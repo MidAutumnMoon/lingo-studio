@@ -103,6 +103,7 @@ async function runRecordingTurn(options: {
 }): Promise<void> {
   const stream = await streamPiChatTurn(
     {
+      toolCallLimit: TEST_TOOL_CALL_LIMIT,
       executionId: 'exec-signature',
       provider: options.provider,
       history: options.history,
@@ -114,6 +115,9 @@ async function runRecordingTurn(options: {
   // The recording fetch fails the turn on purpose; the captured body is the artifact.
   await drain(stream).catch(() => undefined)
 }
+
+/** Test-side stand-in for `resolveToolCallLimit` — the engine requires the seam's resolved value. */
+const TEST_TOOL_CALL_LIMIT = 20
 
 type FauxCore = ReturnType<Faux['createFauxCore']>
 
@@ -188,7 +192,13 @@ describe('streamPiChatTurn', () => {
 
     const chunks = await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-text', provider, history: [], prompt: userTurn('hi') },
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: 'exec-text',
+          provider,
+          history: [],
+          prompt: userTurn('hi')
+        },
         new AbortController().signal
       )
     )
@@ -216,6 +226,7 @@ describe('streamPiChatTurn', () => {
     await drain(
       await streamPiChatTurn(
         {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
           executionId: 'exec-prompt',
           provider,
           systemPrompt: 'You are a chat assistant.',
@@ -238,7 +249,13 @@ describe('streamPiChatTurn', () => {
 
     await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-noprompt', provider, history: [], prompt: userTurn('hi') },
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: 'exec-noprompt',
+          provider,
+          history: [],
+          prompt: userTurn('hi')
+        },
         new AbortController().signal
       )
     )
@@ -256,7 +273,13 @@ describe('streamPiChatTurn', () => {
 
     await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-slash', provider, history: [], prompt: userTurn('/help me') },
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: 'exec-slash',
+          provider,
+          history: [],
+          prompt: userTurn('/help me')
+        },
         new AbortController().signal
       )
     )
@@ -289,6 +312,7 @@ describe('streamPiChatTurn', () => {
     const chunks = await drain(
       await streamPiChatTurn(
         {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
           executionId: 'exec-tool',
           provider,
           history: [],
@@ -321,7 +345,13 @@ describe('streamPiChatTurn', () => {
 
     const controller = new AbortController()
     const stream = await streamPiChatTurn(
-      { executionId: 'exec-abort', provider, history: [], prompt: userTurn('hi') },
+      {
+        toolCallLimit: TEST_TOOL_CALL_LIMIT,
+        executionId: 'exec-abort',
+        provider,
+        history: [],
+        prompt: userTurn('hi')
+      },
       controller.signal
     )
     const reader = stream.getReader()
@@ -347,7 +377,13 @@ describe('streamPiChatTurn', () => {
 
     const chunks = await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-pi-abort', provider, history: [], prompt: userTurn('hi') },
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: 'exec-pi-abort',
+          provider,
+          history: [],
+          prompt: userTurn('hi')
+        },
         new AbortController().signal
       )
     )
@@ -365,7 +401,13 @@ describe('streamPiChatTurn', () => {
       ])
 
     const stream = await streamPiChatTurn(
-      { executionId: 'exec-error', provider, history: [], prompt: userTurn('hi') },
+      {
+        toolCallLimit: TEST_TOOL_CALL_LIMIT,
+        executionId: 'exec-error',
+        provider,
+        history: [],
+        prompt: userTurn('hi')
+      },
       new AbortController().signal
     )
     await expect(drain(stream)).rejects.toThrow('provider exploded')
@@ -383,7 +425,13 @@ describe('streamPiChatTurn', () => {
       ])
 
     const stream = await streamPiChatTurn(
-      { executionId: 'exec-no-retry', provider, history: [], prompt: userTurn('hi') },
+      {
+        toolCallLimit: TEST_TOOL_CALL_LIMIT,
+        executionId: 'exec-no-retry',
+        provider,
+        history: [],
+        prompt: userTurn('hi')
+      },
       new AbortController().signal
     )
     await expect(drain(stream)).rejects.toThrow('Rate limit exceeded')
@@ -410,6 +458,7 @@ describe('streamPiChatTurn', () => {
     const chunks = await drain(
       await streamPiChatTurn(
         {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
           executionId: 'exec-timing',
           provider,
           history: [],
@@ -467,7 +516,13 @@ describe('streamPiChatTurn', () => {
 
     const chunks = await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-think', provider, history: [], prompt: userTurn('hi') },
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: 'exec-think',
+          provider,
+          history: [],
+          prompt: userTurn('hi')
+        },
         new AbortController().signal
       )
     )
@@ -488,7 +543,13 @@ describe('streamPiChatTurn', () => {
 
     const chunks = await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-no-think', provider, history: [], prompt: userTurn('hi') },
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: 'exec-no-think',
+          provider,
+          history: [],
+          prompt: userTurn('hi')
+        },
         new AbortController().signal
       )
     )
@@ -514,6 +575,7 @@ describe('streamPiChatTurn', () => {
     await drain(
       await streamPiChatTurn(
         {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
           executionId: 'exec-usage',
           provider,
           history: [],
@@ -551,7 +613,13 @@ describe('streamPiChatTurn', () => {
 
     const chunks = await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-roundtrip', provider, history: [], prompt: userTurn('q') },
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: 'exec-roundtrip',
+          provider,
+          history: [],
+          prompt: userTurn('q')
+        },
         new AbortController().signal
       )
     )
@@ -581,6 +649,7 @@ describe('streamPiChatTurn', () => {
     await drain(
       await streamPiChatTurn(
         {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
           executionId: 'exec-history',
           provider,
           history: [historyText('u0', 'user', 'earlier question'), historyText('a0', 'assistant', 'earlier answer')],
@@ -604,6 +673,7 @@ describe('streamPiChatTurn', () => {
     await expect(
       streamPiChatTurn(
         {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
           executionId: 'exec-dupe',
           provider,
           history: [historyText('p1', 'user', 'the same question')],
@@ -624,7 +694,13 @@ describe('streamPiChatTurn', () => {
 
     const chunks = await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-preabort', provider, history: [], prompt: userTurn('hi') },
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: 'exec-preabort',
+          provider,
+          history: [],
+          prompt: userTurn('hi')
+        },
         controller.signal
       )
     )
@@ -640,7 +716,13 @@ describe('streamPiChatTurn', () => {
 
     const chunks = await drain(
       await streamPiChatTurn(
-        { executionId: 'exec-length', provider, history: [], prompt: userTurn('hi') },
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: 'exec-length',
+          provider,
+          history: [],
+          prompt: userTurn('hi')
+        },
         new AbortController().signal
       )
     )
@@ -710,6 +792,7 @@ describe('streamPiChatTurn', () => {
     })
     const stream = await streamPiChatTurn(
       {
+        toolCallLimit: TEST_TOOL_CALL_LIMIT,
         executionId: 'exec-terminal',
         provider,
         history: [],
@@ -765,6 +848,7 @@ describe('streamPiChatTurn', () => {
     })
     const stream = await streamPiChatTurn(
       {
+        toolCallLimit: TEST_TOOL_CALL_LIMIT,
         executionId: 'exec-mixed',
         provider,
         history: [],
@@ -803,6 +887,7 @@ describe('streamPiChatTurn', () => {
     await drain(
       await streamPiChatTurn(
         {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
           executionId: 'exec-suffix-image',
           provider,
           history: [],
@@ -992,7 +1077,13 @@ describe('streamPiChatTurn', () => {
     const textOf = async (provider: PiChatProviderSource, executionId: string, text: string): Promise<string> => {
       const chunks = await drain(
         await streamPiChatTurn(
-          { executionId, provider, history: [], prompt: userTurn(text) },
+          {
+            toolCallLimit: TEST_TOOL_CALL_LIMIT,
+            executionId,
+            provider,
+            history: [],
+            prompt: userTurn(text)
+          },
           new AbortController().signal
         )
       )
@@ -1081,6 +1172,7 @@ describe('streamPiChatTurn', () => {
       const chunks = await drainWithApprovals(
         await streamPiChatTurn(
           {
+            toolCallLimit: TEST_TOOL_CALL_LIMIT,
             executionId: 'exec-approve',
             provider,
             history: [],
@@ -1108,6 +1200,61 @@ describe('streamPiChatTurn', () => {
       expect(toolApprovalRegistry.size()).toBe(0)
     })
 
+    it('reports a tool span that excludes the approval wait', async () => {
+      // pi emits `tool_execution_start` before the `tool_call` hook, so a raw wall-clock
+      // span would bill the user's thinking time to the tool; the collector's contract
+      // (and legacy's execute hooks) exclude approval latency.
+      let clock = 0
+      const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => clock)
+      try {
+        const faux = await importFaux()
+        const provider = await fauxProviderSource(faux, 'exec-wait')
+        fauxStates
+          .get('exec-wait')!
+          .core.setResponses([
+            faux.fauxAssistantMessage([faux.fauxToolCall('echo', { q: 'hi' })]),
+            faux.fauxAssistantMessage('Done')
+          ])
+        const sink = { onToolExecutionStart: vi.fn(), onToolExecutionEnd: vi.fn() }
+        const wiring = gatedTool('exec-wait')
+        // The tool itself runs for 200ms of the wall clock (see the assertion below).
+        wiring.execute.mockImplementation(async () => {
+          clock = 5200
+          return { echoed: 'hi' }
+        })
+
+        const reader = (
+          await streamPiChatTurn(
+            {
+              toolCallLimit: TEST_TOOL_CALL_LIMIT,
+              executionId: 'exec-wait',
+              provider,
+              history: [],
+              prompt: userTurn('echo hi'),
+              tools: wiring.tools,
+              authorizer: wiring.authorizer,
+              runtimeTimingSink: sink
+            },
+            new AbortController().signal
+          )
+        ).getReader()
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          if (value.type === 'tool-approval-request') {
+            clock = 5000 // the user thinks for five seconds
+            toolApprovalRegistry.dispatch(value.approvalId, { approved: true })
+          }
+        }
+
+        const reported = sink.onToolExecutionEnd.mock.calls[0]?.[0] as { durationMs: number }
+        // 5200ms wall clock minus the 5000ms approval wait — the tool itself took 200ms.
+        expect(reported.durationMs).toBe(200)
+      } finally {
+        nowSpy.mockRestore()
+      }
+    })
+
     it('surfaces a denial as tool-output-denied without executing the tool', async () => {
       const faux = await importFaux()
       const provider = await fauxProviderSource(faux, 'exec-deny')
@@ -1123,6 +1270,7 @@ describe('streamPiChatTurn', () => {
       const chunks = await drainWithApprovals(
         await streamPiChatTurn(
           {
+            toolCallLimit: TEST_TOOL_CALL_LIMIT,
             executionId: 'exec-deny',
             provider,
             history: [],
@@ -1180,6 +1328,7 @@ describe('streamPiChatTurn', () => {
       const chunks = await drain(
         await streamPiChatTurn(
           {
+            toolCallLimit: TEST_TOOL_CALL_LIMIT,
             executionId: 'exec-ungated',
             provider,
             history: [],

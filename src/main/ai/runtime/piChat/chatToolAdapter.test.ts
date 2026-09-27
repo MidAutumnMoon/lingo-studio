@@ -86,6 +86,39 @@ describe('toPiChatToolDefinition', () => {
     expect(result.details).toEqual(huge)
   })
 
+  it('thresholds the joined text of a multi-block view, keeping image blocks', async () => {
+    const view = {
+      type: 'content' as const,
+      value: [
+        { type: 'text' as const, text: 'A'.repeat(1200) },
+        { type: 'image-data' as const, data: 'aGk=', mediaType: 'image/png' },
+        { type: 'text' as const, text: 'B'.repeat(1200) }
+      ]
+    }
+    const entry = zodEntry({
+      tool: tool({
+        description: 'browser',
+        inputSchema: z.object({}),
+        execute: async () => ({ ignored: true }),
+        toModelOutput: () => view
+      })
+    })
+    const context = {
+      requestContext: { requestId: 'req-multi', toolResultTruncation: { thresholdChars: 2000, canOffload: false } }
+    }
+
+    const result = await toPiChatToolDefinition(entry, context).execute('call-m', {}, undefined, undefined, {} as never)
+
+    // 2400 joined chars > 2000: the guard fires on the text as a whole (legacy's input),
+    // not per block (2400 would otherwise ride through untouched).
+    const blocks = result.content as Array<{ type: string; text?: string; data?: string }>
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0].type).toBe('text')
+    expect(blocks[0].text).toContain('--- truncated (')
+    expect(blocks[1]).toMatchObject({ type: 'image', data: 'aGk=' })
+    expect(result.details).toEqual({ ignored: true })
+  })
+
   it('leaves `truncatable: false` entries fully intact', async () => {
     const huge = 'x'.repeat(4000) + '\n' + 'y'.repeat(4000)
     const entry: ToolEntry = {

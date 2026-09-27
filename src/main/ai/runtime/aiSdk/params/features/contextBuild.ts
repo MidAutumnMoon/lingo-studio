@@ -26,14 +26,14 @@ import type { ContextMiddlewareOptions, TruncateOptions, VFSStorageAdapter } fro
 import { createContextMiddleware, definePlugin, groupIntoTurns } from '@cherrystudio/ai-core'
 import { messageService } from '@data/services/MessageService'
 import { loggerService } from '@logger'
-import {
-  IN_FLIGHT_HEAD_CHARS as HEAD_CHARS,
-  IN_FLIGHT_TAIL_CHARS as TAIL_CHARS,
-  resolveInFlightTruncateThreshold
-} from '@main/ai/contextBuild/inFlightTruncate'
+import { resolveInFlightTruncateThreshold } from '@main/ai/contextBuild/inFlightTruncate'
 import { createFileManagerStorageAdapter } from '@main/ai/contextBuild/persistedOutputAdapter'
 import { resolveContextWindow } from '@main/ai/contextBuild/resolveContextWindow'
 import { resolveRequestedMaxOutputTokens } from '@main/ai/contextBuild/resolveOutputReservation'
+import {
+  TOOL_OUTPUT_EXCERPT_HEAD_CHARS as HEAD_CHARS,
+  TOOL_OUTPUT_EXCERPT_TAIL_CHARS as TAIL_CHARS
+} from '@shared/ai/transport'
 import { ErrorCode, isDataApiError } from '@shared/data/api/errors'
 
 import type { RequestFeature } from '../feature'

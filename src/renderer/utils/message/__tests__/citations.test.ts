@@ -97,12 +97,26 @@ const piToolCallPart = (name: string, output: unknown): CherryMessagePart =>
     output
   }) as never
 
-/** The pi CHAT engine's registry builtins: dynamic part, `cherry.tool` builtin stamp, bare output. */
+/** The pi CHAT engine's registry builtins: dynamic part, `cherry.tool` builtin stamp, bare output.
+ *  The stamp rides `resultProviderMetadata` — where the AI SDK accumulator puts a tool chunk's
+ *  provider metadata once the part is terminal (`providerMetadata` is a content-part field). */
 const piChatBuiltinPart = (toolName: string, output: unknown): CherryMessagePart =>
   ({
     type: 'dynamic-tool',
     toolName,
     toolCallId: 'c7',
+    state: 'output-available',
+    input: { query: 'q' },
+    output,
+    resultProviderMetadata: { cherry: { tool: { type: 'builtin', name: toolName } } }
+  }) as never
+
+/** The same part with the stamp where the pipeline never puts it (the pre-fix fixture shape). */
+const piChatBuiltinPartMisplacedStamp = (toolName: string, output: unknown): CherryMessagePart =>
+  ({
+    type: 'dynamic-tool',
+    toolName,
+    toolCallId: 'c8',
     state: 'output-available',
     input: { query: 'q' },
     output,
@@ -133,6 +147,10 @@ describe('resolveMessageCitations', () => {
     // Without the builtin stamp the same shape stays ignored (third-party MCP below).
     const untagged = resolveMessageCitations([dynamicMcpPart('web_search', webResults('abc'), 'other-server')])
     expect(untagged.all).toHaveLength(0)
+    // A stamp the pipeline never produces (content-part `providerMetadata`) is not provenance:
+    // the accumulator files a tool chunk's metadata under call/result provider metadata.
+    const misplaced = resolveMessageCitations([piChatBuiltinPartMisplacedStamp('web_search', webResults('zzz'))])
+    expect(misplaced.all).toHaveLength(0)
   })
 
   it('ignores third-party MCP tools sharing the builtin name', () => {

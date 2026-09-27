@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  IN_FLIGHT_HEAD_CHARS,
-  IN_FLIGHT_TAIL_CHARS,
-  resolveInFlightTruncateThreshold,
-  truncateInFlightToolResultText
-} from './inFlightTruncate'
+import { TOOL_OUTPUT_EXCERPT_HEAD_CHARS, TOOL_OUTPUT_EXCERPT_TAIL_CHARS } from '@shared/ai/transport'
+
+import { resolveInFlightTruncateThreshold, truncateInFlightToolResultText } from './inFlightTruncate'
 
 describe('resolveInFlightTruncateThreshold', () => {
   it('takes the smaller of the configured cap and a window-derived budget', () => {
@@ -57,6 +54,6 @@ describe('truncateInFlightToolResultText', () => {
     expect([...written.values()]).toEqual([huge])
     // The excerpt keeps the head/tail spans line-snapped at the legacy sizes.
     expect(result.length).toBeLessThan(huge.length)
-    expect(IN_FLIGHT_HEAD_CHARS + IN_FLIGHT_TAIL_CHARS).toBeLessThan(huge.length)
+    expect(TOOL_OUTPUT_EXCERPT_HEAD_CHARS + TOOL_OUTPUT_EXCERPT_TAIL_CHARS).toBeLessThan(huge.length)
   })
 })

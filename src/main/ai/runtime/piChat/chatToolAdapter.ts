@@ -89,13 +89,22 @@ export function toPiChatToolDefinition(entry: ToolEntry, context: PiChatToolCont
 }
 
 /**
- * Apply the request's in-flight truncation to the model-facing text blocks. Offload
+ * Apply the request's in-flight truncation to the model-facing content. Offload
  * storage is the same FileManager adapter legacy seeds (marker bytes stay identical so
  * prefix caches and `fs_read` read-back keep working across engines).
+ *
+ * The truncation unit is the result's TEXT, as legacy defined it (aiCore joins the text
+ * blocks of a `content` view with `\n` and thresholds the joined string) — per-block
+ * truncation would silently skip a multi-block view whose blocks are each under the
+ * threshold. Image blocks survive: legacy replaced the whole output with the truncated
+ * text, this path keeps what pi can carry.
  */
 async function truncateContentBlocks(blocks: PiToolContent[], context: PiChatToolContext): Promise<PiToolContent[]> {
   const truncation = context.requestContext.toolResultTruncation
   if (truncation === undefined) return blocks
+  const textBlocks = blocks.filter((block): block is { type: 'text'; text: string } => block.type === 'text')
+  if (textBlocks.length === 0) return blocks
+  const joined = textBlocks.map((block) => block.text).join('\n')
   const storage =
     truncation.canOffload && context.requestContext.persistedOutputPaths
       ? createFileManagerStorageAdapter({
@@ -103,20 +112,15 @@ async function truncateContentBlocks(blocks: PiToolContent[], context: PiChatToo
           persistedOutputPaths: context.requestContext.persistedOutputPaths
         })
       : undefined
-  const truncated = await Promise.all(
-    blocks.map(async (block) =>
-      block.type === 'text'
-        ? {
-            type: 'text' as const,
-            text: await truncateInFlightToolResultText(block.text, {
-              thresholdChars: truncation.thresholdChars,
-              ...(storage && { storage })
-            })
-          }
-        : block
-    )
-  )
-  return truncated
+  const truncated = await truncateInFlightToolResultText(joined, {
+    thresholdChars: truncation.thresholdChars,
+    ...(storage && { storage })
+  })
+  if (truncated === joined) return blocks
+  return [
+    { type: 'text', text: truncated },
+    ...blocks.filter((block): block is Exclude<PiToolContent, { type: 'text' }> => block.type !== 'text')
+  ]
 }
 
 /** Convert the turn's selected registry entries; selection (`selectActive`) is the seam's job. */

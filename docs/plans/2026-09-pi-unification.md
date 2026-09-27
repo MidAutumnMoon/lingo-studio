@@ -525,22 +525,42 @@ W5 landed (2026-09-27) — the register below carries each row's final dispositi
   (`serializeError` carries `i18nKey` → the localized error row). The check runs BEFORE
   stop-reason mapping (a terminal stop reads as `toolUse`), survives pi retries (a retry
   re-runs the model, never tools), and loses only to a user abort. Known wrinkle, kept:
-  pi stops only when EVERY result in a batch terminates (legacy: ANY) — in a mixed batch
-  the model responds first; content persists either way, the turn errors either way.
+  pi stops only when EVERY result in a batch terminates (legacy: ANY), which is why the
+  engine ABORTS at the `turn_end` following the batch (W5 review) — a mixed batch would
+  otherwise keep the loop alive. Two costs the W5 review probed and accepted: the abort
+  lands at the next loop iteration, and pi's loop has no abort check before
+  `streamAssistantResponse`, so one MORE provider request is issued and self-aborts
+  pre-flight (probe: 2 `start-step` + 2 `message-metadata` chunks, the queued faux
+  response consumed) — an extra phantom step boundary and provider span, no content and
+  nothing billed by a signal-honouring provider; and this divergence is per-TURN where
+  legacy's cap was per-DISPATCH (an approval resume re-dispatched with a fresh step
+  count, so legacy could exceed `maxToolCalls` across approvals while pi counts the
+  whole turn).
 - **Tool-call cap**: pi has no native loop cap and its extension hooks cannot end a run,
   so the ENGINE owns the bound — counting tool-bearing `turn_end`s (pi's loop is
   content-driven; stopReason is unreliable), aborting at the limit, and failing with the
   same `ToolLoopTerminalError(TOOL_CALL_LIMIT_MESSAGE, 'tool_call_limit_reached')` legacy
-  produces. The seam passes the resolved assistant setting (`toolCallLimit`).
-- **pi-internal auto-retry disabled** for chat (`SettingsManager.inMemory({retry:{enabled:false}})`)
-  — retry has the single owner the register asked for (the host retryable/fallback wrap).
-  Wire-layer retries already default to 0. The `willRetry` reset stays as an invariant.
+  produces. `toolCallLimit` is REQUIRED on the engine request (W5 review): the resolved
+  value has two policies behind it (`resolveToolCallLimit(assistant)` = the assistant's
+  `maxToolCalls`, 100 by default; assistant-less = 20), so an engine-side default would
+  silently pick one — the seam always passes `resolveToolCallLimit(assistant)`.
+- **pi-internal auto-retry AND auto-compaction disabled** for chat
+  (`SettingsManager.inMemory({retry:{enabled:false}, compaction:{enabled:false}})`) — retry
+  has the single owner the register asked for (the host retryable/fallback wrap); the wire
+  layer already defaults to 0. Compaction was ENABLED by default (`compaction?.enabled ??
+  true`, W5 review) and fires before an assistant response when the projected context crosses
+  `contextWindow - reserveTokens` — inside a chat turn that is pi's summarizer running as an
+  extra provider invocation and rewriting the model's view with no chunk the trunk can
+  render, i.e. a policy conflict with Cherry's context shaping. The agent path keeps it.
 - **`timeThinkingMs`**: measured in `withPiInvocationCapture` (first thinking frame →
   first content frame — the legacy billing semantics), so BOTH pi paths now fill
   `AgentRuntimeUsageInvocation.metrics.timeThinkingMs`.
 - **Tool timing**: the engine feeds the trunk's `MessageRuntimeTimingSink` from the
   session's tool-execution events (wall-clocked; events carry no timestamps), so the
-  perf panel's tool lane attributes tool time correctly.
+  perf panel's tool lane attributes tool time correctly. The approval WAIT is excluded
+  (W5 review): pi emits `tool_execution_start` before the `tool_call` gate runs, so the
+  engine times its authorizer call and subtracts it — the collector's contract (and
+  legacy's execute hooks) never charged approval latency to the tool.
 - **Inline `<think>` extraction**: chunk-level twin of the SDK's
   `extractReasoningMiddleware` on the engine's enqueue path (semantics verbatim: delayed
   `text-start`, unclosed tag streams reasoning with no synthetic end, `\n` separator
@@ -582,6 +602,8 @@ W5 landed (2026-09-27) — the register below carries each row's final dispositi
   there) — with the two re-homed views above, the pi tree no longer depends on the
   ai-sdk runtime dir for anything Phase 2 deletes.
 
+W5-review correction (defer row): the defer row's "digest-renamed" premise is wrong — `tool_invoke`, `tool_search` and `tool_inspect` are all wire-legal names (`WIRE_TOOL_NAME`), so legacy's converter replayed them VERBATIM as undeclared calls; the pi unwrap is still right (it keeps the call paired to a name the request can declare and restores the legacy argument shape). Also (W5 review): the pi tree still imports `TOOL_INVOKE_TOOL_NAME` from `tools/adapters/aiSdk/meta/toolInvoke` — one string constant the Phase 2 deletion must re-home.
+
 Corrections the survey forced (register rows rewritten below): the `outputSchema` row's
 premise was FALSE — `ai@6`'s `executeToolCall` never validates a tool's outputSchema on
 the execute path (the only validation lives in `safeValidateUIMessages`, which Cherry
@@ -591,25 +613,74 @@ than legacy, not parity). The defer-exposition row was also mis-scoped: `shouldD
 engages on MCP-heavy assistants TODAY on legacy; the ported `tool_invoke` replay mapping
 (below) is what keeps those turns replayable on pi.
 
+W5 post-landing review (2026-09-27) — probes against the real pi runtime (0.87.1), the
+trunk accumulator, aiCore's own truncator and legacy's suffix/truncation sources; the
+findings that are not fixes are recorded in the rows above (each with its evidence).
+
+Fixed, with the probe that proved each one:
+
+- **pi-chat lookup citations were silently dropped.** The W5 renderer widening read
+  `providerMetadata`, but a tool chunk's metadata is filed by the AI SDK accumulator under
+  `callProviderMetadata` (input chunks) / `resultProviderMetadata` (terminal), and no tool
+  part ever carries plain `providerMetadata`. Probed end to end: the adapter's
+  `tool-input-*`/`tool-output-*` chunks accumulate into exactly those two fields, so
+  `resolveCitableToolName` never saw the builtin stamp and `mapCitationMarksToTags` deleted
+  the model's `[cite:…]` markers. The part-level read now lives once
+  (`extractToolMetadataFromPart`, shared with the tool renderer, which already knew the
+  field order) and the test fixture uses the runtime shape — the old fixture passed
+  `providerMetadata` and certified the bug (it fails against the pre-fix reader; verified).
+- **The in-flight truncation could not fire on a multi-block view.** The lane truncated
+  each text block independently, while legacy thresholds the JOINED text of a `content`
+  view (`aiCore truncator.extractText`): 2×1200 chars against a 2000 threshold rode
+  through untouched on the pi path and was truncated on legacy (probed both lanes on the
+  same input). Now the joined text is the unit and image blocks survive (legacy replaced
+  the whole output with the truncated text, dropping them); `truncatable: false` still
+  exempts. The excerpt sizes are the persist lane's constants (one source, both lanes'
+  byte-identity requirement enforced by construction rather than by a comment).
+- **pi auto-compaction was enabled on chat turns.** pi defaults `compaction.enabled` to
+  true and compacts before an assistant response once the projected context crosses
+  `contextWindow - reserveTokens` — inside a chat turn that is pi's summarizer as an extra
+  provider invocation plus an invisible rewrite of the model's view (the adapter ignores
+  `compaction_*` events). Disabled next to retry; chat's context shaping is Cherry's.
+- **The tool span swallowed the approval wait.** pi emits `tool_execution_start` before the
+  `tool_call` gate runs (`agent-loop.js` `executeToolCallsParallel`), so the wall-clock
+  span included the user's thinking time — while the collector's contract and legacy's
+  execute hooks exclude approval latency (and the trunk records approval spans separately).
+  The engine now times its authorizer call and subtracts it; probed with a controlled
+  `performance.now` (5200 ms wall clock − 5000 ms approval = 200 ms reported; the
+  unsubtracted code reports 5200).
+- **`toolCallLimit` became required** on the engine request (see the landed block): the
+  silent default was 100 where legacy's assistant-less policy is 20.
+- Two leftovers removed: the dead `ToolLoopTerminalError`/`TerminalToolFailure` re-exports
+  in the legacy loop file, and the pre-W5 description of the terminal mechanism in
+  `tools/toolLoopTerminal.ts`'s header.
+
+Recorded, not fixed (owners in the rows above): the post-cap/terminal abort costs one extra
+aborted provider request plus a phantom step boundary and span; the cap counts per turn
+where legacy counted per dispatch; the agent connection has no cap at all; a string tool
+output replays before the declared view; a content-free step is dropped rather than
+placeholdered; the defer row's "digest-rename" premise was wrong; and the pi tree still
+imports one string constant from the ai-sdk meta dir.
+
 | Gap | Plan |
 |---|---|
 | Multi-model fan-out + branch overlays | Verified trunk-generic by analysis (dispatch = one execution per model; overlays render from accumulated parts via `canReuseSettledPart`, which is engine-agnostic; the engine-specific residue — dynamic/providerExecuted stamping, part payloads — is what W4a's projection and the citations widening handle). The W6 per-level checklist owns the live verify (multi-model topic, branch/merge are already items) |
 | Retry/fallback model chains | **Landed**: pi-internal session auto-retry disabled for chat; the host-level `createRetryableWrap` remains the single owner (legacy already passes SDK `maxRetries: 0`) |
 | Provider-native server-side web search | **Accepted delta**: pi-ai has no `providerOptions` plugin surface. Chat web search served via the MCP `web_search` tool on the pi path; provider-native search remains only on the legacy path until that path dies. Documented UX delta, not a blocker |
 | Attachments | `attachmentRouting` produces AI-SDK shapes and its `NativeFileSupport` axis is resolved from **AI SDK converter** behavior, while pi-ai user content is text+image only. The W6 seam must run `prepareChatMessages` over the whole served list (legacy parity: old attachments are re-extracted every turn) with native support pinned to pi's expressive set — image per model vision, and pdf/audio/video **forced to extracted text**. Reused as-is, a "native" PDF stays a file part and the converter degrades it to a filename note: silent content loss. Cover image + PDF + non-vision-image (OCR) cases |
-| Citations / sendSources | **Landed**: renderer resolution widened to the chat-pi builtin part shape; `tool_invoke` replay maps to the inner citable tool. Provider-native `source-*` has no pi equivalent (accepted delta row above) |
+| Citations / sendSources | **Landed**: renderer resolution widened to the chat-pi builtin part shape; `tool_invoke` replay maps to the inner citable tool. Provider-native `source-*` has no pi equivalent (accepted delta row above). W5 review fix: the widener read `providerMetadata`, where the AI SDK accumulator NEVER puts a tool chunk's stamp (tools get `callProviderMetadata`/`resultProviderMetadata`) — the branch could not fire for the engine it was written for and pi-chat lookup citations resolved to nothing; the part-level read is now shared with the tool renderer (`extractToolMetadataFromPart`) and the test fixture uses the runtime shape |
 | Reasoning effort / service tier / fast mode | `modelInjection` thinking-level map is shared with the agent path (verified there); the seam maps chat reasoning modes → `thinkingLevel` (W6 obligation incl. the always-sends-`enable_thinking` delta on the qwen row). Service tier / fast mode have no pi surface — accepted delta until a request-options port |
 | Defer exposition (`tool_search`) | Port `piCodeMode` catalog for chat when tool counts demand it; v1 ships without (chat tool sets are small). Legacy defer-mode turns replay correctly via the `tool_invoke` mapping; `tool_search`/`tool_inspect` parts replay as digest-renamed undeclared calls (cosmetic — their outputs are text) |
 | Steering semantics | Chat steer = enqueue + yield + chained continuation (host-owned, engine-agnostic) — no change; pi-native steer is not used for chat in Phase 1 |
-| Replayed step boundaries | **Landed**: per-step assistant entries + shared inferable-boundary restoration |
-| Replayed tool-result rendering (builtin outputs) | **Landed** for web/kb/painting/read_file/fs_read (declared-gated dispatcher in `messages/builtinToolResultViews.ts`). Remaining lossy rows, by design: `browser_*` outputs are MCP-shaped → screenshot placeholders (same acceptance as the W1 MCP row); `mcp_resource_read`'s view is async disk-reading → JSON text |
+| Replayed step boundaries | **Landed**: per-step assistant entries + shared inferable-boundary restoration. Accepted delta (W5 review): a step that converts to no content is DROPPED, where legacy emitted an `'...'` placeholder assistant turn (`messageRules.ensureNonEmptyAssistantContent`) — the safer shape, but not byte-equivalent |
+| Replayed tool-result rendering (builtin outputs) | **Landed** for web/kb/painting/read_file/fs_read (declared-gated dispatcher in `messages/builtinToolResultViews.ts`). Remaining lossy rows, by design: `browser_*` outputs are MCP-shaped → screenshot placeholders (same acceptance as the W1 MCP row); `mcp_resource_read`'s view is async disk-reading → JSON text. Accepted delta (W5 review): a STRING output replays verbatim before the declared view runs, where legacy called the view with a string (for `read_file`/`web_fetch` that yields a `value: undefined` text block) — pi's short-circuit is the safer shape |
 | Reasoning signature replay (non-anthropic families) | **Landed in W3**: google (`thoughtSignature` on reasoning/text/tool parts) and openai-responses (`itemId`+`reasoningEncryptedContent` → reconstructed reasoning item) replay via the converter; pi-written turns round-trip through `providerMetadata.pi` signatures persisted by `piStreamAdapter`. Wire-probed same-model vs cross-model per family. Cross-model treatment (pi strips tool-call `thoughtSignature`, normalizes tool-call ids) is pi's own |
 | Redacted thinking replay | **Fixed in the W3 review**: pi persists `redacted: true` beside `pi.thinkingSignature`, the converter resolves the flag for both writers (`anthropic.redactedData` for legacy turns) and keeps a signature-only block, so Anthropic receives `redacted_thinking` instead of an invalid signature. The legacy engine replaying a pi-written redacted turn still drops the block (its `reasoningMetadata` has no `signature`/`redactedData` key — a logged warning, not an error): see the W6 flip-back clause |
 | Flag flip-back reasoning replay | **Decision: accept for the flag period** (the Phase 1 exit closes it). Dual-writing family keys from the pi adapter would need family knowledge in an engine-agnostic module and risks conflicting with pi's own semantics; the loss — signed-thinking continuity for a turn after flipping back — is a dogfood-only artifact |
 | Google family proxy transport | pi-ai's google adapter rejects custom fetch (drives `@google/genai`'s client), so `PI_API_SUPPORTS_CUSTOM_FETCH['google-generative-ai'] = false` — no Electron session sharing and no `net.fetch` there; the Cherry proxy **env is still passed** (only the Node dispatcher could read it, and the google client uses the plain Node fetch). Requests ride the Node dispatcher directly; if that breaks proxy users, the port is a pi-ai change (fetch support in the google adapter), not a Cherry workaround |
 | Anthropic cache user knobs | pi places `cache_control` natively (system + last tool + trailing message), `cacheRetention` a per-request stream option (`"none"\|"short"\|"long"`, default `short`). Optional seam port maps the ttl setting → `cacheRetention` (injectable at the materialized `streamSimple` wrapper); Cherry's threshold/last-N knobs stay inert |
-| Mid-loop tool-output truncation | **Landed (scoped)**: opaque lane at the tool-result boundary, Offloader-composed (byte-identical markers), `truncatable:false` exempt. Deferred deltas: the per-entity codec lane (an oversized web_fetch page truncates as broken-JSON head/tail), and re-truncation of oversized HISTORY results that were never persist-trimmed (they ride full via the converter) |
-| In-loop compaction inside pi's loop | Cherry's `prepareStep` compaction cannot run inside pi's tool loop; turn-start durable compaction is upstream and unaffected. **Accepted gap** — now bounded: the tool-call cap + the in-flight threshold landed above are the loop's hard limits |
+| Mid-loop tool-output truncation | **Landed (scoped, mechanism-only until W6)**: opaque lane at the tool-result boundary, Offloader-composed (byte-identical markers), `truncatable:false` exempt. The unit is the result's TEXT — the text blocks of a `content` view joined by `\n`, exactly aiCore's `extractText` input (W5 review fix: per-block truncation silently skipped a multi-block view whose blocks were each under the threshold) — and image blocks survive, which legacy did not (it replaced the whole output with the truncated text). Excerpt sizes are single-sourced (`TOOL_OUTPUT_EXCERPT_{HEAD,TAIL}_CHARS`, shared with the persist lane, W5 review). NOTHING sets `RequestContext.toolResultTruncation` in production yet — the row is inert until the W6 seam passes the knob. Deferred deltas: the per-entity codec lane (an oversized web_fetch page truncates as broken-JSON head/tail), and re-truncation of oversized HISTORY results that were never persist-trimmed (they ride full via the converter) |
+| In-loop compaction inside pi's loop | Cherry's `prepareStep` compaction cannot run inside pi's tool loop; turn-start durable compaction is upstream and unaffected. **Accepted gap** — now bounded: the tool-call cap + the in-flight threshold landed above are the loop's hard limits, and pi's OWN auto-compaction is disabled for chat (W5 review: it defaulted ON and would have run pi's summarizer inside a chat turn — an extra provider invocation and an invisible context rewrite; the agent path keeps it) |
 | DeepSeek DSML tool calls | some DeepSeek deployments emit tool calls as DSML markup in text; pi has no parser, so those tool calls stream as visible markup and never execute. **Deferred with that failure signature**: dogfood tolerable, but default-on needs either the stream-wrapper port in `materializePiProviderStream` (it must also rewrite the settled AssistantMessage, unlike the legacy chunk-level plugin) or a matrix exclusion keyed on the affected models |
 | Inline `<think>` reasoning extraction | **Landed** (chunk-level twin, openai-completions-gated, model-derived tag) — with one recorded delta (W5 review): the sink rewrites the UI dialect only; pi's settled `AssistantMessage` keeps the RAW tags, so a within-turn continuation re-sends them as visible assistant text (legacy's provider-level middleware never had this — its next model call sent tag-free steps). Closing it needs a settled-message rewrite, the same class of port as the DSML row; needed when multi-step tool loops on tag-emitting servers matter |
 | DeepSeek Responses reasoning replay (#18150) | pi drops UNSIGNED thinking on responses replay; DeepSeek's responses dialect requires reasoning passed back. Synthesize a raw reasoning item from persisted text for that dialect, or matrix-exclude it. **Deferred — needs a live probe** against the deployment (the synthesized item's acceptance is unverifiable offline); W6 spot-check item |
@@ -618,10 +689,11 @@ engages on MCP-heavy assistants TODAY on legacy; the ported `tool_invoke` replay
 | OpenRouter `[REDACTED]` blocks / HF signed replay | Split disposition. OpenRouter's `[REDACTED]` strip is cosmetic → deferred wrapper. HF's strip-reasoning-replay is a **hard 400** (the router rejects any reasoning input item): a pi-written signed same-model turn replayed on HF fails the request outright — the seam must matrix-exclude that combo until the port lands |
 | ovms `/no_think` | **Landed**: the suffix dialect rides `resolveUserThinkingSuffix` (final-text-block scope, MCP-tools gate) |
 | Stop-reason `length` policy | **Decided + landed**: chat finishes successfully at `finishReason: 'length'` (legacy parity; gateway maps it per family). The agent path keeps failing the turn — a deliberate divergence annotated in the Phase 3 drift table |
-| Trusted terminal-failure surface | **Landed**: engine-level `ToolLoopTerminalError` (localized error row, `i18nKey` carried), ANY-occurrence semantics, verdict-before-mapping; the tool-call cap shares the machinery. On detection the engine ABORTS at the `turn_end` following the batch (W5 review fix — pi's every-result `terminate` rule alone would keep a mixed batch's loop alive and burn further model calls): the batch's results settle on the card, no further model call issues, the verdict then fails the turn. All-terminate batches never reach the model at all (pi stops the loop itself) |
+| Trusted terminal-failure surface | **Landed**: engine-level `ToolLoopTerminalError` (localized error row, `i18nKey` carried), ANY-occurrence semantics, verdict-before-mapping; the tool-call cap shares the machinery. On detection the engine ABORTS at the `turn_end` following the batch (W5 review fix — pi's every-result `terminate` rule alone would keep a mixed batch's loop alive and burn further model calls): the batch's results settle on the card, the verdict then fails the turn. All-terminate batches never reach the model at all (pi stops the loop itself). Two probed costs (W5 review): pi's loop has no abort check before its next `streamAssistantResponse`, so ONE more provider request is issued and self-aborts pre-flight (an extra phantom step boundary + provider span, nothing rendered or billed by a signal-honouring provider); and the count is per-turn where legacy re-dispatched per approval, so legacy could exceed the cap across resumes |
 | Tool `outputSchema` validation | **Row corrected — no gap**: the AI SDK never validated `outputSchema` on the execute path (`ai@6` `executeToolCall` returns output raw; the only validation, `safeValidateUIMessages`, is unused by Cherry). Legacy baseline is unvalidated; porting a validator would make pi stricter than legacy. Contract enforcement stays where it is (ad hoc, e.g. knowledgeLookup's score clamp) |
 | Resumed-session reasoning replay (agent path) | The agent connection names the provider `${providerId}:${sessionId}:${generation}` and rewrites the pi api per generation, and pi stores those names in session JSONL — so after a resume every replayed assistant message is cross-model and signed thinking degrades to text. Chat fixed this by owning the descriptor (`isSameModelAsTurn`); the agent path needs the same identity treatment (fits the unification, see Phase 3) |
-| Tool timing in `runtimeTiming` (pi chat) | **Landed**: the engine feeds the trunk sink from `tool_execution_start/end` (wall-clocked); approval spans were already trunk-side |
+| Tool-call cap (agent path) | W5 gave CHAT the loop bound (`ToolLoopTerminalError` + the engine's counter); `PiRuntimeConnection` has none, and pi has no native cap — an agent session can loop unbounded. The machinery is now shared (`tools/toolLoopTerminal.ts`); the agent path needs the same counter (its `turn_end` handler already tracks turns) — Phase 3 consolidation item |
+| Tool timing in `runtimeTiming` (pi chat) | **Landed**: the engine feeds the trunk sink from `tool_execution_start/end` (wall-clocked); approval spans were already trunk-side. The approval WAIT is subtracted back out (W5 review — pi starts the span before the gate runs, the collector's contract excludes approval latency) |
 | `timeThinkingMs` in usage metrics | **Landed**: measured in `withPiInvocationCapture` (legacy billing semantics), both pi paths |
 
 **W6 — Rollout flag.**
@@ -672,15 +744,25 @@ purpose; these are the obligations that used to be implicit, from the W2 review)
   the W4a record). The engine projects raw `details` as the part payload for every handed
   tool name — hand it registry entries only.
 - The W5 engine knobs, which the seam resolves from the request's settings:
-  `toolCallLimit` (legacy's `resolveToolCallLimit(assistant)` — the engine defaults to
-  the shared assistant default), `toolResultTruncation`
+  `toolCallLimit` (REQUIRED — pass `resolveToolCallLimit(assistant)`; the engine has no
+  default because the value hides two policies, the assistant's `maxToolCalls` (100) or
+  assistant-less 20, and the count is per TURN, spanning approval pauses, where legacy
+  re-dispatched per approval), `toolResultTruncation`
   (`{ thresholdChars: resolveInFlightTruncateThreshold(settings.truncateThreshold,
   model.contextWindow, outputReservation), canOffload: contextSettings.enabled &&
   contextOwner !== 'caller' && hasAnchorRow(request.messageId) && toolCallLimit > 1 }`,
   with `persistedOutputPaths` seeded from `RetainedContext` exactly as
-  `buildAgentParams` does), and `userTextSuffix`
+  `buildAgentParams` does — and OMIT THE FIELD when `!contextSettings.enabled ||
+  contextOwner === 'caller'`: legacy's whole context-build layer is off then and sends the
+  full output, while a present knob makes the pi lane take the plain head/tail branch and
+  DISCARD the oversized original. Same hazard inside the knob: `canOffload: true` without
+  `persistedOutputPaths` skips the offload and discards silently — seed both or neither),
+  and `userTextSuffix`
   (`resolveUserThinkingSuffix({ provider, model, reasoningKind, hasAssistant,
-  hasExplicitReasoningEffort, mcpToolCount })` — absent when reasoning is `omit`).
+  hasExplicitReasoningEffort, mcpToolCount })` — absent when reasoning is `omit`;
+  `mcpToolCount` must count MCP tools ONLY: legacy's ovms gate is `mcpToolIds.size > 0`,
+  and a whole-tool-set count would inject ` /no_think` into every replayed user message of
+  every ovms turn with any tool).
 
 ### Phase 1 exit criteria
 

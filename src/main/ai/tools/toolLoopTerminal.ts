@@ -3,9 +3,10 @@
  * plus the turn-level error the loop surfaces for one.
  *
  * Lives at the tools layer (not the ai-sdk runtime dir) because BOTH engines consume
- * it — the legacy loop stops on the brand at a step boundary, the pi engine maps it
- * onto pi's per-result `terminate` hint and fails the turn at verdict time — and the
- * ai-sdk adapter dir does not survive the pi unification's Phase 2.
+ * it — the legacy loop stops on the brand at a step boundary, the pi chat engine reads
+ * it off `tool_execution_end` and aborts at the next turn boundary so the turn fails
+ * with the localized error — and the ai-sdk adapter dir does not survive the pi
+ * unification's Phase 2.
  */
 
 export interface TerminalToolFailure {

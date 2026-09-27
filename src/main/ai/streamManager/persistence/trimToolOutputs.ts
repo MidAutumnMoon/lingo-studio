@@ -32,8 +32,8 @@ import type { ToolEntry } from '@main/ai/tools/adapters/aiSdk/types'
 import {
   isDeferredToolOutput,
   isPersistedToolOutput,
-  PERSIST_HEAD_CHARS,
-  PERSIST_TAIL_CHARS,
+  TOOL_OUTPUT_EXCERPT_HEAD_CHARS,
+  TOOL_OUTPUT_EXCERPT_TAIL_CHARS,
   type PersistedToolOutput,
   type PersistedToolOutputBlobRef,
   type PersistedToolOutputRef
@@ -54,7 +54,8 @@ async function trimViaCodec(
   const deflated = codec.deflate(output)
   if (!deflated) return null
   const oversized = deflated.blobs.filter(
-    (blob) => blob.text.length > threshold && PERSIST_HEAD_CHARS + PERSIST_TAIL_CHARS < blob.text.length
+    (blob) =>
+      blob.text.length > threshold && TOOL_OUTPUT_EXCERPT_HEAD_CHARS + TOOL_OUTPUT_EXCERPT_TAIL_CHARS < blob.text.length
   )
   if (oversized.length === 0) return null
 
@@ -64,8 +65,8 @@ async function trimViaCodec(
     const { entry, vfsFilename } = await persistToolOutputText(blob.text)
     const { head, tail, totalChars, totalLines } = computeHeadTailExcerpt(
       blob.text,
-      PERSIST_HEAD_CHARS,
-      PERSIST_TAIL_CHARS
+      TOOL_OUTPUT_EXCERPT_HEAD_CHARS,
+      TOOL_OUTPUT_EXCERPT_TAIL_CHARS
     )
     blobRefs.push({ key: blob.key, fileEntryId: entry.id, vfsFilename, head, tail, totalChars, totalLines })
     skeleton = spliceTextAtKey(skeleton, blob.key, codec.snippet(blob.text))
@@ -78,13 +79,13 @@ async function trimWholeText(output: unknown, threshold: number): Promise<Persis
   const extracted = extractPersistableText(output)
   if (!extracted) return null
   if (extracted.text.length <= threshold) return null
-  if (PERSIST_HEAD_CHARS + PERSIST_TAIL_CHARS >= extracted.text.length) return null
+  if (TOOL_OUTPUT_EXCERPT_HEAD_CHARS + TOOL_OUTPUT_EXCERPT_TAIL_CHARS >= extracted.text.length) return null
 
   const { entry, vfsFilename } = await persistToolOutputText(extracted.text)
   const { head, tail, totalChars, totalLines } = computeHeadTailExcerpt(
     extracted.text,
-    PERSIST_HEAD_CHARS,
-    PERSIST_TAIL_CHARS
+    TOOL_OUTPUT_EXCERPT_HEAD_CHARS,
+    TOOL_OUTPUT_EXCERPT_TAIL_CHARS
   )
   return {
     fileEntryId: entry.id,

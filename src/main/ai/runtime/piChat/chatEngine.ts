@@ -48,7 +48,6 @@ import {
   ToolLoopTerminalError
 } from '@main/ai/tools/toolLoopTerminal'
 import { getReasoningTagName } from '@main/ai/utils/reasoning'
-import { DEFAULT_ASSISTANT_SETTINGS } from '@shared/data/types/assistant'
 import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/message'
 
 import { withPiInvocationCapture, type PiInvocationMetrics } from '../pi/PiRuntimeConnection'
@@ -126,11 +125,12 @@ export interface PiChatTurnRequest {
   /**
    * Max model turns that may execute tools before the turn fails with the legacy
    * `tool_call_limit_reached` error. pi has no native loop cap and its extension hooks
-   * cannot end a run, so the engine owns the bound; the seam resolves the assistant
-   * setting (`resolveToolCallLimit` — legacy's assistant-less default is 20, so the
-   * seam should always pass the resolved value rather than rely on the engine default).
+   * cannot end a run, so the engine owns the bound and the seam passes the resolved
+   * assistant setting (`resolveToolCallLimit`: 20 without an assistant, the assistant's
+   * `maxToolCalls` otherwise). Required on purpose — an engine-side default would have to
+   * pick one of those two policies silently.
    */
-  toolCallLimit?: number
+  toolCallLimit: number
   /**
    * The turn's user-text thinking suffix (W5): the seam resolves the dialect via
    * `resolveUserThinkingSuffix` and the engine applies it to the trailing prompt while
@@ -186,14 +186,22 @@ export type PiChatToolAuthorizer = (
  * W4a: wrap the seam's authorizer in pi's `tool_call` hook. The hook fires after
  * `tool_execution_start`, so the tool part exists before the approval chunk
  * references its id (same ordering the agent approval pipeline relies on).
+ *
+ * The wrapper also times each gate evaluation so the approval WAIT can be excluded from
+ * the tool span fed to the runtime-timing sink: pi emits `tool_execution_start` before
+ * the gate runs, so a raw wall-clock span would attribute the user's thinking time to
+ * the tool — the collector's contract is that owner-reported durations exclude approval
+ * latency (legacy's execute hooks did, since approval never entered them).
  */
 function createToolAuthorizationExtension(
   authorizer: PiChatToolAuthorizer,
   emit: (chunk: CherryUIMessageChunk) => void,
-  onDenied: (toolCallId: string) => void
+  onDenied: (toolCallId: string) => void,
+  onGateWait: (toolCallId: string, waitedMs: number) => void
 ): ExtensionFactory {
   return (pi) => {
     pi.on('tool_call', async (event: ToolCallEvent, extCtx: ExtensionContext) => {
+      const gateStartedAt = performance.now()
       const verdict = await authorizer(
         {
           toolName: event.toolName,
@@ -203,6 +211,7 @@ function createToolAuthorizationExtension(
         },
         emit
       )
+      onGateWait(event.toolCallId, performance.now() - gateStartedAt)
       if (verdict === undefined) return undefined
       if (verdict.denied) onDenied(event.toolCallId)
       return { block: true, reason: verdict.reason }
@@ -419,14 +428,27 @@ export async function streamPiChatTurn(
   // denial state is what the renderer card and the history converter expect.
   const deniedToolCalls = new Set<string>()
 
-  // Wall-clock start per tool execution — pi's events carry no timestamps.
+  // Wall-clock start per tool execution — pi's events carry no timestamps. The gate wait
+  // (approval latency) is subtracted back out: pi emits `tool_execution_start` before the
+  // `tool_call` hook runs, so the raw span would include the user's thinking time.
   const toolExecutionStartedAt = new Map<string, number>()
+  const gateWaitedMs = new Map<string, number>()
 
   // Retry has a single owner — the host's retryable/fallback wrap over the whole turn
   // (W5 register row). pi's session-level auto-retry defaults ON (3 attempts) and would
   // silently re-run provider calls behind the host's back; the wire layer already defaults
   // to 0 retries when unset.
-  const settingsManager = pi.SettingsManager.inMemory({ retry: { enabled: false } }, { projectTrusted: true })
+  //
+  // Auto-compaction is off for the same reason: pi's default is ON (`compaction?.enabled ??
+  // true`) and it fires before an assistant response whenever the projected context crosses
+  // the window minus `reserveTokens` — i.e. inside a chat turn it would run pi's summarizer
+  // as an extra provider invocation and rewrite the model's view of the conversation with no
+  // chunk the trunk can render. Cherry owns context shaping (turn-start compaction,
+  // `prepareChatMessages`, the in-flight truncation, the tool-call cap).
+  const settingsManager = pi.SettingsManager.inMemory(
+    { retry: { enabled: false }, compaction: { enabled: false } },
+    { projectTrusted: true }
+  )
   const resourceLoader = new pi.DefaultResourceLoader({
     cwd: piDir,
     agentDir: piDir,
@@ -443,7 +465,14 @@ export async function streamPiChatTurn(
       createPiProviderExtension(runtimeProviderName, capturedConfig),
       createChatPromptExtension(request.systemPrompt ?? ''),
       ...(request.authorizer
-        ? [createToolAuthorizationExtension(request.authorizer, emitChunk, (id) => deniedToolCalls.add(id))]
+        ? [
+            createToolAuthorizationExtension(
+              request.authorizer,
+              emitChunk,
+              (id) => deniedToolCalls.add(id),
+              (id, waitedMs) => gateWaitedMs.set(id, (gateWaitedMs.get(id) ?? 0) + waitedMs)
+            )
+          ]
         : [])
     ],
     // Belt-only (the forcing extension is the real gate): the loader override at
@@ -478,10 +507,8 @@ export async function streamPiChatTurn(
   // verdict path. NOT cleared on pi retries: a retry re-runs the model call, never tools,
   // so a recorded terminal outcome stands.
   let loopTerminalError: ToolLoopTerminalError | undefined
-  // The seam passes the resolved assistant setting; this default only covers a seam that
-  // forgets (legacy's own assistant-less default is lower — 20 — so always passing the
-  // resolved value matters), and a non-positive limit is treated as 1.
-  const toolCallLimit = Math.max(1, request.toolCallLimit ?? DEFAULT_ASSISTANT_SETTINGS.maxToolCalls)
+  // The seam passes the resolved assistant setting; a non-positive limit is treated as 1.
+  const toolCallLimit = Math.max(1, request.toolCallLimit)
   let toolTurns = 0
 
   const abortSession = (): void => {
@@ -518,12 +545,14 @@ export async function streamPiChatTurn(
     }
     if (event.type === 'tool_execution_end') {
       const startedAt = toolExecutionStartedAt.get(event.toolCallId)
+      const gateWait = gateWaitedMs.get(event.toolCallId) ?? 0
       toolExecutionStartedAt.delete(event.toolCallId)
+      gateWaitedMs.delete(event.toolCallId)
       if (startedAt !== undefined) {
         request.runtimeTimingSink?.onToolExecutionEnd({
           callId: event.toolCallId,
           toolName: event.toolName,
-          durationMs: performance.now() - startedAt
+          durationMs: Math.max(0, performance.now() - startedAt - gateWait)
         })
       }
       // `details` is the registry execute output verbatim, so the process-local brand

@@ -32,6 +32,39 @@ function isMcpContentArray(value: unknown): value is unknown[] {
   return Array.isArray(value) && value.every(isMcpContentBlock)
 }
 
+function toolMetadataFromEnvelope(metadata: unknown): ToolMetadata | undefined {
+  if (!isRecord(metadata)) return undefined
+  const cherry = isRecord(metadata.cherry) ? metadata.cherry : undefined
+  const tool = cherry && isRecord(cherry.tool) ? cherry.tool : undefined
+  if (!tool) return undefined
+  return {
+    description: typeof tool.description === 'string' ? tool.description : undefined,
+    name: typeof tool.name === 'string' ? tool.name : undefined,
+    serverId: typeof tool.serverId === 'string' ? tool.serverId : undefined,
+    serverName: typeof tool.serverName === 'string' ? tool.serverName : undefined,
+    type: isToolType(tool.type) ? tool.type : undefined
+  }
+}
+
+/**
+ * Cherry tool metadata off a tool PART. Chunk-level stamps (the pi adapter's
+ * `cherry.tool`) land on `callProviderMetadata` for input chunks and
+ * `resultProviderMetadata` once the part is terminal — the AI SDK accumulator never
+ * puts them on `providerMetadata` (that field belongs to content parts). `toolMetadata`
+ * first, matching the tool renderer's read order.
+ */
+export function extractToolMetadataFromPart(part: {
+  toolMetadata?: unknown
+  callProviderMetadata?: unknown
+  resultProviderMetadata?: unknown
+}): ToolMetadata | undefined {
+  return (
+    toolMetadataFromEnvelope(part.toolMetadata) ??
+    toolMetadataFromEnvelope(part.callProviderMetadata) ??
+    toolMetadataFromEnvelope(part.resultProviderMetadata)
+  )
+}
+
 export function extractOutputMetadata(output: unknown): { response: unknown; metadata?: ToolMetadata } {
   if (!isRecord(output)) return { response: output }
 

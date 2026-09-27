@@ -8,8 +8,6 @@ import {
   type TerminalToolFailure
 } from '@main/ai/tools/toolLoopTerminal'
 
-export type { TerminalToolFailure } from '@main/ai/tools/toolLoopTerminal'
-export { ToolLoopTerminalError }
 type ToolLoopStopWhen = StopCondition<ToolSet> | Array<StopCondition<ToolSet>> | undefined
 
 type ToolLoopTerminationInput = {

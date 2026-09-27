@@ -10,10 +10,13 @@
  * Imported by both processes.
  */
 
-/** Excerpt sizes — must match the in-flight middleware (contextBuild.ts) so
- *  persisted excerpts are byte-identical to in-flight markers. */
-export const PERSIST_HEAD_CHARS = 500
-export const PERSIST_TAIL_CHARS = 1000
+/** Excerpt sizes for a tool result's text — ONE source for both lanes that must agree
+ *  byte-for-byte: the persist-time trim replaces an oversized output with these excerpts,
+ *  and the in-flight truncation (`contextBuild/inFlightTruncate.ts`, both engines) keeps
+ *  the same head/tail around its marker, so an offloaded marker and a persisted excerpt
+ *  are interchangeable for `fs_read` read-back and the renderer's envelope display. */
+export const TOOL_OUTPUT_EXCERPT_HEAD_CHARS = 500
+export const TOOL_OUTPUT_EXCERPT_TAIL_CHARS = 1000
 
 /** One persisted blob: a FileManager entry + its excerpt + the JSON-pointer-lite
  *  key naming the skeleton field the text belongs to (`""` for whole-output

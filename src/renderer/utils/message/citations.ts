@@ -51,9 +51,13 @@ import { PI_TOOL_CALL_TOOL_NAME } from '@shared/ai/piBuiltinTools'
 import { parseFunctionCallToolName } from '@shared/ai/tools/mcpToolName'
 import { isDeferredToolOutput, isPersistedToolOutput } from '@shared/ai/transport'
 import type { CherryMessagePart } from '@shared/data/types/message'
-import { readCherryMeta } from '@shared/data/types/uiParts'
 
-import { extractOutputMetadata, normalizeToolOutputResponse, type ToolMetadata } from './toolOutput'
+import {
+  extractOutputMetadata,
+  extractToolMetadataFromPart,
+  normalizeToolOutputResponse,
+  type ToolMetadata
+} from './toolOutput'
 
 export interface MessageCitations {
   /** Wire id (stringified) → citation with its assigned display number. */
@@ -127,11 +131,12 @@ function resolveCitableToolName(part: CherryMessagePart): string | null {
   if (CITABLE_TOOL_NAMES.has(rawName)) {
     if (part.type !== 'dynamic-tool') return rawName
 
-    const partMetadata = readCherryMeta(part)?.tool
+    const partMetadata = extractToolMetadataFromPart(toolPart)
     // The pi chat engine's registry builtins surface as dynamic parts stamped
     // `tool: { type: 'builtin', name }` by the pi stream adapter — that stamp IS the
     // Cherry provenance (agent-path lookups ride cherry-tools MCP names below instead,
-    // and no pi-native builtin shares a citable name).
+    // and no pi-native builtin shares a citable name). The stamp rides the part's
+    // call/result provider metadata, not `providerMetadata` (content parts only).
     if (partMetadata?.type === 'builtin') return rawName
     const outputMetadata = extractOutputMetadata((toolPart as { output?: unknown }).output).metadata
     const belongsToCherryTools = (metadata: ToolMetadata | typeof partMetadata | undefined) =>
