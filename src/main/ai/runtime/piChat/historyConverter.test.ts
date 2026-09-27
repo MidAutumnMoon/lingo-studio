@@ -172,25 +172,26 @@ describe('golden conversation', () => {
       }
     )
 
-    expect(entries).toHaveLength(6) // system, u1, a1 + tool result, u2, a2
+    expect(entries).toHaveLength(7) // system, u1, a1 step 1 (+ tool result), a1 step 2, u2, a2
 
     // Chain integrity: linear, first parent null, unique ids.
     expect(entries[0].parentId).toBeNull()
     for (let i = 1; i < entries.length; i++) expect(entries[i].parentId).toBe(entries[i - 1].id)
     expect(new Set(entries.map((e) => e.id)).size).toBe(entries.length)
-    expect(entries.map((e) => e.id)).toEqual(['sys', 'u1', 'a1', 'a1#t0', 'u2', 'a2'])
+    expect(entries.map((e) => e.id)).toEqual(['sys', 'u1', 'a1', 'a1#t0', 'a1#s1', 'u2', 'a2'])
     expect(entries.every((e) => e.type === 'message')).toBe(true)
 
+    // The tool step and the post-tool continuation split into two assistant entries — the
+    // boundaries legacy infers (restoreLegacyToolStepBoundaries) and pi writes natively.
     const assistant = assistantEntry(entries, 2)
     expect(assistant.content).toEqual([
       { type: 'thinking', thinking: 'plan' },
-      { type: 'toolCall', id: 'call-1', name: 'web_search', arguments: { query: 'cherry studio' } },
-      { type: 'text', text: 'Summary: Cherry is a studio.' }
+      { type: 'toolCall', id: 'call-1', name: 'web_search', arguments: { query: 'cherry studio' } }
     ])
     expect(assistant.api).toBe('anthropic-messages')
     expect(assistant.stopReason).toBe('toolUse')
-    expect(assistant.usage.input).toBe(100)
-    expect(assistant.usage.totalTokens).toBe(150)
+    // The message's stats ride the LAST entry only — per-step copies stay zero.
+    expect(assistant.usage.input).toBe(0)
 
     const toolResult = entries[3].message
     expect(toolResult).toEqual({
@@ -202,10 +203,184 @@ describe('golden conversation', () => {
       isError: false,
       timestamp: Date.parse('2026-09-26T09:00:05.000Z')
     })
+
+    const continuation = assistantEntry(entries, 4)
+    expect(continuation.content).toEqual([{ type: 'text', text: 'Summary: Cherry is a studio.' }])
+    expect(continuation.stopReason).toBe('stop')
+    expect(continuation.usage.input).toBe(100)
+    expect(continuation.usage.totalTokens).toBe(150)
+  })
+})
+
+describe('step boundaries', () => {
+  it('splits a pi-written multi-step message at its step-start markers', () => {
+    const entries = toPiSessionEntries([
+      msg(
+        'assistant',
+        [
+          { type: 'step-start' },
+          { type: 'text', text: 'searching' },
+          toolPart(),
+          { type: 'step-start' },
+          { type: 'text', text: 'found it' }
+        ],
+        createdAt('2026-09-26T09:00:05.000Z'),
+        'a1'
+      )
+    ])
+
+    expect(entries.map((e) => e.id)).toEqual(['a1', 'a1#t0', 'a1#s1'])
+    expect(assistantEntry(entries, 0).content).toEqual([
+      { type: 'text', text: 'searching' },
+      { type: 'toolCall', id: 'call-1', name: 'web_search', arguments: { query: 'cherry studio' } }
+    ])
+    expect(assistantEntry(entries, 0).stopReason).toBe('toolUse')
+    expect(assistantEntry(entries, 2).content).toEqual([{ type: 'text', text: 'found it' }])
+    expect(assistantEntry(entries, 2).stopReason).toBe('stop')
+  })
+
+  it('drops a trailing empty step (a marker with nothing after it)', () => {
+    const entries = toPiSessionEntries([
+      msg('assistant', [{ type: 'step-start' }, { type: 'text', text: 'only step' }, { type: 'step-start' }])
+    ])
+    expect(entries).toHaveLength(1)
+  })
+
+  it('keeps a tool-only message as one step even without markers', () => {
+    // No continuation after the tool group ⇒ no inferable boundary ⇒ one entry.
+    const entries = toPiSessionEntries([msg('assistant', [{ type: 'text', text: 'go' }, toolPart()])])
+    expect(entries.map((e) => e.id)).toEqual(['a1', 'a1#t0'])
+    expect(assistantEntry(entries, 0).stopReason).toBe('toolUse')
+  })
+})
+
+describe('user thinking suffix (W5)', () => {
+  it('suffixes every replayed user text part for the qwen scope', () => {
+    const entries = toPiSessionEntries(
+      [
+        msg(
+          'user',
+          [
+            { type: 'text', text: 'first' },
+            { type: 'text', text: 'already /no_think' }
+          ],
+          undefined,
+          'u1'
+        ),
+        msg('assistant', [{ type: 'text', text: 'answer' }], undefined, 'a1'),
+        msg('user', [{ type: 'text', text: 'second' }], undefined, 'u2')
+      ],
+      { userTextSuffix: { text: ' /think', scope: 'every-text-part' } }
+    )
+    const u1 = entries[0].message as { role: string; content: Array<{ type: string; text?: string }> }
+    expect(u1.content).toEqual([
+      { type: 'text', text: 'first /think' },
+      { type: 'text', text: 'already /no_think' }
+    ])
+    const u2 = entries[2].message as { role: string; content: unknown }
+    // Single-text messages collapse to a string — suffixed before the collapse.
+    expect(u2.content).toBe('second /think')
+  })
+
+  it('suffixes only a text FINAL block for the ovms scope', () => {
+    const image = { type: 'file', mediaType: 'image/png', url: 'data:image/png;base64,aGk=' } as CherryMessagePart
+    const entries = toPiSessionEntries([msg('user', [{ type: 'text', text: 'look' }, image], undefined, 'u1')], {
+      userTextSuffix: { text: ' /no_think', scope: 'final-text-block' }
+    })
+    const u1 = entries[0].message as { role: string; content: Array<{ type: string; text?: string }> }
+    // Final block is an image — legacy appends nothing rather than the text part.
+    expect(u1.content).toEqual([
+      { type: 'text', text: 'look' },
+      { type: 'image', data: 'aGk=', mimeType: 'image/png' }
+    ])
+
+    const trailing = toPiSessionEntries([msg('user', [image, { type: 'text', text: 'describe' }], undefined, 'u2')], {
+      userTextSuffix: { text: ' /no_think', scope: 'final-text-block' }
+    })
+    const u2 = trailing[0].message as { role: string; content: Array<{ type: string; text?: string }> }
+    expect((u2.content.at(-1) as { text?: string }).text).toBe('describe /no_think')
+  })
+
+  it('leaves assistant and system messages unsuffixed', () => {
+    const entries = toPiSessionEntries([msg('assistant', [{ type: 'text', text: 'answer' }], undefined, 'a1')], {
+      userTextSuffix: { text: ' /think', scope: 'every-text-part' }
+    })
+    expect((entries[0].message as { content: unknown }).content).toEqual([{ type: 'text', text: 'answer' }])
   })
 })
 
 describe('tool replay', () => {
+  it('renders a declared builtin output through its model view, and keeps JSON when undeclared', () => {
+    const readFileOutput = { text: 'page one', totalChars: 900, nextOffset: 2 }
+    const declared = toPiSessionEntries(
+      [msg('assistant', [toolPart({ type: 'dynamic-tool', toolName: 'read_file', output: readFileOutput })])],
+      { declaredToolNames: new Set(['read_file']) }
+    )
+    const declaredResult = declared[1].message as { content: Array<{ type: string; text: string }> }
+    expect(declaredResult.content[0].text).toBe(
+      'page one\n\n[Showing 8 of 900 chars. Call read_file again with offset=2 for more.]'
+    )
+
+    const undeclared = toPiSessionEntries([
+      msg('assistant', [toolPart({ type: 'dynamic-tool', toolName: 'read_file', output: readFileOutput })])
+    ])
+    const undeclaredResult = undeclared[1].message as { content: Array<{ type: string; text: string }> }
+    expect(undeclaredResult.content[0].text).toBe(JSON.stringify(readFileOutput))
+  })
+
+  it('renders a declared web_search output as its JSON view and an fs_read page with its tail', () => {
+    const results = [{ id: 'cite_ab_0', title: 'Cherry', url: 'https://example.com', content: 'hi' }]
+    const web = toPiSessionEntries(
+      [msg('assistant', [toolPart({ type: 'dynamic-tool', toolName: 'web_search', output: results })])],
+      { declaredToolNames: new Set(['web_search']) }
+    )
+    const webResult = (web[1].message as { content: Array<{ text: string }> }).content[0]
+    expect(webResult.text).toBe(JSON.stringify(results))
+
+    const page = { kind: 'text', text: 'lines here', startLine: 1, endLine: 2, totalLines: 5 }
+    const fs = toPiSessionEntries(
+      [msg('assistant', [toolPart({ type: 'dynamic-tool', toolName: 'fs_read', output: page })])],
+      { declaredToolNames: new Set(['fs_read']) }
+    )
+    const fsResult = (fs[1].message as { content: Array<{ text: string }> }).content[0]
+    expect(fsResult.text).toBe('lines here\n\n[showing lines 1-2 of 5; 3 more — call again with offset=3 to continue]')
+  })
+
+  it('replays a legacy tool_invoke part as the inner tool it dispatched', () => {
+    const results = [{ id: 'cite_ab_0', title: 'Cherry', url: 'https://example.com', content: 'hi' }]
+    const entries = toPiSessionEntries(
+      [
+        msg('assistant', [
+          toolPart({
+            type: 'dynamic-tool',
+            toolName: 'tool_invoke',
+            input: { name: 'web_search', params: { query: 'cherry' } },
+            output: results
+          })
+        ])
+      ],
+      { declaredToolNames: new Set(['web_search']) }
+    )
+
+    const assistant = assistantEntry(entries)
+    expect(assistant.content).toEqual([
+      { type: 'toolCall', id: 'call-1', name: 'web_search', arguments: { query: 'cherry' } }
+    ])
+    const result = entries[1].message as {
+      toolName: string
+      content: Array<{ type: string; text: string }>
+    }
+    expect(result.toolName).toBe('web_search')
+    expect(result.content[0].text).toBe(JSON.stringify(results))
+  })
+
+  it('drops a tool_invoke part whose inner name is missing', () => {
+    const entries = toPiSessionEntries([
+      msg('assistant', [toolPart({ type: 'dynamic-tool', toolName: 'tool_invoke', input: { params: {} } })])
+    ])
+    expect(entries).toHaveLength(0)
+  })
+
   it('keeps string outputs as plain text', () => {
     const entries = toPiSessionEntries([msg('assistant', [toolPart({ output: 'plain result' })])])
     const result = entries[1].message

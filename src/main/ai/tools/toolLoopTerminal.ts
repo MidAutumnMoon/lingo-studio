@@ -1,7 +1,11 @@
 /**
- * Process-local provenance for terminal failures produced by trusted local tools.
- * The WeakSet brand stays off the wire shape, so provider and MCP outputs cannot
- * forge a loop-stopping result by returning matching JSON.
+ * Trusted terminal tool failures: a process-local brand over a tool output shape,
+ * plus the turn-level error the loop surfaces for one.
+ *
+ * Lives at the tools layer (not the ai-sdk runtime dir) because BOTH engines consume
+ * it — the legacy loop stops on the brand at a step boundary, the pi engine maps it
+ * onto pi's per-result `terminate` hint and fails the turn at verdict time — and the
+ * ai-sdk adapter dir does not survive the pi unification's Phase 2.
  */
 
 export interface TerminalToolFailure {
@@ -42,3 +46,18 @@ export function getTrustedLocalToolTerminalFailure(output: unknown): TerminalToo
     ...(typeof output.i18nKey === 'string' && { i18nKey: output.i18nKey })
   }
 }
+
+export class ToolLoopTerminalError extends Error {
+  constructor(
+    message: string,
+    public readonly i18nKey?: string
+  ) {
+    super(message)
+    this.name = 'ToolLoopTerminalError'
+  }
+}
+
+export const TOOL_CALL_LIMIT_I18N_KEY = 'tool_call_limit_reached'
+
+export const TOOL_CALL_LIMIT_MESSAGE =
+  'The assistant reached the tool-call limit before producing a final answer. Raise "Max tool call rounds" in the assistant settings, or reduce the task scope.'

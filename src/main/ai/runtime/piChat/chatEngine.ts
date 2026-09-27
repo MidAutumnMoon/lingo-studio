@@ -41,6 +41,14 @@ import { application } from '@application'
 import { loggerService } from '@logger'
 import type { MediaCapabilities } from '@main/ai/messages/messageCapabilities'
 import { TRACER_NAME } from '@main/ai/observability'
+import {
+  getTrustedLocalToolTerminalFailure,
+  TOOL_CALL_LIMIT_I18N_KEY,
+  TOOL_CALL_LIMIT_MESSAGE,
+  ToolLoopTerminalError
+} from '@main/ai/tools/toolLoopTerminal'
+import { getReasoningTagName } from '@main/ai/utils/reasoning'
+import { DEFAULT_ASSISTANT_SETTINGS } from '@shared/data/types/assistant'
 import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/message'
 
 import { withPiInvocationCapture, type PiInvocationMetrics } from '../pi/PiRuntimeConnection'
@@ -49,6 +57,9 @@ import { PiStreamAdapter } from '../pi/piStreamAdapter'
 import { createPiProviderExtension } from '../pi/providerExtension'
 import type { AgentRuntimeUsageInvocation } from '../types'
 import { toPiSessionEntries, type PiHistoryModelDescriptor } from './historyConverter'
+import { createThinkExtractionSink } from './thinkExtraction'
+import type { UserTextSuffix } from './userThinkingSuffix'
+import { applyUserTextSuffix } from './userThinkingSuffix'
 
 const logger = loggerService.withContext('PiChatEngine')
 
@@ -106,6 +117,36 @@ export interface PiChatTurnRequest {
   mediaCapabilities?: MediaCapabilities
   /** Billing sink — one call per provider invocation, deduplicated by response id. */
   onInvocation?: (invocation: AgentRuntimeUsageInvocation) => void
+  /**
+   * Trunk runtime-timing sink (structural match of `MessageRuntimeTimingSink`) — fed from
+   * the session's tool-execution events so the perf panel's tool lane attributes tool time
+   * correctly (the legacy engine feeds the same collector through its execute hooks).
+   */
+  runtimeTimingSink?: PiChatRuntimeTimingSink
+  /**
+   * Max model turns that may execute tools before the turn fails with the legacy
+   * `tool_call_limit_reached` error. pi has no native loop cap and its extension hooks
+   * cannot end a run, so the engine owns the bound; the seam resolves the assistant
+   * setting (`resolveToolCallLimit` — legacy's assistant-less default is 20, so the
+   * seam should always pass the resolved value rather than rely on the engine default).
+   */
+  toolCallLimit?: number
+  /**
+   * The turn's user-text thinking suffix (W5): the seam resolves the dialect via
+   * `resolveUserThinkingSuffix` and the engine applies it to the trailing prompt while
+   * the converter applies it to replayed user messages — one decision, both surfaces.
+   */
+  userTextSuffix?: UserTextSuffix
+}
+
+/**
+ * The trunk's per-execution runtime-timing sink as the engine needs it. Declared
+ * structurally here so the engine does not import from the stream-manager layer;
+ * `MessageRuntimeTimingCollector.sink` satisfies it.
+ */
+export interface PiChatRuntimeTimingSink {
+  onToolExecutionStart(event: { callId: string; toolName?: string }): void
+  onToolExecutionEnd(event: { callId: string; toolName?: string; durationMs: number }): void
 }
 
 function finiteTokenCount(value: number | undefined): number {
@@ -185,21 +226,17 @@ function createChatPromptExtension(systemPrompt: string): ExtensionFactory {
 type TurnVerdict = { finishReason: FinishReason } | { failure: Error }
 
 /**
- * Terminal verdict for a completed pi run. `error` and `length` are failures (pi's
- * `stopReason` vocabulary has no other failure mode); everything else finishes. Aborts never
- * reach here — the caller closes the stream on the signal, or on pi's own `aborted`
- * stop reason.
+ * Terminal verdict for a completed pi run. `error` is the only failure (pi's
+ * `stopReason` vocabulary has no other failure mode); `length` finishes the turn like
+ * the legacy engine — nothing in-app persists or renders finishReason, and the gateway
+ * SSE adapters map `length` onto every family's max-tokens vocabulary, so erroring a
+ * truncated turn would surface a spurious error row AND break the public wire contract.
+ * Aborts never reach here — the caller closes the stream on the signal, on pi's own
+ * `aborted` stop reason, or on a loop-terminal failure.
  */
 function turnVerdict(stopReason: string | undefined, agentError: string | undefined): TurnVerdict {
   if (stopReason === 'error') return { failure: new Error(agentError ?? 'pi chat turn failed') }
-  if (stopReason === 'length') {
-    return {
-      failure: new Error(
-        agentError ??
-          'Response truncated at the model output limit (stopReason: length). The reply may be incomplete or empty — try continuing the turn or retrying with a higher maximum output.'
-      )
-    }
-  }
+  if (stopReason === 'length') return { finishReason: 'length' }
   return { finishReason: stopReason === 'toolUse' ? 'tool-calls' : 'stop' }
 }
 
@@ -352,7 +389,8 @@ export async function streamPiChatTurn(
           : undefined
     }),
     ...(request.mediaCapabilities && { mediaCapabilities: request.mediaCapabilities }),
-    ...(request.tools && { declaredToolNames: new Set(request.tools.map((tool) => tool.name)) })
+    ...(request.tools && { declaredToolNames: new Set(request.tools.map((tool) => tool.name)) }),
+    ...(request.userTextSuffix && { userTextSuffix: request.userTextSuffix })
   })
 
   // Stream plumbing first: the authorization extension (built below) emits through the
@@ -368,11 +406,27 @@ export async function streamPiChatTurn(
     }
   }
 
+  // W5: openai-completions servers that emit reasoning as inline tags get it extracted
+  // into reasoning chunks (legacy's extractReasoningMiddleware, chunk-level twin). Every
+  // other family passes chunks through untouched — native-reasoning endpoints must keep
+  // literal tags as content, exactly like legacy's endpoint gate.
+  const emitChunk =
+    model.api === 'openai-completions'
+      ? createThinkExtractionSink(enqueueChunk, getReasoningTagName(model.id.toLowerCase()))
+      : enqueueChunk
+
   // A denied call arrives from pi as an error result (the block reason); the trunk's
   // denial state is what the renderer card and the history converter expect.
   const deniedToolCalls = new Set<string>()
 
-  const settingsManager = pi.SettingsManager.inMemory({}, { projectTrusted: true })
+  // Wall-clock start per tool execution — pi's events carry no timestamps.
+  const toolExecutionStartedAt = new Map<string, number>()
+
+  // Retry has a single owner — the host's retryable/fallback wrap over the whole turn
+  // (W5 register row). pi's session-level auto-retry defaults ON (3 attempts) and would
+  // silently re-run provider calls behind the host's back; the wire layer already defaults
+  // to 0 retries when unset.
+  const settingsManager = pi.SettingsManager.inMemory({ retry: { enabled: false } }, { projectTrusted: true })
   const resourceLoader = new pi.DefaultResourceLoader({
     cwd: piDir,
     agentDir: piDir,
@@ -389,7 +443,7 @@ export async function streamPiChatTurn(
       createPiProviderExtension(runtimeProviderName, capturedConfig),
       createChatPromptExtension(request.systemPrompt ?? ''),
       ...(request.authorizer
-        ? [createToolAuthorizationExtension(request.authorizer, enqueueChunk, (id) => deniedToolCalls.add(id))]
+        ? [createToolAuthorizationExtension(request.authorizer, emitChunk, (id) => deniedToolCalls.add(id))]
         : [])
     ],
     // Belt-only (the forcing extension is the real gate): the loader override at
@@ -419,34 +473,96 @@ export async function streamPiChatTurn(
 
   let lastStopReason: string | undefined
   let lastAgentError: string | undefined
+  // The legacy loop's terminal outcomes: a trusted local tool failure, or the tool-call
+  // cap. Either fails the turn (localized error row) instead of finishing it — see the
+  // verdict path. NOT cleared on pi retries: a retry re-runs the model call, never tools,
+  // so a recorded terminal outcome stands.
+  let loopTerminalError: ToolLoopTerminalError | undefined
+  // The seam passes the resolved assistant setting; this default only covers a seam that
+  // forgets (legacy's own assistant-less default is lower — 20 — so always passing the
+  // resolved value matters), and a non-positive limit is treated as 1.
+  const toolCallLimit = Math.max(1, request.toolCallLimit ?? DEFAULT_ASSISTANT_SETTINGS.maxToolCalls)
+  let toolTurns = 0
+
+  const abortSession = (): void => {
+    void session.abort().catch((error) => logger.warn('pi chat session abort failed', { error }))
+  }
+
+  // The turn's registry tools by pi name: their part payload is the raw execute output,
+  // and only their results can carry the trusted terminal-failure brand.
+  const payloadToolNames = new Set(tools.map((tool) => tool.name))
+
   const adapter = new PiStreamAdapter(
     {
       enqueue: (chunk) => {
         if (chunk.type === 'tool-output-error' && deniedToolCalls.has(chunk.toolCallId)) {
-          enqueueChunk({ type: 'tool-output-denied', toolCallId: chunk.toolCallId })
+          emitChunk({ type: 'tool-output-denied', toolCallId: chunk.toolCallId })
           return
         }
-        enqueueChunk(chunk)
+        emitChunk(chunk)
       }
     },
     // Chat tool parts carry the raw execute output (legacy parity for cards, deferred
     // lookups and replay); pi's native `{content, details}` envelope is what the agent
     // path's pi-owned tools keep.
-    new Set(tools.map((tool) => tool.name))
+    payloadToolNames
   )
   const unsubscribe = session.subscribe((event) => {
     // Content/tool/usage projection first; lifecycle bookkeeping after, mirroring
     // the agent connection's handlePiEvent ordering.
     adapter.handleEvent(event)
+    if (event.type === 'tool_execution_start') {
+      toolExecutionStartedAt.set(event.toolCallId, performance.now())
+      request.runtimeTimingSink?.onToolExecutionStart({ callId: event.toolCallId, toolName: event.toolName })
+      return
+    }
+    if (event.type === 'tool_execution_end') {
+      const startedAt = toolExecutionStartedAt.get(event.toolCallId)
+      toolExecutionStartedAt.delete(event.toolCallId)
+      if (startedAt !== undefined) {
+        request.runtimeTimingSink?.onToolExecutionEnd({
+          callId: event.toolCallId,
+          toolName: event.toolName,
+          durationMs: performance.now() - startedAt
+        })
+      }
+      // `details` is the registry execute output verbatim, so the process-local brand
+      // survives; only registry tools can carry it.
+      if (loopTerminalError === undefined && payloadToolNames.has(event.toolName)) {
+        const failure = getTrustedLocalToolTerminalFailure(
+          (event.result as { details?: unknown } | null | undefined)?.details
+        )
+        if (failure) {
+          loopTerminalError = new ToolLoopTerminalError(failure.userMessage ?? failure.error, failure.i18nKey)
+        }
+      }
+      return
+    }
     if (event.type === 'turn_end') {
       if (event.message.role === 'assistant' && event.message.stopReason) {
         lastStopReason = event.message.stopReason
       }
+      // pi's loop is content-driven (a turn with toolCall blocks continues regardless of
+      // its stopReason), so the cap counts turns that EXECUTED tools, not stopReason
+      // `toolUse`. Same boundary as the legacy `stepCountIs` cap: the limit-th tool turn
+      // completes (its results reach model + card), the loop never issues the next model
+      // call, and the turn fails with the shared cap error.
+      if (event.message.role === 'assistant' && messageHasToolCalls(event.message) && ++toolTurns >= toolCallLimit) {
+        loopTerminalError ??= new ToolLoopTerminalError(TOOL_CALL_LIMIT_MESSAGE, TOOL_CALL_LIMIT_I18N_KEY)
+        abortSession()
+        return
+      }
+      // A recorded terminal failure stops the loop at this boundary — the batch has fully
+      // settled (results reached the card), and unlike pi's every-result `terminate` rule
+      // this restores legacy's stop-at-the-step-boundary: no further model call, then the
+      // verdict fails the turn. Same lever the cap uses, one condition earlier.
+      if (loopTerminalError !== undefined) abortSession()
       return
     }
     if (event.type === 'agent_end') {
       // pi retries internally; a retry means the loop is not done, so the prior
-      // turn_end's stop reason must not taint the eventual verdict.
+      // turn_end's stop reason must not taint the eventual verdict. (Retry is disabled
+      // above, but the reset stays as the invariant.)
       if (event.willRetry) {
         lastStopReason = undefined
         lastAgentError = undefined
@@ -455,10 +571,6 @@ export async function streamPiChatTurn(
       }
     }
   })
-
-  const abortSession = (): void => {
-    void session.abort().catch((error) => logger.warn('pi chat session abort failed', { error }))
-  }
 
   const cleanup = (): void => {
     if (streamSettled) return
@@ -505,16 +617,40 @@ export async function streamPiChatTurn(
       signal.addEventListener('abort', abortSession, { once: true })
 
       session
-        .prompt(request.prompt.text, {
-          images: request.prompt.images,
-          // Chat text is model input verbatim — never a pi command or skill trigger.
-          expandPromptTemplates: false
-        })
+        .prompt(
+          // pi builds user content as [text, ...images], so with attachments the FINAL
+          // block is an image — the ovms scope (final TEXT block only) then applies
+          // nothing, exactly like the converter's replay of the same message.
+          request.userTextSuffix &&
+            !(request.userTextSuffix.scope === 'final-text-block' && request.prompt.images?.length)
+            ? applyUserTextSuffix(request.prompt.text, request.userTextSuffix)
+            : request.prompt.text,
+          {
+            images: request.prompt.images,
+            // Chat text is model input verbatim — never a pi command or skill trigger.
+            expandPromptTemplates: false
+          }
+        )
         .then(
           () => {
-            // A pi-side abort (reader cancel today, W4a approval flows later) with a live
-            // signal closes cleanly like a signal abort — an aborted turn never emits `finish`.
-            if (signal.aborted || lastStopReason === 'aborted' || streamSettled) {
+            if (streamSettled) return
+            // A user abort wins over everything — an aborted turn never errors.
+            if (signal.aborted) {
+              settleClosed()
+              return
+            }
+            // The legacy loop's terminal outcomes fail the turn AFTER the loop stopped:
+            // the tool results reached model + card, the user gets the localized error
+            // row (serializeError carries `i18nKey`), and no finish chunk lands. This
+            // must precede the stop-reason mapping — a terminal stop reads as `toolUse`.
+            if (loopTerminalError) {
+              fail(loopTerminalError)
+              return
+            }
+            // A pi-side abort (reader cancel, or the session aborting on its own) with a
+            // live signal closes cleanly like a signal abort — an aborted turn never
+            // emits `finish`.
+            if (lastStopReason === 'aborted') {
               settleClosed()
               return
             }
@@ -550,4 +686,10 @@ function lastErrorMessage(messages: unknown): string | undefined {
     if (message.role === 'assistant' && typeof message.errorMessage === 'string') return message.errorMessage
   }
   return undefined
+}
+
+function messageHasToolCalls(message: { content?: unknown }): boolean {
+  return (
+    Array.isArray(message.content) && message.content.some((block) => (block as { type?: string }).type === 'toolCall')
+  )
 }

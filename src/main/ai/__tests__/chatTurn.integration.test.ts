@@ -1,9 +1,9 @@
 import { InvalidResponseDataError, type UIMessageChunk } from 'ai'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { markTrustedLocalToolTerminalFailure } from '@main/ai/tools/toolLoopTerminal'
 import { BaseService } from '@main/core/lifecycle/BaseService'
 
-import { markTrustedLocalToolTerminalFailure } from '../runtime/aiSdk/loop/localToolTerminalOutcome'
 import { makeModel, makeProvider } from './fixtures'
 
 const mockCreateAgent = vi.fn()

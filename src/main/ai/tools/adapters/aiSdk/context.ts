@@ -66,6 +66,15 @@ export interface RequestContext {
    * shared default constant.
    */
   readonly toolOutputCharCap?: number
+  /**
+   * In-flight truncation for tool results generated INSIDE the loop (W5): the resolved
+   * threshold plus offload eligibility. Legacy reshapes what the model sees per model
+   * call through the aiCore middleware; the pi engine's registry bridge applies the same
+   * treatment at the tool-result boundary (`chatToolAdapter`). Absent ⇒ no in-flight
+   * truncation (synthetic / IPC-driven invocations, or the legacy path which owns its
+   * own middleware).
+   */
+  readonly toolResultTruncation?: { thresholdChars: number; canOffload: boolean }
 }
 
 /** Per-call context: {@link RequestContext} + AI SDK's per-`execute` fields. */

@@ -7,7 +7,7 @@ import { mcpResultToTextSummary } from '../../messages/toolResultRendering'
 import { registerBuiltinTools } from '../../tools/adapters/aiSdk/builtin/registerBuiltinTools'
 import { ToolRegistry } from '../../tools/adapters/aiSdk/registry'
 import type { ToolEntry } from '../../tools/adapters/aiSdk/types'
-import { markTrustedLocalToolTerminalFailure } from '../aiSdk'
+import { markTrustedLocalToolTerminalFailure } from '../../tools/toolLoopTerminal'
 import { toPiChatToolDefinition, toPiChatTools } from './chatToolAdapter'
 
 const requestContext = { requestId: 'req-test' } as never
@@ -66,6 +66,47 @@ describe('toPiChatToolDefinition', () => {
     expect(result.content).toEqual([{ type: 'text', text: JSON.stringify({ echoed: 'hi' }) }])
     // …while the renderer tool card and replay see the raw output via `details`.
     expect(result.details).toEqual({ echoed: 'hi' })
+  })
+
+  it('truncates the model-facing text in flight while the payload keeps the full output', async () => {
+    const huge = { blob: 'x'.repeat(4000) + '\n' + 'y'.repeat(4000) }
+    const entry = zodEntry({
+      tool: tool({ description: 'echo', inputSchema: z.object({}), execute: async () => huge })
+    })
+    const context = {
+      requestContext: { requestId: 'req-trunc', toolResultTruncation: { thresholdChars: 100, canOffload: false } }
+    }
+
+    const result = await toPiChatToolDefinition(entry, context).execute('call-t', {}, undefined, undefined, {} as never)
+
+    const text = (result.content as Array<{ type: string; text: string }>)[0]
+    expect(text.text).toContain('--- truncated (')
+    expect(text.text.length).toBeLessThan(JSON.stringify(huge).length)
+    // The card/persisted payload and the brand surface read the untouched raw output.
+    expect(result.details).toEqual(huge)
+  })
+
+  it('leaves `truncatable: false` entries fully intact', async () => {
+    const huge = 'x'.repeat(4000) + '\n' + 'y'.repeat(4000)
+    const entry: ToolEntry = {
+      name: 'exempt',
+      namespace: 'test',
+      description: 'exempt',
+      defer: 'never',
+      truncatable: false,
+      tool: tool({
+        description: 'exempt',
+        inputSchema: z.object({}),
+        execute: async () => ({ text: huge })
+      })
+    }
+    const context = {
+      requestContext: { requestId: 'req-exempt', toolResultTruncation: { thresholdChars: 100, canOffload: false } }
+    }
+
+    const result = await toPiChatToolDefinition(entry, context).execute('call-e', {}, undefined, undefined, {} as never)
+
+    expect(result.content).toEqual([{ type: 'text', text: JSON.stringify({ text: huge }) }])
   })
 
   it('uses the tool declared model view when present', async () => {

@@ -1,8 +1,4 @@
 export { Agent } from './Agent'
-export {
-  getTrustedLocalToolTerminalFailure,
-  markTrustedLocalToolTerminalFailure
-} from './loop/localToolTerminalOutcome'
 export type { AgentLoopHooks } from './loop/types'
 export { mergeUsage, ZERO_USAGE } from './observers/usage'
 export { buildAgentParams } from './params/buildAgentParams'

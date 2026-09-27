@@ -1,9 +1,15 @@
 import { stepCountIs, type StepResult, type StopCondition, type ToolSet } from 'ai'
 
-import { getTrustedLocalToolTerminalFailure, type TerminalToolFailure } from './localToolTerminalOutcome'
+import {
+  getTrustedLocalToolTerminalFailure,
+  TOOL_CALL_LIMIT_I18N_KEY,
+  TOOL_CALL_LIMIT_MESSAGE,
+  ToolLoopTerminalError,
+  type TerminalToolFailure
+} from '@main/ai/tools/toolLoopTerminal'
 
-export type { TerminalToolFailure } from './localToolTerminalOutcome'
-
+export type { TerminalToolFailure } from '@main/ai/tools/toolLoopTerminal'
+export { ToolLoopTerminalError }
 type ToolLoopStopWhen = StopCondition<ToolSet> | Array<StopCondition<ToolSet>> | undefined
 
 type ToolLoopTerminationInput = {
@@ -20,9 +26,6 @@ type TrackedStopState = {
 }
 
 const trackedStopConditions = new WeakMap<StopCondition<ToolSet>, TrackedStopState>()
-
-const TOOL_CALL_LIMIT_MESSAGE =
-  'The assistant reached the tool-call limit before producing a final answer. Raise "Max tool call rounds" in the assistant settings, or reduce the task scope.'
 
 function trackStopCondition(reason: TrackedStopReason, condition: StopCondition<ToolSet>): StopCondition<ToolSet> {
   const state: TrackedStopState = { reason, step: undefined }
@@ -77,16 +80,6 @@ export function getLastTerminalToolFailure(steps: Array<StepResult<ToolSet>>): T
 export const stopOnTerminalToolFailure: StopCondition<ToolSet> = ({ steps }) =>
   getLastTerminalToolFailure(steps) !== undefined
 
-export class ToolLoopTerminalError extends Error {
-  constructor(
-    message: string,
-    public readonly i18nKey?: string
-  ) {
-    super(message)
-    this.name = 'ToolLoopTerminalError'
-  }
-}
-
 /** Convert a trusted terminal tool stop or an actually-triggered cap into an application error. */
 export function resolveToolLoopTerminalError({
   steps,
@@ -102,7 +95,7 @@ export function resolveToolLoopTerminalError({
   if (wasStopReasonTriggered(stopWhen, 'steer-yield', steps)) return undefined
 
   if (wasStopReasonTriggered(stopWhen, 'tool-call-limit', steps)) {
-    return new ToolLoopTerminalError(TOOL_CALL_LIMIT_MESSAGE, 'tool_call_limit_reached')
+    return new ToolLoopTerminalError(TOOL_CALL_LIMIT_MESSAGE, TOOL_CALL_LIMIT_I18N_KEY)
   }
 
   return undefined

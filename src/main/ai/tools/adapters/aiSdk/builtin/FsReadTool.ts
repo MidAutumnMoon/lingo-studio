@@ -13,9 +13,15 @@ import { tool } from 'ai'
 import * as z from 'zod'
 
 import { loggerService } from '@logger'
+import { fsReadModelOutput } from '@main/ai/messages/builtinToolResultViews'
 import { isTextByContent } from '@main/utils/file'
 import { readTextFileWithAutoEncoding } from '@main/utils/legacyFile'
-import { CONTEXT_PERSIST_THRESHOLD_CHARS, FS_READ_TOOL_NAME } from '@shared/ai/builtinTools'
+import {
+  CONTEXT_PERSIST_THRESHOLD_CHARS,
+  FS_READ_TOOL_NAME,
+  fsReadOutputSchema,
+  type FsReadOutput
+} from '@shared/ai/builtinTools'
 import { AbsoluteFilePathSchema } from '@shared/types/file'
 import { MB } from '@shared/utils/constants'
 
@@ -60,33 +66,6 @@ const inputSchema = z.object({
         `default) is the real gate; an oversized page reports the exact cap and a recommended limit.`
     )
 })
-
-const outputSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('text'),
-    text: z.string(),
-    startLine: z.number().int(),
-    endLine: z.number().int(),
-    totalLines: z.number().int()
-  }),
-  z.object({
-    kind: z.literal('error'),
-    code: z.enum([
-      'relative-path',
-      'access-denied',
-      'not-found',
-      'not-a-file',
-      'binary',
-      'too-large',
-      'output-too-large',
-      'offset-out-of-range',
-      'parse-error'
-    ]),
-    message: z.string()
-  })
-])
-
-export type FsReadOutput = z.infer<typeof outputSchema>
 
 /**
  * Exact-path admission against the request's persisted-output allow-list
@@ -278,18 +257,8 @@ When reading a persisted output to summarize, analyze, or act on it, read sequen
 
 The persistence layer applies to non-read tools only; this tool never persists its own output — narrow the read (smaller \`limit\`) instead.`,
   inputSchema,
-  outputSchema,
-  toModelOutput: ({ output }) => {
-    if (output.kind === 'error') {
-      return { type: 'error-text' as const, value: `[Error: ${output.code}] ${output.message}` }
-    }
-    const remaining = output.totalLines - output.endLine
-    const tail =
-      remaining > 0
-        ? `\n\n[showing lines ${output.startLine}-${output.endLine} of ${output.totalLines}; ${remaining} more — call again with offset=${output.endLine + 1} to continue]`
-        : ''
-    return { type: 'text' as const, value: `${output.text}${tail}` }
-  },
+  outputSchema: fsReadOutputSchema,
+  toModelOutput: ({ output }) => fsReadModelOutput(output),
   execute: async (input, options) => {
     const { request } = getToolCallContext(options)
     return executeFsRead(input, request.persistedOutputPaths, request.toolOutputCharCap)

@@ -39,7 +39,7 @@ import type {
  * | ↳ other builtin outputs              | JSON text                                              | lossy — their `toModelOutput` views are unported (W5 register) |
  * | tool-* / dynamic-tool, non-terminal  | dropped (call and result)                              | by design — a dangling call breaks provider pairing rules |
  * | source-url / source-document         | dropped                                                | lossy — citations metadata (W5 register row) |
- * | step-start                           | dropped                                                | lossy — one persisted message becomes one assistant entry, so tool calls from different steps share one wire turn (W5 register) |
+ * | step-start                           | splits the message into one assistant entry per step; messages written without markers get the same boundaries the legacy engine infers (`restoreLegacyToolStepBoundaries`) | full — matches pi's own one-assistant-message-per-step sessions |
  * | data-error / data-translation / data-code | dropped                                          | UI-only projections; matches the legacy engine's treatment |
  * | data-compact / data-compaction-anchor| dropped                                                | markers of host-owned durable compaction |
  * | data-clear / data-knowledge-scope / data-conversation-reset | dropped                          | hidden control parts, never model content |
@@ -60,10 +60,18 @@ import { isToolUIPart } from 'ai'
 import type { CherryMessagePart, CherryUIMessage, MessageStats } from '@shared/data/types/message'
 import { parseDataUrl } from '@shared/utils/dataUrl'
 
+import { builtinToolResultModelText } from '../../messages/builtinToolResultViews'
 import { ALL_MEDIA, type MediaCapabilities, stripUnsupportedMedia } from '../../messages/messageCapabilities'
-import { dropUnansweredApprovals, resolveReplayToolName } from '../../messages/messageRules'
+import {
+  dropUnansweredApprovals,
+  restoreLegacyToolStepBoundaries,
+  resolveReplayToolName
+} from '../../messages/messageRules'
 import { renderPersistedToolOutputs } from '../../messages/persistedOutputRendering'
 import { isMcpCallToolResult, mcpResultToTextSummary } from '../../messages/toolResultRendering'
+import { TOOL_INVOKE_TOOL_NAME } from '../../tools/adapters/aiSdk/meta/toolInvoke'
+import type { UserTextSuffix } from './userThinkingSuffix'
+import { applyUserTextSuffix } from './userThinkingSuffix'
 
 /** pi identity fields for a replayed assistant message (required by pi's AssistantMessage). */
 export interface PiHistoryModelDescriptor {
@@ -87,6 +95,13 @@ export interface PiChatHistoryOptions {
   mediaCapabilities?: MediaCapabilities
   /** Tool names declared for this request — replayed verbatim even when wire-illegal. */
   declaredToolNames?: ReadonlySet<string>
+  /**
+   * The turn's user-text thinking suffix (W5): legacy re-suffixed the whole outgoing
+   * prompt every request — replayed user messages included — so replay parity requires
+   * the same treatment here. Resolved once by the seam (`resolveUserThinkingSuffix`)
+   * and threaded through the engine.
+   */
+  userTextSuffix?: UserTextSuffix
 }
 
 /** Placeholder identity for history pi cannot attribute to a live provider. */
@@ -170,10 +185,16 @@ function toToolArguments(input: unknown): JsonObject {
 /**
  * Model-facing text for a replayed tool output. An MCP call result renders through the summary the
  * MCP tool itself declares (`toModelOutput`) — the raw response would put base64 media into the
- * prompt, and the persist-lane trim never covers non-text content. Other outputs keep their JSON.
+ * prompt, and the persist-lane trim never covers non-text content. A DECLARED builtin then renders
+ * through its model view (the static twins in `builtinToolResultViews`, legacy's
+ * `convertToModelMessages({ tools })` semantics); everything else keeps its JSON.
  */
-function toolResultText(output: unknown): string {
+function toolResultText(toolName: string, output: unknown, input: unknown, declared?: ReadonlySet<string>): string {
   if (isMcpCallToolResult(output)) return mcpResultToTextSummary(output)
+  if (declared?.has(toolName)) {
+    const view = builtinToolResultModelText(toolName, output, input)
+    if (view !== undefined) return view
+  }
   return JSON.stringify(output) ?? 'undefined'
 }
 
@@ -298,7 +319,13 @@ function toolSignature(part: ToolPart, api: Api): string | undefined {
 /** Any tool-shaped part: `tool-${name}` or `dynamic-tool`. */
 type ToolPart = Extract<CherryMessagePart, { toolCallId: string }>
 
-function buildToolResult(tool: ToolPart, toolName: string, timestamp: number): ToolResultMessage {
+function buildToolResult(
+  tool: ToolPart,
+  toolName: string,
+  input: unknown,
+  timestamp: number,
+  declared?: ReadonlySet<string>
+): ToolResultMessage {
   const base = { role: 'toolResult' as const, toolCallId: tool.toolCallId, toolName, timestamp }
   if (tool.state === 'output-denied') {
     const reason = 'approval' in tool ? tool.approval?.reason : undefined
@@ -323,13 +350,17 @@ function buildToolResult(tool: ToolPart, toolName: string, timestamp: number): T
   const details = toolResultDetails(output)
   return {
     ...base,
-    content: [{ type: 'text', text: toolResultText(output) }],
+    content: [{ type: 'text', text: toolResultText(toolName, output, input, declared) }],
     ...(details !== undefined && { details }),
     isError: false
   }
 }
 
-function toUserMessage(message: CherryUIMessage, timestamp: number): UserMessage | undefined {
+function toUserMessage(
+  message: CherryUIMessage,
+  timestamp: number,
+  userTextSuffix?: UserTextSuffix
+): UserMessage | undefined {
   const content: Array<TextContent | ImageContent> = []
   for (const part of message.parts) {
     if (part.type === 'text' && part.text) {
@@ -339,6 +370,21 @@ function toUserMessage(message: CherryUIMessage, timestamp: number): UserMessage
     }
   }
   if (content.length === 0) return undefined
+  // Applied on the block array before the single-text collapse, matching where legacy's
+  // transformParams sat: qwen suffixes every text block, ovms only a text FINAL block.
+  if (userTextSuffix) {
+    if (userTextSuffix.scope === 'every-text-part') {
+      for (let i = 0; i < content.length; i++) {
+        const block = content[i]
+        if (block.type === 'text') {
+          content[i] = { type: 'text', text: applyUserTextSuffix(block.text, userTextSuffix) }
+        }
+      }
+    } else if (content.at(-1)?.type === 'text') {
+      const last = content[content.length - 1] as TextContent
+      content[content.length - 1] = { type: 'text', text: applyUserTextSuffix(last.text, userTextSuffix) }
+    }
+  }
   if (content.length === 1 && content[0].type === 'text') {
     return { role: 'user', content: content[0].text, timestamp }
   }
@@ -353,17 +399,32 @@ function toSystemMessage(message: CherryUIMessage, timestamp: number): SystemMes
   return text ? { role: 'system', content: text, timestamp } : undefined
 }
 
-function toAssistantTurn(
-  message: CherryUIMessage,
-  options: PiChatHistoryOptions,
+/** One step's slice of a message's parts: the `step-start` markers themselves drop. */
+function stepSegments(parts: CherryUIMessage['parts']): CherryUIMessage['parts'][] {
+  const segments: CherryUIMessage['parts'][] = []
+  let current: CherryUIMessage['parts'] = []
+  for (const part of parts) {
+    if (part.type === 'step-start') {
+      segments.push(current)
+      current = []
+    } else {
+      current.push(part)
+    }
+  }
+  segments.push(current)
+  return segments
+}
+
+function buildAssistantSegment(
+  parts: CherryUIMessage['parts'],
+  descriptor: PiHistoryModelDescriptor,
+  declared: ReadonlySet<string> | undefined,
   timestamp: number
 ): { assistant: AssistantMessage; toolResults: ToolResultMessage[] } | undefined {
-  const descriptor = options.resolveHistoryModel?.(message) ?? HISTORY_MODEL_PLACEHOLDER
-  const declared = options.declaredToolNames
   const isDeclared = declared ? (name: string) => declared.has(name) : undefined
   const content: AssistantMessage['content'] = []
   const toolResults: ToolResultMessage[] = []
-  for (const part of message.parts) {
+  for (const part of parts) {
     const name = toolPartName(part)
     if (name === undefined) {
       const text = part.type === 'text' ? textBlock(part, descriptor.api) : undefined
@@ -380,17 +441,32 @@ function toAssistantTurn(
     }
     const tool = part as ToolPart
     if (!isTerminalToolState(tool.state)) continue // dangling call — dropped pair (matrix)
-    const wireName = resolveReplayToolName(name, isDeclared)
+    const rawInput = 'input' in tool ? tool.input : undefined
+    // A legacy defer-mode `tool_invoke` part replays as the INNER tool it dispatched:
+    // pi never declares the meta wrapper, so the envelope would digest-rename to an
+    // undeclared function AND carry the wrong argument shape (`{name, params}`).
+    let replayName: string
+    let replayInput: unknown
+    if (name === TOOL_INVOKE_TOOL_NAME) {
+      const inner = asJsonObject(rawInput)
+      const innerName = inner?.name
+      if (typeof innerName !== 'string') continue
+      replayName = resolveReplayToolName(innerName, isDeclared)
+      replayInput = inner?.params
+    } else {
+      replayName = resolveReplayToolName(name, isDeclared)
+      replayInput = rawInput
+    }
     const thoughtSignature = toolSignature(tool, descriptor.api)
     const call: ToolCall = {
       type: 'toolCall',
       id: tool.toolCallId,
-      name: wireName,
-      arguments: toToolArguments('input' in tool ? tool.input : undefined),
+      name: replayName,
+      arguments: toToolArguments(replayInput),
       ...(thoughtSignature !== undefined && { thoughtSignature })
     }
     content.push(call)
-    toolResults.push(buildToolResult(tool, wireName, timestamp))
+    toolResults.push(buildToolResult(tool, replayName, replayInput, timestamp, declared))
   }
   if (content.length === 0) return undefined
 
@@ -400,11 +476,35 @@ function toAssistantTurn(
     api: descriptor.api,
     provider: descriptor.provider,
     model: descriptor.model,
-    usage: toPiUsage(message.metadata?.stats),
+    usage: toPiUsage(undefined),
     stopReason: toolResults.length > 0 ? 'toolUse' : 'stop',
     timestamp
   }
   return { assistant, toolResults }
+}
+
+/**
+ * One persisted message → one assistant entry per step (pi's own sessions keep one assistant
+ * message per step, and `stopReason: toolUse` is only true of a step that actually calls).
+ */
+function toAssistantTurns(
+  message: CherryUIMessage,
+  options: PiChatHistoryOptions,
+  timestamp: number
+): Array<{ assistant: AssistantMessage; toolResults: ToolResultMessage[] }> {
+  const descriptor = options.resolveHistoryModel?.(message) ?? HISTORY_MODEL_PLACEHOLDER
+  return stepSegments(message.parts)
+    .map((segment) => buildAssistantSegment(segment, descriptor, options.declaredToolNames, timestamp))
+    .filter((turn): turn is NonNullable<typeof turn> => turn !== undefined)
+    .map((turn, index, turns) => ({
+      ...turn,
+      // The message's persisted stats belong to the message as a whole — carried by its
+      // LAST entry so per-session accounting sees them once, not once per step.
+      assistant: {
+        ...turn.assistant,
+        usage: index === turns.length - 1 ? toPiUsage(message.metadata?.stats) : toPiUsage(undefined)
+      }
+    }))
 }
 
 /**
@@ -416,10 +516,14 @@ export function toPiSessionEntries(
   messages: readonly CherryUIMessage[],
   options: PiChatHistoryOptions = {}
 ): SessionMessageEntry[] {
-  const prepared = stripUnsupportedMedia(
-    dropUnansweredApprovals(renderPersistedToolOutputs(messages as CherryUIMessage[])),
-    options.mediaCapabilities ?? ALL_MEDIA
-  )
+  // The restoration pass is generically typed over `UIMessage`; this pipeline is
+  // `CherryUIMessage`-typed end to end (it only inserts `step-start` markers).
+  const prepared = restoreLegacyToolStepBoundaries(
+    stripUnsupportedMedia(
+      dropUnansweredApprovals(renderPersistedToolOutputs(messages as CherryUIMessage[])),
+      options.mediaCapabilities ?? ALL_MEDIA
+    )
+  ) as CherryUIMessage[]
 
   const entries: SessionMessageEntry[] = []
   const emit = (message: SessionMessageEntry['message'], id: string, timestamp: string): void => {
@@ -433,14 +537,14 @@ export function toPiSessionEntries(
       const system = toSystemMessage(message, timestamp)
       if (system) emit(system, message.id, iso)
     } else if (message.role === 'user') {
-      const user = toUserMessage(message, timestamp)
+      const user = toUserMessage(message, timestamp, options.userTextSuffix)
       if (user) emit(user, message.id, iso)
     } else {
-      const turn = toAssistantTurn(message, options, timestamp)
-      if (turn) {
-        emit(turn.assistant, message.id, iso)
-        turn.toolResults.forEach((result, index) => emit(result, `${message.id}#t${index}`, iso))
-      }
+      toAssistantTurns(message, options, timestamp).forEach((turn, index) => {
+        const id = index === 0 ? message.id : `${message.id}#s${index}`
+        emit(turn.assistant, id, iso)
+        turn.toolResults.forEach((result, resultIndex) => emit(result, `${id}#t${resultIndex}`, iso))
+      })
     }
   }
   return entries

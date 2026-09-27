@@ -187,6 +187,38 @@ export type KbSearchOutput = z.infer<typeof kbSearchOutputSchema>
 export const FS_READ_TOOL_NAME = 'fs_read'
 
 /**
+ * fs_read's output union: a paged text slice or a structured error. Lives in the shared
+ * schema home (not the ai-sdk adapter) so the replayed-result view
+ * (`messages/builtinToolResultViews`) derives from the real schema instead of mirroring it.
+ */
+export const fsReadOutputSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('text'),
+    text: z.string(),
+    startLine: z.number().int(),
+    endLine: z.number().int(),
+    totalLines: z.number().int()
+  }),
+  z.object({
+    kind: z.literal('error'),
+    code: z.enum([
+      'relative-path',
+      'access-denied',
+      'not-found',
+      'not-a-file',
+      'binary',
+      'too-large',
+      'output-too-large',
+      'offset-out-of-range',
+      'parse-error'
+    ]),
+    message: z.string()
+  })
+])
+
+export type FsReadOutput = z.infer<typeof fsReadOutputSchema>
+
+/**
  * Persist/truncate boundary for the context-build layer, and fs_read's
  * per-call output cap. ONE constant on purpose: fs_read must be able to
  * page through anything the persistence layer stored, so its cap must be

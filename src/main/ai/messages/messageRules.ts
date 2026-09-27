@@ -31,8 +31,11 @@ function isAssistantContinuation(part: UIMessage['parts'][number]): boolean {
   return part.type === 'text' || part.type === 'reasoning' || part.type === 'file'
 }
 
-/** Restore inferable step boundaries that the v1 flat-block migration could not persist. */
-function restoreLegacyToolStepBoundaries(messages: UIMessage[]): UIMessage[] {
+/**
+ * Restore inferable step boundaries that the v1 flat-block migration could not persist.
+ * Shared with the pi chat history converter, which segments on the same markers.
+ */
+export function restoreLegacyToolStepBoundaries(messages: UIMessage[]): UIMessage[] {
   let out: UIMessage[] | undefined
   messages.forEach((message, messageIndex) => {
     if (message.role !== 'assistant' || message.parts.some((part) => part.type === 'step-start')) return

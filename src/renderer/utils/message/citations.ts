@@ -128,6 +128,11 @@ function resolveCitableToolName(part: CherryMessagePart): string | null {
     if (part.type !== 'dynamic-tool') return rawName
 
     const partMetadata = readCherryMeta(part)?.tool
+    // The pi chat engine's registry builtins surface as dynamic parts stamped
+    // `tool: { type: 'builtin', name }` by the pi stream adapter — that stamp IS the
+    // Cherry provenance (agent-path lookups ride cherry-tools MCP names below instead,
+    // and no pi-native builtin shares a citable name).
+    if (partMetadata?.type === 'builtin') return rawName
     const outputMetadata = extractOutputMetadata((toolPart as { output?: unknown }).output).metadata
     const belongsToCherryTools = (metadata: ToolMetadata | typeof partMetadata | undefined) =>
       metadata?.serverId === CHERRY_TOOLS_MCP_SERVER || metadata?.serverName === CHERRY_TOOLS_MCP_SERVER

@@ -27,13 +27,12 @@ import { createContextMiddleware, definePlugin, groupIntoTurns } from '@cherryst
 import { messageService } from '@data/services/MessageService'
 import { loggerService } from '@logger'
 import {
-  APPROX_CHARS_PER_TOKEN,
-  IN_FLIGHT_TOOL_OUTPUT_WINDOW_RATIO,
-  MIN_IN_FLIGHT_TRUNCATE_THRESHOLD
-} from '@main/ai/constants'
+  IN_FLIGHT_HEAD_CHARS as HEAD_CHARS,
+  IN_FLIGHT_TAIL_CHARS as TAIL_CHARS,
+  resolveInFlightTruncateThreshold
+} from '@main/ai/contextBuild/inFlightTruncate'
 import { createFileManagerStorageAdapter } from '@main/ai/contextBuild/persistedOutputAdapter'
 import { resolveContextWindow } from '@main/ai/contextBuild/resolveContextWindow'
-import { resolveInputRoom } from '@main/ai/contextBuild/resolveInputRoom'
 import { resolveRequestedMaxOutputTokens } from '@main/ai/contextBuild/resolveOutputReservation'
 import { ErrorCode, isDataApiError } from '@shared/data/api/errors'
 
@@ -42,9 +41,6 @@ import type { RequestScope } from '../scope'
 
 const logger = loggerService.withContext('contextBuild')
 
-/** head/tail kept inline in the truncation marker (carried from P1 / #14916). */
-const HEAD_CHARS = 500
-const TAIL_CHARS = 1_000
 /** Never drop below this many messages in the sliding-window fallback. */
 const MIN_MESSAGES_KEPT = 2
 
@@ -65,19 +61,9 @@ const MIN_MESSAGES_KEPT = 2
  * which would make `text.length <= threshold` false for EVERY result and
  * offload ordinary tool output.
  *
- * Exported for tests.
+ * Exported for tests (shared home: `contextBuild/inFlightTruncate`).
  */
-export function resolveInFlightTruncateThreshold(
-  configuredChars: number,
-  contextWindow: number | undefined,
-  outputReservation?: number
-): number {
-  const window = resolveContextWindow(contextWindow)
-  if (window === null) return configuredChars
-  const inputRoom = resolveInputRoom(window, outputReservation)
-  const windowBudget = Math.floor(inputRoom * IN_FLIGHT_TOOL_OUTPUT_WINDOW_RATIO * APPROX_CHARS_PER_TOKEN)
-  return Math.max(MIN_IN_FLIGHT_TRUNCATE_THRESHOLD, Math.min(configuredChars, windowBudget))
-}
+export { resolveInFlightTruncateThreshold } from '@main/ai/contextBuild/inFlightTruncate'
 
 /** Exported for direct middleware testing. Returns null when the layer is off. */
 export function buildContextOptions(scope: RequestScope): ContextMiddlewareOptions | null {

@@ -3,7 +3,8 @@ import { APICallError, type ModelMessage, tool, type UIMessageChunk } from 'ai'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as z from 'zod'
 
-import { markTrustedLocalToolTerminalFailure } from '../localToolTerminalOutcome'
+import { markTrustedLocalToolTerminalFailure } from '@main/ai/tools/toolLoopTerminal'
+
 import { createToolCallLimitStopCondition } from '../toolLoopTermination'
 import type { AgentLoopParams } from '../types'
 

@@ -7,6 +7,7 @@ import * as z from 'zod'
 import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/message'
 
 import { toolApprovalRegistry } from '../../toolApproval/ToolApprovalRegistry'
+import { markTrustedLocalToolTerminalFailure, ToolLoopTerminalError } from '../../tools/toolLoopTerminal'
 import type { AgentRuntimeUsageInvocation } from '../types'
 import { streamPiChatTurn, type PiChatProviderSource } from './chatEngine'
 import { toPiChatToolSurface } from './chatToolSurface'
@@ -370,6 +371,134 @@ describe('streamPiChatTurn', () => {
     await expect(drain(stream)).rejects.toThrow('provider exploded')
   })
 
+  it('does not auto-retry a retryable provider failure (retry has one owner: the host)', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-no-retry')
+    // A message pi classifies as retryable (rate-limit pattern) — with the session-level
+    // auto-retry left at its defaults, this turn would re-prompt up to 3 times.
+    fauxStates
+      .get('exec-no-retry')!
+      .core.setResponses([
+        faux.fauxAssistantMessage('partial', { stopReason: 'error', errorMessage: 'Rate limit exceeded' })
+      ])
+
+    const stream = await streamPiChatTurn(
+      { executionId: 'exec-no-retry', provider, history: [], prompt: userTurn('hi') },
+      new AbortController().signal
+    )
+    await expect(drain(stream)).rejects.toThrow('Rate limit exceeded')
+
+    const state = fauxStates.get('exec-no-retry')!
+    expect(state.capturedContexts).toHaveLength(1)
+  })
+
+  it('reports thinking duration in invocation metrics and feeds the runtime-timing sink for tools', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-timing')
+    fauxStates.get('exec-timing')!.core.setResponses([
+      (): ReturnType<typeof faux.fauxAssistantMessage> => ({
+        ...faux.fauxAssistantMessage([faux.fauxThinking('pondering'), faux.fauxToolCall('echo', { q: 'x' })]),
+        responseId: 'resp-timing'
+      }),
+      faux.fauxAssistantMessage('done')
+    ])
+    const invocations: AgentRuntimeUsageInvocation[] = []
+    const toolStarts: Array<{ callId: string; toolName?: string }> = []
+    const toolEnds: Array<{ callId: string; toolName?: string; durationMs: number }> = []
+
+    const execute = vi.fn(async () => ({ content: [{ type: 'text' as const, text: 'ok' }], details: { ok: 1 } }))
+    const chunks = await drain(
+      await streamPiChatTurn(
+        {
+          executionId: 'exec-timing',
+          provider,
+          history: [],
+          prompt: userTurn('hi'),
+          tools: [echoTool(execute)],
+          onInvocation: (invocation) => invocations.push(invocation),
+          runtimeTimingSink: {
+            onToolExecutionStart: (event) => toolStarts.push(event),
+            onToolExecutionEnd: (event) => toolEnds.push(event)
+          }
+        },
+        new AbortController().signal
+      )
+    )
+    expect(chunks.at(-1)).toMatchObject({ type: 'finish' })
+
+    // The thinking-bearing response's invocation carries a thinking duration (legacy
+    // billing semantics: first thinking frame → first content frame).
+    const thinkingInvocation = invocations.find((invocation) => invocation.requestId.endsWith('resp-timing'))
+    expect(thinkingInvocation?.metrics?.timeThinkingMs).toBeGreaterThanOrEqual(0)
+    expect(thinkingInvocation?.metrics?.timeFirstTokenMs).toBeGreaterThanOrEqual(0)
+
+    // The tool execution produced one start/end span pair keyed by the trunk's sink shape.
+    expect(toolStarts).toHaveLength(1)
+    expect(toolEnds).toHaveLength(1)
+    expect(toolStarts[0]).toMatchObject({ toolName: 'echo' })
+    expect(toolEnds[0]).toMatchObject({ toolName: 'echo' })
+    expect(toolEnds[0].callId).toBe(toolStarts[0].callId)
+    expect(toolEnds[0].durationMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it('extracts inline <think> markup into reasoning parts on the openai-completions family', async () => {
+    const faux = await importFaux()
+    await fauxProviderSource(faux, 'exec-think')
+    const state = fauxStates.get('exec-think')!
+    // The extraction gate keys on the registered model's api family (faux defaults to
+    // 'faux'): register an openai-completions-shaped entry while the core keeps its own
+    // model for response synthesis.
+    const fauxModel = state.core.models[0]
+    const provider: PiChatProviderSource = {
+      name: 'faux-chat',
+      apiKey: 'test-key',
+      modelId: fauxModel.id,
+      config: {
+        name: 'Faux Chat',
+        api: 'openai-completions',
+        models: [{ ...fauxModel, api: 'openai-completions' }],
+        streamSimple: (_model, context, options) => {
+          state.capturedContexts.push(context)
+          return state.core.streamSimple(fauxModel, context, options)
+        }
+      }
+    }
+    state.core.setResponses([faux.fauxAssistantMessage([faux.fauxText('<think>hidden plan</think>visible answer')])])
+
+    const chunks = await drain(
+      await streamPiChatTurn(
+        { executionId: 'exec-think', provider, history: [], prompt: userTurn('hi') },
+        new AbortController().signal
+      )
+    )
+    const message = await accumulate(chunks)
+
+    const reasoning = message.parts.find((part) => part.type === 'reasoning')
+    const text = message.parts.find((part) => part.type === 'text')
+    expect((reasoning as { text?: string } | undefined)?.text).toBe('hidden plan')
+    expect((text as { text?: string } | undefined)?.text).toBe('visible answer')
+  })
+
+  it('keeps literal tags as content on the faux family (gate check)', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-no-think')
+    fauxStates
+      .get('exec-no-think')!
+      .core.setResponses([faux.fauxAssistantMessage([faux.fauxText('<think>literal</think>')])])
+
+    const chunks = await drain(
+      await streamPiChatTurn(
+        { executionId: 'exec-no-think', provider, history: [], prompt: userTurn('hi') },
+        new AbortController().signal
+      )
+    )
+    const message = await accumulate(chunks)
+    expect(message.parts.some((part) => part.type === 'reasoning')).toBe(false)
+    expect((message.parts.find((part) => part.type === 'text') as { text?: string } | undefined)?.text).toBe(
+      '<think>literal</think>'
+    )
+  })
+
   it('reports one usage invocation with the inclusive/exclusive token split the accounting expects', async () => {
     const faux = await importFaux()
     const provider = await fauxProviderSource(faux, 'exec-usage')
@@ -504,19 +633,197 @@ describe('streamPiChatTurn', () => {
     expect(core.getPendingResponseCount()).toBe(1)
   })
 
-  it('errors the stream when the model stops at the output limit', async () => {
+  it('finishes a length-truncated turn successfully (legacy parity, gateway maps it)', async () => {
     const faux = await importFaux()
     const provider = await fauxProviderSource(faux, 'exec-length')
     fauxStates.get('exec-length')!.core.setResponses([faux.fauxAssistantMessage('truncated', { stopReason: 'length' })])
 
-    await expect(
-      drain(
-        await streamPiChatTurn(
-          { executionId: 'exec-length', provider, history: [], prompt: userTurn('hi') },
-          new AbortController().signal
-        )
+    const chunks = await drain(
+      await streamPiChatTurn(
+        { executionId: 'exec-length', provider, history: [], prompt: userTurn('hi') },
+        new AbortController().signal
       )
-    ).rejects.toThrow(/output limit/)
+    )
+
+    // Truncation is not an error: nothing in-app persists or renders finishReason, and
+    // the gateway SSE adapters map 'length' to each family's max-tokens vocabulary.
+    expect(chunks.at(-1)).toMatchObject({ type: 'finish', finishReason: 'length' })
+  })
+
+  it('fails the turn with the localized cap error when the tool-call limit is reached', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-cap')
+    const core = fauxStates.get('exec-cap')!.core
+    core.setResponses([
+      faux.fauxAssistantMessage([faux.fauxToolCall('echo', { q: 'one' })]),
+      faux.fauxAssistantMessage([faux.fauxToolCall('echo', { q: 'two' })]),
+      faux.fauxAssistantMessage('should never stream')
+    ])
+    const execute = vi.fn(async (_id: string, params: unknown) => ({
+      content: [{ type: 'text' as const, text: `echoed:${(params as { q: string }).q}` }],
+      details: null
+    }))
+
+    const stream = await streamPiChatTurn(
+      {
+        executionId: 'exec-cap',
+        provider,
+        history: [],
+        prompt: userTurn('loop forever'),
+        tools: [echoTool(execute)],
+        toolCallLimit: 2
+      },
+      new AbortController().signal
+    )
+    const chunks: CherryUIMessageChunk[] = []
+    const reader = stream.getReader()
+    await expect(
+      (async () => {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          chunks.push(value)
+        }
+      })()
+    ).rejects.toThrow(/tool-call limit/)
+
+    // The two limit-bounded tool turns executed (results reached the stream); the third
+    // model call never happened and no finish chunk landed.
+    expect(execute).toHaveBeenCalledTimes(2)
+    expect(chunks.filter((chunk) => chunk.type === 'tool-output-available')).toHaveLength(2)
+    expect(chunks.some((chunk) => chunk.type === 'finish')).toBe(false)
+  })
+
+  it('fails the turn with the branded error when a trusted local tool reports a terminal failure', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-terminal')
+    fauxStates
+      .get('exec-terminal')!
+      .core.setResponses([faux.fauxAssistantMessage([faux.fauxToolCall('echo', { q: 'x' })])])
+
+    const branded = markTrustedLocalToolTerminalFailure({
+      terminal: true,
+      retryable: false,
+      error: 'web search is not configured',
+      userMessage: 'Web search is not configured.',
+      i18nKey: 'web_search_provider_unavailable'
+    })
+    const stream = await streamPiChatTurn(
+      {
+        executionId: 'exec-terminal',
+        provider,
+        history: [],
+        prompt: userTurn('search'),
+        tools: [echoTool(async () => ({ content: [{ type: 'text' as const, text: 'failed' }], details: branded }))]
+      },
+      new AbortController().signal
+    )
+    const chunks: CherryUIMessageChunk[] = []
+    const reader = stream.getReader()
+    const failure = (async () => {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+      }
+    })().then(
+      () => undefined,
+      (error: unknown) => error
+    )
+    const error = (await failure) as ToolLoopTerminalError
+    // The legacy surface: message + i18nKey (serializeError carries it to the renderer's
+    // localized error row), no finish chunk, the tool result still streamed.
+    expect(error).toBeInstanceOf(ToolLoopTerminalError)
+    expect(error.message).toBe('Web search is not configured.')
+    expect(error.i18nKey).toBe('web_search_provider_unavailable')
+    expect(chunks.some((chunk) => chunk.type === 'tool-output-available')).toBe(true)
+    expect(chunks.some((chunk) => chunk.type === 'finish')).toBe(false)
+  })
+
+  it('stops a mixed batch at the step boundary after a terminal failure (no further model call)', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-mixed')
+    fauxStates.get('exec-mixed')!.core.setResponses([
+      // One batch with a branded failure AND a healthy sibling: pi's every-result
+      // terminate rule alone would keep the loop alive and burn another model call.
+      faux.fauxAssistantMessage([faux.fauxToolCall('echo', { q: 'bad' }), faux.fauxToolCall('echo', { q: 'ok' })]),
+      faux.fauxAssistantMessage('model would respond here')
+    ])
+
+    const branded = markTrustedLocalToolTerminalFailure({
+      terminal: true,
+      retryable: false,
+      error: 'gone',
+      userMessage: 'Search is gone.'
+    })
+    const execute = vi.fn(async (_id: string, params: unknown) => {
+      const { q } = params as { q: string }
+      return {
+        content: [{ type: 'text' as const, text: `echoed:${q}` }],
+        details: q === 'bad' ? branded : null
+      }
+    })
+    const stream = await streamPiChatTurn(
+      {
+        executionId: 'exec-mixed',
+        provider,
+        history: [],
+        prompt: userTurn('search'),
+        tools: [echoTool(execute)]
+      },
+      new AbortController().signal
+    )
+    const chunks: CherryUIMessageChunk[] = []
+    const reader = stream.getReader()
+    await expect(
+      (async () => {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          chunks.push(value)
+        }
+      })()
+    ).rejects.toThrow('Search is gone.')
+
+    // Both batch results settled (card sees them), the second model call never issued.
+    expect(execute).toHaveBeenCalledTimes(2)
+    expect(chunks.filter((chunk) => chunk.type === 'tool-output-available')).toHaveLength(2)
+    const text = chunks
+      .filter((chunk) => chunk.type === 'text-delta')
+      .map((chunk) => (chunk as { delta?: string }).delta)
+      .join('')
+    expect(text).not.toContain('model would respond here')
+  })
+
+  it('applies the final-text-block suffix to the prompt only when no images follow the text', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-suffix-image')
+    fauxStates.get('exec-suffix-image')!.core.setResponses([faux.fauxAssistantMessage('ok')])
+
+    await drain(
+      await streamPiChatTurn(
+        {
+          executionId: 'exec-suffix-image',
+          provider,
+          history: [],
+          // pi builds user content as [text, ...images]: with an image, the FINAL block
+          // is not text, so the ovms scope applies nothing (converter parity).
+          prompt: {
+            messageId: 'p1',
+            text: 'describe',
+            images: [{ type: 'image', data: 'aGk=', mimeType: 'image/png' }]
+          },
+          userTextSuffix: { text: ' /no_think', scope: 'final-text-block' }
+        },
+        new AbortController().signal
+      )
+    )
+
+    const userText = userTextOf(fauxStates.get('exec-suffix-image')!.capturedContexts[0]) ?? ''
+    // The tiny fixture image gets a pi-side omission note — the assertion is that no
+    // suffix was appended to the text (pi put the note after it, as its own block).
+    expect(userText.startsWith('describe')).toBe(true)
+    expect(userText).not.toContain('/no_think')
   })
 
   it('keeps a signed reasoning block for same-model history only', async () => {

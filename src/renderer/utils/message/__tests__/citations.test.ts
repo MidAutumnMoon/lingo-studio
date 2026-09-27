@@ -97,6 +97,18 @@ const piToolCallPart = (name: string, output: unknown): CherryMessagePart =>
     output
   }) as never
 
+/** The pi CHAT engine's registry builtins: dynamic part, `cherry.tool` builtin stamp, bare output. */
+const piChatBuiltinPart = (toolName: string, output: unknown): CherryMessagePart =>
+  ({
+    type: 'dynamic-tool',
+    toolName,
+    toolCallId: 'c7',
+    state: 'output-available',
+    input: { query: 'q' },
+    output,
+    providerMetadata: { cherry: { tool: { type: 'builtin', name: toolName } } }
+  }) as never
+
 const sourceUrlPart = (n: number, url: string, title?: string): CherryMessagePart =>
   ({ type: 'source-url', sourceId: `citation-${n}`, url, title }) as never
 
@@ -113,6 +125,14 @@ describe('resolveMessageCitations', () => {
   it('resolves agent dynamic-tool parts with MCP-wrapped output', () => {
     const mc = resolveMessageCitations([dynamicMcpPart('mcp__cherry-tools__kb_search', kbResults('qqq'))])
     expect(mc.byId.get('qqq-1')).toMatchObject({ type: 'knowledge', content: 'kb chunk' })
+  })
+
+  it('resolves pi chat builtin parts stamped by the pi stream adapter', () => {
+    const mc = resolveMessageCitations([piChatBuiltinPart('web_search', webResults('abc'))])
+    expect(mc.byId.get('abc-1')).toMatchObject({ number: 1, url: 'https://a.com/x', type: 'websearch' })
+    // Without the builtin stamp the same shape stays ignored (third-party MCP below).
+    const untagged = resolveMessageCitations([dynamicMcpPart('web_search', webResults('abc'), 'other-server')])
+    expect(untagged.all).toHaveLength(0)
   })
 
   it('ignores third-party MCP tools sharing the builtin name', () => {

@@ -878,7 +878,9 @@ export class PiRuntimeConnection implements AgentRuntimeConnection {
 /** Wall-clock timing of one pi provider invocation; mirrors the usage-event metrics the host persists for TPS display. */
 export interface PiInvocationMetrics {
   timeFirstTokenMs?: number
-  timeCompletionMs?: number
+  timeCompletionMs: number
+  /** First thinking frame → first non-thinking content frame (legacy billing-middleware semantics). */
+  timeThinkingMs?: number
 }
 
 /**
@@ -909,6 +911,8 @@ export function withPiInvocationCapture(
       // stream, so timing is captured by wrapping push() instead of reading from the iterator.
       const streamStartedAt = Date.now()
       let firstTokenAt: number | undefined
+      let thinkingStartedAt: number | undefined
+      let thinkingDurationMs: number | undefined
       const originalPush = typeof stream.push === 'function' ? stream.push.bind(stream) : undefined
       if (originalPush) {
         stream.push = (event: AssistantMessageEvent) => {
@@ -923,6 +927,19 @@ export function withPiInvocationCapture(
           ) {
             firstTokenAt = Date.now()
           }
+          if (thinkingStartedAt === undefined && (event.type === 'thinking_start' || event.type === 'thinking_delta')) {
+            thinkingStartedAt = Date.now()
+          }
+          if (
+            thinkingStartedAt !== undefined &&
+            thinkingDurationMs === undefined &&
+            (event.type === 'text_start' ||
+              event.type === 'text_delta' ||
+              event.type === 'toolcall_start' ||
+              event.type === 'toolcall_delta')
+          ) {
+            thinkingDurationMs = Math.max(0, Math.round(Date.now() - thinkingStartedAt))
+          }
           originalPush(event)
         }
       }
@@ -931,8 +948,13 @@ export function withPiInvocationCapture(
           traceObserver?.complete(message)
           const timeCompletionMs = Math.max(0, Date.now() - streamStartedAt)
           const timeFirstTokenMs = firstTokenAt !== undefined ? Math.max(0, firstTokenAt - streamStartedAt) : undefined
+          // A thinking-only response never meets the freeze event; its duration runs to completion.
+          const timeThinkingMs =
+            thinkingDurationMs ??
+            (thinkingStartedAt !== undefined ? Math.max(0, Math.round(Date.now() - thinkingStartedAt)) : undefined)
           onComplete(message, {
             ...(timeFirstTokenMs !== undefined ? { timeFirstTokenMs } : {}),
+            ...(timeThinkingMs !== undefined ? { timeThinkingMs } : {}),
             timeCompletionMs
           })
         },

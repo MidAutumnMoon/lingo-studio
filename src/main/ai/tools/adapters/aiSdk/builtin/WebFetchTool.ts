@@ -10,7 +10,7 @@
 import { type InferToolInput, type InferToolOutput, tool } from 'ai'
 import * as z from 'zod'
 
-import { markTrustedLocalToolTerminalFailure } from '@main/ai/runtime/aiSdk'
+import { markTrustedLocalToolTerminalFailure } from '@main/ai/tools/toolLoopTerminal'
 import { WEB_FETCH_TOOL_NAME, webFetchInputSchema, webFetchOutputSchema } from '@shared/ai/builtinTools'
 
 import { makeEntitiesCodec } from '../../../outputCodec'

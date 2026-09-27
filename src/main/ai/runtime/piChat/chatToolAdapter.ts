@@ -27,9 +27,12 @@ import type { ToolResultOutput } from '@ai-sdk/provider-utils'
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent'
 import { asSchema } from 'ai'
 
+import { truncateInFlightToolResultText } from '@main/ai/contextBuild/inFlightTruncate'
+import { createFileManagerStorageAdapter } from '@main/ai/contextBuild/persistedOutputAdapter'
+
 import type { RequestContext } from '../../tools/adapters/aiSdk/context'
 import type { ToolEntry } from '../../tools/adapters/aiSdk/types'
-import { getTrustedLocalToolTerminalFailure } from '../aiSdk'
+import { getTrustedLocalToolTerminalFailure } from '../../tools/toolLoopTerminal'
 
 /** pi content blocks for tool results (the multimodal subset the adapter projects). */
 type PiToolContent = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
@@ -72,13 +75,48 @@ export function toPiChatToolDefinition(entry: ToolEntry, context: PiChatToolCont
       // native per-result `terminate` hint is the same stop (the branding is
       // process-local, and the tool ran in this process).
       const terminalFailure = getTrustedLocalToolTerminalFailure(output)
+      const blocks = toPiContent(view, output)
       return {
-        content: toPiContent(view, output),
+        // In-flight truncation reshapes only what the MODEL sees (legacy parity — the
+        // card, the persisted part, and the brand check all read the raw `details`);
+        // `truncatable: false` entries are exempt (fs_read's loop protection).
+        content: entry.truncatable === false ? blocks : await truncateContentBlocks(blocks, context),
         details: output ?? null,
         ...(terminalFailure && { terminate: true })
       }
     }
   }
+}
+
+/**
+ * Apply the request's in-flight truncation to the model-facing text blocks. Offload
+ * storage is the same FileManager adapter legacy seeds (marker bytes stay identical so
+ * prefix caches and `fs_read` read-back keep working across engines).
+ */
+async function truncateContentBlocks(blocks: PiToolContent[], context: PiChatToolContext): Promise<PiToolContent[]> {
+  const truncation = context.requestContext.toolResultTruncation
+  if (truncation === undefined) return blocks
+  const storage =
+    truncation.canOffload && context.requestContext.persistedOutputPaths
+      ? createFileManagerStorageAdapter({
+          messageId: context.requestContext.requestId,
+          persistedOutputPaths: context.requestContext.persistedOutputPaths
+        })
+      : undefined
+  const truncated = await Promise.all(
+    blocks.map(async (block) =>
+      block.type === 'text'
+        ? {
+            type: 'text' as const,
+            text: await truncateInFlightToolResultText(block.text, {
+              thresholdChars: truncation.thresholdChars,
+              ...(storage && { storage })
+            })
+          }
+        : block
+    )
+  )
+  return truncated
 }
 
 /** Convert the turn's selected registry entries; selection (`selectActive`) is the seam's job. */

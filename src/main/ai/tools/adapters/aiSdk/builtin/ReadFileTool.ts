@@ -15,18 +15,18 @@
  * cancellation it is.
  */
 
-import { isAbortError, type ToolResultOutput } from '@ai-sdk/provider-utils'
+import { isAbortError } from '@ai-sdk/provider-utils'
 import { type InferToolInput, type InferToolOutput, tool } from 'ai'
 
 import { application } from '@application'
 import { loggerService } from '@logger'
 import { extractDocumentText, noExtractableTextNote } from '@main/ai/messages/attachmentTextExtraction'
 import type { FileAttachmentRef } from '@main/ai/messages/attachmentTypes'
+import { readFileModelOutput } from '@main/ai/messages/builtinToolResultViews'
 import { surrogateSafeEnd } from '@main/ai/utils/textPaging'
 import {
   READ_FILE_PAGE_SIZE,
   READ_FILE_TOOL_NAME,
-  type ReadFileError,
   type ReadFileInput,
   readFileInputSchema,
   type ReadFileOutput,
@@ -49,10 +49,6 @@ Attachments are already inlined into the conversation. Only call this when an at
 /** Resolution context: the allow-list of this request's attachments. */
 export interface ReadFileContext {
   attachments: ReadonlyArray<FileAttachmentRef>
-}
-
-function isReadFileError(result: ReadFileResult): result is ReadFileError {
-  return 'error' in result
 }
 
 /** A non-paged text result (notes / short content). */
@@ -127,16 +123,7 @@ export async function readFile(
 }
 
 /** Project a `read_file` result into an AI-SDK tool-result output (always text). */
-export function readFileModelOutput(output: ReadFileResult): ToolResultOutput {
-  if (isReadFileError(output)) {
-    return { type: 'text', value: output.error }
-  }
-  const more =
-    output.nextOffset != null
-      ? `\n\n[Showing ${output.text.length} of ${output.totalChars} chars. Call read_file again with offset=${output.nextOffset} for more.]`
-      : ''
-  return { type: 'text', value: output.text + more }
-}
+export { readFileModelOutput }
 
 const readFileTool = tool({
   description: READ_FILE_DESCRIPTION,
