@@ -735,6 +735,19 @@ seam is wired end to end.**
   fallback on pi turns yet; no steer early-yield; translate/prompt streams are INCLUDED
   in flag scope (same callsite — the checklist's "verify or exclude" resolved as verify).
 
+First dogfood run (2026-09-27) caught two immediate errors, both fixed:
+
+- **pi rejected the session id outright** ("Session id must … contain only alphanumeric
+  characters, '-', '_', and '.'"): the seam's execution id (`${messageId}:${model.id}`)
+  carries `:` — UniqueModelId's `::` separator included — and the engine had passed it to
+  `SessionManager.inMemory` verbatim (engine tests only ever used safe ids). The engine
+  now sanitizes for the SESSION key only; every other execution-id consumer (provider
+  registration namespace, approval scope, usage request id) takes arbitrary strings.
+- **`Missing key <uuid>` on the error row**: `ErrorBlock` called `getProviderLabelKey`
+  with no fallback, so a CUSTOM provider (uuid id) logged a missing key on every error
+  row — pre-existing, surfaced by the failed turn above; fixed with the raw-id fallback
+  (matching `ErrorDiagnosisPanel`).
+
 
 | Gap | Plan |
 |---|---|

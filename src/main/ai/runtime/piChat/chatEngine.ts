@@ -155,6 +155,18 @@ function finiteTokenCount(value: number | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
 }
 
+/**
+ * pi validates session ids against `[A-Za-z0-9._-]` (start/end alphanumeric) — but the
+ * execution id legitimately carries richer separators (the seam's `${messageId}:${model.id}`
+ * with UniqueModelId's `::` inside). Sanitize for the SESSION key only: every other consumer
+ * of the execution id (provider registration namespace, approval scope, usage request id)
+ * takes arbitrary strings.
+ */
+function piSessionId(executionId: string): string {
+  const sanitized = executionId.replace(/[^A-Za-z0-9._-]/g, '-')
+  return sanitized.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '') || 'chat'
+}
+
 /** One tool call the engine is about to execute, as pi's `tool_call` hook sees it. */
 export interface PiChatToolCallRequest {
   toolName: string
@@ -483,7 +495,7 @@ export async function streamPiChatTurn(
   })
   await resourceLoader.reload()
 
-  const sessionManager = pi.SessionManager.inMemory(piDir, { id: request.executionId }, entries)
+  const sessionManager = pi.SessionManager.inMemory(piDir, { id: piSessionId(request.executionId) }, entries)
   const tools = request.tools ?? []
   const created = await pi.createAgentSession({
     cwd: piDir,

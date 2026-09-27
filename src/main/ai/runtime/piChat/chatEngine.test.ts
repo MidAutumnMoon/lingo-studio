@@ -218,6 +218,29 @@ describe('streamPiChatTurn', () => {
     expect(finish).toMatchObject({ type: 'finish', finishReason: 'stop' })
   })
 
+  it('sanitizes execution ids pi cannot use as session ids (seam ids carry "::" separators)', async () => {
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-colons')
+    fauxStates.get('exec-colons')!.core.setResponses([faux.fauxAssistantMessage('ok')])
+
+    // First dogfood run: the seam's `${messageId}:${model.id}` id reached
+    // SessionManager verbatim and pi rejected the ':' outright.
+    const chunks = await drain(
+      await streamPiChatTurn(
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: '6f0a1b2c-3d4e-4f5a-9b8c-7d6e5f4a3b2c:dashscope::deepseek-v3.2',
+          provider,
+          history: [],
+          prompt: userTurn('hi')
+        },
+        new AbortController().signal
+      )
+    )
+
+    expect(chunks.at(-1)).toMatchObject({ type: 'finish', finishReason: 'stop' })
+  })
+
   it('uses the chat prompt as the sole system prompt', async () => {
     const faux = await importFaux()
     const provider = await fauxProviderSource(faux, 'exec-prompt')
