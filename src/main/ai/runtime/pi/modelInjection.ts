@@ -120,15 +120,39 @@ export interface PiGatewayProviderInjection extends PiProviderInjectionBase {
 
 export type PiProviderInjection = PiDirectProviderInjection | PiGatewayProviderInjection
 
+/**
+ * Request-level stream options the host resolves per turn (assistant settings /
+ * callOverrides). pi's session loop never sets these itself (verified against
+ * pi-agent-core 0.87: no `maxTokens`/`temperature`/`samplingParams` references), and
+ * 4 of 5 adapters gate the wire fields on `options` — not on the model config — so
+ * without this injection the request-level values are wire-inert.
+ */
+export interface PiStreamRequestOptions {
+  /**
+   * The request-level output cap. Also patch the model entry's `maxTokens` (the seam
+   * does): the anthropic adapter ceilings `options.maxTokens` at `model.maxTokens` and
+   * adds its thinking budget on top, so config+options equal to the cap reproduce
+   * legacy's total-cap semantics.
+   */
+  maxTokens?: number
+  temperature?: number
+  /** Wire-named extra sampling/body params (`top_p`, custom server params). Applied by the
+   *  openai-compatible adapters only; other families ignore the field. */
+  samplingParams?: Record<string, unknown>
+}
+
 /** Materialize provider-specific stream compatibility before the connection consumes it.
  *
  * The returned `streamSimple` is the COMPLETE transport for this injection: provider
  * compatibility wrappers, Cherry's request environment (proxy rules + Electron fetch),
- * and — when the provider config declares none — pi's builtin api stream. Consumers must
- * not wrap it again: one prepared artifact is what keeps the agent connection and the pi
- * chat engine on the same network path.
+ * the request-level stream options, and — when the provider config declares none — pi's
+ * builtin api stream. Consumers must not wrap it again: one prepared artifact is what
+ * keeps the agent connection and the pi chat engine on the same network path.
  */
-export async function materializePiProviderStream(injection: PiProviderInjection): Promise<{
+export async function materializePiProviderStream(
+  injection: PiProviderInjection,
+  requestOptions?: PiStreamRequestOptions
+): Promise<{
   providerConfig: ProviderConfig
   streamSimple: NonNullable<ProviderConfig['streamSimple']>
 }> {
@@ -137,12 +161,42 @@ export async function materializePiProviderStream(injection: PiProviderInjection
     : injection.providerName === 'cherryin' && injection.api === 'anthropic-messages'
       ? withCherryInThinkingReplay(injection.providerConfig, (await loadPiAnthropicMessagesApi()).streamSimple)
       : injection.providerConfig
-  const streamSimple = withPiRequestEnvironment(
-    providerConfig.streamSimple ?? (await loadPiApiStreamSimple(injection.api)),
-    injection.requestEnvironment,
-    injection.api
+  const streamSimple = withStreamRequestOptions(
+    withPiRequestEnvironment(
+      providerConfig.streamSimple ?? (await loadPiApiStreamSimple(injection.api)),
+      injection.requestEnvironment,
+      injection.api
+    ),
+    requestOptions
   )
   return { providerConfig: { ...providerConfig, streamSimple }, streamSimple }
+}
+
+/**
+ * Layer the host-resolved request options onto the prepared stream. Never overrides a
+ * value the caller of `streamSimple` already set (pi's own retry/cache-warmer paths
+ * re-issue with the same options, so injection must stay idempotent).
+ */
+function withStreamRequestOptions(
+  streamSimple: NonNullable<ProviderConfig['streamSimple']>,
+  requestOptions: PiStreamRequestOptions | undefined
+): NonNullable<ProviderConfig['streamSimple']> {
+  if (!requestOptions) return streamSimple
+  return (model, context, options) => {
+    const merged = {
+      ...options,
+      ...(requestOptions.maxTokens !== undefined && options?.maxTokens === undefined
+        ? { maxTokens: requestOptions.maxTokens }
+        : {}),
+      ...(requestOptions.temperature !== undefined && options?.temperature === undefined
+        ? { temperature: requestOptions.temperature }
+        : {}),
+      ...(requestOptions.samplingParams && {
+        samplingParams: { ...requestOptions.samplingParams, ...options?.samplingParams }
+      })
+    }
+    return streamSimple(model, context, merged)
+  }
 }
 
 /**
@@ -171,13 +225,22 @@ function withPiRequestEnvironment(
   }
 }
 
-function resolvePiEndpoint(provider: Provider, model: Model) {
-  const preferredEndpoint =
-    model.endpointTypes?.includes(ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS) &&
+/**
+ * The endpoint pi's own resolution prefers: a dual-protocol model (openai-completions AND
+ * anthropic-messages declared) rides anthropic-messages. Exported so the chat seam can
+ * resolve the shared turn plan against the SAME endpoint the injection will serve — the
+ * plan's reasoning profile and output-cap resolution are endpoint-keyed, and a
+ * `endpointTypes[0]` view silently diverges from the anthropic wire for those models.
+ */
+export function piPreferredEndpointType(model: Model): EndpointType | undefined {
+  return model.endpointTypes?.includes(ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS) &&
     model.endpointTypes.includes(ENDPOINT_TYPE.ANTHROPIC_MESSAGES)
-      ? ENDPOINT_TYPE.ANTHROPIC_MESSAGES
-      : undefined
-  return resolveEffectiveEndpoint(provider, model, preferredEndpoint)
+    ? ENDPOINT_TYPE.ANTHROPIC_MESSAGES
+    : undefined
+}
+
+function resolvePiEndpoint(provider: Provider, model: Model) {
+  return resolveEffectiveEndpoint(provider, model, piPreferredEndpointType(model))
 }
 
 /**

@@ -35,7 +35,7 @@ export interface PiStreamSink {
 /** pi transport tag consumed by the renderer's tool-part routing (D8). */
 export const PI_TRANSPORT = AGENT_RUNTIME_CAPABILITIES.pi.transport
 
-function toolProviderMetadata(toolName: string, extra: Record<string, unknown> = {}) {
+function toolProviderMetadata(toolName: string, extra: Record<string, string> = {}) {
   const parsed = parseFunctionCallToolName(toolName)
   return {
     cherry: {
@@ -44,7 +44,9 @@ function toolProviderMetadata(toolName: string, extra: Record<string, unknown> =
         ? { type: 'mcp' as const, name: parsed.toolPart, serverName: parsed.serverPart }
         : { type: 'builtin' as const, name: toolName }
     },
-    pi: { toolName, ...extra }
+    // The `pi` namespace carries only replay signatures (`thoughtSignature`, …) — anything
+    // else rots: nothing downstream reads it. Kept present (empty) for the chunk type.
+    pi: extra
   }
 }
 

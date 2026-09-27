@@ -95,6 +95,54 @@ describe('toModelMessages', () => {
     ])
   })
 
+  it('drops a pi-written denied call that carries no recorded decision (flip-back guard)', async () => {
+    // The pi engine persists a denial as `{providerExecuted, output-denied}` and nothing
+    // main-side writes `approval.approved` (the SDK type demands it; the runtime
+    // accumulator never does) — the legacy conversion would emit the call with no
+    // result, the #17936 dangling-call 400, poisoning every later turn of the topic
+    // after the flag flips back.
+    const denied = {
+      type: 'tool-kb_manage',
+      toolCallId: '1',
+      state: 'output-denied',
+      input: {},
+      providerExecuted: true,
+      approval: { id: 'ap-1' }
+    } as unknown as UIMessage['parts'][number]
+    const model = await toModelMessages([
+      ui('user', [{ type: 'text', text: 'Q' }], 'u1'),
+      ui('assistant', [{ type: 'text', text: 'blocked' }, denied], 'a1'),
+      ui('user', [{ type: 'text', text: '继续' }], 'u2')
+    ])
+    expect(model).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'Q' }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'blocked' }] },
+      { role: 'user', content: [{ type: 'text', text: '继续' }] }
+    ])
+  })
+
+  it('keeps a legacy-written denied call (its result renders through the tool message)', async () => {
+    // Runtime shape: the trunk's denial chunk sets the state only — cast past the SDK
+    // type that models the renderer-side approval response.
+    const denied = {
+      type: 'tool-kb_manage',
+      toolCallId: '1',
+      state: 'output-denied',
+      input: {},
+      approval: { id: 'ap-1' }
+    } as unknown as UIMessage['parts'][number]
+    const model = await toModelMessages([
+      ui('user', [{ type: 'text', text: 'Q' }], 'u1'),
+      ui('assistant', [denied], 'a1')
+    ])
+    // No `providerExecuted` ⇒ the legacy engine's own denial; the call must survive with
+    // its result on the trailing tool message (a dangling call is what the pass above
+    // exists to prevent).
+    const assistant = model[1] as { role: string; content: Array<{ type: string; toolCallId?: string }> }
+    expect(assistant.content.some((part) => part.type === 'tool-call' && part.toolCallId === '1')).toBe(true)
+    expect(model[2]?.role).toBe('tool')
+  })
+
   it('keeps an answered approval so the continuation can resume it', async () => {
     const model = await toModelMessages([
       ui('user', [{ type: 'text', text: 'Q' }], 'u1'),

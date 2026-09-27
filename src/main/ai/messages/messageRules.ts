@@ -186,12 +186,35 @@ export function dropUnansweredApprovals<T extends UIMessage>(messages: T[]): T[]
 }
 
 /**
+ * Drop pi-written denied calls that carry no recorded decision — the flip-back guard for
+ * the flag period. The pi engine persists a denied call as `{providerExecuted: true,
+ * state: 'output-denied'}`, and no main-side chunk ever writes `approval.approved`, so the
+ * LEGACY conversion would emit the tool-call (non-streaming state) but no result — the same
+ * #17936 dangling-call 400 `dropUnansweredApprovals` guards, except it poisons every later
+ * turn of the topic on strict providers. Legacy-scoped on purpose: the PI converter
+ * synthesizes a "[tool call denied by the user]" result for the same part, which is the
+ * fidelity the pi path owes its own turns.
+ */
+export function dropUndecidedProviderExecutedDenials<T extends UIMessage>(messages: T[]): T[] {
+  const isUndecided = (part: UIMessage['parts'][number]): boolean =>
+    isToolUIPart(part) &&
+    part.providerExecuted === true &&
+    part.state === 'output-denied' &&
+    part.approval?.approved == null
+  return messages.map((message) => {
+    if (!message.parts?.some(isUndecided)) return message
+    return { ...message, parts: message.parts.filter((part) => !isUndecided(part)) }
+  })
+}
+
+/**
  * The message-shaping pipeline `Agent.stream` runs on its conversion input
  * (`originalMessages` stays un-shaped upstream, so none of this leaks to the UI):
  *
  * render persisted tool-output envelopes back into their <persisted-output> markers →
  * make legacy v1 tool names wire-legal → strip media the model can't accept → drop tool
- * calls parked on an unanswered approval → restore inferable legacy step boundaries →
+ * calls parked on an unanswered approval or pi-written denials without a recorded decision
+ * (flip-back guard) → restore inferable legacy step boundaries →
  * convert, dropping incomplete tool calls that would otherwise dangle without a result →
  * gate media inside tool-result outputs by `toolResultCaps` (wire-aware, see
  * `resolveToolResultMediaCapabilities`; defaults to `caps`) → merge adjacent same-role turns
@@ -205,7 +228,7 @@ export async function toModelMessages(
 ): Promise<ModelMessage[]> {
   const rendered = sanitizeDynamicToolNames(renderPersistedToolOutputs(messages), tools)
   const shaped = restoreLegacyToolStepBoundaries(
-    dropUnansweredApprovals(stripUnsupportedMedia(rendered, caps ?? ALL_MEDIA))
+    dropUnansweredApprovals(dropUndecidedProviderExecutedDenials(stripUnsupportedMedia(rendered, caps ?? ALL_MEDIA)))
   )
   const model = await convertToModelMessages(shaped, { ignoreIncompleteToolCalls: true, tools })
   const gated = routeToolResultMedia(model, caps ?? ALL_MEDIA, toolResultCaps ?? caps ?? ALL_MEDIA)

@@ -57,6 +57,8 @@ import type {
 import type { SessionMessageEntry } from '@earendil-works/pi-coding-agent'
 import { isToolUIPart } from 'ai'
 
+import { loggerService } from '@logger'
+import { readToolPartMetadataValue } from '@shared/ai/toolPartMetadata'
 import type { CherryMessagePart, CherryUIMessage, MessageStats } from '@shared/data/types/message'
 import { parseDataUrl } from '@shared/utils/dataUrl'
 
@@ -72,6 +74,8 @@ import { isMcpCallToolResult, mcpResultToTextSummary } from '../../messages/tool
 import { TOOL_INVOKE_TOOL_NAME } from '../../tools/adapters/aiSdk/meta/toolInvoke'
 import type { UserTextSuffix } from './userThinkingSuffix'
 import { applyUserTextSuffix } from './userThinkingSuffix'
+
+const logger = loggerService.withContext('PiChatHistoryConverter')
 
 /** pi identity fields for a replayed assistant message (required by pi's AssistantMessage). */
 export interface PiHistoryModelDescriptor {
@@ -199,8 +203,13 @@ function toToolArguments(input: unknown): JsonObject {
 function toolResultText(toolName: string, output: unknown, input: unknown, declared?: ReadonlySet<string>): string {
   if (isMcpCallToolResult(output)) return mcpResultToTextSummary(output)
   if (declared?.has(toolName)) {
-    const view = builtinToolResultModelText(toolName, output, input)
-    if (view !== undefined) return view
+    try {
+      const view = builtinToolResultModelText(toolName, output, input)
+      if (view !== undefined) return view
+    } catch (error) {
+      // A malformed persisted output must replay as JSON, not fail the turn.
+      logger.warn('declared tool-result view threw; replaying as JSON', { toolName, error })
+    }
   }
   return JSON.stringify(output) ?? 'undefined'
 }
@@ -221,6 +230,20 @@ type ReasoningPart = Extract<CherryMessagePart, { type: 'reasoning' }>
 function providerMetadataString(part: unknown, namespace: string, key: string): string | undefined {
   const value = providerMetadataEntry(part, namespace)?.[key]
   return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+/**
+ * A string off a TOOL part's metadata. Tool parts never carry plain `providerMetadata`
+ * (the accumulator files chunk stamps under `callProviderMetadata`/`resultProviderMetadata`
+ * — see `readToolPartMetadataValue`); reading the plain field here is how the google
+ * tool-signature lane once became dead code against real data.
+ */
+function toolPartMetadataString(part: unknown, namespace: string, key: string): string | undefined {
+  const value = readToolPartMetadataValue(part as ToolPart, (envelope) => {
+    const nested = asJsonObject(envelope[namespace])?.[key]
+    return typeof nested === 'string' && nested.length > 0 ? nested : undefined
+  })
+  return value
 }
 
 /** The raw providerMetadata namespace object a writer (legacy AI SDK or the pi engine) persisted. */
@@ -318,8 +341,8 @@ function textBlock(part: Extract<CherryMessagePart, { type: 'text' }>, api: Api)
 /** Google signs tool calls as well (Gemini 3 400s without them); replayed when persisted. */
 function toolSignature(part: ToolPart, api: Api): string | undefined {
   return (
-    providerMetadataString(part, 'pi', 'thoughtSignature') ??
-    (api === 'google-generative-ai' ? providerMetadataString(part, 'google', 'thoughtSignature') : undefined)
+    toolPartMetadataString(part, 'pi', 'thoughtSignature') ??
+    (api === 'google-generative-ai' ? toolPartMetadataString(part, 'google', 'thoughtSignature') : undefined)
   )
 }
 

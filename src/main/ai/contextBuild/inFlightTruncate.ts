@@ -18,7 +18,9 @@ import {
 } from '@main/ai/constants'
 import { resolveContextWindow } from '@main/ai/contextBuild/resolveContextWindow'
 import { resolveInputRoom } from '@main/ai/contextBuild/resolveInputRoom'
+import { resolveRequestedMaxOutputTokens } from '@main/ai/contextBuild/resolveOutputReservation'
 import { TOOL_OUTPUT_EXCERPT_HEAD_CHARS, TOOL_OUTPUT_EXCERPT_TAIL_CHARS } from '@shared/ai/transport'
+import type { Model } from '@shared/data/types/model'
 
 /**
  * In-flight trim threshold for a request: the smaller of the user's character setting
@@ -36,6 +38,34 @@ export function resolveInFlightTruncateThreshold(
   const inputRoom = resolveInputRoom(window, outputReservation)
   const windowBudget = Math.floor(inputRoom * IN_FLIGHT_TOOL_OUTPUT_WINDOW_RATIO * APPROX_CHARS_PER_TOKEN)
   return Math.max(MIN_IN_FLIGHT_TRUNCATE_THRESHOLD, Math.min(configuredChars, windowBudget))
+}
+
+/**
+ * The in-flight threshold for one chat turn — the ONE resolution both engines consume.
+ * The output-cap reservation is deliberately computed WITHOUT the custom-params slot
+ * (legacy lane semantics: the assistant's custom `maxOutputTokens` was never part of the
+ * reservation), so callers must not "simplify" this by folding their already-resolved
+ * request cap in — that would silently change the threshold.
+ */
+export function resolveTurnInFlightTruncateThreshold(input: {
+  truncateThreshold: number
+  contextWindow: number | undefined
+  callOverrideMaxTokens: number | undefined
+  assistant: Parameters<typeof resolveRequestedMaxOutputTokens>[2]
+  model: Model
+  endpointType: Parameters<typeof resolveRequestedMaxOutputTokens>[4]
+}): number {
+  return resolveInFlightTruncateThreshold(
+    input.truncateThreshold,
+    input.contextWindow,
+    resolveRequestedMaxOutputTokens(
+      input.callOverrideMaxTokens,
+      undefined,
+      input.assistant,
+      input.model,
+      input.endpointType
+    )
+  )
 }
 
 export interface InFlightTruncateOptions {

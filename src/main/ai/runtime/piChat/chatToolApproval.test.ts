@@ -131,6 +131,15 @@ describe('createChatToolAuthorizer', () => {
     expect(await decision).toBeUndefined()
     // pi mutates the call input in place — the edited input is what the tool receives.
     expect(call.input).toEqual({ path: '/tmp/safe' })
+    // …and the corrected input is re-emitted so card, persistence, and replay carry what
+    // actually executed (the original was already on the part before the gate ran).
+    expect(emitted[1]).toMatchObject({
+      type: 'tool-input-available',
+      toolCallId: 'call-1',
+      input: { path: '/tmp/safe' },
+      dynamic: true,
+      providerExecuted: true
+    })
     expect(onApprovalResolved).toHaveBeenCalledWith('call-1', true)
     expect(toolApprovalRegistry.size()).toBe(0)
   })
@@ -147,12 +156,15 @@ describe('createChatToolAuthorizer', () => {
 
   it('never emits an unanswerable card when registration resolves synchronously', async () => {
     const entry = gatedEntry(true)
-    const { authorizer, emitted, call } = harness(entry)
+    const { authorizer, emitted, call, onApprovalResolved } = harness(entry)
     const aborted = new AbortController()
     aborted.abort()
-    // An aborted signal resolves the registration synchronously: no card may surface.
+    // An aborted signal resolves the registration synchronously: no card may surface, and
+    // the verdict is a CANCELLATION, not a denial — legacy cleared pending approvals on
+    // abort without writing a denied state, and the trunk must not advance the card either.
     const verdict = await authorizer({ ...call, signal: aborted.signal }, (chunk) => emitted.push(chunk))
-    expect(verdict).toEqual({ block: true, reason: 'Tool request was cancelled before approval', denied: true })
+    expect(verdict).toEqual({ block: true, reason: 'Tool request was cancelled before approval', cancelled: true })
     expect(emitted).toEqual([])
+    expect(onApprovalResolved).not.toHaveBeenCalled()
   })
 })

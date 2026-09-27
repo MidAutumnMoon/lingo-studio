@@ -91,6 +91,13 @@ export interface ChatTurnPlanInput {
    * endpoint remap reads it (and vertex is pi-excluded, so the two agree wherever pi runs).
    */
   runtimeProviderId: string
+  /**
+   * The endpoint the SERVING engine will actually use. The pi seam passes pi's preference
+   * (`piPreferredEndpointType` — dual-protocol models ride anthropic-messages); legacy
+   * leaves it unset (`endpointTypes[0]`). The plan's reasoning profile, effort normalization
+   * and output-cap resolution are endpoint-keyed, so this must describe the real wire.
+   */
+  preferredEndpoint?: EndpointType
 }
 
 export interface ChatTurnPlan {
@@ -147,7 +154,7 @@ export function resolveToolCallLimit(assistant: Assistant | undefined): number {
 export async function resolveChatTurnPlan(input: ChatTurnPlanInput): Promise<ChatTurnPlan> {
   const { request, provider, model, assistant, runtimeProviderId } = input
 
-  const resolvedEndpoint = resolveEffectiveEndpoint(provider, model)
+  const resolvedEndpoint = resolveEffectiveEndpoint(provider, model, input.preferredEndpoint)
   const endpointType = resolvedEndpoint.endpointType
 
   // Prefer the request-carried retained context: the persistent chat provider

@@ -16,19 +16,19 @@ import { randomUUID } from 'node:crypto'
 
 import type { ModelThinkingLevel } from '@earendil-works/pi-ai'
 import type { ProviderConfig } from '@earendil-works/pi-coding-agent'
-import type { UIMessageChunk } from 'ai'
+import type { ToolSet, UIMessageChunk } from 'ai'
 
 import { application } from '@application'
 import type { TokenUsageSource } from '@cherrystudio/analytics-client'
 import { aiUsageRecordService, type SourceSnapshot } from '@data/services/AiUsageRecordService'
 import { loggerService } from '@logger'
-import { resolveChatTurnPlan, type ChatTurnPlanRequest } from '@main/ai/chatTurnPlan'
-import { resolveInFlightTruncateThreshold } from '@main/ai/contextBuild/inFlightTruncate'
-import { resolveRequestedMaxOutputTokens } from '@main/ai/contextBuild/resolveOutputReservation'
+import { resolveChatTurnPlan, type ChatTurnPlan, type ChatTurnPlanRequest } from '@main/ai/chatTurnPlan'
+import { resolveTurnInFlightTruncateThreshold } from '@main/ai/contextBuild/inFlightTruncate'
 import type { Assistant } from '@shared/data/types/assistant'
 import type { CherryUIMessage } from '@shared/data/types/message'
 import type { Model } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
+import type { ReasoningEffortOption } from '@shared/types/aiSdk'
 import { isVisionModel } from '@shared/utils/model'
 import { matchesPreset } from '@shared/utils/provider'
 import { SystemProviderIds } from '@shared/utils/systemProviderId'
@@ -37,17 +37,21 @@ import { resolveAttachmentBudget } from '../../messages/attachmentBudget'
 import { prepareChatMessages } from '../../messages/attachmentRouting'
 import { resolveMediaCapabilities } from '../../messages/messageCapabilities'
 import { resolveAiSdkProviderId, resolveEffectiveEndpoint } from '../../provider/endpoint'
-import type { ChatTrigger } from '../../types'
-import { createRequestCaptureContext, sourceSnapshotForAssistant } from '../../utils/usageCapture'
+import type { MainDispatchRequest } from '../../streamManager'
+import { getTemperature, getTopP } from '../../utils/modelParameters'
+import type { ResolvedReasoningInvocation } from '../../utils/reasoningSerializers'
+import { createRequestCaptureContext, resolveUsageAttribution } from '../../utils/usageCapture'
 import { assembleSystemPrompt } from '../aiSdk'
 import {
   materializePiProviderStream,
   PiMissingApiKeyError,
+  piPreferredEndpointType,
+  type PiStreamRequestOptions,
   PiUnsupportedProviderError,
   resolvePiProviderInjectionFromSnapshot,
   usesPiGateway
 } from '../pi/modelInjection'
-import { streamPiChatTurn, type PiChatProviderSource } from './chatEngine'
+import { streamPiChatTurn, type PiChatProviderSource, type PiChatRuntimeTimingSink } from './chatEngine'
 import { toPiChatToolSurface } from './chatToolSurface'
 import { filePartContent } from './historyConverter'
 import { resolveUserThinkingSuffix } from './userThinkingSuffix'
@@ -57,15 +61,13 @@ const logger = loggerService.withContext('PiChatSeam')
 /** The slice of the streaming request the seam reads (kept structural so the seam stays AiService-free). */
 export type PiChatSeamRequest = ChatTurnPlanRequest & {
   conversation: ChatTurnPlanRequest['conversation'] & { topicId: string }
-  /** The renderer contract's `ChatTrigger` plus the main-only synthesized dispatch triggers
-   *  (streamManager/context/dispatch.ts's `MainDispatchRequest`). */
-  trigger?: ChatTrigger | 'continue-conversation' | 'steer-continuation' | 'edit-agent-message'
+  /** The trunk's dispatch trigger vocabulary — derived, not mirrored (a new main-only
+   *  trigger must survive the seam's exclusion switch or fail to compile). */
+  trigger?: MainDispatchRequest['trigger']
   source?: SourceSnapshot | null
   usageContext?: { source?: SourceSnapshot | null; assistantMessageId: string }
   tokenUsageSource?: TokenUsageSource
-  runtimeTimingSink?: { onToolExecutionStart(e: { callId: string; toolName?: string }): void } & {
-    onToolExecutionEnd(e: { callId: string; toolName?: string; durationMs: number }): void
-  }
+  runtimeTimingSink?: PiChatRuntimeTimingSink
 }
 
 export interface PiChatSeamInput {
@@ -132,14 +134,37 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
   })()
   if (!injection) return null
 
+  // The plan must describe the endpoint pi will actually SERVE: pi prefers
+  // anthropic-messages for dual-protocol models, and the plan's reasoning profile and
+  // output-cap resolution are endpoint-keyed — an `endpointTypes[0]` view silently
+  // diverges from the anthropic wire for those models.
+  const preferredEndpoint = piPreferredEndpointType(model)
   const plan = await resolveChatTurnPlan({
     request,
     provider,
     model,
     assistant,
-    runtimeProviderId: resolveAiSdkProviderId(provider, resolveEffectiveEndpoint(provider, model).endpointType)
+    preferredEndpoint,
+    runtimeProviderId: resolveAiSdkProviderId(
+      provider,
+      resolveEffectiveEndpoint(provider, model, preferredEndpoint).endpointType
+    )
   })
-  const materialized = await materializePiProviderStream(injection)
+
+  // Provider-native search has no pi surface (`providerOptions` plugins are legacy-only),
+  // and the client `web_search` tool only loads for client-routed turns — the DEFAULT for
+  // native-search providers without a search backend is `server`, which on pi would send
+  // a search-telling prompt with no search behind it. Legacy keeps serving those turns.
+  if (plan.webToolRoutes.webSearch === 'server') {
+    logger.info('pi chat engine excluded, falling back to legacy', {
+      topicId: request.conversation.topicId,
+      modelId: model.id,
+      reason: 'server-routed web search (provider-native search has no pi surface)'
+    })
+    return null
+  }
+
+  const materialized = await materializePiProviderStream(injection, piStreamRequestOptions(plan, assistant, model))
   // The injection's model config carries the MODEL-level output cap only; the
   // request-level cap (assistant setting / callOverrides) would otherwise be
   // inert on pi. Patch it into the materialized config before the engine
@@ -212,22 +237,16 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
     ...(plan.contextSettings.enabled &&
       request.contextOwner !== 'caller' && {
         toolResultTruncation: {
-          thresholdChars: resolveInFlightTruncateThreshold(
-            plan.contextSettings.truncateThreshold,
-            model.contextWindow,
-            // Deliberately recomputed with `undefined` for the custom-params slot:
-            // the legacy in-flight lane (contextBuild feature) excludes the
-            // assistant's custom maxOutputTokens from the reservation, and the
-            // plan's own `requestedMaxOutputTokens` folds them in — reusing it
-            // would silently change the truncate threshold.
-            resolveRequestedMaxOutputTokens(
-              request.callOverrides?.maxOutputTokens,
-              undefined,
-              assistant,
-              model,
-              plan.endpointType
-            )
-          ),
+          thresholdChars: resolveTurnInFlightTruncateThreshold({
+            truncateThreshold: plan.contextSettings.truncateThreshold,
+            contextWindow: model.contextWindow,
+            // The custom-params reservation slot policy lives IN the helper (shared
+            // with the legacy lane) — do not fold the plan's output cap in here.
+            callOverrideMaxTokens: request.callOverrides?.maxOutputTokens,
+            assistant,
+            model,
+            endpointType: plan.endpointType
+          }),
           canOffload: plan.canOffloadToolOutputs
         }
       })
@@ -252,14 +271,7 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
     sdkModelId: injection.modelId,
     credentialReceipt:
       injection.usageCapture.owner === 'agent-sdk' ? injection.usageCapture.credentialReceipt : undefined,
-    source: request.usageContext
-      ? (request.usageContext.source ?? null)
-      : (request.source ?? sourceSnapshotForAssistant(assistant) ?? null),
-    messageRef: request.usageContext
-      ? { kind: 'agent-session', id: request.usageContext.assistantMessageId }
-      : request.messageId
-        ? { kind: 'chat', id: request.messageId }
-        : null
+    ...resolveUsageAttribution(request, assistant)
   })
   const tokenUsageSource = request.tokenUsageSource ?? 'chat'
 
@@ -274,7 +286,7 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
         text: promptText,
         ...(promptImages.length > 0 && { images: promptImages })
       },
-      thinkingLevel: resolvePiThinkingLevel(plan.reasoningInvocation),
+      thinkingLevel: resolvePiThinkingLevel(plan.reasoningInvocation, model, injection.api),
       ...(surface && { tools: surface.tools, authorizer: surface.authorizer }),
       isSameModelAsTurn: (message) => message.metadata?.modelId === model.id,
       mediaCapabilities: resolveMediaCapabilities(model),
@@ -358,40 +370,124 @@ function resolvePiExclusion(input: PiChatSeamInput): string | undefined {
 }
 
 /**
- * Chat reasoning selection → pi `ThinkingLevel`. `omit` (the model/profile sends
- * nothing) and `default`/`auto` map to `undefined` — pi then applies its own
- * model-side default, closest to "provider decides". `none` is pi's `off`.
- * Recorded delta: pi's qwen dialect emits `enable_thinking: !!thinkingLevel`, so
- * an omit-kind turn still sends `enable_thinking: false` where legacy sent no
- * parameter at all.
+ * Chat reasoning selection → pi `ThinkingLevel`.
+ *
+ * - `off`/tiers map by identity (the tier vocabulary alignment is compile-enforced below).
+ * - `auto` means thinking ON in Cherry's profiles (gemini `includeThoughts`, anthropic
+ *   `adaptive`, effortMap auto→medium), so it maps to an explicit `medium` — the least-bad
+ *   on-signal. Residual (recorded): pi has no adaptive/dynamic sentinel; gemini's dynamic
+ *   budget and claude's adaptive mode land on `medium`.
+ * - `omit` (an unset selection — legacy's wire for `default` too, since no built-in
+ *   profile defines a default mode) CANNOT stay absent: pi resolves an absent level to its
+ *   own `medium` default — thinking silently ON, clamped UP to `high` on tiered
+ *   vocabularies. Explicit `off` restores legacy's wire only where it is both expressible
+ *   and faithful: the anthropic family (an absent thinking param IS disabled there).
+ *   Elsewhere the residual is recorded (google's dynamic default, qwen's deployment
+ *   default, openai's tiered provider default all ride pi's `medium`).
  */
-function resolvePiThinkingLevel(invocation: { kind: string; selection: string }): ModelThinkingLevel | undefined {
+export function resolvePiThinkingLevel(
+  invocation: ResolvedReasoningInvocation,
+  model: Model,
+  api: string
+): ModelThinkingLevel | undefined {
   const { kind, selection } = invocation
-  if (kind === 'omit') return undefined
-  if (selection === 'default' || selection === 'auto') return undefined
-  if (selection === 'none') return 'off'
-  return selection as ModelThinkingLevel
+  if (kind === 'off') return 'off'
+  if (kind === 'auto') return 'medium'
+  if (kind === 'effort' || kind === 'budget') return piThinkingTier(selection)
+  if (api === 'anthropic-messages' && piOffExpressible(model)) return 'off'
+  return undefined
+}
+
+/** Compile-enforced vocabulary alignment: Cherry's tiers ARE pi's (minus the non-tier
+ *  selections). A new registry tier is a type error here until it is classified. */
+const PI_TIER_SELECTIONS = {
+  minimal: true,
+  low: true,
+  medium: true,
+  high: true,
+  xhigh: true,
+  max: true,
+  ultra: true
+} satisfies Record<Exclude<ReasoningEffortOption, 'none' | 'auto' | 'default'>, true>
+
+function piThinkingTier(selection: ReasoningEffortOption): ModelThinkingLevel | undefined {
+  if (selection === 'none' || selection === 'auto' || selection === 'default') return undefined
+  if (PI_TIER_SELECTIONS[selection] !== true) {
+    logger.warn('reasoning selection has no pi thinking level; sending none', { selection })
+    return undefined
+  }
+  return selection
+}
+
+/** pi can only express `off` when the model's effort vocabulary admits it: a tiered model
+ *  that does not declare `none` gets `off: null` in its thinkingLevelMap, and pi clamps
+ *  `'off'` UP to the lowest declared tier — silently turning thinking back on. */
+function piOffExpressible(model: Model): boolean {
+  const declared = model.reasoning?.selectableEfforts ?? []
+  const hasConcreteTier = declared.some((effort) => effort !== 'none' && effort !== 'auto')
+  return !hasConcreteTier || declared.includes('none')
 }
 
 /** `ToolSet` view of the plan's selection for the attachment budget (`ToolEntry.tool` IS an SDK tool). */
-function toolSetOf(plan: Awaited<ReturnType<typeof resolveChatTurnPlan>>) {
+function toolSetOf(plan: ChatTurnPlan): ToolSet | undefined {
   if (plan.selectedEntries.length === 0) return undefined
-  const tools: Record<string, unknown> = {}
+  const tools: ToolSet = {}
   for (const entry of plan.selectedEntries) tools[entry.name] = entry.tool
-  return tools as never
+  return tools
 }
 
-/** Patch the request-level output cap into the materialized provider config's model entry. */
+/**
+ * The request-level stream options (the legacy `buildAgentOptions` sampling tail, pi-shaped):
+ * temperature/topP through the SHARED gates (`getTemperature`/`getTopP` — the model and
+ * reasoning gating is legacy's, by reuse not re-derivation), custom standard params by wire
+ * alias. `samplingParams` is applied by pi's openai-compatible adapters only (recorded
+ * residual), and provider-scoped custom body params (legacy's fetch-wrapper lane) have no
+ * pi surface yet. Legacy precedence kept: custom params override the settings-derived values.
+ */
+function piStreamRequestOptions(
+  plan: ChatTurnPlan,
+  assistant: Assistant | undefined,
+  model: Model
+): PiStreamRequestOptions | undefined {
+  const custom = plan.customParameters.standardParams
+  const gatedTemperature = assistant ? getTemperature(assistant.settings, model, plan.reasoningInvocation) : undefined
+  const gatedTopP = assistant ? getTopP(assistant.settings, model, plan.reasoningInvocation) : undefined
+  const temperature = (custom.temperature as number | undefined) ?? gatedTemperature
+  const topP = (custom.topP as number | undefined) ?? gatedTopP
+  const samplingParams: Record<string, unknown> = {
+    ...(topP !== undefined && { top_p: topP }),
+    ...(custom.topK !== undefined && { top_k: custom.topK }),
+    ...(custom.presencePenalty !== undefined && { presence_penalty: custom.presencePenalty }),
+    ...(custom.frequencyPenalty !== undefined && { frequency_penalty: custom.frequencyPenalty }),
+    ...(custom.stopSequences !== undefined && { stop: custom.stopSequences }),
+    ...(custom.seed !== undefined && { seed: custom.seed })
+  }
+  const options: PiStreamRequestOptions = {
+    ...(plan.requestedMaxOutputTokens !== undefined && { maxTokens: plan.requestedMaxOutputTokens }),
+    ...(temperature !== undefined && { temperature }),
+    ...(Object.keys(samplingParams).length > 0 && { samplingParams })
+  }
+  return Object.keys(options).length > 0 ? options : undefined
+}
+
+/** Patch the request-level output cap into the materialized provider config's model entry.
+ *  A cap that finds no entry means the injection's modelId and config disagree — fail the
+ *  turn rather than silently letting the setting go inert (the exact bug this patch exists
+ *  to fix). */
 function patchRequestMaxOutputTokens(
   config: ProviderConfig,
   modelId: string,
   requestedMaxOutputTokens: number | undefined
 ): ProviderConfig {
   if (requestedMaxOutputTokens === undefined || !config.models) return config
-  return {
-    ...config,
-    models: config.models.map((entry) =>
-      entry.id === modelId ? { ...entry, maxTokens: requestedMaxOutputTokens } : entry
-    )
+  let matched = false
+  const models = config.models.map((entry) => {
+    if (entry.id !== modelId) return entry
+    matched = true
+    return { ...entry, maxTokens: requestedMaxOutputTokens }
+  })
+  if (!matched) {
+    throw new Error(`pi chat provider config has no model entry "${modelId}" to receive the request output cap`)
   }
+  return { ...config, models }
 }

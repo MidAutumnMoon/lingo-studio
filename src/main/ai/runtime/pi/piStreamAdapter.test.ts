@@ -6,6 +6,7 @@ import { webSearchOutputSchema } from '@shared/ai/builtinTools'
 import { PI_TOOL_CALL_TOOL_NAME } from '@shared/ai/piBuiltinTools'
 import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/message'
 
+import { toPiSessionEntries } from '../piChat/historyConverter'
 import { PI_TRANSPORT, PiStreamAdapter } from './piStreamAdapter'
 
 function collect(events: AgentSessionEvent[]): CherryUIMessageChunk[] {
@@ -472,11 +473,11 @@ describe('PiStreamAdapter', () => {
       ])
 
       expect(chunks.find((chunk) => chunk.type === 'tool-input-available')).toMatchObject({
-        providerMetadata: { pi: { toolName: 'bash', thoughtSignature: 'sig-tool' } }
+        providerMetadata: { pi: { thoughtSignature: 'sig-tool' } }
       })
       // The execution chunks follow the block, so the signature is in hand by then.
       expect(chunks.find((chunk) => chunk.type === 'tool-output-available')).toMatchObject({
-        providerMetadata: { pi: { toolName: 'bash', thoughtSignature: 'sig-tool' } }
+        providerMetadata: { pi: { thoughtSignature: 'sig-tool' } }
       })
     })
 
@@ -487,8 +488,46 @@ describe('PiStreamAdapter', () => {
         { type: 'tool_execution_start', toolCallId: 'call-10', toolName: 'edit', args: {} }
       ])
       expect(chunks.find((chunk) => chunk.type === 'tool-input-available')).toMatchObject({
-        providerMetadata: { pi: { toolName: 'edit' } }
+        providerMetadata: { pi: {} }
       })
+    })
+
+    it('round-trips a signed tool call through the real accumulator into converter replay', async () => {
+      // The B1 guard: the converter must read tool signatures from the field the AI SDK
+      // accumulator ACTUALLY produces (`callProviderMetadata`), never plain
+      // `providerMetadata` — hand-crafted fixtures once certified the dead read.
+      const partial = partialWith([
+        { type: 'toolCall', id: 'call-rt', name: 'echo', arguments: { q: 'hi' }, thoughtSignature: 'sig-rt' }
+      ])
+      const message = await accumulate(
+        collect([
+          { type: 'message_start', message: {} } as unknown as AgentSessionEvent,
+          assistantEvent({ type: 'toolcall_end', contentIndex: 0, partial }),
+          { type: 'tool_execution_start', toolCallId: 'call-rt', toolName: 'echo', args: { q: 'hi' } },
+          {
+            type: 'tool_execution_end',
+            toolCallId: 'call-rt',
+            toolName: 'echo',
+            result: { content: [{ type: 'text', text: 'ok' }], details: null },
+            isError: false
+          }
+        ])
+      )
+      const part = message.parts.find((p) => p.type === 'dynamic-tool') as {
+        callProviderMetadata?: unknown
+        providerMetadata?: unknown
+      }
+      expect(part.callProviderMetadata).toMatchObject({ pi: { thoughtSignature: 'sig-rt' } })
+      expect(part.providerMetadata).toBeUndefined()
+
+      const entries = toPiSessionEntries([message], {
+        resolveHistoryModel: () => ({ api: 'google-generative-ai', provider: 'faux-chat', model: 'faux-model' }),
+        declaredToolNames: new Set(['echo'])
+      })
+      const toolCall = (entries[0].message as unknown as { content: Array<Record<string, unknown>> }).content.find(
+        (block) => block.type === 'toolCall'
+      )
+      expect(toolCall).toMatchObject({ id: 'call-rt', name: 'echo', thoughtSignature: 'sig-rt' })
     })
   })
 })

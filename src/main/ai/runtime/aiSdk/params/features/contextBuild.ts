@@ -25,10 +25,9 @@
 import type { ContextMiddlewareOptions, TruncateOptions, VFSStorageAdapter } from '@cherrystudio/ai-core'
 import { createContextMiddleware, definePlugin, groupIntoTurns } from '@cherrystudio/ai-core'
 import { loggerService } from '@logger'
-import { resolveInFlightTruncateThreshold } from '@main/ai/contextBuild/inFlightTruncate'
+import { resolveTurnInFlightTruncateThreshold } from '@main/ai/contextBuild/inFlightTruncate'
 import { createFileManagerStorageAdapter } from '@main/ai/contextBuild/persistedOutputAdapter'
 import { resolveContextWindow } from '@main/ai/contextBuild/resolveContextWindow'
-import { resolveRequestedMaxOutputTokens } from '@main/ai/contextBuild/resolveOutputReservation'
 import {
   TOOL_OUTPUT_EXCERPT_HEAD_CHARS as HEAD_CHARS,
   TOOL_OUTPUT_EXCERPT_TAIL_CHARS as TAIL_CHARS
@@ -86,17 +85,14 @@ export function buildContextOptions(scope: RequestScope): ContextMiddlewareOptio
     },
 
     truncate: {
-      threshold: resolveInFlightTruncateThreshold(
-        settings.truncateThreshold,
-        scope.model.contextWindow,
-        resolveRequestedMaxOutputTokens(
-          scope.request.callOverrides?.maxOutputTokens,
-          undefined,
-          scope.assistant,
-          scope.model,
-          scope.endpointType
-        )
-      ),
+      threshold: resolveTurnInFlightTruncateThreshold({
+        truncateThreshold: settings.truncateThreshold,
+        contextWindow: scope.model.contextWindow,
+        callOverrideMaxTokens: scope.request.callOverrides?.maxOutputTokens,
+        assistant: scope.assistant,
+        model: scope.model,
+        endpointType: scope.endpointType
+      }),
       headChars: HEAD_CHARS,
       tailChars: TAIL_CHARS,
       storage: resolveTruncateStorage(scope),

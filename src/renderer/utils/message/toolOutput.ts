@@ -8,6 +8,7 @@
  * So the unwrapping lives here rather than beside the renderer.
  */
 
+import { readToolPartMetadataValue } from '@shared/ai/toolPartMetadata'
 import { isMcpContentBlock } from '@shared/utils/mcp'
 
 export type ToolType = 'mcp' | 'builtin' | 'provider'
@@ -50,19 +51,16 @@ function toolMetadataFromEnvelope(metadata: unknown): ToolMetadata | undefined {
  * Cherry tool metadata off a tool PART. Chunk-level stamps (the pi adapter's
  * `cherry.tool`) land on `callProviderMetadata` for input chunks and
  * `resultProviderMetadata` once the part is terminal — the AI SDK accumulator never
- * puts them on `providerMetadata` (that field belongs to content parts). `toolMetadata`
- * first, matching the tool renderer's read order.
+ * puts them on `providerMetadata` (that field belongs to content parts; one shared
+ * home for the rule: `@shared/ai/toolPartMetadata`). `toolMetadata` first, matching
+ * the tool renderer's read order.
  */
 export function extractToolMetadataFromPart(part: {
   toolMetadata?: unknown
   callProviderMetadata?: unknown
   resultProviderMetadata?: unknown
 }): ToolMetadata | undefined {
-  return (
-    toolMetadataFromEnvelope(part.toolMetadata) ??
-    toolMetadataFromEnvelope(part.callProviderMetadata) ??
-    toolMetadataFromEnvelope(part.resultProviderMetadata)
-  )
+  return toolMetadataFromEnvelope(part.toolMetadata) ?? readToolPartMetadataValue(part, toolMetadataFromEnvelope)
 }
 
 export function extractOutputMetadata(output: unknown): { response: unknown; metadata?: ToolMetadata } {

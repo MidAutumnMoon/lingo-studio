@@ -584,7 +584,9 @@ describe('model identity and usage', () => {
             providerMetadata: { google: { thoughtSignature: 'sig-r' } }
           },
           { type: 'text', text: 'answer', providerMetadata: { google: { thoughtSignature: 'sig-t' } } },
-          toolPart({ providerMetadata: { google: { thoughtSignature: 'sig-c' } } })
+          // Tool parts never carry plain `providerMetadata` — the accumulator files chunk
+          // stamps under `callProviderMetadata` (input) / `resultProviderMetadata` (terminal).
+          toolPart({ callProviderMetadata: { google: { thoughtSignature: 'sig-c' } } })
         ])
       ],
       { resolveHistoryModel: () => google }
@@ -686,10 +688,21 @@ describe('model identity and usage', () => {
     }
 
     const signedTool = toPiSessionEntries(
-      [msg('assistant', [toolPart({ providerMetadata: { pi: { thoughtSignature: 'pi-tool' } } })])],
+      [
+        msg('assistant', [
+          toolPart({ callProviderMetadata: { pi: { thoughtSignature: 'pi-tool' } } }),
+          toolPart({
+            toolCallId: 'call-2',
+            callProviderMetadata: {},
+            resultProviderMetadata: { google: { thoughtSignature: 'late-tool' } }
+          })
+        ])
+      ],
       { resolveHistoryModel: () => ({ api: 'google-generative-ai', provider: 'cherry-p', model: 'm1' }) }
     )
     expect(assistantEntry(signedTool).content[0]).toMatchObject({ thoughtSignature: 'pi-tool' })
+    // The result home is the fallback when the input chunks carried no signature.
+    expect(assistantEntry(signedTool).content[1]).toMatchObject({ thoughtSignature: 'late-tool' })
   })
 
   it('replays redacted thinking as a redacted block, from either writer', () => {

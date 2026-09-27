@@ -98,6 +98,13 @@ export function createChatToolAuthorizer(options: ChatToolApprovalOptions): PiCh
       return { block: true, reason: 'Tool approval could not be completed.' }
     }
 
+    if (call.signal?.aborted) {
+      // The turn is aborting and the registry cancelled the card with the signal — not a
+      // user answer. Legacy cleared pending approvals on abort without writing a denial;
+      // `cancelled` makes the engine drop the call's output chunk so the part stays parked.
+      return { block: true, reason: decision.reason ?? 'Tool request was cancelled.', cancelled: true }
+    }
+
     options.onApprovalResolved?.(call.toolCallId, decision.approved)
     if (!decision.approved) {
       return {
@@ -106,7 +113,23 @@ export function createChatToolAuthorizer(options: ChatToolApprovalOptions): PiCh
         denied: true
       }
     }
-    if (decision.updatedInput) applyPiToolInputEdit(call.input, decision.updatedInput)
+    if (decision.updatedInput) {
+      applyPiToolInputEdit(call.input, decision.updatedInput)
+      // The part was already emitted with the ORIGINAL input (pi emits the tool chunks
+      // before the gate runs) — re-emit so the card, the persisted row, and replay carry
+      // what actually executed. The accumulator keys these chunks by toolCallId and only
+      // a `dynamic` + `providerExecuted` stamp lands on the same part (a plain chunk
+      // would create a second one); its metadata is left alone so the existing stamps
+      // survive untouched.
+      emit({
+        type: 'tool-input-available',
+        toolCallId: call.toolCallId,
+        toolName: call.toolName,
+        input: { ...call.input },
+        dynamic: true,
+        providerExecuted: true
+      })
+    }
     return undefined
   }
 }

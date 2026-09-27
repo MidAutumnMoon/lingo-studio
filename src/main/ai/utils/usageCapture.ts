@@ -147,6 +147,32 @@ export function sourceSnapshotForAssistant(
 }
 
 /**
+ * Usage attribution for one chat-turn request — ONE policy for both engines. Agent turns
+ * win FIRST, `null` included: `usageContext` means "already decided", so a `??` would
+ * attribute a deliberately-anonymous agent turn to some assistant. A plain chat turn
+ * references its anchor message; anything else is anonymous.
+ */
+export function resolveUsageAttribution(
+  request: {
+    usageContext?: { source?: SourceSnapshot | null; assistantMessageId: string }
+    source?: SourceSnapshot | null
+    messageId?: string
+  },
+  assistant: Parameters<typeof sourceSnapshotForAssistant>[0]
+): { source: SourceSnapshot | null; messageRef: MessageRef | null } {
+  if (request.usageContext) {
+    return {
+      source: request.usageContext.source ?? null,
+      messageRef: { kind: 'agent-session', id: request.usageContext.assistantMessageId }
+    }
+  }
+  return {
+    source: request.source ?? sourceSnapshotForAssistant(assistant) ?? null,
+    messageRef: request.messageId ? { kind: 'chat', id: request.messageId } : null
+  }
+}
+
+/**
  * Build a request's capture context from resolved provider/model facts — the shared
  * field mapping for the AI-SDK billing plugin and the pi chat engine's invocation
  * sink (W6: one mapping, both engines).

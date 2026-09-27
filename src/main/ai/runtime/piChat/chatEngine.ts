@@ -185,6 +185,13 @@ export interface PiChatToolCallVerdict {
    * instead of pi's default error result for a blocked call.
    */
   denied?: boolean
+  /**
+   * The turn is aborting and the card was cancelled by the abort (not answered): the
+   * call's output chunk is dropped so the part stays parked on its approval card —
+   * the state `dropUnansweredApprovals` cleans up on replay, matching the legacy
+   * engine's abort semantics (pending approvals cleared, no denial written).
+   */
+  cancelled?: true
 }
 
 /**
@@ -211,6 +218,7 @@ function createToolAuthorizationExtension(
   authorizer: PiChatToolAuthorizer,
   emit: (chunk: CherryUIMessageChunk) => void,
   onDenied: (toolCallId: string) => void,
+  onCancelled: (toolCallId: string) => void,
   onGateWait: (toolCallId: string, waitedMs: number) => void
 ): ExtensionFactory {
   return (pi) => {
@@ -228,6 +236,7 @@ function createToolAuthorizationExtension(
       onGateWait(event.toolCallId, performance.now() - gateStartedAt)
       if (verdict === undefined) return undefined
       if (verdict.denied) onDenied(event.toolCallId)
+      else if (verdict.cancelled) onCancelled(event.toolCallId)
       return { block: true, reason: verdict.reason }
     })
   }
@@ -381,7 +390,9 @@ export async function streamPiChatTurn(
     request.provider.config,
     streamSimple,
     (message, metrics) => {
-      if (message.stopReason === 'error' || message.stopReason === 'aborted') return
+      // Failed and aborted turns record too: their provider calls still consumed tokens,
+      // and legacy's usage hook flushed per-turn usage even on error turns — dropping the
+      // rows here would silently lose billing for exactly the turns users retry.
       const invocation = buildInvocation(request, message, metrics)
       if (committedInvocationIds.has(invocation.requestId)) return
       committedInvocationIds.add(invocation.requestId)
@@ -402,10 +413,15 @@ export async function streamPiChatTurn(
   }
 
   const isSameModelAsTurn = request.isSameModelAsTurn
+  // pi keeps same-model signed thinking blocks unconditionally, and Anthropic rejects a
+  // thinking block when the request disables thinking — so a thinking-off turn on that
+  // family must not claim same-model history at all (cross-model degrades thinking to
+  // text and strips signatures, which is exactly what a disabled turn needs).
+  const replaySameModel = isSameModelAsTurn && !(model.api === 'anthropic-messages' && request.thinkingLevel === 'off')
   const entries = toPiSessionEntries(request.history, {
     // pi compares provider+api+model against the live turn, and the provider name is this
     // engine's own registration — so the descriptor is built here, not by the caller.
-    ...(isSameModelAsTurn && {
+    ...(replaySameModel && {
       resolveHistoryModel: (message: CherryUIMessage) =>
         isSameModelAsTurn(message)
           ? ({ api: model.api, provider: model.provider, model: model.id } satisfies PiHistoryModelDescriptor)
@@ -441,6 +457,8 @@ export async function streamPiChatTurn(
   // A denied call arrives from pi as an error result (the block reason); the trunk's
   // denial state is what the renderer card and the history converter expect.
   const deniedToolCalls = new Set<string>()
+  // An abort-cancelled approval: its output chunk is dropped so the part stays on the card.
+  const cancelledToolCalls = new Set<string>()
 
   // Wall-clock start per tool execution — pi's events carry no timestamps. The gate wait
   // (approval latency) is subtracted back out: pi emits `tool_execution_start` before the
@@ -484,6 +502,7 @@ export async function streamPiChatTurn(
               request.authorizer,
               emitChunk,
               (id) => deniedToolCalls.add(id),
+              (id) => cancelledToolCalls.add(id),
               (id, waitedMs) => gateWaitedMs.set(id, (gateWaitedMs.get(id) ?? 0) + waitedMs)
             )
           ]
@@ -525,7 +544,14 @@ export async function streamPiChatTurn(
   const toolCallLimit = Math.max(1, request.toolCallLimit)
   let toolTurns = 0
 
+  // An abort landing while `session.prompt()` is still in its prelude (input handlers,
+  // before-agent-start, image normalization — pi's run is not active yet) is a no-op on
+  // pi's side: `AgentSession.abort()` only arms its latch while a run is live. Latch it
+  // here and re-issue on the first session event, when the run IS active, so a stop that
+  // races dispatch cannot let the turn run to completion.
+  let abortPendingReissue = false
   const abortSession = (): void => {
+    abortPendingReissue = true
     void session.abort().catch((error) => logger.warn('pi chat session abort failed', { error }))
   }
 
@@ -540,6 +566,9 @@ export async function streamPiChatTurn(
           emitChunk({ type: 'tool-output-denied', toolCallId: chunk.toolCallId })
           return
         }
+        // An abort-cancelled approval leaves its part parked on the card (legacy abort
+        // semantics) — pi's blocked-call error result is dropped, not rendered.
+        if (chunk.type === 'tool-output-error' && cancelledToolCalls.has(chunk.toolCallId)) return
         emitChunk(chunk)
       }
     },
@@ -549,6 +578,10 @@ export async function streamPiChatTurn(
     payloadToolNames
   )
   const unsubscribe = session.subscribe((event) => {
+    if (abortPendingReissue) {
+      abortPendingReissue = false
+      void session.abort().catch((error) => logger.warn('pi chat session abort failed', { error }))
+    }
     // Content/tool/usage projection first; lifecycle bookkeeping after, mirroring
     // the agent connection's handlePiEvent ordering.
     adapter.handleEvent(event)
@@ -615,8 +648,14 @@ export async function streamPiChatTurn(
     }
   })
 
+  // `streamSettled` gates the chunk lane (drops post-settle/post-cancel enqueues);
+  // `cleanedUp` gates the one-shot teardown. They split because a reader cancel
+  // settles the lane immediately but must NOT block the cleanup that runs when the
+  // prompt promise later settles.
+  let cleanedUp = false
   const cleanup = (): void => {
-    if (streamSettled) return
+    if (cleanedUp) return
+    cleanedUp = true
     streamSettled = true
     signal.removeEventListener('abort', abortSession)
     unsubscribe()
@@ -676,9 +715,10 @@ export async function streamPiChatTurn(
         )
         .then(
           () => {
-            if (streamSettled) return
-            // A user abort wins over everything — an aborted turn never errors.
-            if (signal.aborted) {
+            // A user abort wins over everything — an aborted turn never errors. A stream
+            // already settled by a reader cancel only needs the cleanup half (closing a
+            // cancelled reader throws and is swallowed by `settleClosed`).
+            if (signal.aborted || streamSettled) {
               settleClosed()
               return
             }
@@ -706,7 +746,7 @@ export async function streamPiChatTurn(
             settleClosed()
           },
           (error: unknown) => {
-            if (signal.aborted) {
+            if (signal.aborted || streamSettled) {
               settleClosed()
               return
             }
@@ -715,6 +755,10 @@ export async function streamPiChatTurn(
         )
     },
     cancel() {
+      // Settle the chunk lane immediately: post-cancel enqueues would throw on the
+      // cancelled reader, and the prompt handlers above must route to `settleClosed`
+      // (cleanup still runs once pi's abort drain settles the prompt promise).
+      streamSettled = true
       abortSession()
     }
   })

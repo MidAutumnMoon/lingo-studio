@@ -101,6 +101,7 @@ import { routeToEndpoint } from './utils/provider'
 import {
   createAiUsageCaptureContext,
   createRequestCaptureContext,
+  resolveUsageAttribution,
   sourceSnapshotForAssistant
 } from './utils/usageCapture'
 
@@ -574,16 +575,7 @@ export class AiService extends BaseService {
       model,
       sdkModelId: sdkConfig.modelId,
       credentialReceipt,
-      // Agent turns win FIRST, `null` included — `usageContext` means "already decided", so a
-      // `??` here would attribute a deliberately-anonymous agent turn to some assistant.
-      source: request.usageContext
-        ? request.usageContext.source
-        : (request.source ?? sourceSnapshotForAssistant(assistant)),
-      messageRef: request.usageContext
-        ? { kind: 'agent-session', id: request.usageContext.assistantMessageId }
-        : request.messageId
-          ? { kind: 'chat', id: request.messageId }
-          : null
+      ...resolveUsageAttribution(request, assistant)
     })
     const usagePlugin = createAiUsagePlugin(usageContext)
     repairUsagePlugins.current = [usagePlugin]

@@ -231,6 +231,24 @@ describe('pi chat seam gate', () => {
     mockUsesPiGateway.mockReturnValue(true)
     expect(await tryStreamPiChatTurn(seamInput())).toBeNull()
   })
+
+  it('fails the turn (no fallback) when the shared plan rejects', async () => {
+    // Recorded boundary: everything before the engine call is pre-provider-request, and
+    // silent fallback there would mask engine bugs during dogfood. Nothing pins this —
+    // a broadened catch would silently convert engine bugs into legacy fallbacks.
+    mockPreferenceGet.mockReturnValue(true)
+    mockResolvePlan.mockRejectedValue(new Error('plan boom'))
+    await expect(tryStreamPiChatTurn(seamInput())).rejects.toThrow('plan boom')
+    expect(mockStreamPiChatTurn).not.toHaveBeenCalled()
+  })
+
+  it('fails the turn (no fallback) when the provider injection throws a non-matrix error', async () => {
+    mockPreferenceGet.mockReturnValue(true)
+    mockResolveInjection.mockImplementation(() => {
+      throw new Error('injection boom')
+    })
+    await expect(tryStreamPiChatTurn(seamInput())).rejects.toThrow('injection boom')
+  })
 })
 
 describe('pi chat seam preparation', () => {
@@ -341,6 +359,71 @@ describe('pi chat seam preparation', () => {
     expect(mockResolveToolApproval).toHaveBeenCalledWith('topic-1', 'call-9', true)
   })
 
+  it('falls back to legacy when web search is server-routed (provider-native search has no pi surface)', async () => {
+    mockPreferenceGet.mockReturnValue(true)
+    mockResolvePlan.mockResolvedValue(makePlan({ webToolRoutes: { webSearch: 'server', webFetch: 'none' } }))
+    expect(await tryStreamPiChatTurn(seamInput())).toBeNull()
+    expect(mockStreamPiChatTurn).not.toHaveBeenCalled()
+    // The route is only final after the plan resolves — the exclusion must not re-derive it.
+    expect(mockResolvePlan).toHaveBeenCalled()
+  })
+
+  it('passes the request-level output cap into the materialized config and the stream options', async () => {
+    mockPreferenceGet.mockReturnValue(true)
+    mockResolvePlan.mockResolvedValue(makePlan({ requestedMaxOutputTokens: 4321 }))
+    await tryStreamPiChatTurn(seamInput())
+    const config = mockStreamPiChatTurn.mock.calls[0][0].provider.config
+    expect(config.models.find((entry: { id: string }) => entry.id === 'test-model').maxTokens).toBe(4321)
+    // The wire half: 4 of 5 adapters gate the cap on `options.maxTokens`, which the
+    // session loop never sets — the materialized stream must carry it.
+    expect(mockMaterialize.mock.calls[0][1]).toMatchObject({ maxTokens: 4321 })
+  })
+
+  it('derives the sampling tail with legacy precedence: shared gates, custom params override, wire aliases', async () => {
+    mockPreferenceGet.mockReturnValue(true)
+    mockResolvePlan.mockResolvedValue(
+      makePlan({
+        reasoningInvocation: { kind: 'omit', selection: 'default', emissions: [] },
+        customParameters: {
+          standardParams: { topP: 0.8, topK: 3, stopSequences: ['\nEND'] },
+          providerParams: {}
+        }
+      })
+    )
+    const input = seamInput()
+    input.assistant = makeAssistant({
+      settings: { enableTemperature: true, temperature: 0.5, enableTopP: true, topP: 0.9 }
+    })
+    await tryStreamPiChatTurn(input)
+    expect(mockMaterialize.mock.calls[0][1]).toEqual({
+      temperature: 0.5,
+      // The custom topP overrides the gated setting (legacy spreads custom params last);
+      // the rest of the standard vocabulary rides pi's samplingParams by wire alias.
+      samplingParams: { top_p: 0.8, top_k: 3, stop: ['\nEND'] }
+    })
+  })
+
+  it('hands no stream options when nothing was resolved', async () => {
+    mockPreferenceGet.mockReturnValue(true)
+    mockResolvePlan.mockResolvedValue(makePlan())
+    await tryStreamPiChatTurn(seamInput())
+    expect(mockMaterialize.mock.calls[0][1]).toBeUndefined()
+  })
+
+  it('fails the turn when the output-cap patch finds no matching model entry', async () => {
+    mockPreferenceGet.mockReturnValue(true)
+    mockResolvePlan.mockResolvedValue(makePlan({ requestedMaxOutputTokens: 4321 }))
+    mockMaterialize.mockResolvedValue({
+      ...MATERIALIZED,
+      providerConfig: {
+        ...MATERIALIZED.providerConfig,
+        models: [{ id: 'other-model', maxTokens: 4096 }]
+      }
+    })
+    // A silent no-op here is the exact inert-cap bug the patch exists to fix.
+    await expect(tryStreamPiChatTurn(seamInput())).rejects.toThrow('no model entry')
+  })
+
   it('maps reasoning selections onto pi thinking levels', async () => {
     mockResolvePlan.mockResolvedValue(
       makePlan({ reasoningInvocation: { kind: 'effort', selection: 'high', emissions: [] } })
@@ -355,12 +438,48 @@ describe('pi chat seam preparation', () => {
     await tryStreamPiChatTurn(seamInput())
     expect(mockStreamPiChatTurn.mock.calls[0][0].thinkingLevel).toBe('off')
 
+    // `auto` means thinking ON in Cherry's profiles — pi gets an explicit `medium`, never
+    // an absent level (pi seeds absent to its own `medium` default, which would silently
+    // enable thinking for omit-kind turns too).
     mockStreamPiChatTurn.mockClear()
     mockResolvePlan.mockResolvedValue(
-      makePlan({ reasoningInvocation: { kind: 'auto', selection: 'auto', emissions: [] } })
+      makePlan({
+        reasoningInvocation: {
+          kind: 'auto',
+          selection: 'auto',
+          emissions: [{ target: 'reasoningEffort', value: 'medium' }]
+        }
+      })
     )
     await tryStreamPiChatTurn(seamInput())
+    expect(mockStreamPiChatTurn.mock.calls[0][0].thinkingLevel).toBe('medium')
+
+    // omit on a non-anthropic family stays absent (recorded residual: pi's medium default
+    // vs legacy's provider default on google/qwen/openai tiered vocabularies).
+    mockStreamPiChatTurn.mockClear()
+    mockResolvePlan.mockResolvedValue(makePlan())
+    await tryStreamPiChatTurn(seamInput())
     expect(mockStreamPiChatTurn.mock.calls[0][0].thinkingLevel).toBeUndefined()
+
+    // omit on anthropic = legacy's "no thinking param" = disabled: explicit `off`, which
+    // is faithful AND expressible there (the model declares `none`).
+    mockStreamPiChatTurn.mockClear()
+    mockResolveInjection.mockReturnValue({ ...INJECTION, api: 'anthropic-messages' })
+    await tryStreamPiChatTurn({
+      ...seamInput(),
+      model: makeModel({ reasoning: { selectableEfforts: ['none'] } })
+    })
+    expect(mockStreamPiChatTurn.mock.calls[0][0].thinkingLevel).toBe('off')
+
+    // …but a tiered vocabulary without `none` cannot express `off` — pi would clamp it UP
+    // to the lowest tier (thinking silently on), so the level stays absent.
+    mockStreamPiChatTurn.mockClear()
+    await tryStreamPiChatTurn({
+      ...seamInput(),
+      model: makeModel({ reasoning: { selectableEfforts: ['low', 'high'] } })
+    })
+    expect(mockStreamPiChatTurn.mock.calls[0][0].thinkingLevel).toBeUndefined()
+    mockResolveInjection.mockReturnValue(INJECTION)
   })
 
   it('records usage invocations with chat attribution and analytics', async () => {

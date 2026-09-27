@@ -3,7 +3,8 @@
 Status: executing — 2026-09-26. Phase 0 ladder **complete**: all rungs through 0.87.1
 landed and verified; remaining Phase 0 item is the 0.6 manual smoke.
 Phase 1 architecture decisions are **settled** (pre-implementation review, recorded
-in the Phase 1 section); Phases 2–3 remain draft.
+in the Phase 1 section); Phases 2–3 remain draft. W1–W6 landed and passed a
+whole-changeset group review on 2026-09-27 (record in the Phase 1 section).
 
 Decision context: pi (in-process, loop owned by us, `pi-ai` wire layer shared with dsh)
 is the base for unification. dsh stays as an opt-in agent runtime behind the existing
@@ -859,6 +860,133 @@ implicit, from the W2 review):
   and a whole-tool-set count would inject ` /no_think` into every replayed user message of
   every ovms turn with any tool).
 
+### Phase 1 group review (2026-09-27) — panel pass over the whole changeset
+
+A post-W6 group review of `rlvputyu::rkxryptw` as a whole (six perspectives — engine
+logic, history round-trip fidelity, architecture/ownership, provider parity, tools &
+approvals, plan-extraction/test-quality — plus a devil's-advocate round on the triage and
+a fresh-eyes verification round on the fixes). Full findings fixed in the working copy;
+what remains is recorded below. The most consequential findings, for the record:
+
+- **Tool-call signatures were written but never read** (P1): `historyConverter`'s
+  `toolSignature` read plain `providerMetadata`, which the AI SDK accumulator NEVER
+  populates for tool parts (it files chunk stamps under `callProviderMetadata`/
+  `resultProviderMetadata`) — google tool-signature replay was dead code against real
+  data, and Gemini 3 400s without them. The W5 citations fix had stated the rule ("no
+  tool part ever carries plain `providerMetadata`") but the converter (and its
+  hand-crafted fixtures) were written before it. Fixed at the root: one shared reader
+  (`@shared/ai/toolPartMetadata` — call home first, per-read fall-through) now serves
+  the converter AND the renderer's stamp extraction; the fixtures use accumulated
+  shapes; a round-trip guard drives adapter chunks through the real accumulator into
+  converter replay. The `pi.toolName` stamp (written, read by nothing) is gone.
+- **`omit`/`default` reasoning silently enabled thinking** (P1): pi seeds an absent
+  `thinkingLevel` to its own `medium` default (probed live: session state medium →
+  `reasoning: "medium"` on the wire; clamped UP to `high` on tiered vocabularies), so
+  the W6 "absent = provider decides" premise was false — the most common configuration
+  (no explicit effort) diverged on every reasoning model. Amended mapping: `off`→`off`,
+  tiers by identity (compile-enforced `PI_TIER_SELECTIONS`), `auto`→explicit `medium`
+  (auto means thinking-ON in Cherry's profiles — gemini `includeThoughts`, anthropic
+  `adaptive`), `omit`→`off` only on the anthropic family where it is expressible AND
+  faithful (absent = disabled there); other families keep absent with the residual
+  recorded (pi's medium vs google dynamic / qwen deployment / openai tiered provider
+  defaults). Companion finding: **anthropic rejects same-model signed thinking on a
+  thinking-disabled request** and pi keeps such blocks unconditionally — a thinking-off
+  anthropic turn now suppresses the same-model descriptor (cross-model degradation is
+  exactly what a disabled turn needs); this fired pre-fix for explicit `none` selections.
+- **The request-level SAMPLING tail was wire-inert** (P1). The session loop never sets
+  `options.temperature`/`samplingParams`, and no model-level fallback exists
+  (`buildBaseOptions` carries `temperature: options?.temperature` only), so
+  assistant/callOverrides sampling silently did nothing on pi. This bullet originally
+  ALSO claimed the output cap was wire-inert on 4 of 5 families — wrong, withdrawn on
+  the post-review sweep: every adapter's `streamSimple` normalizes through
+  `buildBaseOptions`, whose `options?.maxTokens ?? model.maxTokens` fallback already
+  carried the W6 config patch onto the wire (probed through the real adapters:
+  openai-completions, openai-responses, google, anthropic — the per-adapter
+  `options?.maxTokens` gating reads the NORMALIZED options). What the fix genuinely
+  lands is the sampling tail: `materializePiProviderStream` gains the
+  request→`StreamOptions` translation the agent loop never needed — one home for
+  `maxTokens`/`temperature`/`samplingParams` (never overriding caller-set values; the
+  maxTokens half duplicates the config patch, which is KEPT for anthropic's total-cap
+  math — it mins `options.maxTokens + budget` at `model.maxTokens`). The seam derives
+  the sampling tail with legacy precedence via the SHARED `getTemperature`/`getTopP`
+  gates plus the custom-params wire aliases (`top_p`/`top_k`/`presence_penalty`/
+  `frequency_penalty`/`stop`/`seed`) — the old "sampling has no pi surface" record was
+  false (`StreamOptions.temperature` + `samplingParams` exist). Residual recorded below
+  (topP on anthropic/google; provider-scoped body params still dropped).
+- **An abort landing in `session.prompt()`'s prelude was dropped** (P2): pi's
+  `abort()` only arms while a run is active, so a stop racing dispatch let the turn run
+  to completion (the same class the W2 review fixed one guard too early). The engine
+  now latches every abort and re-issues on the first session event.
+- **A pi-written denied call would dangle on legacy flip-back** (P2): persisted as
+  `{providerExecuted, output-denied}` with no recorded decision (nothing main-side
+  writes `approval.approved`), the legacy conversion emitted the call with no result —
+  the #17936 strict-provider 400, poisoning every later turn of the topic. Fixed with a
+  legacy-scoped pass (`dropUndecidedProviderExecutedDenials`, in `toModelMessages`
+  only); the pi converter's own "[tool call denied by the user]" synthesis is untouched.
+- **Approve-with-edited-input executed the edit but persisted the original** (P3): the
+  authorizer now re-emits a corrected `tool-input-available` (dynamic + providerExecuted
+  so the accumulator updates the SAME part) — card, persistence, and replay carry what
+  ran. **An abort-cancelled approval is no longer labelled a user denial** (P3): the
+  verdict carries `cancelled`, the trunk advance is skipped, and the call's output chunk
+  is dropped so the part stays parked on its card (legacy cleared pending approvals on
+  abort; the parked state is what `dropUnansweredApprovals` cleans on replay).
+- **Dual-endpoint models resolved the plan against the wrong endpoint** (P2): pi prefers
+  anthropic-messages for dual-protocol models but the plan rode `endpointTypes[0]` —
+  reasoning profile, effort normalization, and cap resolution keyed the wrong family.
+  `piPreferredEndpointType` is now exported and threaded into `resolveChatTurnPlan`.
+- **Failed turns lost their billing rows** (P3): the engine skipped `onInvocation` for
+  error/aborted stops where legacy flushed per-turn usage even on error — recorded now.
+- Server-routed web search turns are now gate-excluded (post-plan check — the route only
+  exists after the plan resolves): provider-native search has no pi surface and the
+  client `web_search` tool only loads for client-routed turns, so a server-routed turn
+  on pi sent a search-telling prompt with nothing behind it. Legacy keeps serving them.
+- Structure cleanups from the architecture pass: usage attribution extracted
+  (`resolveUsageAttribution`, one ladder for both engines — AiService's copy carried the
+  load-bearing comment, the seam's didn't); the in-flight reservation policy has one
+  home (`resolveTurnInFlightTruncateThreshold`, owning the deliberate `undefined`
+  custom-params slot); `PiChatSeamRequest`'s trigger union derives from the trunk's
+  `MainDispatchRequest` (barrel-exported) and the timing sink from the engine; the
+  `toolSetOf` `as never` is gone; the stale `resolveToolCallLimit` re-export is deleted;
+  reader-cancel settles the chunk lane immediately (splitting `streamSettled` from
+  `cleanedUp` so teardown still runs when pi's drain finishes); the output-cap patch
+  throws when it finds no model entry instead of silently going inert; and a small
+  direct contract suite pins `chatTurnPlan`'s cross-engine exports.
+
+Verification: the whole `src/main/ai/` tree (4899 tests), renderer message utils, and
+both typechecks green; `pnpm lint` clean. The fresh-eyes round re-probed every fix at
+its boundary (accumulator ground truth, pi's abort/dispose semantics, adapter option
+gating, trunk teardown) and verified all exit paths settle exactly once.
+
+New/updated register rows from this review:
+
+| Gap | Plan |
+|---|---|
+| Reasoning `omit`/`default` on non-anthropic families | pi has no "provider decides" sentinel: absent resolves to pi's `medium`. Anthropic now sends explicit `off` (faithful + expressible); google (dynamic default), qwen (deployment default), and openai tiered vocabularies (provider default, o-series `medium` happens to match) ride pi's medium — **accepted residual, verify per host at dogfood**. A tiered model without `none` in its vocabulary cannot express `off` at all (pi clamps it UP to the lowest tier) — there the level stays absent on purpose |
+| Thinking-off × signed replay (anthropic) | Fixed engine-side (same-model descriptor suppressed when `thinkingLevel === 'off'` on anthropic). Root cause is pi keeping same-model signed blocks unconditionally — if pi ever filters by effective thinking level, drop the engine guard |
+| Thinking-off × signed replay (google) | The suppression above is anthropic-scoped: an explicit `none` on a google reasoning model keeps same-model signed replay with thinking disabled. Whether Gemini accepts signatures on a thinking-disabled request is unprobed — dogfood spot-check item; if it 400s, widen the guard to google (the same one-line condition) |
+| Sampling surface | `temperature` + `samplingParams` now ride `StreamOptions` (probed on the wire through the real openai-completions adapter; custom params by alias, legacy precedence). Residuals: `samplingParams` is applied by pi's openai-compatible adapters only — **assistant `topP` is inert on anthropic/google pi turns** (legacy sent it; port = family-specific mapping or a pi-ai ask); provider-scoped custom body params (legacy's fetch-wrapper lane) remain dropped |
+| qwen dialect override × mirror hosts | `piDialectCompat`'s provider-id membership list approximates "pi detects here" by preset id, but pi's detection matches the NAMESPACED provider name (never equal) + baseUrl — a preset provider behind a mirror baseUrl skips our override while pi detects nothing → qwen loses `enable_thinking`. Narrow residual (preset id + mirror host + qwen model); fix = rely on baseUrl detection only when pi-ai exports `detectCompat` |
+| Phantom request after cap/terminal abort | Upgraded from accepted cost to **pre-default-on register row**: pi's loop-level `finishTurn {action:'end'}` lever would end the run cleanly before the next model call (no phantom request, no phantom step boundary), but it is not extension-reachable in 0.87.1 — an SDK surface request, not a Cherry workaround |
+
+Corrections to earlier records: the W6 thinkingLevel table's "`omit` and `default`/`auto`
+send nothing (pi's model-side default = closest to 'provider decides')" row was **false**
+(pi seeds `medium`; see the register row above); the "Request-level output cap — Landed"
+row STANDS — the group review's "config-only was wire-inert on 4 of 5 families" finding
+was withdrawn on the post-review sweep (the shared `buildBaseOptions` fallback
+`options?.maxTokens ?? model.maxTokens` carried the config patch onto the wire on every
+probed family; the genuinely inert request-level values were temperature/samplingParams
+— see the corrected sampling bullet above); "sampling … remains the accepted no-pi-surface delta" was false (see
+the sampling row); the flip-back clause's "no error" claim covered reasoning only — the
+denied-call dangling 400 is now fixed; and "legacy path byte-identical" carries one
+recorded type cleanup (`sourceSnapshotForAssistant` now emits `icon: emoji ?? null`
+where the AiService-local helper emitted `undefined` — both falsy, both frozen the same).
+
+Also recorded: the Phase 3 drift table below gains a fifth row (the `tool_call`-gate
+extension wrappers, `chatEngine`'s `createToolAuthorizationExtension` vs
+`approvalExtension`'s `createPiApprovalExtension` — the consolidation piece most likely
+to be missed), and pi's lenient tool-input coercion (`Value.Convert` semantics) is a
+**default-on checklist item**, not just review prose.
+
 ### Phase 1 exit criteria
 
 - Flag removed; legacy chat execution path (`runtime/aiSdk/Agent` +
@@ -932,6 +1060,7 @@ of four policies, and one copy has already drifted:
 | Provider span mapping | `startProviderSpan` | `startProviderSpan` | agent marks `error`/`aborted` calls `ERROR`, chat always `OK` — provider failures arrive as resolved messages, so chat's spans never go red |
 | Turn verdict (stop reason / error extraction) | `handlePiEvent` + `finishPromptRun` | session-event handler + `turnVerdict` | same `turn_end` cast, `willRetry` reset, `lastErrorMessage`, identical `error` text; **`length` deliberately diverges (W5)** — chat finishes `finishReason: 'length'` (legacy parity, gateway contract), the agent path keeps failing the turn; consolidate knowingly, not by reflex |
 | Provider teardown | `unregisterApiProvider` | (removed in W2 review) | dead on pi 0.87: nothing registers under `provider:…` in the global api registry |
+| `tool_call` gate wrapper | `createPiApprovalExtension` | `createToolAuthorizationExtension` | near-identical request shapes and emit-ordering contracts; chat adds gate-wait timing, denial translation, and the abort-cancellation drop — the piece most likely to be missed by the lifecycle consolidation (group review, 2026-09-27) |
 
 Also in this pass: the two engines each own a session lifecycle (build → seed → prompt →
 verdict → dispose) with the same shape and the same failure modes. One owner for that

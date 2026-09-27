@@ -100,6 +100,7 @@ async function runRecordingTurn(options: {
   provider: PiChatProviderSource
   history: CherryUIMessage[]
   isSameModelAsTurn?: (message: CherryUIMessage) => boolean
+  thinkingLevel?: 'off'
 }): Promise<void> {
   const stream = await streamPiChatTurn(
     {
@@ -108,6 +109,7 @@ async function runRecordingTurn(options: {
       provider: options.provider,
       history: options.history,
       prompt: userTurn('follow-up'),
+      ...(options.thinkingLevel && { thinkingLevel: options.thinkingLevel }),
       ...(options.isSameModelAsTurn && { isSameModelAsTurn: options.isSameModelAsTurn })
     },
     new AbortController().signal
@@ -389,6 +391,36 @@ describe('streamPiChatTurn', () => {
     expect(chunks.some((chunk) => chunk.type === 'finish')).toBe(false)
   })
 
+  it('aborts during the prompt prelude and still closes the turn cleanly', async () => {
+    // An abort racing dispatch lands while `session.prompt()` is still in its prelude —
+    // pi's `abort()` is a no-op there (no active run), so the engine latches it and
+    // re-issues on the first session event; the turn must not run to completion.
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-prelude-abort', {
+      tokensPerSecond: 20,
+      tokenSize: { min: 30, max: 30 }
+    })
+    fauxStates
+      .get('exec-prelude-abort')!
+      .core.setResponses([faux.fauxAssistantMessage('a turn that would have fully streamed')])
+
+    const controller = new AbortController()
+    const stream = await streamPiChatTurn(
+      {
+        toolCallLimit: TEST_TOOL_CALL_LIMIT,
+        executionId: 'exec-prelude-abort',
+        provider,
+        history: [],
+        prompt: userTurn('hi')
+      },
+      controller.signal
+    )
+    // Abort before reading anything: the prompt promise is in its prelude.
+    controller.abort()
+    const chunks = await drain(stream)
+    expect(chunks.some((chunk) => chunk.type === 'finish')).toBe(false)
+  })
+
   it('closes cleanly when pi aborts on its own (no finish chunk)', async () => {
     const faux = await importFaux()
     // pi stops the turn itself — the signal stays live, so the verdict must not
@@ -434,6 +466,34 @@ describe('streamPiChatTurn', () => {
       new AbortController().signal
     )
     await expect(drain(stream)).rejects.toThrow('provider exploded')
+  })
+
+  it('records the usage invocation even for an errored turn', async () => {
+    // Legacy's usage hook flushed per-turn usage on error turns too; dropping the row
+    // would silently lose billing for exactly the turns users retry.
+    const faux = await importFaux()
+    const provider = await fauxProviderSource(faux, 'exec-error-usage')
+    fauxStates
+      .get('exec-error-usage')!
+      .core.setResponses([
+        faux.fauxAssistantMessage('partial', { stopReason: 'error', errorMessage: 'provider exploded' })
+      ])
+    const invocations: AgentRuntimeUsageInvocation[] = []
+
+    const stream = await streamPiChatTurn(
+      {
+        toolCallLimit: TEST_TOOL_CALL_LIMIT,
+        executionId: 'exec-error-usage',
+        provider,
+        history: [],
+        prompt: userTurn('hi'),
+        onInvocation: (invocation) => invocations.push(invocation)
+      },
+      new AbortController().signal
+    )
+    await expect(drain(stream)).rejects.toThrow('provider exploded')
+    expect(invocations).toHaveLength(1)
+    expect(invocations[0].usage).toBeDefined()
   })
 
   it('does not auto-retry a retryable provider failure (retry has one owner: the host)', async () => {
@@ -964,6 +1024,33 @@ describe('streamPiChatTurn', () => {
     expect(assistantContent(foreignBodies)[0]).toEqual({ type: 'text', text: 'plan' })
   })
 
+  it('strips signed thinking from same-model history when the turn disables thinking', async () => {
+    // Anthropic rejects a thinking block on a thinking-disabled request, and pi keeps
+    // same-model signed blocks unconditionally — so a thinking-off turn must not claim
+    // same-model history on that family (cross-model degradation: thinking → text, no
+    // signature), even though the caller says the message IS from this model.
+    const history = [
+      historyText('u0', 'user', 'earlier question'),
+      {
+        id: 'a0',
+        role: 'assistant',
+        parts: [
+          { type: 'reasoning', text: 'plan', state: 'done', providerMetadata: { anthropic: { signature: 'sig-abc' } } },
+          { type: 'text', text: 'earlier answer' }
+        ]
+      } as unknown as CherryUIMessage
+    ]
+
+    const bodies: unknown[] = []
+    const provider = await recordingProviderSource('anthropic-messages', 'claude-x', bodies)
+    await runRecordingTurn({ provider, history, isSameModelAsTurn: () => true, thinkingLevel: 'off' })
+
+    const body = bodies[0] as { messages: Array<{ role: string; content: unknown }> }
+    const content = body.messages[1].content as Array<{ type: string; signature?: string; text?: string }>
+    expect(content[0]).toEqual({ type: 'text', text: 'plan' })
+    expect(content.some((block) => block.type === 'thinking' || block.signature)).toBe(false)
+  })
+
   it('replays a redacted thinking block as redacted_thinking on the wire', async () => {
     // Both writers: the pi engine stores the opaque payload under `pi.thinkingSignature`
     // with the redacted marker, a legacy AI SDK turn under `anthropic.redactedData` with no
@@ -1216,6 +1303,9 @@ describe('streamPiChatTurn', () => {
       const message = await accumulate(chunks)
       const toolPart = message.parts.find((part) => part.type === 'dynamic-tool')
       expect(toolPart).toMatchObject({ toolName: 'echo', state: 'output-available' })
+      // The corrected input is re-emitted after the decision, so the persisted part (and
+      // replay) carries what actually executed — not the original pre-edit arguments.
+      expect(toolPart).toMatchObject({ input: { q: 'edited' } })
       // Legacy parity: the persisted part output is the raw execute output, not pi's
       // `{content, details}` envelope the stream adapter projects for pi's own tools.
       expect(toolPart).toMatchObject({ output: { echoed: 'edited' } })
@@ -1317,6 +1407,58 @@ describe('streamPiChatTurn', () => {
         state: 'output-denied'
       })
       expect(chunks.at(-1)).toMatchObject({ type: 'finish' })
+    })
+
+    it('treats an abort-cancelled approval as a cancellation, not a denial', async () => {
+      // Legacy cleared pending approvals on abort without writing a denial; a denied
+      // state here would persist a refusal the user never made (and the renderer card
+      // plus history converter would both read it back as one).
+      const faux = await importFaux()
+      const provider = await fauxProviderSource(faux, 'exec-abort-approval')
+      fauxStates
+        .get('exec-abort-approval')!
+        .core.setResponses([
+          faux.fauxAssistantMessage([faux.fauxToolCall('echo', { q: 'hi' })]),
+          faux.fauxAssistantMessage('Done')
+        ])
+      const onApprovalResolved = vi.fn()
+      const wiring = gatedTool('exec-abort-approval', onApprovalResolved)
+
+      const controller = new AbortController()
+      const reader = (
+        await streamPiChatTurn(
+          {
+            toolCallLimit: TEST_TOOL_CALL_LIMIT,
+            executionId: 'exec-abort-approval',
+            provider,
+            history: [],
+            prompt: userTurn('echo hi'),
+            tools: wiring.tools,
+            authorizer: wiring.authorizer
+          },
+          controller.signal
+        )
+      ).getReader()
+      const chunks: CherryUIMessageChunk[] = []
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+        if (value.type === 'tool-approval-request') controller.abort()
+      }
+
+      expect(wiring.execute).not.toHaveBeenCalled()
+      // Neither a denial NOR pi's blocked-call error may land — the part stays parked on
+      // its card, the state `dropUnansweredApprovals` cleans up on replay.
+      expect(chunks.some((chunk) => chunk.type === 'tool-output-denied')).toBe(false)
+      expect(chunks.some((chunk) => chunk.type === 'tool-output-error')).toBe(false)
+      expect(chunks.some((chunk) => chunk.type === 'finish')).toBe(false)
+      expect(onApprovalResolved).not.toHaveBeenCalled()
+      const message = await accumulate(chunks)
+      expect(message.parts.find((part) => part.type === 'dynamic-tool')).not.toMatchObject({
+        state: 'output-denied'
+      })
+      expect(toolApprovalRegistry.size()).toBe(0)
     })
 
     it('does not gate ungated tools', async () => {

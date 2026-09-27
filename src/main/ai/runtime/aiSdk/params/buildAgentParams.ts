@@ -55,9 +55,6 @@ import { INTERNAL_FEATURES } from './features/internalFeatures'
 import { type NativeFileSupport, resolveNativeFileSupport } from './nativeFileSupport'
 import type { RequestScope, SdkConfig } from './scope'
 
-// Re-homed to the engine-agnostic plan module (W6); re-exported for existing importers/tests.
-export { resolveToolCallLimit } from '@main/ai/chatTurnPlan'
-
 const NO_WEB_TOOL_ROUTES: WebToolRoutes = { webSearch: 'none', webFetch: 'none' }
 
 export interface BuildAgentParamsInput {

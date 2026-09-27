@@ -51,14 +51,9 @@ vi.mock('@main/data/services/McpServerService', () => ({
   mcpServerService: { list: () => ({ items: [] }) }
 }))
 
-const {
-  applyCallOverrides,
-  applyResponsesInstructions,
-  buildAgentParams,
-  composeStopWhen,
-  resolveToolCallLimit,
-  resolveTools
-} = await import('../buildAgentParams')
+const { applyCallOverrides, applyResponsesInstructions, buildAgentParams, composeStopWhen, resolveTools } =
+  await import('../buildAgentParams')
+const { resolveToolCallLimit } = await import('@main/ai/chatTurnPlan')
 
 beforeEach(() => {
   preferenceGetMock.mockReturnValue(null)

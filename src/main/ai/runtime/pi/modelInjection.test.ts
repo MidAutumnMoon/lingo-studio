@@ -934,6 +934,40 @@ describe('materializePiProviderStream', () => {
     const options = (inner.mock.calls[0] as unknown[])[2]
     expect(options).not.toHaveProperty('fetch')
   })
+
+  it('injects the host-resolved request options into every stream call without overriding caller values', async () => {
+    // pi's session loop never sets maxTokens/temperature/samplingParams itself, and 4 of
+    // 5 adapters gate the wire fields on `options` — without the injection the
+    // request-level values are wire-inert.
+    const { inner, injection } = injectionWithRecordingInnerStream()
+    const materialized = await materializePiProviderStream(injection, {
+      maxTokens: 1234,
+      temperature: 0.25,
+      samplingParams: { top_p: 0.9 }
+    })
+
+    const model = injection.providerConfig.models![0] as unknown as PiModel<PiApi>
+    expect(() => materialized.streamSimple(model, normalizeContext({ messages: [] }), {})).toThrow(
+      'inner stream reached'
+    )
+    expect(inner).toHaveBeenCalledWith(
+      model,
+      expect.anything(),
+      expect.objectContaining({ maxTokens: 1234, temperature: 0.25, samplingParams: { top_p: 0.9 } })
+    )
+
+    // A value pi itself passed wins — injection is additive, never an override (retry and
+    // cache-warmer paths re-issue the same options and must stay stable).
+    inner.mockClear()
+    expect(() => materialized.streamSimple(model, normalizeContext({ messages: [] }), { maxTokens: 77 })).toThrow(
+      'inner stream reached'
+    )
+    expect(inner).toHaveBeenCalledWith(
+      model,
+      expect.anything(),
+      expect.objectContaining({ maxTokens: 77, temperature: 0.25 })
+    )
+  })
 })
 
 describe('pi provider dialect compat', () => {
