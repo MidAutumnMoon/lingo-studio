@@ -23,7 +23,6 @@ import { endpointImpliedCapability, type ParamValues } from '@cherrystudio/provi
 import {
   type AiUsageCaptureContext,
   aiUsageRecordService,
-  type MessageRef,
   type SourceSnapshot
 } from '@data/services/AiUsageRecordService'
 import { assistantDataService } from '@data/services/AssistantService'
@@ -81,6 +80,7 @@ import {
   createRetryableWrap,
   readRetryPolicy
 } from './runtime/aiSdk'
+import { piChatEngineEnabled, tryStreamPiChatTurn } from './runtime/piChat/chatTurnSeam'
 import { skillService } from './skills/SkillService'
 import { type MessageRuntimeTimingSink, WebContentsListener } from './streamManager'
 import { resolveModelTokenDialect } from './tokens/dialect'
@@ -98,7 +98,11 @@ import { installProviderUserAgentInterceptor } from './utils/customFetch'
 import { type SplitImageParams, splitParamValues } from './utils/imageOptions'
 import { normalizeImageEditInputs } from './utils/normalizeImageEditInputs'
 import { routeToEndpoint } from './utils/provider'
-import { createAiUsageCaptureContext } from './utils/usageCapture'
+import {
+  createAiUsageCaptureContext,
+  createRequestCaptureContext,
+  sourceSnapshotForAssistant
+} from './utils/usageCapture'
 
 const logger = loggerService.withContext('AiService')
 
@@ -160,17 +164,6 @@ function bareModelKey(apiModelId: string | undefined): string {
   return afterSlash.toLowerCase()
 }
 
-function sourceSnapshotForAssistant(assistant: Assistant | undefined): SourceSnapshot | undefined {
-  return assistant
-    ? {
-        type: 'assistant',
-        id: assistant.id,
-        name: assistant.name,
-        icon: assistant.emoji
-      }
-    : undefined
-}
-
 function resolveTextRetryPolicy(
   configured: ReturnType<typeof readRetryPolicy>,
   requestMaxRetries: number | undefined,
@@ -180,28 +173,6 @@ function resolveTextRetryPolicy(
     return configured
   }
   return { ...configured, enabled: true, maxAttempts: Math.max(1, Math.trunc(requestMaxRetries)), fallbackModelIds: [] }
-}
-
-function createCaptureContext(input: {
-  provider: Provider
-  model: Model
-  sdkModelId: string
-  credentialReceipt: Parameters<typeof createAiUsageCaptureContext>[0]['credentialReceipt']
-  source?: SourceSnapshot | null
-  messageRef?: MessageRef | null
-}): AiUsageCaptureContext {
-  return createAiUsageCaptureContext({
-    providerId: input.provider.id,
-    providerName: input.provider.name,
-    modelId: input.sdkModelId,
-    modelName: input.model.name,
-    pricing: input.model.pricing,
-    trustProviderReportedCost: input.provider.reportsActualCost,
-    reportedCostCurrency: input.provider.reportedCostCurrency,
-    credentialReceipt: input.credentialReceipt,
-    source: input.source,
-    messageRef: input.messageRef
-  })
 }
 
 function createProviderCallHandler(context: AiUsageCaptureContext): RuntimeProviderCallHandler {
@@ -574,6 +545,15 @@ export class AiService extends BaseService {
       throw new Error(`Agent session stream ${request.conversation.topicId} requires an agent-session runtime request`)
     }
 
+    // The pi chat engine branch (W6): a per-execution gate with silent legacy
+    // fallback. Checked before any param resolution so a flag-off process pays
+    // nothing and the legacy path below stays byte-identical.
+    if (piChatEngineEnabled()) {
+      const { provider, model, assistant } = this.getProviderAndModel(request)
+      const piStream = await tryStreamPiChatTurn({ request, signal, provider, model, assistant })
+      if (piStream) return piStream
+    }
+
     const repairUsagePlugins: { current?: AiPlugin[] } = {}
     const {
       sdkConfig,
@@ -589,7 +569,7 @@ export class AiService extends BaseService {
       nativeFileSupport,
       fileAttachments
     } = await this.buildAgentParamsFor(request, signal, extraFeatures, () => repairUsagePlugins.current ?? [])
-    const usageContext = createCaptureContext({
+    const usageContext = createRequestCaptureContext({
       provider,
       model,
       sdkModelId: sdkConfig.modelId,
@@ -680,7 +660,7 @@ export class AiService extends BaseService {
           retryPolicy,
           createUsagePlugin: ({ provider, model, sdkModelId, credentialReceipt }) =>
             createAiUsagePlugin(
-              createCaptureContext({
+              createRequestCaptureContext({
                 provider,
                 model,
                 sdkModelId,
@@ -789,7 +769,7 @@ export class AiService extends BaseService {
       hookParts,
       nativeFileSupport
     } = await this.buildAgentParamsFor(request, signal, extraFeatures, () => repairUsagePlugins.current ?? [])
-    const usageContext = createCaptureContext({
+    const usageContext = createRequestCaptureContext({
       provider,
       model,
       sdkModelId: sdkConfig.modelId,
@@ -839,7 +819,7 @@ export class AiService extends BaseService {
           retryPolicy,
           createUsagePlugin: ({ provider, model, sdkModelId, credentialReceipt }) =>
             createAiUsagePlugin(
-              createCaptureContext({
+              createRequestCaptureContext({
                 provider,
                 model,
                 sdkModelId,
@@ -974,7 +954,7 @@ export class AiService extends BaseService {
       }
     }
 
-    const imageUsageContext = createCaptureContext({
+    const imageUsageContext = createRequestCaptureContext({
       provider,
       model,
       sdkModelId: sdkConfig.modelId,
@@ -1139,7 +1119,7 @@ export class AiService extends BaseService {
     const signal = request.requestOptions?.signal
 
     const { sdkConfig, credentialReceipt, provider, model, assistant } = await this.resolveTransportFor(request)
-    const usageContext = createCaptureContext({
+    const usageContext = createRequestCaptureContext({
       provider,
       model,
       sdkModelId: sdkConfig.modelId,
@@ -1173,7 +1153,7 @@ export class AiService extends BaseService {
     const signal = request.requestOptions?.signal
 
     const { sdkConfig, credentialReceipt, provider, model, assistant } = await this.resolveTransportFor(request)
-    const usageContext = createCaptureContext({
+    const usageContext = createRequestCaptureContext({
       provider,
       model,
       sdkModelId: sdkConfig.modelId,

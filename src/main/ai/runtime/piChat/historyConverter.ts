@@ -137,7 +137,14 @@ function attachmentNote(what: string): TextContent {
   return { type: 'text', text: `[attachment: ${what}]` }
 }
 
-function filePartContent(part: { mediaType: string; url: string; filename?: string }): TextContent | ImageContent {
+/** One served file part as model content — base64 images become `ImageContent`,
+ *  everything else degrades to a text note. Shared with the seam's prompt-image
+ *  extraction (one conversion, both surfaces). */
+export function filePartContent(part: {
+  mediaType: string
+  url: string
+  filename?: string
+}): TextContent | ImageContent {
   if (part.mediaType.startsWith('image/')) {
     const parsed = parseDataUrl(part.url)
     if (parsed?.isBase64) {

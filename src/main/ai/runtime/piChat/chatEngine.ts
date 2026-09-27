@@ -1,4 +1,4 @@
-import type { AssistantMessage, ImageContent, ThinkingLevel } from '@earendil-works/pi-ai'
+import type { AssistantMessage, ImageContent, ModelThinkingLevel } from '@earendil-works/pi-ai'
 /**
  * W2 — the pi chat engine (plan: docs/plans/2026-09-pi-unification.md, Phase 1).
  *
@@ -88,7 +88,9 @@ export interface PiChatTurnRequest {
   history: readonly CherryUIMessage[]
   /** The turn's user content: text verbatim (no command expansion), images inline. */
   prompt: { messageId: string; text: string; images?: ImageContent[] }
-  thinkingLevel?: ThinkingLevel
+  /** pi thinking level for the session: the request ladder (`ThinkingLevel`) plus
+   *  `off` (Cherry's `none`) — pi-agent-core's session union accepts both. */
+  thinkingLevel?: ModelThinkingLevel
   /**
    * pi tools for the turn (W4a's `chatToolAdapter` converts the registry; omitted ⇒
    * tool-less turn). Every handed tool is a Cherry registry tool, so its part payload is

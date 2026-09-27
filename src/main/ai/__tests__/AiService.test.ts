@@ -250,6 +250,11 @@ function createService(): InstanceType<typeof AiService> {
 describe('AiService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default service resolution for the streamText flag check (pi engine off);
+    // tests that need stricter behavior override with their own implementation.
+    mockApplicationGet.mockImplementation((name: string) =>
+      name === 'PreferenceService' ? defaultServiceInstances.PreferenceService : undefined
+    )
     mockCreateAgent.mockReset()
     mockAssistantGetById.mockReturnValue(undefined)
     mockReadRetryPolicy.mockReturnValue({
@@ -970,6 +975,11 @@ describe('AiService tool approval', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default service resolution for the streamText flag check (pi engine off);
+    // tests that need stricter behavior override with their own implementation.
+    mockApplicationGet.mockImplementation((name: string) =>
+      name === 'PreferenceService' ? defaultServiceInstances.PreferenceService : undefined
+    )
   })
 
   it('takes the Claude-Agent fast-path when the live registry dispatches the decision', async () => {

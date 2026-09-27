@@ -16,7 +16,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createContextMiddleware, type VFSStorageAdapter } from '@cherrystudio/ai-core'
 import { MIN_IN_FLIGHT_TRUNCATE_THRESHOLD } from '@main/ai/constants'
-import { DataApiErrorFactory } from '@shared/data/api/errors'
 import { DEFAULT_CONTEXT_SETTINGS } from '@shared/data/types/contextSettings'
 
 const { getByIdMock, adapterFactoryMock } = vi.hoisted(() => ({
@@ -29,12 +28,7 @@ vi.mock('@main/ai/contextBuild/persistedOutputAdapter', () => ({
 }))
 
 import type { RequestScope } from '../../scope'
-import {
-  buildContextOptions,
-  contextBuildFeature,
-  hasAnchorRow,
-  resolveInFlightTruncateThreshold
-} from '../contextBuild'
+import { buildContextOptions, contextBuildFeature, resolveInFlightTruncateThreshold } from '../contextBuild'
 
 const CACHE_MARK = { anthropic: { cacheControl: { type: 'ephemeral' } } }
 const BIG = 150_000
@@ -255,35 +249,6 @@ describe('buildContextOptions — storage routing', () => {
     expect(value).toContain('--- truncated')
     expect(value).not.toContain('<persisted-output>')
     expect(fs.readdirSync(tmpDir)).toHaveLength(0)
-  })
-})
-
-// The lookup moved out of resolveTruncateStorage so it can gate fs_read's
-// admission too, and now runs once per request in buildAgentParams.
-describe('hasAnchorRow', () => {
-  it('reports an anchored request when the id resolves to a message row', () => {
-    expect(hasAnchorRow('anchor-1')).toBe(true)
-    expect(getByIdMock).toHaveBeenCalledWith('anchor-1')
-  })
-
-  it('treats a missing row as non-anchored (temp chat / one-shot streamPrompt)', () => {
-    // Real MessageService.getById throws NOT_FOUND for missing rows — it never returns null.
-    getByIdMock.mockImplementation(() => {
-      throw DataApiErrorFactory.notFound('Message', 'anchor-1')
-    })
-    expect(hasAnchorRow('anchor-1')).toBe(false)
-  })
-
-  it('skips the lookup entirely when the request carries no message id', () => {
-    expect(hasAnchorRow(undefined)).toBe(false)
-    expect(getByIdMock).not.toHaveBeenCalled()
-  })
-
-  it('rethrows anything that is not a missing row', () => {
-    getByIdMock.mockImplementation(() => {
-      throw new Error('db is on fire')
-    })
-    expect(() => hasAnchorRow('anchor-1')).toThrow('db is on fire')
   })
 })
 

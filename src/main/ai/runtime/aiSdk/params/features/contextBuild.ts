@@ -24,7 +24,6 @@
  */
 import type { ContextMiddlewareOptions, TruncateOptions, VFSStorageAdapter } from '@cherrystudio/ai-core'
 import { createContextMiddleware, definePlugin, groupIntoTurns } from '@cherrystudio/ai-core'
-import { messageService } from '@data/services/MessageService'
 import { loggerService } from '@logger'
 import { resolveInFlightTruncateThreshold } from '@main/ai/contextBuild/inFlightTruncate'
 import { createFileManagerStorageAdapter } from '@main/ai/contextBuild/persistedOutputAdapter'
@@ -34,7 +33,6 @@ import {
   TOOL_OUTPUT_EXCERPT_HEAD_CHARS as HEAD_CHARS,
   TOOL_OUTPUT_EXCERPT_TAIL_CHARS as TAIL_CHARS
 } from '@shared/ai/transport'
-import { ErrorCode, isDataApiError } from '@shared/data/api/errors'
 
 import type { RequestFeature } from '../feature'
 import type { RequestScope } from '../scope'
@@ -131,32 +129,6 @@ export function buildContextOptions(scope: RequestScope): ContextMiddlewareOptio
   }
 
   return options
-}
-
-/**
- * Whether the request's id maps to a real `message` row — the chat path's
- * assistant placeholder, committed before dispatch, that a provisional
- * `tool_output` ref can target. Temporary chats carry a synthetic uuid with no
- * row and one-shot `streamPrompt` calls (translate / naming / probes) carry a
- * random one; for those the truncator falls back to plain inline head/tail
- * truncation, so no `<persisted-output>` marker can ever be produced.
- *
- * Resolved ONCE per request at param-build time and carried on the scope
- * (`canOffloadToolOutputs`), because it gates two things: the storage adapter
- * below and fs_read's admission (a request that cannot mint a marker has no
- * use for the tool that reads one back).
- */
-export function hasAnchorRow(messageId: string | undefined): boolean {
-  if (messageId === undefined) return false
-  try {
-    messageService.getById(messageId)
-    return true
-  } catch (error) {
-    // getById throws NOT_FOUND for missing rows (it never returns null) —
-    // that's the expected non-anchored case. Anything else is a real failure.
-    if (isDataApiError(error) && error.code === ErrorCode.NOT_FOUND) return false
-    throw error
-  }
 }
 
 /**

@@ -125,3 +125,50 @@ export function createAiUsageCaptureContext(input: CreateAiUsageCaptureContextIn
       input.messageRef === undefined ? null : input.messageRef === null ? null : cloneAndFreeze(input.messageRef)
   })
 }
+
+/** The assistant-derived usage source snapshot (chat turns without an explicit request source). */
+export function sourceSnapshotForAssistant(
+  assistant:
+    | {
+        id: string
+        name: string
+        emoji?: string | null
+      }
+    | undefined
+): SourceSnapshot | undefined {
+  return assistant
+    ? {
+        type: 'assistant',
+        id: assistant.id,
+        name: assistant.name,
+        icon: assistant.emoji ?? null
+      }
+    : undefined
+}
+
+/**
+ * Build a request's capture context from resolved provider/model facts — the shared
+ * field mapping for the AI-SDK billing plugin and the pi chat engine's invocation
+ * sink (W6: one mapping, both engines).
+ */
+export function createRequestCaptureContext(input: {
+  provider: { id: string; name: string; reportsActualCost?: boolean; reportedCostCurrency?: Currency | null }
+  model: { name?: string; pricing?: RuntimeModelPricing | null }
+  sdkModelId: string
+  credentialReceipt?: CreateAiUsageCaptureContextInput['credentialReceipt']
+  source?: SourceSnapshot | null
+  messageRef?: MessageRef | null
+}): AiUsageCaptureContext {
+  return createAiUsageCaptureContext({
+    providerId: input.provider.id,
+    providerName: input.provider.name,
+    modelId: input.sdkModelId,
+    modelName: input.model.name,
+    pricing: input.model.pricing,
+    trustProviderReportedCost: input.provider.reportsActualCost,
+    reportedCostCurrency: input.provider.reportedCostCurrency,
+    credentialReceipt: input.credentialReceipt,
+    source: input.source,
+    messageRef: input.messageRef
+  })
+}

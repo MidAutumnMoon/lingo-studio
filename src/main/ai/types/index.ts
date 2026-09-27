@@ -8,6 +8,7 @@ export type {
   AiStreamRequest,
   AiTransportOptions,
   CallOverrides,
+  ChatTrigger,
   ContextOwner,
   ConversationRef,
   InProcessUsageContext,
