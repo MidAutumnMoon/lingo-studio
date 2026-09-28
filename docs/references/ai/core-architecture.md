@@ -1,8 +1,10 @@
 ---
-description: End-to-end chat turn flow from renderer IPC transport through AiStreamManager and Agent loop to persistence
+description: End-to-end chat turn flow from renderer IPC transport through AiStreamManager and the engine gate to persistence
 sources:
   - src/main/ai/streamManager
   - src/main/ai/AiService.ts
+  - src/main/ai/chatTurnPlan.ts
+  - src/main/ai/runtime/piChat/chatTurnSeam.ts
   - src/main/ipc/handlers/ai.ts
   - src/renderer/services/aiTransport
 ---
@@ -49,8 +51,11 @@ each subsystem.
 │    runs N StreamExecution loops, fan-out per chunk to listeners       │
 │                                                                      │
 │  runExecutionLoop (AiStreamManager) → AiService.streamText(req,signal)│
-│    buildAgentParams: registry.selectActive + applyDeferExposition     │
-│    new Agent({tools, hookParts}) — composeHooks runs inside Agent     │
+│    engine gate: piChatEngineEnabled() → tryStreamPiChatTurn —         │
+│      flag off / excluded ⇒ null ⇒ legacy engine below                 │
+│    legacy: resolveChatTurnPlan (chatTurnPlan.ts, the shared           │
+│      engine-agnostic core) → buildAgentParams (AI-SDK tail: defer     │
+│      exposition, features, options) → new Agent({tools, hookParts})   │
 │    → agent.stream(messages, signal)                                   │
 │    pipeStreamLoop tees:                                              │
 │      • broadcast → WebContents / SSE / channel-adapter / persistence │
@@ -63,7 +68,8 @@ each subsystem.
 │    SseListener          → res.write('[DONE]')                         │
 └──────────────────────────────────────────────────────────────────────┘
                                  ↓
-                        @ai-sdk/* package
+                @ai-sdk/* package (legacy engine)
+                @earendil-works/pi-ai (pi chat engine)
                                  ↓
                           LLM provider API
 ```
@@ -94,15 +100,27 @@ each subsystem.
    - **no live stream**: `send()` **starts** — evict any grace-period stream,
      create an `ActiveStream`, launch one `StreamExecution` per model.
 7. For each `StreamExecution`, `AiStreamManager`'s private `runExecutionLoop`
-   calls `AiService.streamText(request, signal)`, which builds params
-   (`buildAgentParamsFor → buildAgentParams`: `registry.selectActive` +
-   `applyDeferExposition` + per-feature hooks), constructs an `Agent`
-   (`composeHooks` folds observers + caller + features inside `Agent`), and
-   calls `agent.stream(messages, signal)` — which opens AI SDK's stream and
-   yields `UIMessageChunk`s. Agent-session runtime requests skip the generic
-   agent loop here: `AiService.streamText()` calls
-   `AgentSessionRuntimeService.openTurnStream()` so the registered driver
-   can own the concrete agent runtime.
+   calls `AiService.streamText(request, signal)`. What happens next:
+   - **Agent-session runtime requests** bypass the generic path:
+     `streamText` calls `AgentSessionRuntimeService.openTurnStream()` so the
+     registered driver can own the concrete agent runtime.
+   - **Engine gate** (everything else): with the `chat.pi_engine.enabled`
+     preference on, `tryStreamPiChatTurn`
+     (`runtime/piChat/chatTurnSeam.ts`) checks the per-execution exclusions
+     and prepares the turn for the pi chat engine — the exclusion matrix
+     and the provider injection both live in the seam. An excluded request
+     returns `null`, and `streamText` falls through to the legacy engine.
+   - **Legacy engine**: resolves `resolveChatTurnPlan` (`chatTurnPlan.ts`,
+     the engine-agnostic core — retained context, context settings, tool
+     selection, web routing, reasoning, the tool-call limit) and hands it
+     to `buildAgentParams` (the AI-SDK tail: `applyDeferExposition`,
+     per-feature plugins, options), which constructs an `Agent`
+     (`composeHooks` folds observers + caller + features inside `Agent`)
+     and calls `agent.stream(messages, signal)` — opening AI SDK's stream
+     and yielding `UIMessageChunk`s.
+   The pi chat engine emits the same chunk dialect through the unchanged
+   trunk, and is deliberately not a driver-registry entry — a chat turn is
+   stateless per execution.
 8. `pipeStreamLoop` reads the chunk stream once, tees: broadcast to
    listeners, accumulate via `readUIMessageStream`.
 9. On terminal (`done` / `error` / `aborted` / `awaiting-approval`):
@@ -114,17 +132,21 @@ each subsystem.
 
 ## Sequence: tool approval pause + resume
 
-1. AI SDK calls `tool.execute(args, toolCallContext)`. The wrapper sees
-   `needsApproval(args)` returns true and the assistant's auto-approve
-   policy says "ask". It writes an `approval-requested` part on the
-   accumulated message and holds the promise.
+1. The engine calls the tool with `needsApproval(args)` true and the
+   assistant's auto-approve policy saying "ask". It writes an
+   `approval-requested` part on the accumulated message and holds the
+   promise.
 2. Manager flips status to `awaiting-approval` on the shared cache.
 3. Renderer's `useTopicAwaitingApproval(topicId)` returns true; the UI
    shows the approval card.
 4. User decides → `useToolApprovalBridge` → `ai.tool.respond_approval`.
-5. Main applies the decision to the anchor row, resumes the stream
-   (agent-session runtime: resolves the live approval registry entry; MCP:
-   dispatches a `continue-conversation` so the existing stream rebroadcasts).
+5. Main applies the decision to the anchor row, then resumes by holder:
+   agent-session runtime resolves its registered approval entry; the pi
+   chat engine's authorizer was holding the tool-call promise in-process,
+   and the responder looks it up in the engine-neutral
+   `toolApprovalRegistry` (`pi-chat:<executionId>` scope) to settle it —
+   no re-dispatch happens; the legacy MCP path dispatches a
+   `continue-conversation` so the existing stream rebroadcasts.
 6. Status flips back to `streaming`; UI hides the card.
 
 See [Tool Approval](./tool-approval.md) for invariants and the
@@ -167,8 +189,9 @@ overlay-vs-persist conditional write.
 
 ```
 src/main/ai/
-├── AiService.ts                  ← provider operations, built-in tool init, approval decisions
-├── runtime/                      ← aiSdk plus pi / dsh agent-session drivers
+├── AiService.ts                  ← provider operations, built-in tool init, approval decisions, engine gate
+├── chatTurnPlan.ts               ← engine-agnostic chat-turn plan (selection, context, reasoning, knobs)
+├── runtime/                      ← aiSdk (legacy engine), piChat (pi chat engine), pi / dsh agent-session drivers
 ├── agentSession/                 ← agent-session topic host
 ├── agents/                       ← AgentJobsService, AgentTaskJobHandler, runAgentTask, prompt, heartbeat
 ├── channels/                     ← ChannelManager + IM adapters (discord/qq/slack/telegram/wechat) + security/
@@ -178,11 +201,11 @@ src/main/ai/
 ├── skills/                       ← SkillService, SkillInstaller
 ├── contextBuild/                 ← context policy, compression, persisted tool outputs
 ├── tokens/                       ← token estimators and modality profiles
-├── tools/                        ← AI SDK registry and runtime-specific adapters
+├── tools/                        ← tool registry (both engines) and runtime-specific adapters
 ├── observability/                ← AI trace adapters, local projection, sinks
-├── messages/                     ← UI part → AI SDK part conversion
+├── messages/                     ← UI part ↔ model part conversion, replay views
 ├── types/                        ← AppProviderId, merged types, request types
-└── utils/                        ← reasoning / model parameters / options / websearch
+└── utils/                        ← reasoning / model parameters / options / usage capture / websearch
 
 src/main/ipc/handlers/ai.ts        ← IpcApi transport adapters
 src/renderer/services/aiTransport/ ← IpcChatTransport, StreamDispatchService, overlays

@@ -1,5 +1,5 @@
 ---
-description: Unified aiSdk ToolEntry registry — built-in web/kb tools, MCP sync, meta-tools, and deferred exposition
+description: Unified ToolEntry registry — built-in web/kb tools, MCP sync, meta-tools, and deferred exposition; both chat engines consume it
 sources:
   - src/main/ai/tools/adapters/aiSdk
 ---
@@ -22,10 +22,16 @@ interface ToolEntry {
 
 `registry` (`src/main/ai/tools/adapters/aiSdk/registry.ts`) is a
 process-wide singleton. `AiService.onInit()` calls the single
-`registerBuiltinTools()` entry point; request preparation later reads the
-registry through `buildAgentParams`. Agent-session runtimes build their own
+`registerBuiltinTools()` entry point; request preparation reads the
+registry through `selectRegistryTools` in `chatTurnPlan.ts` — the
+engine-agnostic selection both chat engines share (the legacy path then
+merges client tools and applies defer exposition in `buildAgentParams`).
+The pi chat engine consumes this same registry through
+`toPiChatToolSurface` (`runtime/piChat/chatToolSurface.ts`), which converts
+entries to pi `ToolDefinition`s and pairs them with the approval
+authorizer. Agent-session runtimes are the exception: they build their own
 runtime-native tool surfaces (Pi's bridged custom tools, DSH's bridge
-catalog) and do not consume this AI SDK `ToolRegistry`.
+catalog) and do not consume this `ToolRegistry`.
 
 Tests construct their own `new ToolRegistry()` to avoid singleton pollution.
 

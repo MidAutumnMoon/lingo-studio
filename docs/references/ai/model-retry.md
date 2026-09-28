@@ -180,6 +180,12 @@ per-batch retry handles residual 429s. The degrade-to-vector-results fallback in
 - **Abort:** abort signals pass through untouched; aborts are not retried.
 - Fallbacks can override the supported call-option subset documented above,
   but cannot replace the already-built primary tools or system prompt.
+- **pi chat engine:** the wrap is `LanguageModelV3`-shaped and wraps only
+  the AI-SDK model, so a turn routed to the pi chat engine has no key failover,
+  transient retry, cross-model fallback, or `data-retry` parts — a transient
+  failure ends as an error row the user retries manually. A turn-level host
+  wrap is the recorded prerequisite for the pi chat engine serving default
+  traffic (see `docs/plans/2026-09-pi-unification.md`).
 
 ## Tests
 

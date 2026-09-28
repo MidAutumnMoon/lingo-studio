@@ -78,7 +78,7 @@ Main-process services that own long-lived resources or persistent side effects r
 
 ## AI Core Architecture
 
-The AI pipeline selects a provider, runs a middleware chain (context, knowledge, tools), streams via the Vercel AI SDK, and emits typed message blocks (text, code, image, tool-call). See [AI Reference](../ai/README.md) for the full pipeline and data flow.
+The AI pipeline selects a provider, runs a middleware chain (context, knowledge, tools), streams via the Vercel AI SDK or the in-process pi chat engine (selected per execution by the engine gate), and emits typed message blocks (text, code, image, tool-call). See [AI Reference](../ai/README.md) for the full pipeline and data flow.
 
 ## Monorepo Structure
 

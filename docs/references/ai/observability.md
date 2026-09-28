@@ -26,7 +26,9 @@ chat.turn                                      (root, created by context provide
 
 AI SDK's `experimental_telemetry` produces the inner spans; Cherry owns
 the root span through `AiTurnTrace` so it lands in the same observability
-path without going through the AI SDK adapter.
+path without going through the AI SDK adapter. The pi chat engine produces
+none of these `ai.*` spans — its turns carry `pi.generate_content` provider
+spans under the same root context (see below).
 
 The main-process observability boundary is `src/main/ai/observability`:
 
@@ -95,7 +97,9 @@ by the global provider. On every `startSpan` / `startActiveSpan` it:
 Pi has no native OTel exporter. Its runtime connection creates Cherry-owned
 `pi.generate_content` spans at the provider stream boundary and
 `pi.execute_tool` spans from Pi's tool lifecycle events. These spans use the
-agent-session trace context supplied by the host and flow through the existing
+host-supplied trace context — the agent-session context for runtime
+connections, the chat turn's active root context for the pi chat
+engine — and flow through the existing
 `NodeTraceService` and `TraceStorageService`; parallel tool calls are tracked by
 tool-call id and unfinished spans are closed when the connection ends.
 

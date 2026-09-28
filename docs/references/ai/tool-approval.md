@@ -19,11 +19,15 @@ persists, and resumes the stream.
 
 ## End-to-end flow
 
-1. **Tool needs approval** — at `execute` time, the wrapper checks
+1. **Tool needs approval** — at `execute` time, the engine checks
    `tool.needsApproval` and the assistant's auto-approve policy. If
-   approval is required, the wrapper writes an `approval-requested` part
-   and resolves the tool's promise into a held state (agent-session runtime:
-   holds its registered approval; MCP: stream pauses on the approval part).
+   approval is required, it writes an `approval-requested` part
+   and resolves the tool's promise into a held state. The holder differs
+   per engine: the agent-session runtime holds its registered approval;
+   the pi chat engine's authorizer holds the tool-call promise in-process
+   (registered in the engine-neutral `toolApprovalRegistry` under the
+   `pi-chat:<executionId>` scope); the legacy MCP path pauses the stream
+   on the approval part.
 
 2. **Stream pauses** — `AiStreamManager` transitions the topic to
    `awaiting-approval`. The `topic.stream.statuses.<topicId>` shared-cache
@@ -38,12 +42,17 @@ persists, and resumes the stream.
 4. **Main applies** — the IpcApi handler in `src/main/ipc/handlers/ai.ts`
    delegates to `AiService.respondToolApproval`, which branches on transport
    **before** touching the topic-message DB:
-   - **Agent-session registry path**: hands the decision to
+   - **Live-registry path**: hands the decision to
      `AgentSessionRuntimeService.respondToolApproval`, which settles any
-     persisted interaction card and dispatches the live approval registry
-     entry so the existing runtime proceeds. When a live entry handles it, the handler
-     **early-returns — no DB read happens** (and `topicId` / `anchorId`
-     are not required).
+     persisted interaction card and looks up the engine-neutral
+     `toolApprovalRegistry` by `approvalId`. The registry serves both
+     agent-session entries and pi-chat entries (the latter under the
+     `pi-chat:<executionId>` scope). A pi-chat hit resolves the authorizer's
+     held promise in place — no re-dispatch — and the card advances through
+     the seam's `onApprovalResolved` →
+     `AiStreamManager.resolveToolApproval`. When a live entry handles it,
+     the handler **early-returns — no DB read happens** (and `topicId` /
+     `anchorId` are not required).
    - **MCP path** (reached only when no live entry matched; requires
      `topicId` + `anchorId`): reads the anchor message's current `parts`
      from DB, applies the decision, and **writes only when the target

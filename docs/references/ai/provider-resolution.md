@@ -30,11 +30,16 @@ See [Adapter Family](./adapter-family.md) for the full design.
 `src/main/ai/provider/endpoint.ts` exposes four pure helpers:
 
 ```ts
-resolveEffectiveEndpoint(provider, model): { endpointType, baseUrl, providerOptionsKey? }
+resolveEffectiveEndpoint(provider, model, preferredEndpointType?): { endpointType, baseUrl, providerOptionsKey? }
 resolveProviderVariant(baseProviderId, endpointType): AppProviderId
 resolveAiSdkProviderId(provider, endpointType): AppProviderId
 resolveProviderOptionsKey(aiSdkProviderId, context): string
 ```
+
+The optional `preferredEndpointType` overrides `model.endpointTypes[0]` when
+the model declares both endpoint types — the pi chat engine passes
+`anthropic-messages` for dual-protocol models (see `piPreferredEndpointType`
+in `runtime/pi/modelInjection.ts`); the legacy path keeps `endpointTypes[0]`.
 
 `resolveAiSdkProviderId` is the runtime hot-path entry. It reads
 `provider.endpointConfigs[endpointType].adapterFamily`, applies the
@@ -107,8 +112,10 @@ the option and let the function resolve the endpoint itself.
 `resolveSdkConfig` (`src/main/ai/provider/sdkConfig.ts`) wraps it with the wire
 model id and the `providerOptions` namespace. It is the modality-agnostic
 transport core: `AiService`'s embedding, rerank and image verbs call it
-directly, and the chat pipeline (`buildAgentParams`) layers tools, prompt and
-context on top of it. Compression-model resolution also uses this core,
+directly, and the legacy engine's chat pipeline (`buildAgentParams`) layers
+tools, prompt and context on top of it — pi-routed turns use the provider
+injection instead (`runtime/pi/modelInjection.ts`). Compression-model
+resolution also uses this core,
 including wire model normalization, before binding its owning conversation
 to the summary model.
 

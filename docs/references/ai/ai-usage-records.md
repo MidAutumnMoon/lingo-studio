@@ -74,7 +74,11 @@ invoices remain authoritative.
   before the provider call. Completion never consults current configuration or
   rotation state.
 - Every runtime route has one capture owner. Gateway-backed Agent traffic uses
-  provider-call capture; direct Agent traffic is captured by the runtime driver.
+  provider-call capture; direct Agent traffic is captured by the runtime
+  driver; pi chat engine turns are captured by the engine itself (one
+  `onInvocation` per provider response, forwarded to
+  `aiUsageRecordService.recordInvocation` with the request's shared capture
+  context).
 
 There is deliberately no operation table or persistence compensation layer.
 
@@ -85,7 +89,8 @@ closed capture contract:
 
 | Operation | Capture owner | Record behavior |
 | --- | --- | --- |
-| `streamText` | language model middleware | one row per successful `doStream`, written from its `finish` usage |
+| `streamText` (legacy engine) | language model middleware | one row per successful `doStream`, written from its `finish` usage |
+| `streamText` (pi chat engine) | engine invocation sink (`onInvocation` → `recordInvocation`) | one row per provider response, including error/aborted ones (deduped by request id), with per-invocation metrics |
 | `generateText` | language model middleware | one row per successful `doGenerate` |
 | `embedMany` | aiCore embedding model middleware | one row per actual `doEmbed` batch |
 | `generateImage` | aiCore image model middleware or custom transport owner | one row per actual provider generation |
@@ -185,9 +190,17 @@ Request id namespaces are:
 - language middleware: `ai-sdk:<providerId>:<uuid>`
 - aiCore provider handlers: `ai-core:<modality>:<uuid>`
 - Pi runtime: `pi-agent:<session-id>:<response-id>`
+- pi chat engine: `pi-chat:<execution-id>:<response-id>`
 - DSH runtime: `dsh-agent:<session-id>:<turn>:<sequence>`
 - custom async image: `custom-image:<job-id>`
 - migration: `legacy:<message-kind>:<message-id>`
+
+Known pi-chat deltas (recorded in `docs/plans/2026-09-pi-unification.md`):
+provider-reported cost is dropped (pi's `Usage.cost` never maps into
+`providerCost`, so local cost estimation is used instead), and analytics
+events fire per provider invocation where the legacy hook merges per-step
+usage into one per-turn event. Usage-record rows themselves cover error and
+aborted turns on both paths.
 
 ## Per-invocation metrics
 

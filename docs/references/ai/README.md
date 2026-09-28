@@ -8,8 +8,9 @@ sources:
 # AI Reference
 
 This is the entry point for Cherry Studio's AI pipeline: main-process provider
-calls, AI SDK chat execution, registered agent-session runtimes, and the
-renderer-side transport that connects to them.
+calls, chat execution (the legacy Vercel AI SDK engine — "the legacy engine" —
+or the in-process pi chat engine, selected per execution), registered
+agent-session runtimes, and the renderer-side transport that connects to them.
 
 ## Quick navigation
 
@@ -17,7 +18,7 @@ renderer-side transport that connects to them.
 
 | Document | What it covers |
 |---|---|
-| [Core Architecture](./core-architecture.md) | End-to-end call flow: `ai.stream.open` IpcApi route → context provider → AiStreamManager → runtime → broadcast / persist |
+| [Core Architecture](./core-architecture.md) | End-to-end call flow: `ai.stream.open` IpcApi route → context provider → AiStreamManager → engine gate (legacy engine or pi chat engine) → broadcast / persist |
 | [Stream Manager](./stream-manager.md) | Active-stream registry, listeners, reconnect, abort, queue/yield/continuation steering, persistence backends |
 | [Agent Session Runtime](./agent-session-runtime.md) | Agent-session host/driver split, follow-up admission, resume persistence, and the registered Pi and DSH drivers |
 | [Agent Session Fork](./agent-session-fork.md) | Native fork behavior, service ownership, opaque checkpoints, workspace handling, publication, and recovery |
@@ -61,10 +62,12 @@ renderer-side transport that connects to them.
 
 ```
 src/main/ai/
-├── AiService.ts                  ← provider operations, built-in tool init, approval decisions
+├── AiService.ts                  ← provider operations, built-in tool init, approval decisions, engine gate
+├── chatTurnPlan.ts               ← engine-agnostic chat-turn plan (selection, context, reasoning, knobs)
 ├── runtime/                      ← AI execution backends + agent-session runtime registry
-│   ├── aiSdk/                    ← Agent class, loop, observers, params/features
-│   ├── pi/                       ← Pi runtime connection and approval extension
+│   ├── aiSdk/                    ← legacy engine: Agent class, loop, observers, params/features
+│   ├── piChat/                   ← pi chat engine + seam (engine gate, input preparation)
+│   ├── pi/                       ← Pi runtime connection and approval extension (agent sessions)
 │   └── dsh/                      ← DeepSeek Harness runtime connection
 ├── agentSession/                 ← agent-session topic host
 │   └── AgentSessionRuntimeService.ts
@@ -88,15 +91,15 @@ src/main/ai/
 ├── skills/                       ← SkillService, SkillInstaller
 ├── contextBuild/                 ← context-window policy, compression, persisted tool output
 ├── tokens/                       ← token estimation and modality profiles
-├── tools/                        ← unified tool registry
+├── tools/                        ← unified tool registry (both chat engines consume it)
 │   └── adapters/
 │       └── aiSdk/                ← registry.ts, repair.ts; builtin/ (web_search/web_fetch/kb_*),
 │                                    mcp/ (server → ToolEntry sync), meta/ (tool_search/inspect/invoke;
 │                                    tool_exec defined but not injected), exposition/ (shouldDefer + applyDefer)
 ├── observability/                ← AI trace adapters (aiSdk), local projection, sinks
-├── messages/                     ← UI part → AI SDK part conversion
+├── messages/                     ← UI part ↔ model part conversion, replay views
 ├── types/                        ← AppProviderId, merged extension types, request types
-└── utils/                        ← reasoning / model parameters / options / websearch helpers
+└── utils/                        ← reasoning / model parameters / options / usage capture / websearch helpers
 ```
 
 ## How a chat turn flows
@@ -118,13 +121,19 @@ src/main/ai/
    **inject** path — the running turn yields and `onExecutionDone` chains a
    continuation; an agent-session follow-up also injects, upserting listeners.)
 5. Each execution's `runExecutionLoop` calls `AiService.streamText(request,
-   signal)`, which builds params (`buildAgentParams`) and constructs an `Agent`
-   composing hooks from `RequestFeature[]` (anthropic cache, gateway usage
-   normalisation, reasoning extraction, …), then calls `agent.stream(messages,
-   signal)` to open the AI SDK stream and yield `UIMessageChunk`s.
-   Agent-session runtime requests are the exception: `AiService.streamText`
-   routes them to `AgentSessionRuntimeService.openTurnStream()` so the
-   registered driver can own the concrete agent runtime.
+   signal)`. Agent-session runtime requests are routed to
+   `AgentSessionRuntimeService.openTurnStream()` so the registered driver can
+   own the concrete agent runtime. Every other request passes the engine
+   gate. When the `chat.pi_engine.enabled` preference is on,
+   `tryStreamPiChatTurn` (`runtime/piChat/chatTurnSeam.ts`) checks the
+   per-execution exclusions; a request that passes runs on the pi chat
+   engine, an excluded one returns `null` and the legacy engine takes over.
+   The legacy path resolves `resolveChatTurnPlan` (`chatTurnPlan.ts`,
+   consumed by both engines) and then `buildAgentParams`, which constructs
+   an `Agent` composing hooks from `RequestFeature[]` (anthropic cache,
+   gateway usage normalisation, reasoning extraction, …) and calls
+   `agent.stream(messages, signal)` to open the AI SDK stream. Either
+   engine yields the same `UIMessageChunk` dialect into the trunk.
 6. `pipeStreamLoop` tees the chunk stream: one branch broadcasts to listeners
    (WebContents / SSE / channel-adapter / persistence), one branch runs
    `readUIMessageStream` to accumulate a `CherryUIMessage` snapshot.

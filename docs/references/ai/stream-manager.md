@@ -167,9 +167,11 @@ Choose by **consumer / producer fanout**:
 
 ```
 src/main/ai/
-├── AiService.ts                       provider-call owner: streamText + one-shot operations
-└── runtime/aiSdk/
-    └── Agent.ts                       single-pass `Agent.stream` wrapper (see Agent Loop)
+├── AiService.ts                       provider-call owner: streamText + one-shot operations + engine gate
+├── chatTurnPlan.ts                    engine-agnostic chat-turn plan (both engines consume it)
+├── runtime/aiSdk/
+│   └── Agent.ts                       single-pass `Agent.stream` wrapper (see Agent Loop)
+└── runtime/piChat/                    pi chat engine + seam (engine gate)
 
 src/main/ai/streamManager/
 ├── AiStreamManager.ts                 the registry + execution loop + multicast
@@ -413,7 +415,7 @@ behind the explicit control/lifecycle paths owned by `AiStreamManager` and
 | Source field | Owner | Collected at |
 |---|---|---|
 | `MessageRuntimeTiming.startedAt/completedAt` | execution timing collector | execution start and terminal event |
-| tool spans | AI SDK tool hooks / Agent SDK hooks | exact tool execute interval |
+| tool spans | engine tool hooks (AI SDK execute hooks; pi session `tool_execution_*` events with the approval wait subtracted) | exact tool execute interval |
 | approval spans | execution timing collector | request to approve, deny, abort, or error |
 | usage, cost, request count, provider performance | AI usage record projector | successful provider invocation insertion |
 
@@ -560,7 +562,8 @@ interface SendResult {
 ### Execution loop — `runExecutionLoop` + `pipeStreamLoop`
 
 Each execution runs an independent loop that bridges "the single
-`ReadableStream` from AI SDK" to "what the manager has to do":
+`ReadableStream` of `UIMessageChunk`s from the selected engine" to "what the
+manager has to do":
 broadcast to listeners, buffer for reconnect, and accumulate a
 persistable `finalMessage`.
 
@@ -573,7 +576,9 @@ const stream: ReadableStream<UIMessageChunk> = await aiService.streamText({
 })
 ```
 
-`streamText` returns AI SDK's raw chunk stream. `signal` comes from
+`streamText` returns the engine-provided chunk stream — the legacy AI SDK
+engine's `agent.stream(...)`, or the pi chat engine's chunk dialect when the
+engine gate routes the turn there. `signal` comes from
 `StreamExecution.abortController`; `abort()` triggers it.
 
 **Step 2 — wrap with `withIdleTimeout`.** Resets per chunk; on idle

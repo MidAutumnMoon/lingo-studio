@@ -1,6 +1,7 @@
 ---
-description: buildAgentParams and the RequestFeature model composing plugins, tools, hooks, and provider quirks per request
+description: resolveChatTurnPlan and buildAgentParams — the engine-agnostic turn plan plus the RequestFeature model composing plugins, tools, hooks, and provider quirks per request
 sources:
+  - src/main/ai/chatTurnPlan.ts
   - src/main/ai/runtime/aiSdk/params/buildAgentParams.ts
   - src/main/ai/runtime/aiSdk/params/feature.ts
   - src/main/ai/runtime/aiSdk/params/features/internalFeatures.ts
@@ -10,9 +11,18 @@ sources:
 
 ## What it is
 
-`buildAgentParams` (`src/main/ai/runtime/aiSdk/params/buildAgentParams.ts`) is the
-single function that turns a (request, provider, model, assistant) tuple
-into everything `Agent.stream()` needs:
+Chat-turn parameter resolution is split in two:
+
+- `resolveChatTurnPlan` (`src/main/ai/chatTurnPlan.ts`) computes the
+  **engine-agnostic core** — retained context, context settings, tool signals
+  and registry selection, web-tool routing, the reasoning invocation, the
+  tool-call limit, and the offload-eligibility gate. Both chat engines
+  consume this one plan, so selection and knob resolution cannot drift
+  between them.
+- `buildAgentParams` (`src/main/ai/runtime/aiSdk/params/buildAgentParams.ts`)
+  consumes the plan and adds the **AI-SDK tail** — the part only the legacy
+  engine needs — turning a (plan, request, provider, model, assistant) tuple
+  into what `Agent.stream()` needs:
 
 ```ts
 interface BuiltAgentParams {
@@ -62,28 +72,14 @@ interface RequestFeature {
 (default `true`), then collects its model adapters and hook parts. The
 result feeds `plugins` and `hookParts` in `BuiltAgentParams`.
 
-Order matters because AI SDK plugin order is significant. The list lives
-in `src/main/ai/runtime/aiSdk/params/features/internalFeatures.ts`:
-
-```ts
-export const INTERNAL_FEATURES = [
-  devtoolsFeature,
-  gatewayUsageNormalizeFeature,
-  deepseekDsmlParserFeature,
-  reasoningExtractionFeature,     // must run before simulateStreamingFeature
-  simulateStreamingFeature,
-  anthropicCacheFeature,
-  anthropicHeadersFeature,
-  openrouterReasoningFeature,
-  noThinkFeature,
-  qwenThinkingFeature,
-  skipGeminiThoughtSignatureFeature,
-  providerWebSearchFeature,
-  providerUrlContextFeature,
-  terminalToolFailureFeature,
-  steerYieldFeature
-]
-```
+Order matters because AI SDK plugin order is significant. The ordered list
+lives in `internalFeatures.ts` — read it there rather than here; a copied
+list drifts (it already has once). The orderings that carry weight:
+`reasoningExtractionFeature` before `simulateStreamingFeature`;
+`contextBuildFeature` (in-flight truncation) before `anthropicCacheFeature`,
+so truncation happens before cache markers are placed; stop-condition
+features (`terminalToolFailure`, `steerYield`) compose under the assistant's
+step cap.
 
 Callers can append per-request `extraFeatures`; those run after the
 internal set. (AiService's analytics is *not* one of these — it is injected
@@ -99,13 +95,20 @@ interface RequestScope extends ToolApplyScope {
   request, signal, registry, assistant, model, provider,
   capabilities,            // resolveCapabilities — see capabilities.ts
   sdkConfig, endpointType, aiSdkProviderId,
+  reasoningProfile, reasoning, serviceTierControl,
   requestContext,          // RequestContext for tool execute()
-  mcpToolIds
+  mcpToolIds, mcpResourceServerIds,
+  contextSettings, compressionModel, compactionSink,
+  webToolRoutes, knowledgeBaseIds,
+  hasFileAttachments, hasPersistedOutputs, canOffloadToolOutputs
 }
 ```
 
-Features must never mutate the scope. The scope IS shared across all features
-for a single request, so any added field becomes part of the contract — keep it
+The authoritative field list is the `RequestScope` interface in `scope.ts`
+extended by `ToolApplyScope` in `tools/adapters/aiSdk/types.ts`; treat the
+above as orientation, not a mirror. Features must never
+mutate the scope. The scope IS shared across all features for a
+single request, so any added field becomes part of the contract — keep it
 minimal. After feature collection, the pipeline may still refine the
 request-local `sdkConfig.providerSettings.fetch` before returning it.
 
@@ -113,25 +116,37 @@ request-local `sdkConfig.providerSettings.fetch` before returning it.
 
 ```
 buildAgentParams(input)
-  ├─ resolveSdkConfig         → provider/sdkConfig: providerToAiSdkConfig + modelId
-  ├─ applyHttpTrace           → optional request-local fetch wrapper
-  ├─ canModelConsumeTools?    → resolveTools (registry sync + defer)
-  │     └─ syncMcpToolsToRegistry  (only servers owning a selected tool)
-  │     └─ registry.selectActive   (per-entry applies)
-  │     └─ applyDeferExposition    (defer pool → meta-tools + system section)
-  ├─ resolveCapabilities      → enableWebSearch / enableUrlContext / …
-  ├─ resolveEffectiveEndpoint → endpointType (model > provider default)
-  ├─ resolveAiSdkProviderId   → adapter-family routing (see adapter-family.md)
-  ├─ extractAiSdkStandardParams → standard params + provider-scoped params
-  ├─ resolveRequestedMaxOutputTokens → raw output limit before reasoning adjustment
-  ├─ resolveReasoningInvocation → reasoning wire + explicit thinking budget
-  ├─ collectFromFeatures      → plugins + hookParts
-  ├─ assembleSystemPrompt     → assistant prompt + deferred-tools header
-  └─ buildAgentOptions        → standard params + providerOptions + call overrides
-                                + reasoning-adjusted output limit
-                                + optional body-passthrough fetch wrapper
-                                + headers + stopWhen + repair + telemetry
+  ├─ resolveEffectiveEndpoint  → endpointType (model > provider default; feeds sdkConfig + the plan)
+  ├─ resolveSdkConfig          → provider/sdkConfig: providerToAiSdkConfig + modelId
+  ├─ applyHttpTrace            → optional request-local fetch wrapper
+  ├─ resolveChatTurnPlan       → engine-agnostic core (chatTurnPlan.ts):
+  │     retained context + context settings + offload gate
+  │     tool signals → registry sync → selectActive (per-entry applies)
+  │     web-tool routing (resolve + finalize around selection)
+  │     reasoning invocation + profile, custom params, output tokens,
+  │     tool-call limit
+  ├─ resolveAiSdkProviderId / serviceTierControl
+  ├─ resolveCapabilities       → enableWebSearch / enableUrlContext / …
+  ├─ resolveNativeFileSupport  → native attachment axes for prepareChatMessages
+  ├─ toExposedToolSet          → ToolSet + client-tool merge + applyDeferExposition
+  │                              (defer pool → meta-tools + system section)
+  ├─ collectFromFeatures       → plugins + hookParts
+  ├─ assembleSystemPrompt      → assistant prompt + deferred-tools header
+  ├─ buildAgentOptions         → standard params + providerOptions + call overrides
+  │                              + reasoning-adjusted output limit
+  │                              + optional body-passthrough fetch wrapper
+  │                              + headers + stopWhen + repair + telemetry
+  └─ applyResponsesInstructions → mirror the system prompt for Responses endpoints
 ```
+
+The pi chat engine (`runtime/piChat/chatTurnSeam.ts`) consumes
+`resolveChatTurnPlan` directly and skips the `buildAgentParams` tail — no
+ToolSet, no defer exposition, no feature plugins; the per-request behaviors
+those features carried are either native to pi, ported into the engine, or
+excluded at the seam's engine gate. The seam runs its own
+prompt-assembly and attachment-routing passes in the plan's terms
+(`assembleSystemPrompt`, `prepareChatMessages` with pi-pinned native
+support).
 
 ## customParameters split
 

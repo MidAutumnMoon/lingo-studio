@@ -16,6 +16,10 @@ schema declares it `optional`, and the resolver has a total fallback
 (`openai-compatible`) for endpoints that omit it — so no write path is
 obligated to set it.
 
+This is the legacy-engine selector. The pi path maps endpoint (and
+`adapterFamily`) to a pi wire family through `ENDPOINT_PI_API` in
+`@shared/ai/piModelCompatibility` instead — same inputs, parallel table.
+
 ## Identity stack
 
 | Layer | Example | Role |
