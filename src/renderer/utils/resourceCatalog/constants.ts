@@ -1,4 +1,4 @@
-import { Bot, FileText, MessageCircle, ToolCase } from 'lucide-react'
+import { Bot, MessageCircle, ToolCase } from 'lucide-react'
 
 import type { ResourceType, ResourceTypeUIConfig } from '@renderer/types/resourceCatalog'
 import type { AssistantSettings } from '@shared/data/types/assistant'
@@ -22,15 +22,8 @@ export const RESOURCE_TYPE_META: Record<ResourceType, ResourceTypeMeta> = {
     icon: ToolCase,
     color: 'bg-blue-400/10 text-blue-400 dark:bg-blue-300/10 dark:text-blue-300',
     labelKey: 'library.type.skill'
-  },
-  prompt: {
-    icon: FileText,
-    color: 'bg-secondary text-secondary-foreground',
-    labelKey: 'library.type.prompt'
   }
 }
-
-export const RESOURCE_TYPE_ORDER: ResourceType[] = ['agent', 'assistant', 'skill', 'prompt']
 
 export const RESOURCE_PROMPT_POLISH_SYSTEM_PROMPT = [
   'Improve the supplied system prompt without changing its intent or authority.',

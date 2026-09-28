@@ -31,7 +31,7 @@ const REQUIRED_TABLES = [
 ]
 
 // Optional tables that may not exist in older versions
-const OPTIONAL_TABLES = ['settings', 'translate_history', 'quick_phrases', 'translate_languages']
+const OPTIONAL_TABLES = ['settings', 'translate_history', 'translate_languages']
 
 /** Chromium's text for a large value whose backing file is gone; Dexie re-wraps it out of DOMException. */
 const LOST_LARGE_VALUE = 'Failed to read large IndexedDB value'

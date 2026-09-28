@@ -57,7 +57,7 @@ export function useAssistantMutations() {
     refresh: ['/assistants']
   })
   const { trigger: duplicateTrigger } = useMutation('POST', '/assistants/:id/duplicate', {
-    refresh: ['/assistants', '/prompts', '/prompt-bindings']
+    refresh: ['/assistants']
   })
 
   const createAssistant = useCallback(

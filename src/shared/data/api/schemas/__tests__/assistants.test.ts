@@ -10,23 +10,21 @@ describe('ImportAssistantSchema', () => {
       ImportAssistantSchema.parse({
         name: 'Imported assistant',
         prompt: 'legacy prompt',
-        groupName: `  ${longName}  `,
-        regularPhrases: [{ title: ' Greeting ', content: 'Hello' }]
+        groupName: `  ${longName}  `
       })
     ).toEqual({
       name: 'Imported assistant',
       prompt: 'legacy prompt',
-      groupName: longName,
-      regularPhrases: [{ title: 'Greeting', content: 'Hello' }]
+      groupName: longName
     })
   })
 
-  it('rejects malformed legacy phrases', () => {
+  it('rejects the v1 regularPhrases field at the API boundary', () => {
     expect(
       ImportAssistantSchema.safeParse({
         name: 'Imported assistant',
         prompt: 'legacy prompt',
-        regularPhrases: [{ title: 'Empty', content: '' }]
+        regularPhrases: [{ title: 'Greeting', content: 'Hello' }]
       }).success
     ).toBe(false)
   })

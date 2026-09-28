@@ -229,16 +229,16 @@ describe('ComposerToolbarShortcuts', () => {
     mocks.manifests = [
       thinkingManifest,
       {
-        id: 'quick-phrases',
+        id: 'demo-tool',
         kind: 'panel',
         order: 70,
-        label: 'quick-phrases-label',
+        label: 'demo-tool-label',
         icon: <span />
       }
     ]
 
     renderShortcuts({
-      pinnedIds: ['thinking', 'quick-phrases', 'new-conversation'],
+      pinnedIds: ['thinking', 'demo-tool', 'new-conversation'],
       customTools: [
         {
           id: 'new-conversation',
@@ -253,7 +253,7 @@ describe('ComposerToolbarShortcuts', () => {
 
     const buttons = [
       screen.getByRole('button', { name: 'thinking-manifest-label' }),
-      screen.getByRole('button', { name: 'quick-phrases-label' }),
+      screen.getByRole('button', { name: 'demo-tool-label' }),
       screen.getByRole('button', { name: 'new-conversation-label' })
     ]
     buttons.forEach((button) => {

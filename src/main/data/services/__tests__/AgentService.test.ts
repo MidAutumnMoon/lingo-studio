@@ -17,7 +17,6 @@ import { agentWorkspaceTable } from '@data/db/schemas/agentWorkspace'
 import { agentKnowledgeBaseTable, agentMcpServerTable } from '@data/db/schemas/assistantRelations'
 import { knowledgeBaseTable } from '@data/db/schemas/knowledge'
 import { mcpServerTable } from '@data/db/schemas/mcpServer'
-import { promptBindingTable, promptTable } from '@data/db/schemas/prompt'
 import { userModelTable } from '@data/db/schemas/userModel'
 import { userProviderTable } from '@data/db/schemas/userProvider'
 // Importing the singleton loads AgentGlobalSkillService so it self-registers in the
@@ -1226,38 +1225,6 @@ describe('AgentService', () => {
       const remaining = pinService.listByEntityType('agent')
       expect(remaining.map((p) => p.entityId)).toEqual([otherPin.entityId])
       expect(notifyDataApiDataChangeMock).toHaveBeenCalledWith([{ endpoint: '/pins', kind: 'membership' }])
-    })
-
-    it('purges prompt bindings on permanent delete without deleting the global prompt', async () => {
-      const { id } = await insertAgent({ id: 'agent_with_prompt_001' })
-      const promptId = '550e8400-e29b-41d4-a716-446655440021'
-      await dbh.db
-        .insert(promptTable)
-        .values({ id: promptId, title: 'Bound', content: 'Body', visibility: 'restricted', orderKey: 'a0' })
-      await dbh.db.insert(promptBindingTable).values({ promptId, targetType: 'agent', targetId: id, orderKey: 'a0' })
-
-      agentService.deleteAgent(id)
-      agentService.deleteAgent(id, { permanent: true })
-
-      expect(await dbh.db.select().from(promptBindingTable)).toHaveLength(0)
-      expect(await dbh.db.select().from(promptTable)).toHaveLength(1)
-    })
-
-    it('keeps prompt bindings when moving to the Recycle Bin, so restore returns the agent fully bound', async () => {
-      const { id } = await insertAgent({ id: 'agent_with_prompt_002' })
-      const promptId = '550e8400-e29b-41d4-a716-446655440022'
-      await dbh.db
-        .insert(promptTable)
-        .values({ id: promptId, title: 'Bound', content: 'Body', visibility: 'restricted', orderKey: 'a0' })
-      await dbh.db.insert(promptBindingTable).values({ promptId, targetType: 'agent', targetId: id, orderKey: 'a0' })
-
-      agentService.deleteAgent(id)
-
-      // Unlike pins, bindings survive Delete — only a purge drops them.
-      expect(await dbh.db.select().from(promptBindingTable)).toHaveLength(1)
-
-      agentService.restoreAgent(id)
-      expect(await dbh.db.select().from(promptBindingTable)).toHaveLength(1)
     })
 
     it('cascade-removes knowledge-base bindings when deleting an agent', async () => {

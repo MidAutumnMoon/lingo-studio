@@ -9,7 +9,6 @@ import * as z from 'zod'
 
 import { type Assistant, AssistantSchema, AssistantSettingsSchema } from '../../types/assistant'
 import { GroupIdSchema, GroupNameSchema } from '../../types/group'
-import { PromptContentSchema, PromptTitleSchema } from '../../types/prompt'
 import type { OffsetPaginationResponse } from '../types'
 import type { OrderEndpoints } from './_endpointHelpers'
 
@@ -50,12 +49,6 @@ export type CreateAssistantDto = z.infer<typeof CreateAssistantSchema>
 export const DuplicateAssistantSchema = AssistantSchema.pick({ name: true })
 export type DuplicateAssistantDto = z.infer<typeof DuplicateAssistantSchema>
 
-export const ImportAssistantPhraseSchema = z.strictObject({
-  title: PromptTitleSchema,
-  content: PromptContentSchema
-})
-export type ImportAssistantPhraseDto = z.infer<typeof ImportAssistantPhraseSchema>
-
 /**
  * Legacy assistant import payload.
  *
@@ -64,6 +57,9 @@ export type ImportAssistantPhraseDto = z.infer<typeof ImportAssistantPhraseSchem
  * group and inserting the assistant can share one write transaction.
  * `GroupNameSchema` intentionally has no current-UI length cap: v1 exports may
  * contain tag names longer than 64 characters and must remain importable.
+ * The v1 `regularPhrases` field is dropped by the renderer transfer util
+ * before posting (the prompt library no longer exists); posting it directly is
+ * rejected by the strict object shape.
  */
 export const ImportAssistantSchema = CreateAssistantSchema.pick({
   name: true,
@@ -72,8 +68,7 @@ export const ImportAssistantSchema = CreateAssistantSchema.pick({
   description: true,
   settings: true
 }).extend({
-  groupName: GroupNameSchema.optional(),
-  regularPhrases: z.array(ImportAssistantPhraseSchema).optional()
+  groupName: GroupNameSchema.optional()
 })
 export type ImportAssistantDto = z.infer<typeof ImportAssistantSchema>
 

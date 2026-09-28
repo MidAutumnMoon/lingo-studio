@@ -3,7 +3,6 @@ import { notifyDataApiDataChange } from '@data/dataApiDataChange'
 import { assistantDataService } from '@data/services/AssistantService'
 import { fileEntryService } from '@data/services/FileEntryService'
 import { paintingService } from '@data/services/PaintingService'
-import { promptService } from '@data/services/PromptService'
 import { topicService } from '@data/services/TopicService'
 import { loggerService } from '@logger'
 import type { JobHandlerFor } from '@main/core/job/types'
@@ -75,7 +74,6 @@ const PURGE_DOMAINS: ReadonlyArray<{
         .withWriteTx((tx) => assistantDataService.purgeExpiredTx(tx, cutoffMs, limit))
       return completedPurgeBatch(purgedIds, purgedIds.length === limit, () => {
         assistantDataService.notifyReadModelChange(purgedIds, 'membership')
-        promptService.notifyTargetBindingsChanged()
       })
     }
   },

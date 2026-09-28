@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => ({
   useAssistantList: vi.fn(),
   useAgentList: vi.fn(),
   useSkillList: vi.fn(),
-  usePromptList: vi.fn(),
   useGroups: vi.fn()
 }))
 
@@ -28,12 +27,6 @@ vi.mock('@renderer/hooks/resourceCatalog/agentAdapter', () => ({
 vi.mock('@renderer/hooks/resourceCatalog/skillAdapter', () => ({
   skillAdapter: {
     useList: mocks.useSkillList
-  }
-}))
-
-vi.mock('@renderer/hooks/resourceCatalog/promptAdapter', () => ({
-  promptAdapter: {
-    useList: mocks.usePromptList
   }
 }))
 
@@ -113,7 +106,6 @@ describe('useResourceLibrary', () => {
     mocks.useAssistantList.mockReturnValue(listResult([]))
     mocks.useAgentList.mockReturnValue(listResult([]))
     mocks.useSkillList.mockReturnValue(listResult([]))
-    mocks.usePromptList.mockReturnValue(listResult([]))
     mocks.useGroups.mockReturnValue({
       groups: [],
       isLoading: false,
@@ -131,7 +123,6 @@ describe('useResourceLibrary', () => {
     expect(mocks.useAssistantList.mock.calls[0]).toEqual([{ enabled: true }])
     expect(mocks.useAgentList).toHaveBeenCalledWith({ enabled: false, search: undefined })
     expect(mocks.useSkillList).toHaveBeenCalledWith({ enabled: false, search: undefined })
-    expect(mocks.usePromptList).toHaveBeenCalledWith({ enabled: false, search: undefined })
   })
 
   it('maps assistant group ids to group names', () => {
@@ -261,39 +252,6 @@ describe('useResourceLibrary', () => {
     expect(mocks.useAssistantList.mock.calls[0]).toEqual([{ enabled: false }])
     expect(mocks.useAssistantList.mock.calls[1]).toEqual([{ enabled: false, search: undefined, groupId: undefined }])
     expect(result.current.resources.map((resource) => resource.id)).toEqual(['skill-filtered'])
-  })
-
-  it('maps prompt resources and forwards search without tag filters', () => {
-    mocks.usePromptList.mockReturnValue(
-      listResult([
-        {
-          id: 'prompt-filtered',
-          title: '日报模板',
-          content: '今日完成 ${task}',
-          visibility: 'global',
-          orderKey: 'b',
-          createdAt: '2026-04-27T00:00:00.000Z',
-          updatedAt: '2026-04-27T00:00:00.000Z'
-        }
-      ])
-    )
-
-    const { result } = renderResourceLibrary({
-      resourceType: 'prompt',
-      activeGroupId: '11111111-1111-4111-8111-111111111111',
-      search: ' 日报 '
-    })
-
-    expect(mocks.usePromptList).toHaveBeenCalledWith({ enabled: true, search: '日报' })
-    expect(result.current.resources).toMatchObject([
-      {
-        id: 'prompt-filtered',
-        type: 'prompt',
-        name: '日报模板',
-        description: '今日完成 ${task}',
-        avatar: 'Aa'
-      }
-    ])
   })
 
   it('forwards the selected assistant group id to filtered list reads', () => {

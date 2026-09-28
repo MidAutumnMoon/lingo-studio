@@ -40,7 +40,7 @@ describe('createComposerInputAdapter', () => {
     expect(serializeComposerDocument(editor)).toEqual({ text: '', tokens: [] })
   })
 
-  it('turns ${name} into an editable field by default (quick phrases rely on it)', () => {
+  it('turns ${name} into an editable field by default', () => {
     const adapter = createComposerInputAdapter(createEditor())
 
     adapter.insertText('Hello ${name}')

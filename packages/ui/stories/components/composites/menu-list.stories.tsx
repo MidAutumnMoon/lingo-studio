@@ -12,8 +12,7 @@ import {
   Palette,
   Search,
   Settings2,
-  Sparkles,
-  Zap
+  Sparkles
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -135,7 +134,6 @@ function SettingsMenuExample() {
     { id: 'websearch', icon: Search, label: 'Web Search' },
     { id: 'memory', icon: Brain, label: 'Memory' },
     { id: 'docprocess', icon: FileCode, label: 'Documents' },
-    { id: 'quickphrase', icon: Zap, label: 'Quick Phrases' },
     { id: 'shortcut', icon: Command, label: 'Shortcuts' },
     { id: 'divider-3', divider: true },
     { id: 'about', icon: Info, label: 'About' }

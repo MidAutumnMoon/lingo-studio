@@ -12,9 +12,8 @@ import { createSWRTestWrapper } from './testUtils'
 // this test exercises the real `useMutation` wiring, so unmock here.
 vi.unmock('@data/hooks/useDataApi')
 
-// Force `isDev` to false so the dev-only concurrency warning (from template
-// path mutations with different params) does not pollute the test log when
-// multiple `move` calls share the same hook instance.
+// Force `isDev` to false so the dev-only concurrency warning does not pollute
+// the test log when multiple `move` calls share the same hook instance.
 vi.mock('@renderer/utils/platform', async (importOriginal) => {
   const actual = await importOriginal<typeof RendererConstantModule>()
   return { ...actual, isDev: false }
@@ -159,44 +158,6 @@ describe('useReorder - move()', () => {
 
     const orderCall = patchMock.mock.calls.find(([p]) => p === `${COLLECTION}/c/order`)
     expect(orderCall?.[1]).toMatchObject({ body: { before: 'a' } })
-  })
-})
-
-describe('useReorder - template collection paths', () => {
-  it('resolves collection params for cache access and reorder mutations', async () => {
-    const template = '/prompt-bindings/:targetType/:targetId' as const
-    const resolved = '/prompt-bindings/assistant/assistant-1'
-    const initial: Item[] = [{ id: 'a' }, { id: 'b' }]
-    const { Wrapper, cache } = createSWRTestWrapper([[[resolved], initial]])
-    patchMock.mockResolvedValue({})
-
-    const { result } = renderHook(
-      () => {
-        useSWR([resolved], ([path]) => getMock(path, {}) as Promise<Item[]>, {
-          revalidateOnMount: false,
-          revalidateIfStale: false,
-          revalidateOnFocus: false,
-          revalidateOnReconnect: false
-        })
-        return useReorder(template, {
-          params: { targetType: 'assistant', targetId: 'assistant-1' },
-          revalidateOnSuccess: false
-        })
-      },
-      { wrapper: Wrapper }
-    )
-
-    await act(async () => {
-      await result.current.move('b', { position: 'first' })
-    })
-
-    expect(patchMock).toHaveBeenCalledWith(`${resolved}/b/order`, {
-      body: { position: 'first' },
-      query: undefined
-    })
-    const cached = cache.get(unstable_serialize([resolved]))?.data
-    expect(cached).toBeDefined()
-    expect((cached as Item[]).map((item) => item.id)).toEqual(['b', 'a'])
   })
 })
 

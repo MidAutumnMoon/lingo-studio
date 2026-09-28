@@ -31,7 +31,6 @@ import type { UniqueModelId } from '@shared/data/types/model'
 import { groupService } from './GroupService'
 import { modelService } from './ModelService'
 import { pinService } from './PinService'
-import { promptService } from './PromptService'
 import { topicService } from './TopicService'
 import { applyMoves, insertWithOrderKey } from './utils/orderKey'
 import { nullsToUndefined, timestampToISO } from './utils/rowMappers'
@@ -432,8 +431,7 @@ export class AssistantDataService {
     const {
       assistant: row,
       modelName,
-      relations,
-      clonedPromptIds
+      relations
     } = application.get('DbService').withWriteTx((tx) => {
       const { assistant: source } = this.getActiveRowWithModelNameById(id, tx)
       const relations = this.getRelationIdsByAssistantIds([id], tx).get(id) ?? createEmptyRelations()
@@ -447,16 +445,10 @@ export class AssistantDataService {
         groupId: source.groupId,
         ...relations
       })
-      const clonedPromptIds = promptService.cloneBindingsForTargetTx(
-        tx,
-        { type: 'assistant', id },
-        { type: 'assistant', id: created.assistant.id }
-      )
-      return { ...created, relations, clonedPromptIds }
+      return { ...created, relations }
     })
 
     logger.info('Duplicated assistant', { id: row.id, sourceId: id })
-    if (clonedPromptIds.length > 0) promptService.notifyTargetBindingsChanged()
     return rowToAssistant(row, relations, modelName)
   }
 
@@ -467,28 +459,18 @@ export class AssistantDataService {
    */
   createFromImport(dto: ImportAssistantDto): Assistant {
     this.validateName(dto.name)
-    const { groupName, regularPhrases = [], ...assistantDto } = dto
+    const { groupName, ...assistantDto } = dto
 
-    const {
-      assistant: row,
-      modelName,
-      importedPromptIds
-    } = application.get('DbService').withWriteTx((tx) => {
+    const { assistant: row, modelName } = application.get('DbService').withWriteTx((tx) => {
       const group = groupName ? groupService.findOrCreateByNameTx(tx, 'assistant', groupName) : null
       const created = this.createTx(tx, {
         ...assistantDto,
         ...(group ? { groupId: group.id } : {})
       })
-      const importedPromptIds = promptService.createRestrictedForTargetTx(
-        tx,
-        { type: 'assistant', id: created.assistant.id },
-        regularPhrases
-      )
-      return { ...created, importedPromptIds }
+      return created
     })
 
     logger.info('Imported assistant', { id: row.id, name: row.name })
-    if (importedPromptIds.length > 0) promptService.notifyTargetBindingsChanged()
 
     return rowToAssistant(row, createEmptyRelations(), modelName)
   }
@@ -666,7 +648,6 @@ export class AssistantDataService {
       id,
       deleteTopics: shouldDeleteTopics
     })
-    promptService.notifyTargetBindingsChanged()
     return { deleted, deletedTopicIds }
   }
 
@@ -684,7 +665,6 @@ export class AssistantDataService {
     if (!row) return false
 
     pinService.purgeForEntityTx(tx, 'assistant', id)
-    promptService.purgeForTargetTx(tx, 'assistant', id)
 
     return true
   }
@@ -693,7 +673,6 @@ export class AssistantDataService {
     const [row] = tx.delete(assistantTable).where(eq(assistantTable.id, id)).returning({ id: assistantTable.id }).all()
     if (!row) return false
     pinService.purgeForEntityTx(tx, 'assistant', id)
-    promptService.purgeForTargetTx(tx, 'assistant', id)
     return true
   }
 
@@ -727,8 +706,6 @@ export class AssistantDataService {
     if (ids.length === 0) return ids
 
     pinService.purgeForEntitiesTx(tx, 'assistant', ids)
-    // Rows moved to the Recycle Bin before this release were soft-deleted without a binding purge.
-    promptService.purgeForTargetsTx(tx, 'assistant', ids)
     tx.delete(assistantTable).where(inArray(assistantTable.id, ids)).run()
     return ids
   }

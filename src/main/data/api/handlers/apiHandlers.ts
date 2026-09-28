@@ -34,7 +34,6 @@ import { modelHandlers } from './models'
 import { noteHandlers } from './notes'
 import { paintingHandlers } from './paintings'
 import { pinHandlers } from './pins'
-import { promptHandlers } from './prompts'
 import { providerHandlers } from './providers'
 import { searchHandlers } from './search'
 import { skillHandlers } from './skills'
@@ -75,7 +74,6 @@ export const apiHandlers: ApiImplementation = {
   ...tagHandlers,
   ...groupHandlers,
   ...pinHandlers,
-  ...promptHandlers,
   ...agentWorkspaceHandlers,
   ...jobHandlers,
   ...searchHandlers,

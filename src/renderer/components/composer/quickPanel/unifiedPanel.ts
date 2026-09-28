@@ -178,7 +178,7 @@ function getPinyinSearchText(matchText: string) {
 /**
  * Root panel filter: substring match, plus pinyin and pinyin-initial substring
  * matching for Chinese text. Intentionally avoids loose fuzzy subsequence matching
- * so unrelated rows (e.g. Quick Phrases) don't surface for another item's query.
+ * so unrelated rows (e.g. a knowledge base) don't surface for another item's query.
  */
 const filterUnifiedQuickPanelItems: QuickPanelFilterFn = (item, searchText, _fuzzyRegex, pinyinCache) => {
   if (!searchText) return !isUnifiedPanelRootSearchItem(item)

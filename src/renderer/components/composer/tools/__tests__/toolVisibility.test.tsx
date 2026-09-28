@@ -22,10 +22,6 @@ vi.mock('@renderer/components/composer/tools/components/KnowledgeBaseButton', ()
   KnowledgeBaseToolRuntime: () => null
 }))
 
-vi.mock('@renderer/components/composer/tools/components/QuickPhrasesButton', () => ({
-  QuickPhrasesToolRuntime: () => null
-}))
-
 vi.mock('@renderer/components/composer/tools/components/WebSearchButton', () => ({
   WebSearchToolRuntime: () => null
 }))

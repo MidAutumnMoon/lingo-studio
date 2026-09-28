@@ -437,19 +437,6 @@ function createSkillResource(version: string | null = null, isGlobalEnabled = tr
   }
 }
 
-function createPromptResource(): ResourceItem {
-  return {
-    id: 'prompt-1',
-    type: 'prompt',
-    name: 'Prompt',
-    description: '',
-    avatar: 'Aa',
-    createdAt: '2026-05-06T00:00:00.000Z',
-    updatedAt: '2026-05-06T00:00:00.000Z',
-    raw: {} as Extract<ResourceItem, { type: 'prompt' }>['raw']
-  }
-}
-
 function renderResourceGrid(props: Partial<ComponentProps<typeof ResourceGrid>> = {}) {
   return render(
     <ResourceGrid
@@ -875,19 +862,6 @@ describe('ResourceGrid card actions', () => {
     }
   )
 
-  it('shows a direct delete action when delete is the only card action', async () => {
-    const user = userEvent.setup()
-    const resource = createPromptResource()
-    const onDelete = vi.fn()
-
-    render(<ResourceCard resource={resource} {...getResourceCardProps({ onDelete })} />)
-
-    expect(screen.queryByRole('button', { name: /common.more/ })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '删除' }))
-
-    expect(onDelete).toHaveBeenCalledWith(resource)
-  })
-
   it('shows only one assistant group in the compact card layout', () => {
     render(<ResourceCard resource={createAssistantResource({ groupName: 'alpha' })} {...getResourceCardProps()} />)
 
@@ -1085,7 +1059,7 @@ describe('ResourceCardMenu group binding', () => {
     })
   })
 
-  it('does not expose group management for agent, skill, or prompt resources', async () => {
+  it('does not expose group management for agent or skill resources', async () => {
     const user = userEvent.setup()
     const menuProps = {
       onClose: vi.fn(),
@@ -1095,7 +1069,7 @@ describe('ResourceCardMenu group binding', () => {
       allGroups: assistantGroups
     }
 
-    for (const resource of [createAgentResource(), createSkillResource(), createPromptResource()]) {
+    for (const resource of [createAgentResource(), createSkillResource()]) {
       const { unmount } = render(<ResourceCardMenu resource={resource} {...menuProps} />)
 
       await user.click(screen.getByRole('button', { name: /common.more/ }))

@@ -3359,16 +3359,6 @@
           "targetKey": null
         }
       ],
-      "quick_phrases": [
-        {
-          "originalKey": "quick_phrases",
-          "type": "table",
-          "defaultValue": null,
-          "status": "pending",
-          "category": null,
-          "targetKey": null
-        }
-      ],
       "message_blocks": [
         {
           "originalKey": "message_blocks",

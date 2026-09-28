@@ -14,7 +14,7 @@ const ResourceCatalogDialogs = lazy(() =>
   import('./ResourceCatalogDialogs').then((module) => ({ default: module.ResourceCatalogDialogs }))
 )
 
-type ResourceCatalogViewType = Extract<ResourceType, 'assistant' | 'agent' | 'skill'>
+type ResourceCatalogViewType = ResourceType
 
 export type ResourceCatalogViewProps = {
   className?: string

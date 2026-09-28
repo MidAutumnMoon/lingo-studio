@@ -109,8 +109,8 @@ const footerAction = (id: string, panelSymbol: string, order: number) => ({
 })
 
 const registeredFooterActions = [
-  footerAction('manage-global', 'quick-phrases', 30),
-  footerAction('manage-current', 'quick-phrases', 20),
+  footerAction('manage-global', 'demo-panel', 30),
+  footerAction('manage-current', 'demo-panel', 20),
   footerAction('manage-notes', 'notes', 10),
   footerAction('customize-toolbar', '/', 10)
 ]
@@ -211,11 +211,11 @@ const FooterActionRegistrationProbe = ({
 
   useEffect(() => {
     const disposeFirst = toolsRegistry.registerLaunchers(
-      'quick-phrases',
+      'demo-panel',
       [],
-      [footerAction('stale-manage', 'quick-phrases', 30)]
+      [footerAction('stale-manage', 'demo-panel', 30)]
     )
-    const disposeLatest = toolsRegistry.registerLaunchers('quick-phrases', [], registeredFooterActions.slice(0, 3))
+    const disposeLatest = toolsRegistry.registerLaunchers('demo-panel', [], registeredFooterActions.slice(0, 3))
 
     onReady({
       disposeFirst,
@@ -230,7 +230,7 @@ const FooterActionRegistrationProbe = ({
 const RegisteredFooterActions = () => {
   const { toolsRegistry } = useComposerToolDispatch()
 
-  useEffect(() => toolsRegistry.registerLaunchers('quick-phrases', [], registeredFooterActions), [toolsRegistry])
+  useEffect(() => toolsRegistry.registerLaunchers('demo-panel', [], registeredFooterActions), [toolsRegistry])
 
   return null
 }
@@ -475,22 +475,22 @@ describe('ComposerToolRuntimeHost', () => {
     const view = render(renderContent(true))
 
     await waitFor(() => {
-      expect(registration?.readIds('quick-phrases')).toEqual(['manage-current', 'manage-global'])
+      expect(registration?.readIds('demo-panel')).toEqual(['manage-current', 'manage-global'])
     })
     expect(registration?.readIds('notes')).toEqual(['manage-notes'])
     expect(registration?.readIds('mcp-status')).toEqual([])
 
     act(() => registration?.disposeFirst())
-    expect(registration?.readIds('quick-phrases')).toEqual(['manage-current', 'manage-global'])
+    expect(registration?.readIds('demo-panel')).toEqual(['manage-current', 'manage-global'])
 
     view.rerender(renderContent(false))
-    expect(registration?.readIds('quick-phrases')).toEqual([])
+    expect(registration?.readIds('demo-panel')).toEqual([])
     expect(registration?.readIds('notes')).toEqual([])
   })
 
   it('publishes registered actions for the active quick panel outside its result list', async () => {
     mockQuickPanelValue.isVisible = true
-    mockQuickPanelValue.symbol = 'quick-phrases'
+    mockQuickPanelValue.symbol = 'demo-panel'
 
     const renderContent = () => (
       <ComposerToolRuntimeProvider

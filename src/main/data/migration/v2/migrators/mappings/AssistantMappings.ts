@@ -16,7 +16,7 @@
  * - topics -> dropped (decoupled)
  * - content/targetLanguage -> dropped (translation-specific)
  * - enableGenerateImage/enableUrlContext/knowledgeRecognition/webSearchProviderId -> dropped
- * - regularPhrases -> migrated separately by PromptMigrator into the global prompt table
+ * - regularPhrases -> dropped (prompt library feature removed)
  */
 
 import type { ZodType } from 'zod'
@@ -106,10 +106,7 @@ export interface OldMcpServer {
  * Dropped fields (documented for traceability):
  * topics, messages, content, targetLanguage,
  * enableGenerateImage, enableUrlContext, knowledgeRecognition,
- * webSearchProviderId
- *
- * regularPhrases is intentionally omitted from the assistant row shape because
- * PromptMigrator reads it from Redux and flattens it into the global prompt table.
+ * webSearchProviderId, regularPhrases
  */
 export interface OldAssistant {
   id: string

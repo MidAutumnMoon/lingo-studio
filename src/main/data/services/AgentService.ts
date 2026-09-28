@@ -15,7 +15,6 @@ import { agentTaskService } from '@data/services/AgentTaskService'
 import { getDataService } from '@data/services/dataServiceRegistry'
 import { modelService } from '@data/services/ModelService'
 import { pinService } from '@data/services/PinService'
-import { promptService } from '@data/services/PromptService'
 import { applyMoves, insertWithOrderKey } from '@data/services/utils/orderKey'
 import { nullsToUndefined, timestampToISO } from '@data/services/utils/rowMappers'
 import { loggerService } from '@logger'
@@ -208,8 +207,6 @@ export class AgentService {
     if (impact.purgedIds.length === 0) return
     const entityIds = [...new Set(impact.purgedIds)]
     this.notifyReadModelChange(entityIds, 'membership')
-    // Prompt bindings deliberately survive trashing and disappear only at retention purge.
-    promptService.notifyTargetBindingsChanged()
     agentSessionService.notifyReadModelChange(impact.affectedSessionIds, 'projection')
     if (impact.affectedChannelIds.length > 0) {
       const affectedChannelIds = [...new Set(impact.affectedChannelIds)]
@@ -687,13 +684,11 @@ export class AgentService {
         { endpoint: '/agent-channels/:channelId', entityIds: impact.affectedChannelIds }
       ])
     this.notifyReadModelChange([id], 'membership')
-    promptService.notifyTargetBindingsChanged()
     pinService.notifyPurged()
   }
 
   deleteAgentTx(tx: DbOrTx, id: string): { rowsAffected: number } {
     pinService.purgeForEntityTx(tx, 'agent', id)
-    promptService.purgeForTargetTx(tx, 'agent', id)
     const result = tx.delete(agentsTable).where(eq(agentsTable.id, id)).run()
     return { rowsAffected: result.changes }
   }

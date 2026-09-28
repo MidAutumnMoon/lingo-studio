@@ -6,11 +6,9 @@ import type { AgentDetail, ResourceItem, ResourceType, SortKey } from '@renderer
 import { getAgentAvatarFromConfiguration, getAgentDescriptionForDisplay } from '@renderer/utils/agent'
 import type { InstalledSkill } from '@shared/data/types/agent'
 import type { Assistant } from '@shared/data/types/assistant'
-import type { Prompt } from '@shared/data/types/prompt'
 
 import { agentAdapter } from './agentAdapter'
 import { assistantAdapter } from './assistantAdapter'
-import { promptAdapter } from './promptAdapter'
 import { skillAdapter } from './skillAdapter'
 
 function compareItems(a: ResourceItem, b: ResourceItem, sort: SortKey): number {
@@ -49,7 +47,6 @@ export function useResourceLibrary({
   const isAssistant = resourceType === 'assistant'
   const isAgent = resourceType === 'agent'
   const isSkill = resourceType === 'skill'
-  const isPrompt = resourceType === 'prompt'
 
   // Assistant needs two reads:
   // - Base (no params): powers assistant group chips so they don't collapse when
@@ -74,7 +71,6 @@ export function useResourceLibrary({
   const agents = agentAdapter.useList({ enabled: isAgent, search: isAgent ? trimmedSearch : undefined })
   const baseSkills = skillAdapter.useList({ enabled: isSkill })
   const skills = skillAdapter.useList({ enabled: isSkill, search: isSkill ? trimmedSearch : undefined })
-  const prompts = promptAdapter.useList({ enabled: isPrompt, search: isPrompt ? trimmedSearch : undefined })
 
   const buildAssistantItem = useCallback(
     (a: Assistant): ResourceItem => {
@@ -131,36 +127,19 @@ export function useResourceLibrary({
     }
   }, [])
 
-  const buildPromptItem = useCallback((p: Prompt): ResourceItem => {
-    return {
-      id: p.id,
-      type: 'prompt',
-      name: p.title,
-      description: p.content.replace(/\s+/g, ' ').trim(),
-      avatar: 'Aa',
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-      raw: p
-    }
-  }, [])
-
   const allResources = useMemo<ResourceItem[]>(() => {
     if (isAssistant) return baseAssistants.data.map(buildAssistantItem)
     if (isAgent) return agents.data.map(buildAgentItem)
-    if (isPrompt) return prompts.data.map(buildPromptItem)
     return baseSkills.data.map(buildSkillItem)
   }, [
     isAssistant,
     isAgent,
-    isPrompt,
     baseAssistants.data,
     agents.data,
     baseSkills.data,
-    prompts.data,
     buildAssistantItem,
     buildAgentItem,
-    buildSkillItem,
-    buildPromptItem
+    buildSkillItem
   ])
 
   const filteredAssistantItems = useMemo(
@@ -169,46 +148,37 @@ export function useResourceLibrary({
   )
   const agentItems = useMemo(() => agents.data.map(buildAgentItem), [agents.data, buildAgentItem])
   const skillItems = useMemo(() => skills.data.map(buildSkillItem), [skills.data, buildSkillItem])
-  const promptItems = useMemo(() => prompts.data.map(buildPromptItem), [prompts.data, buildPromptItem])
 
   const resources = useMemo<ResourceItem[]>(() => {
     let list: ResourceItem[]
     if (isAssistant) list = filteredAssistantItems
     else if (isAgent) list = agentItems
-    else if (isPrompt) list = promptItems
     else list = skillItems
 
     return [...list].sort((a, b) => compareItems(a, b, sort))
-  }, [isAssistant, isAgent, isPrompt, filteredAssistantItems, agentItems, promptItems, skillItems, sort])
+  }, [isAssistant, isAgent, filteredAssistantItems, agentItems, skillItems, sort])
 
   const isLoading = isAssistant
     ? baseAssistants.isLoading || filteredAssistants.isLoading || assistantGroups.isLoading
     : isAgent
       ? agents.isLoading
-      : isPrompt
-        ? prompts.isLoading
-        : baseSkills.isLoading || skills.isLoading
+      : baseSkills.isLoading || skills.isLoading
   const isRefreshing = isAssistant
     ? baseAssistants.isRefreshing || filteredAssistants.isRefreshing
     : isAgent
       ? agents.isRefreshing
-      : isPrompt
-        ? prompts.isRefreshing
-        : baseSkills.isRefreshing || skills.isRefreshing
+      : baseSkills.isRefreshing || skills.isRefreshing
   const error = isAssistant
     ? (baseAssistants.error ?? filteredAssistants.error ?? assistantGroups.error)
     : isAgent
       ? agents.error
-      : isPrompt
-        ? prompts.error
-        : (baseSkills.error ?? skills.error)
+      : (baseSkills.error ?? skills.error)
 
   const baseAssistantsRefetch = baseAssistants.refetch
   const filteredAssistantsRefetch = filteredAssistants.refetch
   const agentsRefetch = agents.refetch
   const baseSkillsRefetch = baseSkills.refetch
   const skillsRefetch = skills.refetch
-  const promptsRefetch = prompts.refetch
   const groupsRefetch = assistantGroups.refetch
 
   const refetch = useCallback(() => {
@@ -218,8 +188,6 @@ export function useResourceLibrary({
       void groupsRefetch()
     } else if (isAgent) {
       agentsRefetch()
-    } else if (isPrompt) {
-      promptsRefetch()
     } else {
       baseSkillsRefetch()
       skillsRefetch()
@@ -227,13 +195,11 @@ export function useResourceLibrary({
   }, [
     isAssistant,
     isAgent,
-    isPrompt,
     baseAssistantsRefetch,
     filteredAssistantsRefetch,
     agentsRefetch,
     baseSkillsRefetch,
     skillsRefetch,
-    promptsRefetch,
     groupsRefetch
   ])
 

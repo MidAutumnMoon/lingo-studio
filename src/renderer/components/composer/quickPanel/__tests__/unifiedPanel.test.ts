@@ -330,7 +330,7 @@ describe('createUnifiedQuickPanelOpenOptions', () => {
     expect(options.sortFn!(reversedItems, '')).toEqual(reversedItems)
   })
 
-  it('filters by explicit text, search aliases, pinyin, and pinyin initials without loose fuzzy subsequence', () => {
+  it('filters by explicit text, search aliases, and pinyin initials', () => {
     const options = createUnifiedQuickPanelOpenOptions(
       [
         {
@@ -352,8 +352,7 @@ describe('createUnifiedQuickPanelOpenOptions', () => {
             filterText: 'pdf',
             icon: 'skill'
           }
-        ],
-        resourceItems: [{ id: 'quick-phrases', label: '提示词管理', icon: 'phrase' }]
+        ]
       }
     )
 
@@ -361,24 +360,16 @@ describe('createUnifiedQuickPanelOpenOptions', () => {
     const fuzzyRegex = /s.*l/i
     const pinyinCache = new WeakMap<QuickPanelListItem, string>()
     const skill = options.list.find((item) => item.label === 'pdf')!
-    const quickPhrases = options.list.find((item) => item.label === '提示词管理')!
     const webSearch = options.list.find((item) => item.label === '网络搜索')!
 
     // Skills keep their explicit root-panel search field and do not match descriptions.
     expect(filterFn(skill, 'pdf', fuzzyRegex, pinyinCache)).toBe(true)
     expect(filterFn(skill, 'analyze', fuzzyRegex, pinyinCache)).toBe(false)
 
-    // Chinese row matches by substring, pinyin substring, and pinyin initial substring...
-    expect(filterFn(quickPhrases, '提示词', fuzzyRegex, pinyinCache)).toBe(true)
-    expect(filterFn(quickPhrases, 'tishi', fuzzyRegex, pinyinCache)).toBe(true)
-    expect(filterFn(quickPhrases, 'tscgl', fuzzyRegex, pinyinCache)).toBe(true)
-
     // Launcher rows with filterText still match hidden English aliases and visible Chinese labels by initials.
     expect(filterFn(webSearch, 'web', fuzzyRegex, pinyinCache)).toBe(true)
     expect(filterFn(webSearch, 'online', fuzzyRegex, pinyinCache)).toBe(true)
     expect(filterFn(webSearch, 'wlss', fuzzyRegex, pinyinCache)).toBe(true)
-    // ...but not by a loose fuzzy subsequence of its pinyin or initials.
-    expect(filterFn(quickPhrases, 'sl', fuzzyRegex, pinyinCache)).toBe(false)
   })
 
   it('dispatches generated launcher actions with source and query context', () => {

@@ -29,7 +29,7 @@ export const PaintingSchema = z.strictObject({
    */
   fileDataFingerprint: z.string().optional(),
   orderKey: z.string().min(1),
-  // ISO 8601 (matches the assistant/topic/tag/note/prompt convention); the
+  // ISO 8601 (matches the assistant/topic/tag/note convention); the
   // service emits these via `timestampToISO`. `id` stays `z.string()` because
   // migration supplies opaque ids.
   createdAt: z.iso.datetime(),

@@ -77,6 +77,7 @@ vi.mock('react-i18next', () => ({
         'agent.settings.toolsMcp.mcp.tab': 'MCP',
         'deviceConnections.title': '设备互联',
         'settings.appearance.title': '外观',
+        'settings.browser.title': '浏览器',
         'settings.channels.title': '频道',
         'settings.dependencies.title': '环境依赖',
         'settings.general.common.title': zhCN['settings.general.common.title'],
@@ -86,7 +87,6 @@ vi.mock('react-i18next', () => ({
         'settings.menuGroups.quickAccess': '快捷入口',
         'settings.menuGroups.system': '系统',
         'settings.model': '默认模型',
-        'settings.prompts.title': '提示词',
         'settings.quickAssistant.title': '快捷助手',
         'settings.scheduledTasks.title': '定时任务',
         'settings.shortcuts.title': '快捷键',
@@ -187,7 +187,7 @@ describe('SettingsPage', () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/dependencies' })
   })
 
-  it('places Skills below MCP and prompt management directly below Skills', () => {
+  it('places Skills below MCP and browser directly below Skills', () => {
     render(<SettingsPage />)
 
     const mcpItem = screen.getByText('MCP').closest('button')
@@ -198,10 +198,10 @@ describe('SettingsPage', () => {
     fireEvent.click(skillsItem)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/skills' })
 
-    const promptsItem = screen.getByRole('button', { name: '提示词' })
-    expect(skillsItem.nextElementSibling).toBe(promptsItem)
-    fireEvent.click(promptsItem)
-    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/prompts' })
+    const browserItem = screen.getByRole('button', { name: '浏览器' })
+    expect(skillsItem.nextElementSibling).toBe(browserItem)
+    fireEvent.click(browserItem)
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/settings/browser' })
   })
 
   it('merges quick access into efficiency and places the assistant last', () => {

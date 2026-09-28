@@ -959,65 +959,33 @@ describe('applyMigrations over a populated database', () => {
     expect(sqlite.pragma('foreign_key_check')).toEqual([])
   })
 
-  it('preserves populated prompts when adding visibility and bindings', () => {
-    applyMigrations(db, baselineMigrationsFolder(join(tempDir, 'baseline'), '0015_chief_morgan_stark'))
+  it('drops populated prompt and prompt_binding tables when the prompts feature is removed', () => {
+    applyMigrations(db, baselineMigrationsFolder(join(tempDir, 'baseline'), '0028_remove_prompt_tables'))
     sqlite
       .prepare(
-        `INSERT INTO prompt (id, title, content, order_key, created_at, updated_at)
-         VALUES
-          ('prompt-migrate-one', 'First title', 'First content', 'a0', 101, 201),
-          ('prompt-migrate-two', 'Second title', 'Second content', 'a1', 102, 202)`
+        `INSERT INTO prompt (id, title, content, visibility, order_key, created_at, updated_at)
+         VALUES ('prompt-migrate-one', 'First title', 'First content', 'global', 'a0', 101, 201)`
       )
       .run()
+    sqlite
+      .prepare(
+        `INSERT INTO prompt_binding (prompt_id, target_type, target_id, order_key, created_at, updated_at)
+         VALUES ('prompt-migrate-one', 'assistant', 'assistant-1', 'a0', 101, 201)`
+      )
+      .run()
+    // The seeds must land, or the drop assertion below would pass vacuously.
+    expect(sqlite.prepare(`SELECT count(*) AS count FROM prompt`).get()).toEqual({ count: 1 })
+    expect(sqlite.prepare(`SELECT count(*) AS count FROM prompt_binding`).get()).toEqual({ count: 1 })
 
     applyMigrations(db, resolveMigrationsPath())
 
     expect(
       sqlite
         .prepare(
-          `SELECT id, title, content, visibility, order_key, created_at, updated_at FROM prompt ORDER BY order_key`
+          `SELECT count(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('prompt', 'prompt_binding')`
         )
-        .all()
-    ).toEqual([
-      {
-        id: 'prompt-migrate-one',
-        title: 'First title',
-        content: 'First content',
-        visibility: 'global',
-        order_key: 'a0',
-        created_at: 101,
-        updated_at: 201
-      },
-      {
-        id: 'prompt-migrate-two',
-        title: 'Second title',
-        content: 'Second content',
-        visibility: 'global',
-        order_key: 'a1',
-        created_at: 102,
-        updated_at: 202
-      }
-    ])
-
-    const tableDefinitions = sqlite
-      .prepare(`SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name IN ('prompt', 'prompt_binding')`)
-      .all() as Array<{ name: string; sql: string }>
-    expect(tableDefinitions.find((table) => table.name === 'prompt')?.sql).toContain('prompt_visibility_check')
-    expect(tableDefinitions.find((table) => table.name === 'prompt_binding')?.sql).toContain(
-      'prompt_binding_target_type_check'
-    )
-    expect(
-      sqlite
-        .prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name IN ('prompt', 'prompt_binding')`)
-        .all()
-        .map((row) => (row as { name: string }).name)
-    ).toEqual(
-      expect.arrayContaining([
-        'prompt_order_key_idx',
-        'prompt_binding_target_idx',
-        'prompt_binding_target_order_key_idx'
-      ])
-    )
+        .get()
+    ).toEqual({ count: 0 })
     expect(sqlite.pragma('foreign_key_check')).toEqual([])
   })
 

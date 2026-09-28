@@ -40,7 +40,6 @@ import type { ModelSchemas } from './models'
 import type { NoteSchemas } from './notes'
 import type { PaintingsSchemas } from './paintings'
 import type { PinSchemas } from './pins'
-import type { PromptSchemas } from './prompts'
 import type { ProviderSchemas } from './providers'
 import type { SearchSchemas } from './search'
 import type { SkillSchemas } from './skills'
@@ -79,7 +78,6 @@ export type ApiSchemas = AssertValidSchemas<
     ArchiveSchemas &
     AssistantSchemas &
     TagSchemas &
-    PromptSchemas &
     GroupSchemas &
     PinSchemas &
     AgentSchemas &

@@ -3,10 +3,9 @@ import type { AgentEntity, AgentPermissionMode } from '@shared/data/api/schemas/
 import type { AgentType, InstalledSkill } from '@shared/data/types/agent'
 import type { Assistant } from '@shared/data/types/assistant'
 import type { UniqueModelId } from '@shared/data/types/model'
-import type { Prompt } from '@shared/data/types/prompt'
 import type { SkillCatalogEntry } from '@shared/types/skill'
 
-export type ResourceType = 'agent' | 'assistant' | 'skill' | 'prompt'
+export type ResourceType = 'agent' | 'assistant' | 'skill'
 
 export type ResourceEditDialogTarget = ({ kind: 'assistant'; id: string } | { kind: 'agent'; id: string }) & {
   /** Leaf tab id to open the dialog on (e.g. `tools.mcp`, `tools.skills`). */
@@ -51,7 +50,6 @@ export type ResourceItem =
       groupId?: never
       groupName?: never
     })
-  | (ResourceItemBase<'prompt', Prompt> & { groupId?: never; groupName?: never })
 
 export interface GroupItem {
   id: string

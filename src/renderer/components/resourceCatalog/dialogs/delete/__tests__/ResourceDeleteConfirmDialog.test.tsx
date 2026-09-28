@@ -15,7 +15,6 @@ import { ResourceDeleteConfirmDialog } from '../ResourceDeleteConfirmDialog'
 const mocks = vi.hoisted(() => ({
   deleteAssistant: vi.fn(),
   getActiveResource: vi.fn(),
-  deletePrompt: vi.fn(),
   closeConversationTabs: vi.fn(),
   invalidate: vi.fn(),
   ipcRequest: vi.fn(),
@@ -51,9 +50,7 @@ vi.mock('react-i18next', () => ({
           'recycle_bin.move.confirm_action': 'Archive',
           'recycle_bin.move.confirm_title': 'Archive',
           'conversation_owner.archive.related_sessions': 'Also archive related sessions',
-          'conversation_owner.archive.related_topics': 'Also archive related topics',
-          'settings.prompts.delete': 'Delete prompt',
-          'settings.prompts.deleteConfirm': 'Delete prompt content'
+          'conversation_owner.archive.related_topics': 'Also archive related topics'
         }) satisfies Record<string, string>
       )[key] ?? key
   })
@@ -61,7 +58,6 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('@renderer/hooks/resourceCatalog', () => ({
   useAssistantMutationsById: () => ({ deleteAssistant: mocks.deleteAssistant }),
-  usePromptMutationsById: () => ({ deletePrompt: mocks.deletePrompt }),
   useSkillMutationsById: () => ({ uninstallSkill: mocks.uninstallSkill })
 }))
 
@@ -120,7 +116,6 @@ describe('ResourceDeleteConfirmDialog', () => {
     vi.clearAllMocks()
     mocks.deleteAssistant.mockResolvedValue({ deleted: true, deletedTopicIds: ['topic-1'] })
     mocks.getActiveResource.mockResolvedValue({ id: 'active-resource' })
-    mocks.deletePrompt.mockResolvedValue(undefined)
     mocks.invalidate.mockResolvedValue(undefined)
     mocks.ipcRequest.mockResolvedValue({ deleted: true, deletedSessionIds: ['session-1'] })
     mocks.restoreAgent.mockResolvedValue(undefined)
@@ -346,20 +341,20 @@ describe('ResourceDeleteConfirmDialog', () => {
     expect(mocks.showRecycleBinUndo).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ['skill', 'Uninstall skill', 'Uninstall', mocks.uninstallSkill],
-    ['prompt', 'Delete prompt', 'Delete', mocks.deletePrompt]
-  ] as const)('preserves the existing %s removal contract', async (type, title, confirmText, mutation) => {
-    const user = userEvent.setup()
+  it.each([['skill', 'Uninstall skill', 'Uninstall', mocks.uninstallSkill]] as const)(
+    'preserves the existing %s removal contract',
+    async (type, title, confirmText, mutation) => {
+      const user = userEvent.setup()
 
-    render(<ResourceDeleteConfirmDialog resource={createResource(type)} onClose={vi.fn()} />)
+      render(<ResourceDeleteConfirmDialog resource={createResource(type)} onClose={vi.fn()} />)
 
-    expect(screen.getByRole('dialog')).toHaveTextContent(title)
-    await user.click(screen.getByRole('button', { name: confirmText }))
+      expect(screen.getByRole('dialog')).toHaveTextContent(title)
+      await user.click(screen.getByRole('button', { name: confirmText }))
 
-    await waitFor(() => expect(mutation).toHaveBeenCalledTimes(1))
-    expect(mocks.showRecycleBinUndo).not.toHaveBeenCalled()
-  })
+      await waitFor(() => expect(mutation).toHaveBeenCalledTimes(1))
+      expect(mocks.showRecycleBinUndo).not.toHaveBeenCalled()
+    }
+  )
 
   it('closes when the confirm dialog is dismissed', async () => {
     const user = userEvent.setup()

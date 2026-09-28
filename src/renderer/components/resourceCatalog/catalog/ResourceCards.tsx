@@ -1,8 +1,7 @@
-import { Trash2 } from 'lucide-react'
 import type { KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Badge, Button, Switch, Tooltip } from '@cherrystudio/ui'
+import { Badge, Switch, Tooltip } from '@cherrystudio/ui'
 import { useSkillMutationsById } from '@renderer/hooks/resourceCatalog'
 import { toast } from '@renderer/services/toast'
 import type { ResourceItem } from '@renderer/types/resourceCatalog'
@@ -34,10 +33,6 @@ interface ResourceCardProps {
   onDuplicate: (resource: ResourceItem) => void
   onEdit: (resource: ResourceItem) => void
   onExport: (resource: ResourceItem) => void
-}
-
-function hasOverflowActions(resource: ResourceItem) {
-  return resource.type === 'assistant' || resource.type === 'agent' || resource.type === 'skill'
 }
 
 function SkillGlobalToggle({ resource }: { resource: Extract<ResourceItem, { type: 'skill' }> }) {
@@ -73,13 +68,11 @@ export function ResourceCard({
   onEdit,
   onExport
 }: ResourceCardProps) {
-  const { t } = useTranslation()
   const cfg = RESOURCE_TYPE_META[r.type]
   const isSettings = variant === 'settings'
   const isSkillGrid = isSettings && r.type === 'skill' && columnCount === 2
   const showTypeIcon = r.type === 'skill'
   const TypeIcon = cfg.icon
-  const showOverflowMenu = hasOverflowActions(r)
   const visibleGroup = r.type === 'assistant' ? r.groupName : undefined
   const skillVersion = r.type === 'skill' ? r.raw.version?.trim() : undefined
 
@@ -159,7 +152,7 @@ export function ResourceCard({
                   triggerClassName="text-muted-foreground hover:text-foreground"
                 />
               </div>
-            ) : showOverflowMenu ? (
+            ) : (
               <ResourceCardMenu
                 resource={r}
                 onDuplicate={onDuplicate}
@@ -168,15 +161,6 @@ export function ResourceCard({
                 allGroups={allGroups}
                 triggerClassName="text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
               />
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('common.delete')}
-                onClick={() => onDelete(r)}
-                className="text-muted-foreground hover:bg-error-subtle hover:text-error-subtle-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100">
-                <Trash2 size={12} className="lucide-custom" />
-              </Button>
             )}
           </div>
         </div>

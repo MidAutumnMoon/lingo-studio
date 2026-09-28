@@ -381,8 +381,7 @@ export const transformKnowledgeItem = (
     const rawContent = note?.content ?? (typeof item.content === 'string' ? item.content : '')
     // v1's note editor had no length cap, but the read path (NoteItemDataSchema.content)
     // enforces `.max(KNOWLEDGE_NOTE_CONTENT_MAX)`; a longer note would parse-fail on read
-    // and poison the WHOLE base's item-list query. Clamp to the read-side max here, like
-    // PromptMigrator filters over-long quick phrases. Truncate (not skip) because the note's
+    // and poison the WHOLE base's item-list query. Truncate (not skip) because the note's
     // content also backstops its `source`, so dropping it would lose recoverable data.
     const content =
       rawContent.length > KNOWLEDGE_NOTE_CONTENT_MAX ? rawContent.slice(0, KNOWLEDGE_NOTE_CONTENT_MAX) : rawContent

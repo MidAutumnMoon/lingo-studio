@@ -26,9 +26,8 @@ export interface QuickPanelInputAdapter {
   getCursorOffset?: () => number
   /**
    * Inserts at the cursor. By default `${name}` markers in the text become editable prompt-variable
-   * chips (quick phrases rely on it). Pass `tokenizeVariables: false` for text from a source that
-   * did not author those markers as fields — a rendered MCP prompt whose body may contain a shell
-   * `${HOME}` — so it stays literal.
+   * chips. Pass `tokenizeVariables: false` for text from a source that did not author those markers
+   * as fields — a rendered MCP prompt whose body may contain a shell `${HOME}` — so it stays literal.
    */
   insertText: (text: string, options?: QuickPanelInsertTextOptions) => void
   insertToken?: (token: unknown, options?: QuickPanelInsertTokenOptions) => void

@@ -19,7 +19,6 @@ export {
   type AssistantConfigMcpMode,
   MCP_MODE_OPTIONS,
   RESOURCE_PROMPT_POLISH_SYSTEM_PROMPT,
-  RESOURCE_TYPE_META,
-  RESOURCE_TYPE_ORDER
+  RESOURCE_TYPE_META
 } from './constants'
 export { buildCreateAgentCommand, buildCreateAssistantDto } from './resourceCreate'

@@ -103,8 +103,7 @@ src/main/data/migration/v2/
   `MiniAppMigrator`, `McpServerMigrator`, `ProviderModelMigrator`,
   `KnowledgeMigrator`, `AssistantMigrator`, `AgentsMigrator`,
   `FileMigrator`, `KnowledgeVectorMigrator`, `ChatMigrator`,
-  `AiUsageRecordMigrator`, `PaintingMigrator`, `TranslateMigrator`, and
-  `PromptMigrator`.
+  `AiUsageRecordMigrator`, `PaintingMigrator`, and `TranslateMigrator`.
 - Domain-specific `migrators/README-<name>.md` files document the migrations
   that need additional source, transformation, or recovery detail. The registry
   is the authority for the execution set; each registered migrator's `order` is

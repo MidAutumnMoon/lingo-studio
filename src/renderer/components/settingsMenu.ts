@@ -18,8 +18,7 @@ import {
   Search,
   Settings2,
   Terminal,
-  ToolCase,
-  Zap
+  ToolCase
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
@@ -68,12 +67,6 @@ export const settingsMenu: readonly SettingsMenuEntry[] = [
     route: '/settings/skills',
     titleKey: 'settings.skills.title',
     icon: createElement(ToolCase),
-    groupKey: 'settings.menuGroups.capabilities'
-  },
-  {
-    route: '/settings/prompts',
-    titleKey: 'settings.prompts.title',
-    icon: createElement(Zap),
     groupKey: 'settings.menuGroups.capabilities'
   },
   {

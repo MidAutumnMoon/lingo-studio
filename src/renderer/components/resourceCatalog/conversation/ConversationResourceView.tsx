@@ -4,7 +4,7 @@ import { ResourceCatalogView } from '@renderer/components/resourceCatalog/catalo
 import type { ResourceType } from '@renderer/types/resourceCatalog'
 import { cn } from '@renderer/utils/style'
 
-export type ConversationResourceKind = Extract<ResourceType, 'assistant' | 'agent' | 'skill'>
+export type ConversationResourceKind = ResourceType
 
 type ConversationResourceViewProps = {
   className?: string

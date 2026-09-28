@@ -15,7 +15,6 @@ import { MiniAppMigrator } from './MiniAppMigrator'
 import { NoteMigrator } from './NoteMigrator'
 import { PaintingMigrator } from './PaintingMigrator'
 import { PreferencesMigrator } from './PreferencesMigrator'
-import { PromptMigrator } from './PromptMigrator'
 import { ProviderModelMigrator } from './ProviderModelMigrator'
 import { TranslateMigrator } from './TranslateMigrator'
 
@@ -38,7 +37,6 @@ export function getAllMigrators() {
     new ChatMigrator(),
     new AiUsageRecordMigrator(),
     new PaintingMigrator(),
-    new TranslateMigrator(),
-    new PromptMigrator()
+    new TranslateMigrator()
   ]
 }

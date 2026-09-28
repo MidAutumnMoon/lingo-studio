@@ -280,17 +280,6 @@ describe('useResourceCatalogController', () => {
   })
 
   it('counts non-empty groups and resolves the exported assistant group name', async () => {
-    controllerMocks.dataApiGet.mockResolvedValueOnce([
-      {
-        id: '550e8400-e29b-41d4-a716-446655440000',
-        title: 'Context prompt',
-        content: 'Context body',
-        visibility: 'restricted',
-        orderKey: 'a0',
-        createdAt: '2026-04-20T00:00:00.000Z',
-        updatedAt: '2026-04-20T00:00:00.000Z'
-      }
-    ])
     controllerMocks.groups.push(
       {
         id: 'group-work',
@@ -329,11 +318,9 @@ describe('useResourceCatalogController', () => {
 
     await waitFor(() => expect(controllerMocks.saveFile).toHaveBeenCalledOnce())
     const exportedBytes = controllerMocks.saveFile.mock.calls[0][1] as Uint8Array
-    expect(controllerMocks.dataApiGet).toHaveBeenCalledWith('/prompt-bindings/assistant/assistant-to-duplicate')
     expect(JSON.parse(new TextDecoder().decode(exportedBytes))).toMatchObject([
       {
-        group: ['Work'],
-        regularPhrases: [{ title: 'Context prompt', content: 'Context body', order: 0 }]
+        group: ['Work']
       }
     ])
   })

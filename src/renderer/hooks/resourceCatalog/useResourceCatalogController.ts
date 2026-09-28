@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { dataApiService } from '@data/DataApiService'
-import { resolveTemplate } from '@renderer/data/utils/dataApiPath'
 import { useGroupMutations, useGroups } from '@renderer/hooks/useGroups'
 import { toast } from '@renderer/services/toast'
 import type {
@@ -14,7 +12,6 @@ import type {
 } from '@renderer/types/resourceCatalog'
 import { serializeAssistantForExport } from '@renderer/utils/assistantTransfer'
 import { buildCreateAgentCommand, buildCreateAssistantDto } from '@renderer/utils/resourceCatalog'
-import type { ConcreteApiPaths } from '@shared/data/api/paths'
 import type { InstalledSkill } from '@shared/data/types/agent'
 import type { Group } from '@shared/data/types/group'
 
@@ -23,7 +20,7 @@ import { useAssistantMutations } from './assistantAdapter'
 import { useResourceLibrary } from './useResourceLibrary'
 
 type ResourceCreateWizardKind = 'assistant' | 'agent'
-type ResourceCatalogControllerType = Extract<ResourceType, 'assistant' | 'agent' | 'skill'>
+type ResourceCatalogControllerType = ResourceType
 
 const CREATE_DIALOG_EXIT_ANIMATION_MS = 200
 
@@ -142,12 +139,7 @@ export function useResourceCatalogController(
       const assistant = resource.raw
       try {
         const groupName = assistant.groupId ? groupById.get(assistant.groupId)?.name : undefined
-        const bindingPath = resolveTemplate('/prompt-bindings/:targetType/:targetId', {
-          targetType: 'assistant',
-          targetId: assistant.id
-        }) as ConcreteApiPaths
-        const contextualPrompts = await dataApiService.get(bindingPath)
-        const content = serializeAssistantForExport(assistant, contextualPrompts, groupName)
+        const content = serializeAssistantForExport(assistant, groupName)
 
         await window.api.file.save(`${assistant.name}.json`, new TextEncoder().encode(content), {
           filters: [{ name: t('assistants.presets.import.file_filter'), extensions: ['json'] }]

@@ -16,7 +16,7 @@ type ResourceCatalogDialogsProps = {
   dialogs: ReturnType<typeof useResourceCatalogController>['dialogs']
   onOpenAssistantChat?: (assistantId: string) => void
   onRefetch: ReturnType<typeof useResourceCatalogController>['refetch']
-  resourceType: Extract<ResourceType, 'assistant' | 'agent' | 'skill'>
+  resourceType: ResourceType
 }
 
 export function ResourceCatalogDialogs({
