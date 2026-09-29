@@ -1,7 +1,7 @@
 {
   description = "lingo-studio native build deps (node, pnpm, electron come from the system)";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
 
   outputs =
     { self, nixpkgs }:
