@@ -129,26 +129,21 @@ allowBuilds:
   "@google/genai": false
   "@j178/prek": true
   "@paymoapp/electron-shutdown-handler": true
-  "@scarf/scarf": true
   "@sentry/cli": true
   "@swc/core": true
   better-sqlite3: true
   canvas: false
-  core-js: true
   electron: true
   electron-winstaller: true
   esbuild: true
   koffi: true
   msw: true
-  node-mac-permissions: true
   node-pty: true
   protobufjs: true
   registry-js: true
-  selection-hook: true
   sharp: true
   tesseract.js: true
   unrs-resolver: true
-  zipfile: true
 
 # Every platform builds both arches (`electron-builder --x64 --arm64`), so both prebuilt
 # sets must be installed up front: pnpm does not record supportedArchitectures in the
