@@ -448,7 +448,8 @@ export const PROVIDER_SERVER_TOOL_MODEL_IDS: Readonly<Record<string, Partial<Rec
         'claude-opus-5-5-fast',
         'claude-sonnet-4',
         'claude-sonnet-4-5',
-        'claude-sonnet-4-6'
+        'claude-sonnet-4-6',
+        'claude-sonnet-5-5'
       ],
       'url-context': [
         'claude-haiku-4-5',
@@ -464,7 +465,8 @@ export const PROVIDER_SERVER_TOOL_MODEL_IDS: Readonly<Record<string, Partial<Rec
         'claude-opus-5-5-fast',
         'claude-sonnet-4',
         'claude-sonnet-4-5',
-        'claude-sonnet-4-6'
+        'claude-sonnet-4-6',
+        'claude-sonnet-5-5'
       ]
     },
     openai: {
