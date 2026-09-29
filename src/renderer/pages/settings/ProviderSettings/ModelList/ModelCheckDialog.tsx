@@ -21,7 +21,7 @@ import {
   Switch
 } from '@cherrystudio/ui'
 import { useIcon } from '@cherrystudio/ui/icons'
-import { showErrorDetailPopup } from '@renderer/components/ErrorDetailModal'
+import { loggerService } from '@logger'
 import type { ModelCheckKeySelection } from '@renderer/pages/settings/ProviderSettings/types/healthCheck'
 import {
   getModelHealthCheckSkipReason,
@@ -34,6 +34,8 @@ import type { ApiKeyEntry } from '@shared/data/types/provider'
 
 import { drawerClasses } from '../primitives/ProviderSettingsPrimitives'
 import { useModelListHealthRun } from './modelListHealthContext'
+
+const logger = loggerService.withContext('ModelCheckDialog')
 
 type DialogView = 'single' | 'all'
 type ModelOption = ComboboxOption<{ model: Model }>
@@ -324,7 +326,13 @@ export default function ModelCheckDialog() {
   }
 
   const handleShowConnectionErrorDetail = () => {
-    if (singleError) showErrorDetailPopup({ error: singleError })
+    // Deferred import keeps the diagnostics machinery out of the settings
+    // first-open chunk; it loads on first use.
+    if (singleError) {
+      void import('@renderer/components/ErrorDetailModal')
+        .then((m) => m.showErrorDetailPopup({ error: singleError }))
+        .catch((error) => logger.error('Failed to open error detail popup', error as Error))
+    }
   }
 
   const startDisabled =

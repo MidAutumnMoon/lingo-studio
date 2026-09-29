@@ -35,6 +35,10 @@ export const SubWindowAppShell = () => {
   const initialized = useRef(false)
   const init = useWindowInitData<SubWindowInitData>()
   const isFullscreen = useNativeFullscreen()
+  // `updateTab` churns on every tabs change; read it through a ref so the
+  // memoized TabRouter gets an identity-stable onUrlChange.
+  const updateTabRef = useRef(updateTab)
+  updateTabRef.current = updateTab
 
   // A sub-window hosts a single detached tab and draws no tab bar, so the tab-close
   // shortcut keeps the meaning it had before the tab bar claimed Command+W: close this window.
@@ -64,7 +68,8 @@ export const SubWindowAppShell = () => {
   // Sync internal navigation back to tab state. Mirror the main AppShell:
   // clear the per-entity icon override so a mini-app logo doesn't stick onto
   // an unrelated route after navigation inside the same tab.
-  const handleUrlChange = (tabId: string, url: string) => {
+  const handleUrlChange = useCallback((tabId: string, url: string) => {
+    const updateTab = updateTabRef.current
     // Chat / agent tabs are page-titled (topic / session name + emoji set by
     // their page); only sync the url so navigating topics doesn't wipe them.
     if (isPageTitledRoute(url)) {
@@ -77,7 +82,7 @@ export const SubWindowAppShell = () => {
       icon: undefined,
       metadata: undefined
     })
-  }
+  }, [])
 
   // Windows/Linux sub-windows are frameless, so the OS draws no min/max/close. Draw them
   // ourselves in the top-right corner and publish their width as --window-controls-width so
@@ -101,12 +106,7 @@ export const SubWindowAppShell = () => {
             {tabs
               .filter((t) => t.type === 'route' && !t.isDormant)
               .map((tab) => (
-                <TabRouter
-                  key={tab.id}
-                  tab={tab}
-                  isActive={tab.id === activeTabId}
-                  onUrlChange={(url) => handleUrlChange(tab.id, url)}
-                />
+                <TabRouter key={tab.id} tab={tab} isActive={tab.id === activeTabId} onUrlChange={handleUrlChange} />
               ))}
           </ResourceViewSourceProvider>
 

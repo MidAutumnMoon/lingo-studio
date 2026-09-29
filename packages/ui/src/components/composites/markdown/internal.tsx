@@ -13,7 +13,6 @@ import remarkDefinitionList, { defListHastHandlers } from 'remark-definition-lis
 import remarkAlert from 'remark-github-blockquote-alert'
 import { remarkMark } from 'remark-mark-highlight'
 import {
-  type AnimateOptions,
   Block,
   type BlockProps,
   type Components,
@@ -121,8 +120,6 @@ export interface MarkdownCoreProps {
   extraRehypePlugins?: Pluggable[]
   /** Caller-supplied extra remark plugins appended after Streamdown defaults + remarkAlert. */
   extraRemarkPlugins?: Pluggable[]
-  /** Animation config forwarded to Streamdown's built-in `animated` prop. */
-  animated?: AnimateOptions | false
   mode: 'static' | 'streaming'
   /** Repair half-typed markdown at the tail (only meaningful in streaming mode). */
   parseIncompleteMarkdown?: boolean
@@ -142,7 +139,6 @@ export function MarkdownCore({
   plugins,
   extraRehypePlugins,
   extraRemarkPlugins,
-  animated,
   mode,
   parseIncompleteMarkdown,
   parseMarkdownIntoBlocksFn,
@@ -231,9 +227,7 @@ export function MarkdownCore({
           parseIncompleteMarkdown={parseIncompleteMarkdown}
           parseMarkdownIntoBlocksFn={parseMarkdownIntoBlocksFn}
           normalizeHtmlIndentation
-          remarkRehypeOptions={remarkRehypeOptions}
-          animated={animated || undefined}
-          isAnimating={!!animated && mode === 'streaming'}>
+          remarkRehypeOptions={remarkRehypeOptions}>
           {children}
         </Streamdown>
       </div>

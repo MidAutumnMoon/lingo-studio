@@ -47,11 +47,7 @@ const TranslateOutputPane = ({
             enableMarkdown ? (
               // The shared streaming component memoizes completed blocks, so
               // long documents render live without a per-frame full reparse.
-              <StreamingMarkdown
-                id="translate-output"
-                plugins={markdownPlugins}
-                animated={translating ? undefined : false}
-                parseIncompleteMarkdown={translating}>
+              <StreamingMarkdown id="translate-output" plugins={markdownPlugins} parseIncompleteMarkdown={translating}>
                 {translatedContent}
               </StreamingMarkdown>
             ) : (

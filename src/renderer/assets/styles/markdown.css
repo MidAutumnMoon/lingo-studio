@@ -656,10 +656,6 @@
   font-weight: bold;
 }
 
-.markdown [data-sd-animate] {
-  font-weight: inherit;
-}
-
 .markdown em {
   font-style: italic;
 }

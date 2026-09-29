@@ -28,7 +28,6 @@ const REMARK_PLUGINS: Pluggable[] = [remarkLiteralAutolinkFix, remarkLatexMath]
 const HTML_ARTIFACT_REMARK_PLUGINS: Pluggable[] = [remarkLiteralAutolinkFix, remarkLatexMath, remarkHtmlArtifact]
 const FILE_PATH_REHYPE_PLUGINS: Pluggable[] = [[rehypeBareFilePaths, { platform: isWin ? 'windows' : 'posix' }]]
 const EMPTY_CITATION_REGISTRY = new Map()
-const MAX_ANIMATED_CONTENT_LENGTH = 64 * 1024
 const MAX_STREAMING_TRANSFORM_LENGTH = 256 * 1024
 
 const createDefaultPlugins = (singleDollarMath: boolean): PluginConfig => ({
@@ -105,7 +104,6 @@ const ChatMarkdownRuntime: FC<ChatMarkdownProps> = ({
       rehypePlugins={linkifyFilePaths ? FILE_PATH_REHYPE_PLUGINS : undefined}
       components={mergedComponents}
       footnoteLabel={footnoteLabel}
-      animated={isStreaming && content.length <= MAX_ANIMATED_CONTENT_LENGTH ? undefined : false}
       parseIncompleteMarkdown={isStreaming}
       parseMarkdownIntoBlocksFn={parseMarkdownBlocks}
       preserveFileLinkHrefs={canOpenWorkspaceFiles}>

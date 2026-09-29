@@ -1,5 +1,5 @@
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router'
-import { Activity } from 'react'
+import { Activity, memo } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { DialogPortalContainerProvider, PortalContainerProvider } from '@cherrystudio/ui'
@@ -23,7 +23,7 @@ const createTabRouter = (url: string): AppRouter =>
 interface TabRouterProps {
   tab: Tab
   isActive: boolean
-  onUrlChange: (url: string) => void
+  onUrlChange: (tabId: string, url: string) => void
 }
 
 /**
@@ -32,7 +32,7 @@ interface TabRouterProps {
  * Each tab maintains its own router instance with isolated history,
  * enabling true KeepAlive behavior via React 19's Activity component.
  */
-export const TabRouter = ({ tab, isActive, onUrlChange }: TabRouterProps) => {
+const TabRouterComponent = ({ tab, isActive, onUrlChange }: TabRouterProps) => {
   // Create independent router instance per tab (only once)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const router = useMemo(() => createTabRouter(tab.url), [tab.id])
@@ -48,10 +48,10 @@ export const TabRouter = ({ tab, isActive, onUrlChange }: TabRouterProps) => {
       const nextHref = toLocation.href
       setResolvedHref(nextHref)
       if (nextHref !== tab.url) {
-        onUrlChange(nextHref)
+        onUrlChange(tab.id, nextHref)
       }
     })
-  }, [router, tab.url, onUrlChange])
+  }, [router, tab.id, tab.url, onUrlChange])
 
   // Navigate when tab.url changes externally (e.g., from Sidebar)
   useEffect(() => {
@@ -100,3 +100,8 @@ export const TabRouter = ({ tab, isActive, onUrlChange }: TabRouterProps) => {
     </Activity>
   )
 }
+
+// Memoized so an unrelated tab-state change (e.g. another tab's lastAccessTime
+// bump) does not re-render this tab's kept-alive tree; `tab` object identity
+// is preserved for untouched tabs by TabsProvider.
+export const TabRouter = memo(TabRouterComponent)

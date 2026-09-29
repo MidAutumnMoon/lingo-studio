@@ -2,13 +2,15 @@ import { CopyPlus, Edit, Trash2, UserPen } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { loggerService } from '@logger'
 import { CommandContextMenu, type CommandContextMenuExtraItem, CommandPopupMenu } from '@renderer/components/command'
-import ModelNotesPopup from '@renderer/pages/settings/ProviderSettings/ModelNotesPopup'
 import { providerListClasses } from '@renderer/pages/settings/ProviderSettings/primitives/ProviderSettingsPrimitives'
 import { getFancyProviderName } from '@renderer/pages/settings/ProviderSettings/utils/providerDisplay'
 import type { Provider } from '@shared/data/types/provider'
 
 import ProviderListItem from '../components/ProviderListItem'
+
+const logger = loggerService.withContext('ProviderListItemWithContextMenu')
 
 type ListDragState = { dragging: boolean }
 
@@ -66,7 +68,13 @@ export default function ProviderListItemWithContextMenu({
       id: 'notes',
       label: t('settings.provider.notes.title'),
       icon: <UserPen size={14} />,
-      onSelect: () => ModelNotesPopup.show({ providerId: provider.id })
+      // Deferred import: ModelNotesPopup pulls in the MarkdownEditor stack,
+      // which must not sit in the settings first-open chunk.
+      onSelect: () => {
+        void import('@renderer/pages/settings/ProviderSettings/ModelNotesPopup')
+          .then((m) => m.default.show({ providerId: provider.id }))
+          .catch((error) => logger.error('Failed to open model notes popup', error as Error))
+      }
     })
     if (showManagementActions) {
       items.push({

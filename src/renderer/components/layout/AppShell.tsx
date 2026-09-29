@@ -41,6 +41,11 @@ export const AppShell = () => {
     openTab
   } = useTabs()
   const activeTab = useMemo(() => tabs.find((tab) => tab.id === activeTabId), [activeTabId, tabs])
+  // Latest tabs/updateTab for the identity-stable tab callbacks below —
+  // `updateTab` itself churns on every tabs change, so it is read through
+  // this ref instead of becoming a dependency.
+  const latestTabsApiRef = useRef({ tabs, updateTab })
+  latestTabsApiRef.current = { tabs, updateTab }
   const canCycleTabs = tabs.length > 1 && !!activeTab
   const canCloseTab = !!activeTab
   const isSettingsTabActive = isSettingsPath(activeTab?.url)
@@ -168,7 +173,10 @@ export const AppShell = () => {
   // tabs are page-titled — their HomePage/AgentPage owns title + icon (topic /
   // session name + assistant / agent emoji), so we only sync the url and leave
   // title/icon alone, or navigating between topics would wipe them.
-  const handleUrlChange = (tabId: string, url: string) => {
+  // Identity-stable so memoized TabRouters skip re-renders on unrelated tab
+  // state changes.
+  const handleUrlChange = useCallback((tabId: string, url: string) => {
+    const { tabs, updateTab } = latestTabsApiRef.current
     const isPageTitled = isPageTitledRoute(url)
     const tab = tabs.find((candidate) => candidate.id === tabId)
     const patch = isPageTitled
@@ -185,7 +193,7 @@ export const AppShell = () => {
     if (tab) {
       recordRouteVisit({ ...tab, ...patch }, Date.now())
     }
-  }
+  }, [])
 
   const tabBar = (
     <AppShellTabBar
@@ -214,12 +222,7 @@ export const AppShell = () => {
           {tabs
             .filter((t) => t.type === 'route' && !t.isDormant)
             .map((tab) => (
-              <TabRouter
-                key={tab.id}
-                tab={tab}
-                isActive={tab.id === activeTabId}
-                onUrlChange={(url) => handleUrlChange(tab.id, url)}
-              />
+              <TabRouter key={tab.id} tab={tab} isActive={tab.id === activeTabId} onUrlChange={handleUrlChange} />
             ))}
         </ResourceViewSourceProvider>
 

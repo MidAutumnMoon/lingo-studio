@@ -72,6 +72,11 @@ ThinkingBlockContent.displayName = 'ThinkingBlockContent'
 const ThinkingBlock: React.FC<Props> = ({ id, content, isStreaming, showTitlePreview = false }) => {
   const { thoughtAutoCollapse } = useMessageRenderConfig()
   const [isExpanded, setIsExpanded] = useState(!thoughtAutoCollapse)
+  // Content stays unmounted until first expand: a collapsed block must not
+  // re-parse its full markdown on every stream tick. Once expanded it stays
+  // mounted (hidden) so expand/collapse cycles are instant.
+  const [hasExpanded, setHasExpanded] = useState(isExpanded)
+  if (isExpanded && !hasExpanded) setHasExpanded(true)
   const contentId = useId()
   const thinkingPreviewScanStateRef = useRef<ThinkingPreviewScanState | undefined>(undefined)
   const { anchorRef, withScrollAnchor } = useScrollAnchor<HTMLDivElement>()
@@ -156,7 +161,7 @@ const ThinkingBlock: React.FC<Props> = ({ id, content, isStreaming, showTitlePre
         />
       </div>
       <div id={contentId} hidden={!isExpanded} className={THINKING_CONTENT_PANEL_CLASSNAME}>
-        <ThinkingBlockContent id={id} content={content} isStreaming={isStreaming} />
+        {hasExpanded && <ThinkingBlockContent id={id} content={content} isStreaming={isStreaming} />}
       </div>
     </div>
   )

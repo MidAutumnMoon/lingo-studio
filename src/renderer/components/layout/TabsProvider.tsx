@@ -122,7 +122,11 @@ function withLocalizedRouteTitle(tab: Tab): Tab {
   // routes the branch below still relocalizes the home tab, so language changes
   // are unaffected.
   if (!isTopLevelRoute(tab.url) && !isSettingsRouteTab(tab)) return tab
-  return { ...tab, title: getDefaultRouteTitle(tab.url) }
+  // Keep identity when the title is already current: tab object identity is
+  // what lets memoized per-tab consumers skip re-rendering on unrelated
+  // tab-state changes.
+  const nextTitle = getDefaultRouteTitle(tab.url)
+  return tab.title === nextTitle ? tab : { ...tab, title: nextTitle }
 }
 
 function isSettingsRouteTab(tab: Tab): boolean {

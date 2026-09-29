@@ -32,11 +32,7 @@ const brokenImageNode = {
 function renderCode(isStreaming: boolean) {
   return (
     <ChatMarkdownRenderProvider blockId="message-part" citationRegistry={EMPTY_CITATIONS} isStreaming={isStreaming}>
-      <StreamingMarkdown
-        id="message-part"
-        components={CHAT_MARKDOWN_COMPONENTS}
-        animated={false}
-        parseIncompleteMarkdown={isStreaming}>
+      <StreamingMarkdown id="message-part" components={CHAT_MARKDOWN_COMPONENTS} parseIncompleteMarkdown={isStreaming}>
         {'```typescript\nconst first = 1\n```\n\n```typescript\nconst second = 2\n```'}
       </StreamingMarkdown>
     </ChatMarkdownRenderProvider>

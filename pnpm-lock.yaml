@@ -247,7 +247,6 @@ patchedDependencies:
   file-stream-rotator@0.6.1: 40d59705d29163ef409027f9558e88101f422adb4fa6c6d991e5d8dd1bdc8b1a
   motion-dom@12.42.0: 5c9bfe486d8d0472ab803d31133ec3a7e34aa8cadde01fdd9923e2dbbc170014
   ollama-ai-provider-v2@3.3.1: d2b640ac5475c802eee5f983bcad08fb4e5cec7615c57aac188850c3f531743b
-  streamdown@2.5.0: e7275804eb3d9c069a4b2f193c03553501f4db2d37dac35230551a7ab14444df
   tesseract.js@6.0.1: a131c9f36e950911e9fc548408131145a3e5e53977d67abe5196f6b23b32bb6e
 
 importers:
@@ -1289,7 +1288,7 @@ importers:
         version: 1.9.1
       streamdown:
         specifier: ^2.5.0
-        version: 2.5.0(patch_hash=e7275804eb3d9c069a4b2f193c03553501f4db2d37dac35230551a7ab14444df)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@8.1.1)
+        version: 2.5.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@8.1.1)
       strict-url-sanitise:
         specifier: ^0.0.1
         version: 0.0.1
@@ -2095,7 +2094,7 @@ importers:
         version: 0.1.1
       streamdown:
         specifier: ^2.5.0
-        version: 2.5.0(patch_hash=e7275804eb3d9c069a4b2f193c03553501f4db2d37dac35230551a7ab14444df)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@8.1.1)
+        version: 2.5.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@8.1.1)
       tailwind-merge:
         specifier: ^2.5.5
         version: 2.6.1
@@ -31180,7 +31179,7 @@ snapshots:
     dependencies:
       stream-chain: 2.2.5
 
-  streamdown@2.5.0(patch_hash=e7275804eb3d9c069a4b2f193c03553501f4db2d37dac35230551a7ab14444df)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@8.1.1):
+  streamdown@2.5.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(supports-color@8.1.1):
     dependencies:
       clsx: 2.1.1
       hast-util-to-jsx-runtime: 2.3.6(supports-color@8.1.1)

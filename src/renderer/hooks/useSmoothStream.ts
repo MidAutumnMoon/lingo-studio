@@ -82,7 +82,7 @@ const MIN_STEP = 1
 export const useSmoothStream = ({
   onUpdate,
   streamDone: externalStreamDone,
-  minDelay = 10,
+  minDelay = 32,
   initialText = ''
 }: UseSmoothStreamOptions) => {
   const chunkQueueRef = useRef<string[]>([])

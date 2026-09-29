@@ -18,10 +18,7 @@ import type { InlineHtmlPreviewMode } from './ChatMarkdown'
 import { classifyHtmlArtifactSource } from './plugins/remarkHtmlArtifact'
 
 interface Props {
-  /**
-   * Strings for fences and non-animated content; animate-span elements for
-   * streamed inline code — and they persist post-settle (streamdown#570).
-   */
+  /** Plain strings — markdown text nodes and fences alike. */
   children?: ReactNode
   className?: string
   inlineHtmlPreviewMode?: InlineHtmlPreviewMode
@@ -45,8 +42,6 @@ const CodeBlock: React.FC<Props> = ({
   isStreaming = false
 }) => {
   const children = rawChildren ?? ''
-  // Each stream tick rebuilds the animate spans, so `children` gets a fresh
-  // reference and memoizing the walk would never hit; recompute per render.
   const text = getNodeText(children)
   const languageMatch = /language-([\w-+]+)/.exec(className || '')
   const isMultiline = text.includes('\n')
@@ -80,7 +75,7 @@ const CodeBlock: React.FC<Props> = ({
     [actions, blockId, id, text]
   )
 
-  // Widget swaps race the per-tick span rebuild, so they wait for this block
+  // Widget swaps race the per-tick content growth, so they wait for this block
   // to stop growing (an unclosed tail fence); part-level state is too coarse.
   const inlinePath = !isIncomplete && (language === null || language === 'text') ? normalizeInlineFilePath(text) : null
 

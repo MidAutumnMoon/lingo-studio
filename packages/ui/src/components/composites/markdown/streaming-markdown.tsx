@@ -1,5 +1,5 @@
-import { type ReactElement, useMemo } from 'react'
-import type { AnimateOptions, Components, PluginConfig } from 'streamdown'
+import { type ReactElement } from 'react'
+import type { Components, PluginConfig } from 'streamdown'
 import type { Pluggable } from 'unified'
 
 import { MarkdownCore } from './internal'
@@ -16,18 +16,11 @@ export interface StreamingMarkdownProps {
   disallowedElements?: readonly string[]
   className?: string
   footnoteLabel?: string
-  animated?: false | AnimateOptions
   parseIncompleteMarkdown?: boolean
   /** Keep custom syntax intact when splitting the stream into renderable blocks. */
   parseMarkdownIntoBlocksFn?: (source: string) => string[]
   /** Preserve local file hrefs for a custom anchor while retaining URL hardening. */
   preserveFileLinkHrefs?: boolean
-}
-
-const DEFAULT_ANIMATED: AnimateOptions = {
-  animation: 'fadeIn',
-  duration: 250,
-  easing: 'ease-out'
 }
 
 export function StreamingMarkdown({
@@ -40,18 +33,10 @@ export function StreamingMarkdown({
   disallowedElements,
   className,
   footnoteLabel,
-  animated,
   parseIncompleteMarkdown = true,
   parseMarkdownIntoBlocksFn,
   preserveFileLinkHrefs
 }: StreamingMarkdownProps): ReactElement {
-  // Stable reference so Streamdown's internal memo on JSON.stringify(animated)
-  // sees the same identity across renders.
-  const resolvedAnimated = useMemo<AnimateOptions | false>(
-    () => (animated === false ? false : (animated ?? DEFAULT_ANIMATED)),
-    [animated]
-  )
-
   return (
     <MarkdownCore
       id={id}
@@ -62,7 +47,6 @@ export function StreamingMarkdown({
       plugins={plugins}
       extraRehypePlugins={rehypePlugins}
       extraRemarkPlugins={remarkPlugins}
-      animated={resolvedAnimated}
       disallowedElements={disallowedElements}
       className={className}
       footnoteLabel={footnoteLabel}

@@ -263,7 +263,9 @@ describe('ModelCheckDialog', () => {
     expect(screen.getByText('Invalid API key')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /message.api.connection.failed/ }))
 
-    expect(showErrorDetailPopup).toHaveBeenCalledWith({ error })
+    // The popup module is dynamically imported on invoke, so the call lands
+    // after a microtask.
+    await waitFor(() => expect(showErrorDetailPopup).toHaveBeenCalledWith({ error }))
   })
 
   it('disables a single-model run with an unsupported-only placeholder', async () => {

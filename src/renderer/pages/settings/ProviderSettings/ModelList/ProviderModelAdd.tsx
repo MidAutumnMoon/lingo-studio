@@ -1,13 +1,16 @@
 import { Plus } from 'lucide-react'
 import type React from 'react'
-import { useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button, NormalTooltip } from '@cherrystudio/ui'
 import type { UniqueModelId } from '@shared/data/types/model'
 
 import { modelListClasses } from '../primitives/ProviderSettingsPrimitives'
-import { AddModelDrawer } from './ModelDrawer'
+
+// Deferred chunk: the add/edit-model form suite is only needed on interaction
+// and must not sit in the settings first-open graph.
+const AddModelDrawer = lazy(() => import('./ModelDrawer').then((m) => ({ default: m.AddModelDrawer })))
 
 interface ProviderModelAddProps {
   providerId: string
@@ -29,15 +32,24 @@ export function ProviderModelAddDialog({
   onSuccess,
   showPurposeSelection
 }: ProviderModelAddDialogProps) {
+  // Mount-once-opened: the lazy chunk loads on first open; after that the
+  // drawer stays mounted so the panel's exit animation has stable content.
+  const [mounted, setMounted] = useState(false)
+  if (open && !mounted) setMounted(true)
+
+  if (!mounted) return null
+
   return (
-    <AddModelDrawer
-      providerId={providerId}
-      open={open}
-      prefill={null}
-      onClose={onClose}
-      onSuccess={onSuccess}
-      showPurposeSelection={showPurposeSelection}
-    />
+    <Suspense fallback={null}>
+      <AddModelDrawer
+        providerId={providerId}
+        open={open}
+        prefill={null}
+        onClose={onClose}
+        onSuccess={onSuccess}
+        showPurposeSelection={showPurposeSelection}
+      />
+    </Suspense>
   )
 }
 

@@ -1,12 +1,15 @@
 import type React from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 
 import { useProviderMeta } from '../hooks/providerSetting/useProviderMeta'
 import { modelListClasses } from '../primitives/ProviderSettingsPrimitives'
-import { EditModelDrawer } from './ModelDrawer'
 import ModelListHeader from './ModelListHeader'
 import ModelListSections from './ModelListSections'
 import { useProviderModelList } from './useProviderModelList'
+
+// Deferred chunk: the add/edit-model form suite is only needed on interaction
+// and must not sit in the settings first-open graph.
+const EditModelDrawer = lazy(() => import('./ModelDrawer').then((m) => ({ default: m.EditModelDrawer })))
 
 interface ProviderModelListProps {
   scrollElement?: HTMLDivElement | null
@@ -28,6 +31,10 @@ const ProviderModelList: React.FC<ProviderModelListProps> = ({
     providerId,
     disabled
   })
+  // Mount-once-opened: the lazy drawer chunk loads on first open; after that
+  // the drawer stays mounted so the panel's exit animation has stable content.
+  const [drawerMounted, setDrawerMounted] = useState(false)
+  if (modelList.editDrawer.open && !drawerMounted) setDrawerMounted(true)
   const providerMeta = useProviderMeta(providerId)
   const showContinueApiSetup =
     providerMeta.isApiKeyFieldVisible &&
@@ -95,12 +102,16 @@ const ProviderModelList: React.FC<ProviderModelListProps> = ({
           onContinueApiSetup={showContinueApiSetup ? onContinueApiSetup : undefined}
         />
       </div>
-      <EditModelDrawer
-        providerId={providerId}
-        open={modelList.editDrawer.open}
-        model={modelList.editDrawer.model}
-        onClose={modelList.editDrawer.onClose}
-      />
+      {drawerMounted && (
+        <Suspense fallback={null}>
+          <EditModelDrawer
+            providerId={providerId}
+            open={modelList.editDrawer.open}
+            model={modelList.editDrawer.model}
+            onClose={modelList.editDrawer.onClose}
+          />
+        </Suspense>
+      )}
     </>
   )
 }

@@ -29,7 +29,6 @@ vi.mock('@cherrystudio/ui', () => ({
     return <div data-testid="static-markdown">{props.children}</div>
   },
   StreamingMarkdown: (props: {
-    animated?: false
     children: string
     parseIncompleteMarkdown?: boolean
     preserveFileLinkHrefs?: boolean
@@ -37,10 +36,7 @@ vi.mock('@cherrystudio/ui', () => ({
   }) => {
     mocks.streamingMarkdown(props)
     return (
-      <div
-        data-testid="streaming-markdown"
-        data-animated={String(props.animated)}
-        data-parse-incomplete={String(props.parseIncompleteMarkdown)}>
+      <div data-testid="streaming-markdown" data-parse-incomplete={String(props.parseIncompleteMarkdown)}>
         {props.children}
       </div>
     )
@@ -77,7 +73,6 @@ describe('ChatMarkdown', () => {
     )
     const streamingNode = screen.getByTestId('streaming-markdown')
 
-    expect(streamingNode).toHaveAttribute('data-animated', 'undefined')
     expect(streamingNode).toHaveAttribute('data-parse-incomplete', 'true')
     expect(mocks.streamingMarkdown).toHaveBeenLastCalledWith(
       expect.objectContaining({ remarkPlugins: [remarkLiteralAutolinkFix, remarkLatexMath] })
@@ -86,7 +81,6 @@ describe('ChatMarkdown', () => {
     rerender(<ChatMarkdown block={{ id: 'message-part', content: '[unfinished](', status: 'success' }} />)
 
     expect(screen.getByTestId('streaming-markdown')).toBe(streamingNode)
-    expect(streamingNode).toHaveAttribute('data-animated', 'false')
     expect(streamingNode).toHaveAttribute('data-parse-incomplete', 'false')
     expect(mocks.markdown).not.toHaveBeenCalled()
   })

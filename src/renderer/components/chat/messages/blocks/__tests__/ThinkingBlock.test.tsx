@@ -98,11 +98,16 @@ describe('ThinkingBlock', () => {
   }
 
   describe('basic rendering', () => {
-    it('should render thinking content when provided', () => {
+    it('should render thinking content when expanded', () => {
       const block = createThinkingBlock({ content: 'Deep thoughts about AI' })
       renderThinkingBlock(block)
 
-      // User should see the thinking content
+      // Collapsed by default: the markdown subtree stays unmounted so a
+      // hidden block does not re-parse on every stream tick.
+      expect(getThinkingContent()).not.toBeInTheDocument()
+
+      fireEvent.click(getToggleButton())
+
       expect(screen.getByText('Markdown: Deep thoughts about AI')).toBeInTheDocument()
       expect(screen.getByTestId('mock-marquee-component')).toBeInTheDocument()
       expect(
@@ -245,7 +250,8 @@ describe('ThinkingBlock', () => {
 
       expect(getToggleButton()).toHaveAttribute('aria-expanded', 'false')
       expect(getContentContainer()).toHaveAttribute('hidden')
-      expect(getThinkingContent()).toBeInTheDocument()
+      // Collapsed content is unmounted (no hidden re-parses while streaming).
+      expect(getThinkingContent()).not.toBeInTheDocument()
     })
 
     it('should toggle expanded state when clicked', () => {
@@ -256,6 +262,7 @@ describe('ThinkingBlock', () => {
 
       expect(getToggleButton()).toHaveAttribute('aria-expanded', 'true')
       expect(getContentContainer()).not.toHaveAttribute('hidden')
+      expect(getThinkingContent()).toBeInTheDocument()
     })
 
     it('should render expanded by default when auto-collapse is disabled', () => {
@@ -293,6 +300,8 @@ describe('ThinkingBlock', () => {
 
       expect(getToggleButton()).toHaveAttribute('aria-expanded', 'true')
       expect(getContentContainer()).not.toHaveAttribute('hidden')
+      // The preference flip mounts the content, not just the visible panel.
+      expect(getThinkingContent()).toBeInTheDocument()
     })
   })
 
@@ -330,6 +339,8 @@ describe('ThinkingBlock', () => {
 
   describe('integration and edge cases', () => {
     it('should handle content updates correctly', () => {
+      // Expanded so the (now lazily mounted) markdown content is in the document.
+      mockRenderConfig.thoughtAutoCollapse = false
       const block1 = createThinkingBlock({ content: 'Original thought' })
       const { rerender } = renderThinkingBlock(block1)
 
