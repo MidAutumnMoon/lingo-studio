@@ -1,5 +1,3 @@
-import type { UpdateInfo } from 'builder-util-runtime'
-
 import type { DoctorState } from '@shared/types/doctor'
 import type { AbsoluteFilePath, FileType } from '@shared/types/file'
 import type { McpTool } from '@shared/types/mcp'
@@ -15,18 +13,6 @@ import type { MiniApp } from '../types/miniApp'
 import type { UniqueModelId } from '../types/model'
 import type { ComposerMessageTokenKind } from '../types/uiParts'
 import type { WebSearchStatus } from '../types/webSearch'
-
-export type CacheAppUpdateState = {
-  info: UpdateInfo | null
-  checking: boolean
-  downloading: boolean
-  downloaded: boolean
-  downloadProgress: number
-  available: boolean
-  ignore: boolean
-  //   /** Whether the update check was manually triggered by user clicking the button */
-  manualCheck: boolean
-}
 
 export type CacheActiveSearches = Record<string, WebSearchStatus>
 

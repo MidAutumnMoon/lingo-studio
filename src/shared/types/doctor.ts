@@ -69,8 +69,6 @@ export type DoctorCheckScope = 'global' | 'any' | readonly [DoctorSubjectKey, ..
 
 export const DOCTOR_CHECK_IDS = [
   'install-architecture-match',
-  'install-version-channel',
-  'install-update-available',
   'storage-userdata-location',
   'storage-disk-space',
   'storage-diagnostic-data-size',
@@ -86,7 +84,6 @@ export const DOCTOR_CHECK_IDS = [
   'network-dns-resolution',
   'network-tls-handshake',
   'network-proxy-applied',
-  'network-endpoint-update',
   'network-endpoint-registry',
   'network-endpoint-cloud',
   'network-endpoint-diagnostics',
@@ -125,22 +122,6 @@ export const DOCTOR_CHECK_CATALOG = {
     fixes: [],
     details: ['translated'],
     requires: []
-  },
-  'install-version-channel': {
-    domain: 'install',
-    tier: 'quick',
-    scope: 'global',
-    fixes: [],
-    details: ['mismatch'],
-    requires: []
-  },
-  'install-update-available': {
-    domain: 'install',
-    tier: 'live',
-    scope: 'global',
-    fixes: [],
-    details: ['available', 'unsupported'],
-    requires: ['network-endpoint-update']
   },
   'storage-userdata-location': {
     domain: 'storage',
@@ -260,14 +241,6 @@ export const DOCTOR_CHECK_CATALOG = {
     fixes: [],
     details: ['direct', 'proxy', 'custom_without_url', 'system_read_failed', 'apply_failed', 'provider_unavailable'],
     requires: []
-  },
-  'network-endpoint-update': {
-    domain: 'network',
-    tier: 'live',
-    scope: 'global',
-    fixes: [],
-    details: ENDPOINT_DETAILS,
-    requires: ['network-online']
   },
   'network-endpoint-registry': {
     domain: 'network',

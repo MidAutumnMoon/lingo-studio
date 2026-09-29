@@ -1,4 +1,3 @@
-import type { ProgressInfo, UpdateInfo } from 'builder-util-runtime'
 import * as z from 'zod'
 
 import {
@@ -88,21 +87,11 @@ export const appRequestSchemas = {
   }),
   'app.data_reset.request': defineRoute({ input: z.void(), output: z.void() }),
   'app.migration_v2.rerun': defineRoute({ input: z.void(), output: z.void() }),
-  'app.updater.check_for_update': defineRoute({ input: z.void(), output: z.void() }),
-  'app.updater.release_notes.get': defineRoute({
+  'app.release_notes.get': defineRoute({
     input: z.void(),
     output: z
       .array(z.object({ releaseNotes: z.string().min(1), version: z.string().min(1) }))
       .min(1)
       .nullable()
-  }),
-  'app.updater.quit_and_install': defineRoute({ input: z.void(), output: z.void() })
-}
-
-export type AppEventSchemas = {
-  'app.updater.error': Error
-  'app.updater.available': UpdateInfo
-  'app.updater.not_available': void
-  'app.updater.download_progress': ProgressInfo
-  'app.updater.downloaded': UpdateInfo
+  })
 }

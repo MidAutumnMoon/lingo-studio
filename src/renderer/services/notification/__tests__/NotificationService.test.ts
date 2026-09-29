@@ -23,7 +23,6 @@ const PREF_BY_SOURCE: Record<NotificationSource, UnifiedPreferenceKeyType> = {
   assistant: 'app.notification.assistant.enabled',
   backup: 'app.notification.backup.enabled',
   knowledge: 'app.notification.knowledge.enabled',
-  update: 'app.notification.update.enabled',
   'mini-app': 'app.notification.mini_app.enabled'
 }
 
@@ -56,7 +55,7 @@ describe('NotificationService', () => {
   )
 
   it('drops notifications whose source preference is disabled', async () => {
-    await notificationService.send(buildNotification('update'))
+    await notificationService.send(buildNotification('backup'))
 
     expect(mocks.request).not.toHaveBeenCalled()
   })

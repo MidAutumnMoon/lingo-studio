@@ -92,7 +92,7 @@ describe('edition packaging', () => {
     expect(script).toContain(`--${arch}`)
   })
 
-  it('keeps the existing global product and update identity', () => {
+  it('keeps the existing global product identity and no update feed', () => {
     const config = parse(readFileSync(path.join(projectRoot, 'electron-builder.yml'), 'utf8'))
 
     expect({
@@ -109,12 +109,12 @@ describe('edition packaging', () => {
       nsisGuid: '41a4ccd8-bcc0-5710-9eee-0e164da68057',
       productName: 'Cherry Studio',
       protocol: 'cherrystudio',
-      publish: { provider: 'generic', url: 'https://releases.cherry-ai.com' },
+      publish: undefined,
       windowsArtifactName: '${productName}-${version}-${arch}-setup.${ext}'
     })
   })
 
-  it('changes only the package identity, edition marker, and update channel for the China edition', async () => {
+  it('changes only the package identity and edition marker for the China edition', async () => {
     const config = await createChinaEditionConfig({
       packageMetadata: { value: Promise.resolve({ version: '2.1.0' }) }
     })
@@ -124,8 +124,7 @@ describe('edition packaging', () => {
       appId: 'com.cherryai.cherrystudio.cn',
       extraMetadata: {
         cherryEdition: CHINA_EDITION
-      },
-      publish: { provider: 'generic', url: 'https://releases.cherry-ai.com', channel: 'latest-cn' }
+      }
     })
   })
 

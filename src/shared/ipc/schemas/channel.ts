@@ -10,7 +10,7 @@ import { defineRoute } from '../define'
 
 /**
  * Channel (WeChat agent channels) IPC schemas. Per-adapter faces use a
- * three-segment subtype (channel.wechat.*, precedent app.updater.*);
+ * three-segment subtype (channel.wechat.*, precedent mcp.server.*);
  * cross-subtype faces stay two-segment (channel.get_logs / log). Event payload shapes mirror
  * ChannelLogEntry (@main/ai/channels)
  * inline — @shared must not import @main; the producers are structurally compatible.

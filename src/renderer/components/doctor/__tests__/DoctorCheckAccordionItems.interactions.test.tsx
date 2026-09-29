@@ -46,16 +46,6 @@ type ControllerOverrides = {
 
 function createController(overrides: ControllerOverrides = {}) {
   const baseController = {
-    appUpdateState: {
-      info: null,
-      checking: false,
-      downloading: false,
-      downloaded: false,
-      downloadProgress: 0,
-      available: false,
-      ignore: false,
-      manualCheck: false
-    },
     cancel: vi.fn<DoctorController['cancel']>(),
     canChangePanel: true,
     cancelConfirmation: vi.fn<DoctorController['cancelConfirmation']>(),
@@ -254,7 +244,7 @@ describe('DoctorCheckAccordionItems interactions', () => {
       ...report,
       results: [
         actionable,
-        { id: 'install-version-channel', status: 'pass', durationMs: 1 },
+        { id: 'config-hardware-acceleration', status: 'pass', durationMs: 1 },
         {
           id: 'logs-recent-findings',
           status: 'warn',
@@ -280,7 +270,7 @@ describe('DoctorCheckAccordionItems interactions', () => {
     expect(screen.queryByRole('region', { name: 'error.diagnostics.result' })).not.toBeInTheDocument()
     const otherChecks = screen.getByRole('region', { name: 'settings.doctor.copy.checks_heading' })
     for (const id of [
-      'install-version-channel',
+      'config-hardware-acceleration',
       'storage-userdata-location',
       'logs-recent-findings',
       'network-online'

@@ -6,6 +6,7 @@ const {
   appRelaunchMock,
   cacheCleanupInspectMock,
   cacheCleanupRunMock,
+  getReleaseHistoryMock,
   inspectTargetMock,
   requestDataResetMock,
   requestV1RemigrationMock,
@@ -16,6 +17,7 @@ const {
   appRelaunchMock: vi.fn(),
   cacheCleanupInspectMock: vi.fn(),
   cacheCleanupRunMock: vi.fn(),
+  getReleaseHistoryMock: vi.fn(),
   inspectTargetMock: vi.fn(),
   requestDataResetMock: vi.fn(),
   requestV1RemigrationMock: vi.fn(),
@@ -32,6 +34,9 @@ vi.mock('@application', () => ({
 vi.mock('@main/services/dataReset', () => ({
   requestDataReset: requestDataResetMock,
   requestV1Remigration: requestV1RemigrationMock
+}))
+vi.mock('@main/services/releaseHistory', () => ({
+  getReleaseHistory: getReleaseHistoryMock
 }))
 vi.mock('@main/services/userDataRelocation', () => ({
   inspectUserDataRelocationTarget: inspectTargetMock,
@@ -50,11 +55,6 @@ import { app } from 'electron'
 
 import { appHandlers } from '../app'
 
-const appUpdaterService = {
-  checkForUpdates: vi.fn(),
-  getReleaseHistory: vi.fn(),
-  quitAndInstall: vi.fn()
-}
 const preferenceService = {
   get: vi.fn()
 }
@@ -65,7 +65,6 @@ beforeEach(() => {
   appGetPathMock.mockReturnValue('/mock/path')
   inspectTargetMock.mockReturnValue({ valid: true, targetEmpty: true })
   appGetMock.mockImplementation((name: string) => {
-    if (name === 'AppUpdaterService') return appUpdaterService
     if (name === 'PreferenceService') return preferenceService
     throw new Error(`Unexpected application.get(${name})`)
   })
@@ -129,30 +128,14 @@ describe('appHandlers', () => {
     expect(result).toEqual(expected)
   })
 
-  it('check_for_update triggers the AppUpdaterService check and resolves void', async () => {
-    appUpdaterService.checkForUpdates.mockResolvedValue({ currentVersion: '1.0.0', updateInfo: null })
-
-    const result = await appHandlers['app.updater.check_for_update'](undefined, ctx)
-
-    expect(appUpdaterService.checkForUpdates).toHaveBeenCalledTimes(1)
-    expect(result).toBeUndefined()
-  })
-
-  it('gets release notes through AppUpdaterService', async () => {
+  it('gets release history through the releaseHistory module', async () => {
     const releases = [{ releaseNotes: 'New features', version: '1.1.0' }]
-    appUpdaterService.getReleaseHistory.mockResolvedValue(releases)
+    getReleaseHistoryMock.mockResolvedValue(releases)
 
-    const result = await appHandlers['app.updater.release_notes.get'](undefined, ctx)
+    const result = await appHandlers['app.release_notes.get'](undefined, ctx)
 
-    expect(appUpdaterService.getReleaseHistory).toHaveBeenCalledOnce()
+    expect(getReleaseHistoryMock).toHaveBeenCalledOnce()
     expect(result).toEqual(releases)
-  })
-
-  it('quit_and_install delegates to AppUpdaterService and resolves void', async () => {
-    const result = await appHandlers['app.updater.quit_and_install'](undefined, ctx)
-
-    expect(appUpdaterService.quitAndInstall).toHaveBeenCalledTimes(1)
-    expect(result).toBeUndefined()
   })
 
   it('delegates data reset requests to the owning domain module', async () => {

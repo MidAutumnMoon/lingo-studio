@@ -30,7 +30,7 @@ const providerError = {
 } satisfies SerializedError
 
 const passingVersionResult: DoctorCheckResult = {
-  id: 'install-version-channel',
+  id: 'config-hardware-acceleration',
   status: 'pass',
   durationMs: 1
 }
@@ -73,7 +73,7 @@ const transientResult: DoctorCheckResult = {
 }
 
 const erroredResult: DoctorCheckResult = {
-  id: 'install-update-available',
+  id: 'network-endpoint-registry',
   status: 'error',
   durationMs: 1,
   message: 'Native module check failed'
@@ -138,7 +138,6 @@ const translations: Record<string, string> = {
   'settings.doctor.checks.config-boot-config-valid.detail.invalid_keys':
     'Some startup settings are not recognized or valid.',
   'settings.doctor.checks.config-boot-config-valid.title': 'Startup configuration',
-  'settings.doctor.checks.install-update-available.title': 'Available update',
   'settings.doctor.checks.logs-recent-findings.title': 'Recent findings',
   'settings.doctor.checks.network-online.title': 'Network availability',
   'settings.doctor.checks.network-model-endpoint.detail.unreachable': 'The configured Base URL could not be reached.',
@@ -153,7 +152,8 @@ const translations: Record<string, string> = {
   'settings.doctor.checks.provider-model-list.title': 'Remote model availability',
   'settings.doctor.checks.storage-disk-space.detail.low': 'Available disk space is low.',
   'settings.doctor.checks.storage-disk-space.title': 'Available disk space',
-  'settings.doctor.checks.install-version-channel.title': 'Version and release channel',
+  'settings.doctor.checks.network-endpoint-registry.title': 'Provider registry service',
+  'settings.doctor.checks.config-hardware-acceleration.title': 'Hardware acceleration',
   'settings.doctor.checks.pending': 'Awaiting check',
   'settings.doctor.checks.skipped': 'Skipped because {{check}} did not pass.',
   'settings.doctor.empty.description': 'Run basic checks, or a full check that includes network and service checks.',
@@ -190,21 +190,6 @@ vi.mock('@data/hooks/useCache', () => ({
 
 vi.mock('@logger', () => ({
   loggerService: { withContext: () => ({ error: vi.fn(), warn: vi.fn() }) }
-}))
-
-vi.mock('@renderer/hooks/useAppUpdateState', () => ({
-  useAppUpdateState: () => ({
-    appUpdateState: {
-      info: null,
-      checking: false,
-      downloading: false,
-      downloaded: false,
-      downloadProgress: 0,
-      available: false,
-      ignore: false,
-      manualCheck: false
-    }
-  })
 }))
 
 vi.mock('@renderer/hooks/useMcpServer', () => ({ useMcpServers: () => ({ mcpServers: [] }) }))
@@ -586,7 +571,7 @@ describe('ErrorDetailContent diagnostics', () => {
     expect(within(result).queryByRole('button', { name: 'Local details' })).not.toBeInTheDocument()
     expect(within(result).queryByText('/Users/local/CherryStudio')).not.toBeInTheDocument()
     expect(within(result).getByRole('button', { name: /Startup configuration/ })).toBeInTheDocument()
-    expect(within(result).queryByRole('button', { name: /Version and release channel/ })).not.toBeInTheDocument()
+    expect(within(result).queryByRole('button', { name: /Hardware acceleration/ })).not.toBeInTheDocument()
     expect(within(result).queryByRole('button', { name: /Recent findings/ })).not.toBeInTheDocument()
     expect(within(result).queryByRole('button', { name: /Network availability/ })).not.toBeInTheDocument()
     expect(within(result).queryByRole('button', { name: /Native components/ })).not.toBeInTheDocument()

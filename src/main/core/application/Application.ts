@@ -593,14 +593,6 @@ export class Application {
   }
 
   /**
-   * Mark the app as quitting without triggering the quit sequence.
-   * Used by autoUpdater.quitAndInstall() which has its own quit flow.
-   */
-  public markQuitting(): void {
-    this._isQuitting = true
-  }
-
-  /**
    * Register a quit prevention hold. Returns a hold with opaque UUID id and dispose().
    * While any hold is active, app.quit() will be blocked in before-quit.
    * Used for critical operations (e.g. data migration) where quitting would cause corruption.

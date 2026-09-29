@@ -22,8 +22,6 @@ Cherry Studio implements a structured branching strategy to maintain code qualit
   - Only accepts reviewed hotfix backports and release metadata updates; documentation changes continue through `main`
   - Thoroughly tested before production deployment
 
-For details about the `testplan` branch used in the Test Plan, please refer to the [Test Plan](./test-plan.md).
-
 ## Contributing Branches
 
 When contributing to Cherry Studio, please follow these guidelines:

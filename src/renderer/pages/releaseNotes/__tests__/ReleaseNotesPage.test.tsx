@@ -80,7 +80,7 @@ describe('ReleaseNotesPage', () => {
     expect(versionTriggers[1]).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('历史功能')).toBeInTheDocument()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
-    expect(mocks.ipcRequest).toHaveBeenCalledWith('app.updater.release_notes.get')
+    expect(mocks.ipcRequest).toHaveBeenCalledWith('app.release_notes.get')
   })
 
   it('merges and expands release history from the managed update service', async () => {

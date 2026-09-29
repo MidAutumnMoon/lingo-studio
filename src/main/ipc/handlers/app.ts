@@ -7,6 +7,7 @@ import { loggerService } from '@logger'
 import { isWin } from '@main/core/platform'
 import { cacheCleanupService } from '@main/services/cacheCleanup'
 import { requestDataReset, requestV1Remigration } from '@main/services/dataReset'
+import { getReleaseHistory } from '@main/services/releaseHistory'
 import { inspectUserDataRelocationTarget, requestUserDataRelocation } from '@main/services/userDataRelocation'
 import { handleZoomFactor } from '@main/utils/zoom'
 import { IpcError } from '@shared/ipc/errors/IpcError'
@@ -48,11 +49,5 @@ export const appHandlers: IpcHandlersFor<typeof appRequestSchemas> = {
   },
   'app.data_reset.request': async () => requestDataReset(),
   'app.migration_v2.rerun': async () => requestV1Remigration(),
-  'app.updater.check_for_update': async () => {
-    await application.get('AppUpdaterService').checkForUpdates()
-  },
-  'app.updater.release_notes.get': async () => application.get('AppUpdaterService').getReleaseHistory(),
-  'app.updater.quit_and_install': async () => {
-    application.get('AppUpdaterService').quitAndInstall()
-  }
+  'app.release_notes.get': async () => getReleaseHistory()
 }

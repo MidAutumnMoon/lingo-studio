@@ -1,6 +1,6 @@
 import { bootConfigValid, hardwareAcceleration } from './checks/config'
 import { modelEndpoint, modelList, modelConversation } from './checks/connectivity'
-import { installArchitectureMatch, installUpdateAvailable, installVersionChannel } from './checks/install'
+import { installArchitectureMatch } from './checks/install'
 import { recentLogFindings } from './checks/logs'
 import { mcpLaunchCommands, mcpServersConnected } from './checks/mcp'
 import {
@@ -8,7 +8,6 @@ import {
   endpointCloud,
   endpointDiagnostics,
   endpointRegistry,
-  endpointUpdate,
   online,
   providerEndpoint,
   proxyApplied,
@@ -24,8 +23,6 @@ export const doctorCheckRegistry: DoctorCheckRegistry = {
   'provider-model-list': modelList,
   'provider-model-conversation': modelConversation,
   'install-architecture-match': installArchitectureMatch,
-  'install-version-channel': installVersionChannel,
-  'install-update-available': installUpdateAvailable,
   'storage-userdata-location': userDataLocation,
   'storage-disk-space': diskSpace,
   'storage-diagnostic-data-size': diagnosticDataSize,
@@ -38,7 +35,6 @@ export const doctorCheckRegistry: DoctorCheckRegistry = {
   'network-dns-resolution': dnsResolution,
   'network-tls-handshake': tlsHandshake,
   'network-proxy-applied': proxyApplied,
-  'network-endpoint-update': endpointUpdate,
   'network-endpoint-registry': endpointRegistry,
   'network-endpoint-cloud': endpointCloud,
   'network-endpoint-diagnostics': endpointDiagnostics,

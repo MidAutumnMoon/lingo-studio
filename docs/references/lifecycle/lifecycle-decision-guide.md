@@ -27,7 +27,7 @@ sources:
 
 | Category             | Examples                                                           |
 | -------------------- | ------------------------------------------------------------------ |
-| Event listeners      | `nativeTheme.on()`, `powerMonitor.on()`, `autoUpdater.on()`        |
+| Event listeners      | `nativeTheme.on()`, `powerMonitor.on()`, `session.on()`            |
 | Global shortcuts     | `globalShortcut.register()`                                        |
 | Subscriptions        | `preferenceService.subscribeChange()`                               |
 | Session interceptors | `session.webRequest.onHeadersReceived()`                           |

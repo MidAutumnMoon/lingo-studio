@@ -233,7 +233,7 @@ Resolves provider-registry paths for the v2 runtime. Remote snapshots may overri
 
 **Design boundaries:**
 
-- **Stateless, read-only**: this utility only inspects paths and the manifest; snapshot persistence belongs to the updater domain.
+- **Stateless, read-only**: this utility only inspects paths and the manifest; snapshot persistence belongs to the provider-registry domain.
 - **Atomic model metadata**: both remote-safe files require a compatible completion manifest. Missing either file falls back to bundled model metadata.
 - **Explicit compatibility range**: `minAppVersion <= appVersion <= sourceAppVersion`, matching schema version, and a valid revision are required on every activation.
 - **Bundled routing**: provider endpoints, model-list URLs, adapter families, and authentication behavior never come from the unsigned branch.

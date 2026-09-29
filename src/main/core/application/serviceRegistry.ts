@@ -27,7 +27,6 @@ import { IpcApiService } from '@main/ipc/IpcApiService'
 import { AnalyticsService } from '@main/services/AnalyticsService'
 import { AppMenuService } from '@main/services/AppMenuService'
 import { AppService } from '@main/services/AppService'
-import { AppUpdaterService } from '@main/services/AppUpdaterService'
 import { AutoBackupService } from '@main/services/AutoBackupService'
 import { CherryCloudService } from '@main/services/cherryCloud/CherryCloudService'
 import { CitationPreviewService } from '@main/services/CitationPreviewService'
@@ -148,7 +147,6 @@ export const services = {
   KnowledgeVectorStoreService,
   MiniAppRuntimeService,
   ApiGatewayService,
-  AppUpdaterService,
   AutoBackupService,
   ProviderRegistryUpdaterService,
   SchedulerService,

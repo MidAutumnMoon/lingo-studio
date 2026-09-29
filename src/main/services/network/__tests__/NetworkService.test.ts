@@ -22,7 +22,7 @@ const { NetworkService } = await import('../NetworkService')
 const ok = (data?: unknown) => ({ status: 'ok', durationMs: 1, data })
 const failed = (kind: string, code: string) => ({ status: 'failed', durationMs: 1, kind, code })
 const resolveProxy = () => vi.mocked(session.defaultSession).resolveProxy as unknown as ReturnType<typeof vi.fn>
-const endpoint: NetworkEndpoint = { id: 'update', url: 'https://releases.cherry-ai.com/release-history.json' }
+const endpoint: NetworkEndpoint = { id: 'registry', url: 'https://registry.example/manifest.json' }
 const signal = new AbortController().signal
 const snapshot = (over: Record<string, unknown> = {}) => ({
   mode: 'none',
@@ -48,12 +48,12 @@ describe('NetworkService.diagnoseEndpoint', () => {
   it('runs all four layers directly and reports reachable', async () => {
     const result = await new NetworkService().diagnoseEndpoint(endpoint, signal)
     expect(result).toMatchObject({
-      host: 'releases.cherry-ai.com',
+      host: 'registry.example',
       verdict: 'reachable',
       proxy: { effective: 'DIRECT' }
     })
-    expect(probes.resolveHost).toHaveBeenCalledWith('releases.cherry-ai.com', signal)
-    expect(probes.tlsHandshake).toHaveBeenCalledWith('releases.cherry-ai.com', 443, signal)
+    expect(probes.resolveHost).toHaveBeenCalledWith('registry.example', signal)
+    expect(probes.tlsHandshake).toHaveBeenCalledWith('registry.example', 443, signal)
   })
 
   it('behind a proxy resolves the proxy host and skips the direct TLS handshake', async () => {

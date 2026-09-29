@@ -216,9 +216,6 @@ application.quit()
 // Force exit — skips the event chain, for fatal/unrecoverable errors only
 application.forceExit(1)
 
-// Mark as quitting without triggering quit — for external quit flows (e.g. autoUpdater)
-application.markQuitting()
-
 // Prevent quit during critical operations (e.g. data migration)
 const hold = application.preventQuit('Migrating data')
 try { /* critical work */ } finally { hold.dispose() }
@@ -231,7 +228,6 @@ if (application.isQuitting) { /* ... */ }
 |--------|-------------|----------|
 | `quit()` | Triggers `before-quit` → `will-quit` | Normal user-initiated quit |
 | `forceExit(code)` | Skipped | Fatal errors, repeated renderer crash |
-| `markQuitting()` | None (flag only) | `autoUpdater.quitAndInstall()` owns its own quit flow |
 | `preventQuit(reason)` | Blocks `before-quit` | Critical operations (returns hold with `dispose()`) |
 
 **Exception:** migration-window code under `src/main/data/migration/` owns a separate pre-bootstrap Electron flow and is excluded from the lint rule. Other preboot code, including the single-instance gate, still calls `application.quit()` rather than a bare Electron quit API.

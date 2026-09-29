@@ -120,8 +120,6 @@ export type ProcessKey<K extends string> = IsTemplateKey<K> extends true ? Expan
 
 export type UseCacheSchema = {
   // App state
-  'app.dist.update_state': CacheValueTypes.CacheAppUpdateState
-
   'app.path.resources': string
 
   // Chat context
@@ -211,16 +209,6 @@ export type UseCacheSchema = {
 
 export const DefaultUseCache: UseCacheSchema = {
   // App state
-  'app.dist.update_state': {
-    info: null,
-    checking: false,
-    downloading: false,
-    downloaded: false,
-    downloadProgress: 0,
-    available: false,
-    ignore: false,
-    manualCheck: false
-  },
   'app.path.resources': '',
   // Chat context
   'chat.multi_select_mode': false,

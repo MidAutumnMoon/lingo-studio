@@ -7,16 +7,6 @@ const mocks = vi.hoisted(() => ({
   cacheReady: true,
   doctorState: { status: 'idle' } as DoctorState | undefined,
   readyListeners: new Set<() => void>(),
-  appUpdateState: {
-    info: null,
-    checking: false,
-    downloading: false,
-    downloaded: false,
-    downloadProgress: 0,
-    available: false,
-    ignore: false,
-    manualCheck: false
-  },
   request: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn()
@@ -34,10 +24,6 @@ vi.mock('@data/CacheService', () => ({
 
 vi.mock('@data/hooks/useCache', () => ({
   useSharedCacheValue: () => mocks.doctorState
-}))
-
-vi.mock('@renderer/hooks/useAppUpdateState', () => ({
-  useAppUpdateState: () => ({ appUpdateState: mocks.appUpdateState })
 }))
 
 vi.mock('@renderer/ipc', () => ({
@@ -124,7 +110,6 @@ describe('useDoctorController', () => {
     mocks.cacheReady = true
     mocks.doctorState = { status: 'idle' }
     mocks.readyListeners.clear()
-    Object.assign(mocks.appUpdateState, { downloaded: false, info: null })
     mocks.request.mockResolvedValue({ status: 'completed' })
   })
 
@@ -267,7 +252,7 @@ describe('useDoctorController', () => {
       })
     )
 
-    await act(async () => result.current.executeAction('install-update-available', { kind: 'report' }))
+    await act(async () => result.current.executeAction('storage-disk-space', { kind: 'report' }))
 
     expect(result.current.session.activePanel).toBe('report')
     expect(result.current.session.descriptionDraft).toBe('confirmed safe description')
@@ -526,7 +511,7 @@ describe('useDoctorController', () => {
       result.current.executeAction('provider-api-key-present', { kind: 'navigate', target: '/settings/provider' })
     )
     await act(async () =>
-      result.current.executeAction('network-endpoint-update', {
+      result.current.executeAction('network-endpoint-registry', {
         kind: 'open_external',
         url: 'https://cherry-ai.com/status'
       })

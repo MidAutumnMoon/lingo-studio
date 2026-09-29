@@ -134,7 +134,7 @@ Before publishing, inspect the draft release and confirm:
 
 - The tag and release branch point to the same commit.
 - All expected platform jobs succeeded.
-- Global and China edition installers, archives, update manifests, blockmaps, and release notes are present.
+- Global and China edition installers, archives, blockmaps, and release notes are present.
 - The version and release notes match the intended release.
 
 Keep the release as a draft while testing or while hotfixes are still expected.

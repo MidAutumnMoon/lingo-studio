@@ -33,20 +33,6 @@ vi.mock('@data/CacheService', () => ({
   cacheService: { isSharedCacheReady: () => true, onSharedCacheReady: vi.fn() }
 }))
 vi.mock('@data/hooks/useCache', () => ({ useSharedCacheValue: () => mocks.doctorState }))
-vi.mock('@renderer/hooks/useAppUpdateState', () => ({
-  useAppUpdateState: () => ({
-    appUpdateState: {
-      info: null,
-      checking: false,
-      downloading: false,
-      downloaded: false,
-      downloadProgress: 0,
-      available: false,
-      ignore: false,
-      manualCheck: false
-    }
-  })
-}))
 vi.mock('@renderer/hooks/useMcpServer', () => ({ useMcpServers: () => ({ mcpServers: [] }) }))
 vi.mock('@renderer/ipc', () => ({ ipcApi: { request: (...args: unknown[]) => mocks.request(...args) } }))
 vi.mock('@renderer/services/LoggerService', () => ({
@@ -100,7 +86,7 @@ import { PopupHost } from '@renderer/components/PopupHost'
 import DoctorPopup from '../DoctorPopup'
 
 function completedDoctorState(
-  results: readonly DoctorCheckResult[] = [{ id: 'install-version-channel', status: 'pass', durationMs: 1 }],
+  results: readonly DoctorCheckResult[] = [{ id: 'config-hardware-acceleration', status: 'pass', durationMs: 1 }],
   expiresAt = new Date(Date.now() + 60_000).toISOString()
 ): DoctorState {
   const now = Date.now()
@@ -210,7 +196,7 @@ describe('DoctorPopup', () => {
     expect(screen.queryByRole('region', { name: 'error.diagnostics.result' })).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', {
-        name: /settings\.doctor\.checks\.install-version-channel\.title.*settings\.doctor\.status\.pass/
+        name: /settings\.doctor\.checks\.config-hardware-acceleration\.title.*settings\.doctor\.status\.pass/
       })
     ).toBeVisible()
   })
@@ -318,7 +304,7 @@ describe('DoctorPopup', () => {
       selectedCheckIds: DOCTOR_CHECK_IDS.filter((id) => DOCTOR_CHECK_CATALOG[id].tier === 'quick'),
       startedAt: new Date().toISOString(),
       activeCheckIds: ['provider-api-key-present'],
-      results: [{ id: 'install-version-channel', status: 'pass', durationMs: 1 }]
+      results: [{ id: 'config-hardware-acceleration', status: 'pass', durationMs: 1 }]
     }
     const view = render(<PopupHost />)
 
@@ -335,7 +321,7 @@ describe('DoctorPopup', () => {
     expect(screen.queryByText(/^Checking:/)).not.toBeInTheDocument()
     expect(
       within(checks).getByRole('button', {
-        name: /settings\.doctor\.checks\.install-version-channel\.title.*settings\.doctor\.status\.pass/
+        name: /settings\.doctor\.checks\.config-hardware-acceleration\.title.*settings\.doctor\.status\.pass/
       })
     ).toBeVisible()
     expect(
@@ -391,7 +377,7 @@ describe('DoctorPopup', () => {
         },
         results: [
           {
-            id: 'install-version-channel',
+            id: 'config-hardware-acceleration',
             status: 'pass',
             durationMs: 1
           },
@@ -474,7 +460,7 @@ describe('DoctorPopup', () => {
       'settings.doctor.checks.config-boot-config-valid.title',
       'settings.doctor.checks.network-online.title',
       'settings.doctor.checks.logs-recent-findings.title',
-      'settings.doctor.checks.install-version-channel.title',
+      'settings.doctor.checks.config-hardware-acceleration.title',
       'Default provider API key'
     ]
     for (const [index, title] of expectedTitles.entries()) {
@@ -486,7 +472,7 @@ describe('DoctorPopup', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /settings\.doctor\.checks\.install-version-channel\.title.*settings\.doctor\.status\.pass/
+        name: /settings\.doctor\.checks\.config-hardware-acceleration\.title.*settings\.doctor\.status\.pass/
       })
     ).toBeVisible()
     expect(

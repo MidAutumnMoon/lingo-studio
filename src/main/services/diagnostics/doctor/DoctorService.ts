@@ -468,12 +468,11 @@ export class DoctorService extends BaseService {
   }
 
   private async collectBasics(): Promise<DoctorBasics> {
-    const preferences = application.get('PreferenceService')
     const info = await collectDiagnosticSystemInfo(new Set<DiagnosticWarning>())
     return {
       version: info.application?.version ?? 'unknown',
       edition: getAppEdition(),
-      channel: preferences.get('app.dist.test_plan.enabled') ? preferences.get('app.dist.test_plan.channel') : 'latest',
+      channel: versionChannel(info.application?.version ?? ''),
       platform: info.operatingSystem.platform,
       arch: info.operatingSystem.arch,
       osRelease: info.operatingSystem.release,
@@ -483,4 +482,11 @@ export class DoctorService extends BaseService {
       userDataPath: application.getPath('app.userdata')
     }
   }
+}
+
+/** Release channel of the running build, from the semver prerelease segment. */
+function versionChannel(version: string): 'latest' | 'rc' | 'beta' {
+  if (version.includes('-beta.')) return 'beta'
+  if (version.includes('-rc.')) return 'rc'
+  return 'latest'
 }

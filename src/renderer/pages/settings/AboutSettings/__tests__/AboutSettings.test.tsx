@@ -24,20 +24,6 @@ vi.mock('@tanstack/react-router', () => ({
   useSearch: () => mocks.search
 }))
 
-vi.mock('@renderer/hooks/useAppUpdateState', () => ({
-  useAppUpdateState: () => ({
-    appUpdateState: {
-      available: false,
-      checking: false,
-      downloaded: false,
-      downloading: false,
-      downloadProgress: 0,
-      info: null
-    },
-    updateAppUpdateState: vi.fn()
-  })
-}))
-
 vi.mock('@renderer/hooks/useMiniAppPopup', () => ({
   useMiniAppPopup: () => ({ openSmartMiniApp: vi.fn() })
 }))
@@ -50,18 +36,10 @@ vi.mock('@renderer/hooks/useTheme', () => ({
   useTheme: () => ({ theme: 'light' })
 }))
 
-vi.mock('@renderer/components/UpdateDialogPopup', () => ({
-  default: { show: vi.fn() }
-}))
-
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => (key === 'settings.doctor.entry.title' ? 'System diagnostics' : key)
   })
-}))
-
-vi.mock('streamdown', () => ({
-  Streamdown: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
 }))
 
 // Forwards alt so empty-alt decorative logos stay hidden even without the wrapper.

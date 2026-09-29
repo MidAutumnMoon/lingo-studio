@@ -216,8 +216,8 @@ export async function runV2MigrationGate(): Promise<V2MigrationGateResult> {
 
   if (needsMigration) {
     // Version compatibility gate: ensure the upgrade path is valid before
-    // showing the migration UI. This catches manual installs that bypassed
-    // the auto-updater's version filtering. evaluateCandidateVersion is the
+    // showing the migration UI. This catches manual installs that skip
+    // the installer's version filtering. evaluateCandidateVersion is the
     // single assembler of the version.log existence/read/compatibility check,
     // shared with the candidate selector so the two cannot drift.
     const {

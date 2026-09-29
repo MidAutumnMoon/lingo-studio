@@ -33,7 +33,7 @@ const ok = (data?: unknown) => ({ status: 'ok', durationMs: 3, data })
 const skipped = (why: string) => ({ status: 'skipped', durationMs: 0, skippedBecause: why })
 const failed = (kind: string, code: string, data?: unknown) => ({ status: 'failed', durationMs: 3, kind, code, data })
 const direct = { effective: 'DIRECT', configuredMode: 'none' }
-const ENDPOINT_IDS = ['update', 'registry', 'cloud', 'diagnostics'] as const
+const ENDPOINT_IDS = ['registry', 'cloud', 'diagnostics'] as const
 const diagnosis = (endpointId: string, over: Record<string, unknown> = {}) => ({
   endpointId,
   host: `${endpointId}.example`,
@@ -91,7 +91,7 @@ describe('network-dns-resolution', () => {
 
 describe('network-tls-handshake', () => {
   it('reports a rejected certificate with its issuer as local-only evidence and asks to report', async () => {
-    only('update', {
+    only('registry', {
       tls: failed('tls_cert', 'ERR_CERT_AUTHORITY_INVALID', { issuer: 'Corp CA', validTo: '' })
     })
     const result = await checks.tlsHandshake.run({ ...ctx(), subject: null })
@@ -142,7 +142,7 @@ describe('network-endpoint-*', () => {
   it('reports healthy endpoints even when another host fails DNS', async () => {
     only('cloud', { dns: failed('dns', 'ENOTFOUND'), http: skipped('dns_failed'), verdict: 'unreachable' })
     const results = await runDoctorChecks<DoctorCheckId, DoctorProbeOutcome<DoctorCheckId>>({
-      checks: [checks.online, checks.dnsResolution, checks.endpointUpdate, checks.endpointCloud].map((check) => ({
+      checks: [checks.online, checks.dnsResolution, checks.endpointCloud].map((check) => ({
         id: check.id,
         requires: DOCTOR_CHECK_CATALOG[check.id].requires,
         timeoutMs: 1000,
@@ -153,14 +153,12 @@ describe('network-endpoint-*', () => {
     expect(results).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'network-dns-resolution', status: 'fail' }),
-        expect.objectContaining({ id: 'network-endpoint-update', status: 'pass' }),
         expect.objectContaining({ id: 'network-endpoint-cloud', status: 'fail' })
       ])
     )
   })
 
   it.each([
-    ['update', checks.endpointUpdate],
     ['registry', checks.endpointRegistry],
     ['cloud', checks.endpointCloud],
     ['diagnostics', checks.endpointDiagnostics]
@@ -179,12 +177,12 @@ describe('network-endpoint-*', () => {
     network.diagnoseEndpoint.mockImplementation(async ({ id }: { id: string }) =>
       diagnosis(
         id,
-        id === 'update'
+        id === 'registry'
           ? { http: failed('proxy_auth', 'HTTP 407'), verdict: 'unreachable' }
           : { http: failed('http_server', 'HTTP 503'), verdict: 'unreachable' }
       )
     )
-    await expect(checks.endpointUpdate.run(ctx())).resolves.toMatchObject({
+    await expect(checks.endpointRegistry.run(ctx())).resolves.toMatchObject({
       status: 'fail',
       detail: { variant: 'proxy_auth' }
     })
@@ -197,7 +195,7 @@ describe('network-endpoint-*', () => {
 
   it('passes with untrusted_tls when HTTP got through but the direct handshake was rejected', async () => {
     every({ verdict: 'reachable_untrusted_tls' })
-    await expect(checks.endpointUpdate.run(ctx())).resolves.toMatchObject({
+    await expect(checks.endpointRegistry.run(ctx())).resolves.toMatchObject({
       status: 'pass',
       detail: { variant: 'untrusted_tls' }
     })
@@ -274,7 +272,7 @@ describe('network-provider-endpoint', () => {
   })
 })
 
-// A failed app-update host must not become the diagnosis of a reachable chat provider.
+// A failed built-in host must not become the diagnosis of a reachable chat provider.
 it('uses the chat provider for DNS, TLS and proxy checks instead of built-in hosts', async () => {
   dbh.db
     .insert(userProviderTable)
@@ -285,11 +283,11 @@ it('uses the chat provider for DNS, TLS and proxy checks instead of built-in hos
       endpointConfigs: { [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://api.openai.example' } }
     })
     .run()
-  network.builtinEndpoints.mockReturnValue([{ id: 'update', url: 'https://unrelated.invalid' }])
+  network.builtinEndpoints.mockReturnValue([{ id: 'registry', url: 'https://unrelated.invalid' }])
   network.diagnoseEndpoint.mockImplementation(async ({ id }: { id: string }) =>
     diagnosis(
       id,
-      id === 'update'
+      id === 'registry'
         ? { dns: failed('dns', 'ENOTFOUND') }
         : { proxy: { effective: 'PROXY chat-proxy:80', configuredMode: 'system' } }
     )
@@ -357,9 +355,9 @@ it('skips contextual network probes for a deleted provider while global network 
   }
 })
 
-it('keeps a reachable cloud check running when the unrelated update host cannot resolve', async () => {
+it('keeps a reachable cloud check running when the unrelated registry host cannot resolve', async () => {
   network.isOnline.mockReturnValue(true)
-  only('update', { dns: failed('dns', 'ENOTFOUND'), http: skipped('dns_failed') })
+  only('registry', { dns: failed('dns', 'ENOTFOUND'), http: skipped('dns_failed') })
   const definitions = [
     { id: 'network-online' as const, run: () => checks.online.run(ctx()) },
     { id: 'network-dns-resolution' as const, run: () => checks.dnsResolution.run({ ...ctx(), subject: null }) },

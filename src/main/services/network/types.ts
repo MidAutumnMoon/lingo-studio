@@ -67,7 +67,7 @@ export interface ProxyInUse {
   readonly mismatch?: 'custom_without_url' | 'system_read_failed' | 'apply_failed'
 }
 
-export const NETWORK_ENDPOINT_IDS = ['update', 'registry', 'cloud', 'diagnostics'] as const
+export const NETWORK_ENDPOINT_IDS = ['registry', 'cloud', 'diagnostics'] as const
 export type NetworkEndpointId = (typeof NETWORK_ENDPOINT_IDS)[number]
 
 /** Built-in ids plus ad-hoc targets (a provider's API host, a user-supplied URL). */

@@ -22,7 +22,6 @@ const NotificationSettings: FC = () => {
     assistant: 'app.notification.assistant.enabled',
     backup: 'app.notification.backup.enabled',
     knowledge: 'app.notification.knowledge.enabled',
-    update: 'app.notification.update.enabled',
     'mini-app': 'app.notification.mini_app.enabled'
   })
 
@@ -63,15 +62,6 @@ const NotificationSettings: FC = () => {
           <Switch
             checked={notificationSettings.knowledge}
             onCheckedChange={(v) => handleNotificationChange('knowledge', v)}
-          />
-        </SettingRow>
-        <SettingDivider />
-        <SettingRow id="setting-notifications-update-notification" className="scroll-mt-6">
-          <SettingRowTitle>{t('settings.notification.update')}</SettingRowTitle>
-          <Switch
-            aria-label={t('settings.notification.update')}
-            checked={notificationSettings.update}
-            onCheckedChange={(v) => handleNotificationChange('update', v)}
           />
         </SettingRow>
         <SettingDivider />

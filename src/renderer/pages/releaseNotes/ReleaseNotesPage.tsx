@@ -27,7 +27,7 @@ export default function ReleaseNotesPage() {
     let active = true
 
     void ipcApi
-      .request('app.updater.release_notes.get')
+      .request('app.release_notes.get')
       .then((releaseHistory) => {
         if (!active || !releaseHistory) return
 

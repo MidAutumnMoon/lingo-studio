@@ -78,7 +78,7 @@ unvalidated renderer-selected path.
 
 Before the migration window is created, the gate validates the upgrade
 path using `core/versionPolicy.ts`. This catches manual installs that
-bypass the auto-updater's version filtering.
+skip the installer's version filtering.
 
 **Required upgrade path**: `v1.old → v1.last (≥1.9.12) → v2.x → v3.0+`
 

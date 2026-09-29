@@ -391,7 +391,7 @@ export class TopicNamingService {
       return title || null
     } catch (error) {
       logger.warn('Failed to generate topic title', error as Error)
-      // Main-only delivery (twin of StorageMonitorService / AppUpdaterService): naming runs
+      // Main-only delivery (twin of StorageMonitorService): naming runs
       // in a background job with no origin window, so the failure toast goes to the main
       // window rather than broadcasting to every window and double-toasting.
       application.get('IpcApiService').broadcastToType(WindowType.Main, 'ai.topic.naming_failed', {

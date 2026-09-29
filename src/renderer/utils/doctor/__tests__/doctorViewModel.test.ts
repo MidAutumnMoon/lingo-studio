@@ -13,9 +13,9 @@ function result(
   status: DoctorCheckResult['status'],
   actions?: readonly DoctorAction[]
 ): DoctorCheckResult {
-  if (status === 'pass') return { id, status, durationMs: 1 } as DoctorCheckResult
+  if (status === 'pass') return { id, status, durationMs: 1 }
   if (status === 'skip') return { id, status, durationMs: 1, skippedBy: 'network-online' } as DoctorCheckResult
-  if (status === 'error') return { id, status, durationMs: 1, message: 'private backend error' } as DoctorCheckResult
+  if (status === 'error') return { id, status, durationMs: 1, message: 'private backend error' }
   return {
     id,
     status,
@@ -59,15 +59,15 @@ describe('buildDoctorViewModel', () => {
       runId: 'run-1',
       tier: 'live',
       selectedCheckIds: [
-        'install-version-channel',
-        'install-update-available',
+        'config-hardware-acceleration',
+        'network-endpoint-registry',
         'storage-disk-space',
         'storage-disk-space',
         'network-online'
       ],
       startedAt: '2026-09-04T08:59:00.000Z',
       activeCheckIds: ['storage-disk-space', 'network-online'],
-      results: [result('storage-disk-space', 'fail'), result('install-version-channel', 'pass')]
+      results: [result('storage-disk-space', 'fail'), result('config-hardware-acceleration', 'pass')]
     }
 
     const viewModel = buildDoctorViewModel(state, NOW)
@@ -76,8 +76,8 @@ describe('buildDoctorViewModel', () => {
     expect(viewModel.rows.map((row) => row.id)).not.toEqual(expect.arrayContaining(['provider-model-conversation']))
     expect(viewModel.rows.find((row) => row.id === 'provider-model-list')).toBeUndefined()
     expect(viewModel.rows.find((row) => row.id === 'network-model-endpoint')).toBeUndefined()
-    expect(viewModel.rows.find((row) => row.id === 'install-version-channel')).toMatchObject({ status: 'pass' })
-    expect(viewModel.rows.find((row) => row.id === 'install-update-available')).toMatchObject({ status: 'pending' })
+    expect(viewModel.rows.find((row) => row.id === 'config-hardware-acceleration')).toMatchObject({ status: 'pass' })
+    expect(viewModel.rows.find((row) => row.id === 'network-endpoint-registry')).toMatchObject({ status: 'pending' })
     expect(viewModel.activeCheckIds).toEqual(['storage-disk-space', 'network-online'])
     expect(viewModel.groups.find((group) => group.domain === 'storage')?.status).toBe('fail')
   })
@@ -97,7 +97,7 @@ describe('buildDoctorViewModel', () => {
 
     expect(viewModel.rows.map((row) => row.id)).toEqual(QUICK_CHECK_IDS)
     expect(viewModel.rows.every((row) => row.status === 'pending')).toBe(true)
-    expect(viewModel.rows.some((row) => row.id === 'install-update-available')).toBe(false)
+    expect(viewModel.rows.some((row) => row.id === 'network-endpoint-registry')).toBe(false)
     expect(viewModel.canCancel).toBe(true)
   })
 

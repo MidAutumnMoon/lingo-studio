@@ -274,10 +274,10 @@ describe('NotificationService', () => {
     const notification = {
       id: 'other',
       type: 'info' as const,
-      title: 'Update',
+      title: 'Backup',
       message: 'Ready',
       timestamp: 1,
-      source: 'update' as const
+      source: 'backup' as const
     }
     await service.sendNotification(notification)
 

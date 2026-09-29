@@ -34,13 +34,6 @@
       "description": "Prevent system sleep while the app has active work (v2 new feature, no v1 source)"
     },
     {
-      "targetKey": "app.notification.update.enabled",
-      "type": "boolean",
-      "defaultValue": false,
-      "status": "classified",
-      "description": "Show a system notification when a background update check finds a new version (v2 new feature, no v1 source)"
-    },
-    {
       "targetKey": "app.notification.mini_app.enabled",
       "type": "boolean",
       "defaultValue": true,

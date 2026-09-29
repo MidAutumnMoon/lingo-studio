@@ -10,7 +10,6 @@ vi.unmock('@data/hooks/useCache')
 
 const { request } = vi.hoisted(() => ({ request: vi.fn() }))
 vi.mock('@renderer/ipc', () => ({ ipcApi: { request } }))
-vi.mock('@renderer/hooks/useAppUpdateState', () => ({ useAppUpdateState: () => ({ appUpdateState: {} }) }))
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 
 import { useDoctorController } from '../useDoctorController'
@@ -23,7 +22,7 @@ function report(subject: DoctorSubjectRef): DoctorReport {
     runId: `run-${subject.kind}`,
     scope: doctorScopeKey(subject),
     tier: 'quick',
-    selectedCheckIds: [subject.kind === 'global' ? 'install-version-channel' : 'provider-model'],
+    selectedCheckIds: [subject.kind === 'global' ? 'config-hardware-acceleration' : 'provider-model'],
     startedAt: new Date().toISOString(),
     finishedAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
@@ -40,7 +39,11 @@ function report(subject: DoctorSubjectRef): DoctorReport {
       userDataPath: '/tmp/doctor'
     },
     results: [
-      { id: subject.kind === 'global' ? 'install-version-channel' : 'provider-model', status: 'pass', durationMs: 1 }
+      {
+        id: subject.kind === 'global' ? 'config-hardware-acceleration' : 'provider-model',
+        status: 'pass',
+        durationMs: 1
+      }
     ],
     summary: { pass: 1, warn: 0, fail: 0, skip: 0, error: 0 }
   }

@@ -1,6 +1,6 @@
 /**
  * Auto-generated preference mappings from classification.json
- * Generated at: 2026-09-27T07:39:17.472Z
+ * Generated at: 2026-09-29T19:26:40.124Z
  *
  * This file contains pure mapping relationships without default values.
  * Default values are managed in src/shared/data/preferences.ts
@@ -61,18 +61,6 @@ export const REDUX_STORE_MAPPINGS = {
     {
       "originalKey": "enableQuickAssistant",
       "targetKey": "feature.quick_assistant.enabled"
-    },
-    {
-      "originalKey": "autoCheckUpdate",
-      "targetKey": "app.dist.auto_update.enabled"
-    },
-    {
-      "originalKey": "testPlan",
-      "targetKey": "app.dist.test_plan.enabled"
-    },
-    {
-      "originalKey": "testChannel",
-      "targetKey": "app.dist.test_plan.channel"
     },
     {
       "originalKey": "enableDataCollection",
@@ -757,11 +745,11 @@ export const LOCALSTORAGE_MAPPINGS: ReadonlyArray<{ originalKey: string; targetK
 /**
  * 映射统计:
  * - ElectronStore项: 2
- * - Redux Store项: 164
+ * - Redux Store项: 161
  * - Redux分类: settings, llm, nutstore, preprocess, translate, websearch, ocr, note
  * - DexieSettings项: 5
  * - localStorage项: 0
- * - 总配置项: 171
+ * - 总配置项: 168
  *
  * 使用说明:
  * 1. ElectronStore读取: configManager.get(mapping.originalKey)

@@ -9,44 +9,34 @@ import { LATEST_PRIVACY_POLICY_VERSION } from '@shared/utils/constants'
  * still be honoured.
  */
 
-const {
-  mockTrackAppLaunch,
-  mockTrackTokenUsage,
-  mockTrackAppUpdate,
-  mockDestroy,
-  mockGetQueueSize,
-  MockAnalyticsClient,
-  captured
-} = vi.hoisted(() => {
-  const trackAppLaunch = vi.fn()
-  const trackTokenUsage = vi.fn()
-  const trackAppUpdate = vi.fn()
-  const destroy = vi.fn()
-  const getQueueSize = vi.fn(() => 0)
-  const clientOptions: { fetch?: typeof fetch } = {}
-  return {
-    mockTrackAppLaunch: trackAppLaunch,
-    mockTrackTokenUsage: trackTokenUsage,
-    mockTrackAppUpdate: trackAppUpdate,
-    mockDestroy: destroy,
-    mockGetQueueSize: getQueueSize,
-    MockAnalyticsClient: vi.fn(function AnalyticsClientMock(options: { fetch?: typeof fetch }) {
-      clientOptions.fetch = options?.fetch
-      return {
-        trackAppLaunch,
-        trackTokenUsage,
-        trackAppUpdate,
-        destroy,
-        getQueueSize
+const { mockTrackAppLaunch, mockTrackTokenUsage, mockDestroy, mockGetQueueSize, MockAnalyticsClient, captured } =
+  vi.hoisted(() => {
+    const trackAppLaunch = vi.fn()
+    const trackTokenUsage = vi.fn()
+    const destroy = vi.fn()
+    const getQueueSize = vi.fn(() => 0)
+    const clientOptions: { fetch?: typeof fetch } = {}
+    return {
+      mockTrackAppLaunch: trackAppLaunch,
+      mockTrackTokenUsage: trackTokenUsage,
+      mockDestroy: destroy,
+      mockGetQueueSize: getQueueSize,
+      MockAnalyticsClient: vi.fn(function AnalyticsClientMock(options: { fetch?: typeof fetch }) {
+        clientOptions.fetch = options?.fetch
+        return {
+          trackAppLaunch,
+          trackTokenUsage,
+          destroy,
+          getQueueSize
+        }
+      }),
+      captured: {
+        prefHandlers: {},
+        preferenceValues: {},
+        clientOptions
       }
-    }),
-    captured: {
-      prefHandlers: {},
-      preferenceValues: {},
-      clientOptions
     }
-  }
-})
+  })
 
 vi.mock('@cherrystudio/analytics-client', () => ({
   AnalyticsClient: MockAnalyticsClient
@@ -89,7 +79,6 @@ beforeEach(() => {
   destroyResolvers = []
   mockTrackAppLaunch.mockReset()
   mockTrackTokenUsage.mockReset()
-  mockTrackAppUpdate.mockReset()
   mockDestroy.mockReset()
   mockGetQueueSize.mockReset()
   mockGetQueueSize.mockReturnValue(0)
@@ -109,8 +98,13 @@ describe('AnalyticsService data collection preference', () => {
     expect(MockAnalyticsClient).not.toHaveBeenCalled()
     expect(captured.prefHandlers['app.privacy.policy_version']).toBeDefined()
 
-    await service.trackAppUpdate()
-    expect(mockTrackAppUpdate).not.toHaveBeenCalled()
+    service.trackTokenUsage({
+      provider: 'test-provider',
+      model: 'test-model',
+      input_tokens: 1,
+      output_tokens: 1
+    })
+    expect(mockTrackTokenUsage).not.toHaveBeenCalled()
   })
 
   it('activates after the latest privacy policy is accepted', async () => {
@@ -139,9 +133,7 @@ describe('AnalyticsService data collection preference', () => {
       input_tokens: 1,
       output_tokens: 1
     })
-    await service.trackAppUpdate()
     expect(mockTrackTokenUsage).not.toHaveBeenCalled()
-    expect(mockTrackAppUpdate).not.toHaveBeenCalled()
 
     expect(mockDestroy).toHaveBeenCalledWith({ flush: false })
     destroyResolvers[0]()

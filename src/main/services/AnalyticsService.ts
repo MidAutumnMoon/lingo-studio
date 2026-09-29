@@ -157,12 +157,4 @@ export class AnalyticsService extends BaseService implements Activatable {
     if (!this.isActivated || !this.desiredEnabled || (data.input_tokens === 0 && data.output_tokens === 0)) return
     this.client!.trackTokenUsage(data)
   }
-
-  public async trackAppUpdate(): Promise<void> {
-    if (!this.client || !this.desiredEnabled) {
-      return
-    }
-
-    await this.client.trackAppUpdate()
-  }
 }

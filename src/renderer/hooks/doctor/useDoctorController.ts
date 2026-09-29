@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 
 import { cacheService } from '@data/CacheService'
 import { useSharedCacheValue } from '@data/hooks/useCache'
-import { useAppUpdateState } from '@renderer/hooks/useAppUpdateState'
 import { ipcApi } from '@renderer/ipc'
 import { loggerService } from '@renderer/services/LoggerService'
 import { toast } from '@renderer/services/toast'
@@ -70,7 +69,6 @@ export function useDoctorController({
   const cachedDoctorState = useSharedCacheValue(doctorStateCacheKey(scope))
   const [sharedCacheReady, setSharedCacheReady] = useState(() => cacheService.isSharedCacheReady())
   const doctorState = cachedDoctorState ?? IDLE_DOCTOR_STATE
-  const { appUpdateState } = useAppUpdateState()
   const [session, dispatch] = useReducer(
     doctorSessionReducer,
     { initialPanel, initialDescription },
@@ -380,7 +378,6 @@ export function useDoctorController({
   }, [])
 
   return {
-    appUpdateState,
     cancel,
     canChangePanel,
     cancelConfirmation: () => dispatch({ type: 'cancel-confirmation' }),

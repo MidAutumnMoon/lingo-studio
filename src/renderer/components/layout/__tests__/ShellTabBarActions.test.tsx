@@ -1,21 +1,15 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { cacheState, mocks, updateState } = vi.hoisted(() => ({
+const { cacheState, mocks } = vi.hoisted(() => ({
   cacheState: { sidebarWidth: 50 },
   mocks: {
     openSettingsTab: vi.fn(),
     showDoctorPopup: vi.fn(),
-    showSearchPopup: vi.fn(),
-    showUpdatePopup: vi.fn()
-  },
-  updateState: {
-    available: false,
-    downloaded: false,
-    info: null as { version: string } | null
+    showSearchPopup: vi.fn()
   }
 }))
 
@@ -51,10 +45,6 @@ vi.mock('@data/hooks/useCache', () => ({
   usePersistCache: () => [cacheState.sidebarWidth, vi.fn()]
 }))
 
-vi.mock('@renderer/hooks/useAppUpdateState', () => ({
-  useAppUpdateState: () => ({ appUpdateState: updateState, updateAppUpdateState: vi.fn() })
-}))
-
 vi.mock('@renderer/services/mainWindowNavigation', () => ({
   openSettingsTab: mocks.openSettingsTab
 }))
@@ -71,12 +61,6 @@ vi.mock('@renderer/components/doctor', () => ({
   }
 }))
 
-vi.mock('@renderer/components/UpdateDialogPopup', () => ({
-  default: {
-    show: mocks.showUpdatePopup
-  }
-}))
-
 vi.mock('@renderer/components/command', () => ({
   CommandTooltip: ({ children }: { children: React.ReactNode }) => children
 }))
@@ -86,7 +70,6 @@ vi.mock('react-i18next', () => ({
     t: (key: string) =>
       ({
         'globalSearch.open': 'Open global search',
-        'settings.about.updateAvailable': 'Found new version',
         'settings.doctor.entry.title': 'System diagnostics',
         'settings.title': 'Settings'
       })[key] ?? key
@@ -122,9 +105,6 @@ afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   cacheState.sidebarWidth = 50
-  updateState.available = false
-  updateState.downloaded = false
-  updateState.info = null
 })
 
 describe('ShellTabBarActions', () => {
@@ -148,49 +128,6 @@ describe('ShellTabBarActions', () => {
       'dark:text-muted-foreground'
     )
     expect(mocks.showSearchPopup).toHaveBeenCalledTimes(1)
-  })
-
-  it('shows a ready update and opens its dialog directly', async () => {
-    const user = userEvent.setup()
-    updateState.available = true
-    updateState.downloaded = true
-    updateState.info = { version: '2.0.0' }
-
-    render(<ShellTabBarActions />)
-
-    const updateButton = screen.getByRole('button', { name: 'Found new version' })
-    expect(updateButton.querySelector('svg')).toHaveClass('text-success')
-
-    await user.click(updateButton)
-
-    await waitFor(() => {
-      expect(mocks.showUpdatePopup).toHaveBeenCalledWith({ releaseInfo: updateState.info })
-    })
-  })
-
-  it('keeps the update action hidden until the update is ready to install', () => {
-    updateState.available = true
-    updateState.info = { version: '2.0.0' }
-
-    render(<ShellTabBarActions />)
-
-    expect(screen.queryByRole('button', { name: 'Found new version' })).not.toBeInTheDocument()
-  })
-
-  it('keeps the update action at the left of the action group', () => {
-    cacheState.sidebarWidth = 0
-    updateState.available = true
-    updateState.downloaded = true
-    updateState.info = { version: '2.0.0' }
-
-    render(<ShellTabBarActions />)
-
-    expect(screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
-      'Found new version',
-      'System diagnostics',
-      'Settings',
-      'Open global search'
-    ])
   })
 
   it('uses its natural width in the header flex layout with one right padding', () => {

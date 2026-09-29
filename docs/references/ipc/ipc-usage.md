@@ -135,8 +135,8 @@ import { WindowType } from '@main/core/window/types'
 
 // to all windows (ThemeService)
 application.get('IpcApiService').broadcast('system.native_theme_updated', theme)
-// to all windows of one type (AppUpdaterService)
-application.get('IpcApiService').broadcastToType(WindowType.Main, 'app.updater.not_available', undefined)
+// to all windows of one type (McpRuntimeService)
+application.get('IpcApiService').broadcastToType(WindowType.Main, 'mcp.server.log', entry)
 // to one window (WindowManager)
 application.get('IpcApiService').send(windowId, 'window.maximized_changed', true)
 ```

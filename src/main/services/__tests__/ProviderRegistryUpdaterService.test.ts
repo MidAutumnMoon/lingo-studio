@@ -9,7 +9,6 @@ const { netFetchMock, getCatalogVersionMock, notifyDataChangeMock, readActiveMan
     writeSnapshotMock: vi.fn()
   }))
 
-vi.mock('@main/services/AppUpdaterService', () => ({ RELEASE_HISTORY_URL: 'https://updates.example' }))
 vi.mock('@main/services/cherryCloud/CherryCloudService', () => ({
   resolveCherryCloudApiOrigin: () => 'https://cloud.example'
 }))

@@ -8,8 +8,8 @@ import { toast } from '@renderer/services/toast'
  *
  * The naming summarization runs in a main-process background job with no origin window;
  * on failure it emits `ai.topic.naming_failed` to the main window only
- * (`broadcastToType(WindowType.Main)`). Main-only IPC->toast subscriber, twin of
- * `useAppUpdateHandler` — mounted once from `MainWindowRuntime`.
+ * (`broadcastToType(WindowType.Main)`). Main-only IPC->toast subscriber — mounted once
+ * from `MainWindowRuntime`.
  */
 export function useTopicNamingErrorNotification(): void {
   const { t } = useTranslation()

@@ -53,16 +53,6 @@ import { ErrorDiagnosisPanel } from '../ErrorDiagnosisPanel'
 
 function createController(state: DoctorState) {
   return {
-    appUpdateState: {
-      info: null,
-      checking: false,
-      downloading: false,
-      downloaded: false,
-      downloadProgress: 0,
-      available: false,
-      ignore: false,
-      manualCheck: false
-    },
     cancel: vi.fn<DoctorController['cancel']>(),
     canChangePanel: true,
     cancelConfirmation: vi.fn<DoctorController['cancelConfirmation']>(),
