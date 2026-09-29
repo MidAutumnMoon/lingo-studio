@@ -192,7 +192,7 @@ jobs:
       - name: Build Linux
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get install -y rpm libevdev-dev libxtst-dev libx11-dev libxfixes-dev libwayland-dev
+          sudo apt-get install -y rpm
           pnpm ${{ matrix.edition == 'cn' && 'build:linux:cn' || 'build:linux' }}
 
         env:
