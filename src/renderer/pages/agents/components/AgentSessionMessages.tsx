@@ -9,8 +9,8 @@ import type {
   MessageListSelectAllPagination,
   MessageStreamingLayers
 } from '@renderer/components/chat/messages/types'
-import { usePreference } from '@renderer/data/hooks/usePreference'
 import { useSession } from '@renderer/hooks/agent/useSession'
+import { useMessageNavigationMode } from '@renderer/hooks/useMessageNavigationMode'
 import { ipcApi } from '@renderer/ipc'
 import type { GetAgentResponse } from '@renderer/types/agent'
 import { type Topic, TopicType } from '@renderer/types/topic'
@@ -75,7 +75,7 @@ const AgentSessionMessages = ({
 }: Props) => {
   const { session } = useSession(sessionId)
   const sessionTopicId = useMemo(() => buildAgentSessionTopicId(sessionId), [sessionId])
-  const [messageNavigation] = usePreference('chat.message.navigation_mode')
+  const [messageNavigation] = useMessageNavigationMode()
 
   const sessionAssistantId = session?.agentId ?? agentId
   const sessionName = session?.name ?? sessionId

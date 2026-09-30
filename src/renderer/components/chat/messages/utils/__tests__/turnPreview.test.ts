@@ -6,8 +6,7 @@ import { getTurnPreview, TURN_PREVIEW_MAX_CHARS } from '../turnPreview'
 
 const textPart = (text: string): CherryMessagePart => ({ type: 'text', text })
 
-const filePart = (mediaType: string): CherryMessagePart =>
-  ({ type: 'file', mediaType, url: 'file:///x' }) as CherryMessagePart
+const filePart = (mediaType: string): CherryMessagePart => ({ type: 'file', mediaType, url: 'file:///x' })
 
 describe('getTurnPreview', () => {
   it('joins text parts and caps the preview at the character limit', () => {

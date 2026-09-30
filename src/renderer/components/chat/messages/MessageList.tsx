@@ -21,7 +21,6 @@ import MessageAnchorLine from './list/MessageAnchorLine'
 import { MessageCaptureLeaseProvider, useMessageCaptureLeases } from './list/MessageCaptureLeaseContext'
 import MessageGroup from './list/MessageGroup'
 import { MessageListSearch } from './list/MessageListSearch'
-import MessageNavigation from './list/MessageNavigation'
 import {
   MESSAGE_VIRTUAL_LIST_DEFAULT_BOTTOM_PADDING_PX,
   MESSAGE_VIRTUAL_LIST_DEFAULT_TOP_PADDING_PX,
@@ -39,6 +38,7 @@ import {
   useMessageRenderConfig
 } from './MessageListProvider'
 import { defaultMessageRenderConfig } from './types'
+import { groupAnchorTurns } from './utils/anchorTurns'
 import {
   getLatestAssistantGroupKey,
   getMessageGroupKey,
@@ -221,6 +221,7 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
   // `memo` never bails and every chunk re-renders all of its ticks.
   const anchorMessagesCacheRef = useRef(createStableAnchorMessagesCache())
   const anchorMessages = useMemo(() => stableAnchorMessages(messages, anchorMessagesCacheRef.current), [messages])
+  const anchorTurns = useMemo(() => groupAnchorTurns(anchorMessages), [anchorMessages])
   const messageById = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages])
   const directAssistantModelsByUserIdRef = useRef<ReturnType<typeof getDirectAssistantModelsByUserId> | undefined>(
     undefined
@@ -319,10 +320,6 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
     messageListRef.current?.scrollToTop('smooth')
   }, [])
 
-  const navigateToBottom = useCallback(() => {
-    messageListRef.current?.scrollToBottom()
-  }, [])
-
   const scrollToMessageById = useCallback((messageId: string) => {
     const target = messageByIdRef.current.get(messageId)
     if (!target) return
@@ -400,6 +397,47 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
   }, [messageById, shouldTrackAnchorPosition])
   const updateActiveAnchorMessageRef = useRef(updateActiveAnchorMessage)
   updateActiveAnchorMessageRef.current = updateActiveAnchorMessage
+
+  // Alt+↑/↓ steps between turns — the keyboard replacement for the removed
+  // navigation buttons cluster. Steps from the runtime's navigation base (the
+  // turn last jumped to) or the reading-line turn, and clamps to top/bottom.
+  const stepToAdjacentTurn = useCallback(
+    (direction: 1 | -1) => {
+      if (anchorTurns.length === 0) return
+      const baseMessageId = getNavigationBaseMessageId() ?? activeAnchorMessageId
+      const baseIndex = baseMessageId
+        ? anchorTurns.findIndex((turn) => turn.anchorId === baseMessageId || turn.memberIds.includes(baseMessageId))
+        : -1
+      if (baseIndex === -1) {
+        if (direction > 0) scrollToBottom()
+        else navigateToTop()
+        return
+      }
+      const targetIndex = baseIndex + direction
+      if (targetIndex < 0) return navigateToTop()
+      if (targetIndex >= anchorTurns.length) return scrollToBottom()
+      scrollToMessageById(anchorTurns[targetIndex].anchorId)
+    },
+    [activeAnchorMessageId, anchorTurns, getNavigationBaseMessageId, navigateToTop, scrollToBottom, scrollToMessageById]
+  )
+  const stepToAdjacentTurnRef = useRef(stepToAdjacentTurn)
+  stepToAdjacentTurnRef.current = stepToAdjacentTurn
+
+  useEffect(() => {
+    if (messageNavigation !== 'anchor') return
+    const scrollElement = scrollContainerRef.current ?? messageListRef.current?.getScrollElement()
+    if (!scrollElement) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+      event.preventDefault()
+      stepToAdjacentTurnRef.current(event.key === 'ArrowDown' ? 1 : -1)
+    }
+    scrollElement.addEventListener('keydown', handleKeyDown)
+
+    return () => scrollElement.removeEventListener('keydown', handleKeyDown)
+  }, [data.isInitialLoading, data.listKey, messageNavigation, topic.id])
 
   const loadMoreMessages = useCallback(() => {
     if (!hasOlder || isLoadingMoreRef.current || !loadOlder) return
@@ -772,17 +810,6 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
           liveMessageIds={liveMessageIds}
           railOpacity={railGutterPx / RAIL_GUTTER_MAX_PX}
           scrollToMessageId={scrollToMessageById}
-        />
-      )}
-      {messageNavigation === 'buttons' && (
-        <MessageNavigation
-          scrollContainerRef={scrollContainerRef}
-          getMessageElement={getMessageElement}
-          getNavigationBaseMessageId={getNavigationBaseMessageId}
-          messages={messages}
-          scrollToMessageId={scrollToMessageById}
-          scrollToTop={navigateToTop}
-          scrollToBottom={navigateToBottom}
         />
       )}
       {meta.selectionLayer && (

@@ -30,7 +30,9 @@ describe('useTopicMessages', () => {
   })
 
   describe('page size by navigation mode', () => {
-    it('requests 50-item pages when navigation mode is the default (none)', () => {
+    it('requests 50-item pages when navigation mode is none', () => {
+      MockUsePreferenceUtils.setPreferenceValue('chat.message.navigation_mode', 'none')
+
       renderHook(() => useTopicMessages('topic-1'))
 
       expect(mockUseInfiniteQuery).toHaveBeenCalledWith(
@@ -50,14 +52,14 @@ describe('useTopicMessages', () => {
       )
     })
 
-    it('keeps the 50-item baseline for the buttons navigation mode', () => {
+    it('normalizes the removed buttons mode onto the anchor page size', () => {
       MockUsePreferenceUtils.setPreferenceValue('chat.message.navigation_mode', 'buttons')
 
       renderHook(() => useTopicMessages('topic-1'))
 
       expect(mockUseInfiniteQuery).toHaveBeenCalledWith(
         '/topics/:topicId/messages',
-        expect.objectContaining({ limit: 50 })
+        expect.objectContaining({ limit: 150 })
       )
     })
   })

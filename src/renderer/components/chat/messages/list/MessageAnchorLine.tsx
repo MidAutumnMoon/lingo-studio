@@ -17,6 +17,7 @@ import type { CherryMessagePart } from '@shared/data/types/message'
 
 import { useMessageParts } from '../blocks/MessagePartsContext'
 import type { AnchorMessage } from '../types'
+import { groupAnchorTurns, type AnchorTurn } from '../utils/anchorTurns'
 import { getTurnPreview } from '../utils/turnPreview'
 
 interface MessageLineProps {
@@ -39,15 +40,6 @@ interface MessageLineProps {
   /** Messages that must read their current parts from PartsContext. */
   liveMessageIds: readonly string[]
   scrollToMessageId?: (messageId: string) => void
-}
-
-/** One conversation turn: a user question plus the replies that follow it. */
-interface AnchorTurn {
-  /** Turn start message — the scroll target. */
-  anchorId: string
-  userMessageId?: string
-  assistantMessageId?: string
-  memberIds: string[]
 }
 
 const TICK_BASE_WIDTH = 6
@@ -103,40 +95,7 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
   // opacity this is exactly the 32px strip.
   const hitStripWidth = 8 + Math.round(railOpacity * 24)
 
-  const turns = useMemo<AnchorTurn[]>(() => {
-    const result: AnchorTurn[] = []
-    let current: AnchorTurn | null = null
-    /** Whether the current turn's preview assistant sits on the active branch. */
-    let assistantOnActiveBranch = false
-    for (const message of messages) {
-      if (message.isContextBoundary) continue
-      if (message.role === 'user') {
-        current = { anchorId: message.id, userMessageId: message.id, memberIds: [message.id] }
-        assistantOnActiveBranch = false
-        result.push(current)
-        continue
-      }
-      if (!current) {
-        current = { anchorId: message.id, memberIds: [] }
-        assistantOnActiveBranch = false
-        result.push(current)
-      }
-      current.memberIds.push(message.id)
-      // Preview the reply the body actually renders: regenerated/multi-model
-      // turns carry off-path siblings (isActiveBranch false), so prefer the
-      // first active-branch assistant and fall back to the first one only when
-      // no member carries the flag.
-      if (message.role === 'assistant' && !assistantOnActiveBranch) {
-        if (message.isActiveBranch) {
-          current.assistantMessageId = message.id
-          assistantOnActiveBranch = true
-        } else if (!current.assistantMessageId) {
-          current.assistantMessageId = message.id
-        }
-      }
-    }
-    return result
-  }, [messages])
+  const turns = useMemo(() => groupAnchorTurns(messages), [messages])
 
   const turnIndexByMessageId = useMemo(() => {
     const map = new Map<string, number>()

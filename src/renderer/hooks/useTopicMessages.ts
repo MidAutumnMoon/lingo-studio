@@ -16,8 +16,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SWRInfiniteKeyedMutator } from 'swr/infinite'
 
-import { usePreference } from '@data/hooks/usePreference'
 import { useDataChange, useInfiniteFlatItems } from '@renderer/data/hooks/useDataApi'
+import { useMessageNavigationMode } from '@renderer/hooks/useMessageNavigationMode'
 import type { MessageListSelectAllPagination } from '@renderer/types/message'
 import { sharedMessageToUIMessage } from '@renderer/utils/message/messageProjection'
 import { resolveUniqueModelId } from '@renderer/utils/message/modelIdentity'
@@ -160,7 +160,7 @@ export function useTopicMessages(
 ): UseTopicMessagesResult {
   const enabled = options?.enabled !== false
   const fetchOnMount = options?.fetchOnMount ?? enabled
-  const [messageNavigation] = usePreference('chat.message.navigation_mode')
+  const [messageNavigation] = useMessageNavigationMode()
   // `limit` is part of the SWR infinite key, so toggling the preference
   // mid-session swaps to a fresh cache entry instead of mixing page sizes.
   const pageSize = messageNavigation === 'anchor' ? ANCHOR_RAIL_PAGE_SIZE : PAGE_SIZE

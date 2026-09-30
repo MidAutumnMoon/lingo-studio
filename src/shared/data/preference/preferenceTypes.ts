@@ -142,7 +142,13 @@ export type MultiModelFoldDisplayMode = 'expanded' | 'compact'
 
 export type ChatMessageStyle = 'plain' | 'bubble'
 
-export type ChatMessageNavigationMode = 'none' | 'buttons' | 'anchor'
+export type ChatMessageNavigationMode = 'none' | 'anchor'
+
+/** Stored values from before the buttons cluster was removed ('buttons')
+ * normalize onto the anchor rail; unknown values fall back to it as well. */
+export function normalizeChatMessageNavigationMode(value: string): ChatMessageNavigationMode {
+  return value === 'none' ? 'none' : 'anchor'
+}
 
 export type MultiModelMessageStyle = 'horizontal' | 'vertical' | 'fold' | 'grid'
 

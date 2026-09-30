@@ -17,6 +17,7 @@ import { useMultiplePreferences, usePreference } from '@data/hooks/usePreference
 import Selector from '@renderer/components/Selector'
 import { SettingGroup as PageSettingGroup, SettingTitle } from '@renderer/components/SettingsPrimitives'
 import { useCodeStyleThemeCatalog } from '@renderer/hooks/useCodeStyle'
+import { useMessageNavigationMode } from '@renderer/hooks/useMessageNavigationMode'
 import { useTheme } from '@renderer/hooks/useTheme'
 import type { CodeStyleVarious } from '@renderer/types/app'
 import {
@@ -77,7 +78,7 @@ const ChatPreferenceSections: FC<ChatPreferenceSectionsProps> = ({ sectionClassN
   const [spellCheckLanguages, setSpellCheckLanguages] = usePreference('app.spell_check.languages')
   const [messageFont, setMessageFont] = usePreference('chat.message.font')
   const [confirmDeleteMessage, setConfirmDeleteMessage] = usePreference('chat.message.confirm_delete')
-  const [messageNavigation, setMessageNavigation] = usePreference('chat.message.navigation_mode')
+  const [messageNavigation, setMessageNavigation] = useMessageNavigationMode()
   const [narrowMode, setNarrowMode] = usePreference('chat.narrow_mode')
   const [thoughtAutoCollapse, setThoughtAutoCollapse] = usePreference('chat.message.thought.auto_collapse')
   const [multiModelMessageStyle, setMultiModelMessageStyle] = usePreference('chat.message.multi_model.style')
@@ -129,10 +130,9 @@ const ChatPreferenceSections: FC<ChatPreferenceSectionsProps> = ({ sectionClassN
     [t]
   )
 
-  const messageNavigationItems = useMemo<SelectOption<'none' | 'buttons' | 'anchor'>[]>(
+  const messageNavigationItems = useMemo<SelectOption<'none' | 'anchor'>[]>(
     () => [
       { value: 'none', label: t('settings.messages.navigation.none') },
-      { value: 'buttons', label: t('settings.messages.navigation.buttons') },
       { value: 'anchor', label: t('settings.messages.navigation.anchor') }
     ],
     [t]

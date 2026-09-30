@@ -548,7 +548,7 @@ describe('useAgentMessageListProviderValue', () => {
         partsByMessageId: {},
         diagnosticReport,
         isLoading: false,
-        messageNavigation: 'anchor'
+        messageNavigation: 'anchor' as const
       }
       useAgentMessageListProviderValue(params)
       return null

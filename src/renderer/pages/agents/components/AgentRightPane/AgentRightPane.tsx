@@ -91,6 +91,7 @@ import { useAgentSessionTaskEvents } from '@renderer/hooks/agent/useAgentSession
 import { useCurrentTabId } from '@renderer/hooks/tab'
 import { useDirectoryTree } from '@renderer/hooks/useDirectoryTree'
 import { type FileEditSession, useFileEditSession } from '@renderer/hooks/useFileEditSession'
+import { useMessageNavigationMode } from '@renderer/hooks/useMessageNavigationMode'
 import { useToolResult } from '@renderer/hooks/useToolResult'
 import { ipcApi, useIpcOn } from '@renderer/ipc'
 import { agentBrowserRuntimeService } from '@renderer/services/AgentBrowserRuntimeService'
@@ -1057,7 +1058,7 @@ const AgentToolFlowMessageList = memo(function AgentToolFlowMessageList({
   const actions = useAgentRightPaneActions()
   const { t } = useTranslation()
   const meta = useAgentRightPaneMeta()
-  const [messageNavigation] = usePreference('chat.message.navigation_mode')
+  const [messageNavigation] = useMessageNavigationMode()
   const topic = useMemo<Topic>(
     () => ({
       id: meta.sessionId ? buildAgentSessionTopicId(meta.sessionId) : 'agent-session:tool-flow',

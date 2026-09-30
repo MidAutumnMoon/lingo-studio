@@ -10,6 +10,7 @@ import type { Topic } from '@renderer/types/topic'
 import type { AgentSessionDelivery } from '@shared/ai/agentSessionDelivery'
 import type { AutonomousTurnOrigin } from '@shared/ai/agentSessionTurnOrigin'
 import type {
+  ChatMessageNavigationMode,
   ChatMessageStyle,
   MultiModelGridPopoverTrigger,
   MultiModelMessageStyle,
@@ -319,7 +320,7 @@ export interface MessageListState {
   isInitialLoading?: boolean
   isMessagesStale?: boolean
   hasOlder?: boolean
-  messageNavigation: string
+  messageNavigation: ChatMessageNavigationMode
   estimateSize: number
   overscan: number
   loadOlderDelayMs: number

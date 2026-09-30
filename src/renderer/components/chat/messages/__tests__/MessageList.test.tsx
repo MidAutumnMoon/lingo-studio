@@ -427,8 +427,7 @@ describe('MessageList', () => {
     expect(container.querySelector('[data-ui~="chat.message-list"]')).toHaveAttribute('id', 'messages')
   })
 
-  it('keeps rapid navigation moving through assistant and user group owners', async () => {
-    const user = userEvent.setup()
+  it('steps between turns with Alt+Arrow from the navigation base', () => {
     const userMessage1 = createMessage('user-1', 'user')
     const assistantMessage1 = { ...createMessage('assistant-1', 'assistant'), parentId: userMessage1.id }
     const userMessage2 = createMessage('user-2', 'user')
@@ -437,7 +436,7 @@ describe('MessageList', () => {
     const assistantMessage3 = { ...createMessage('assistant-3', 'assistant'), parentId: userMessage3.id }
     messageVirtualListMocks.navigationBaseKey = `assistant${userMessage3.id}`
     messageVirtualListMocks.scrollElement = null
-    scrollToKey.mockImplementationOnce((key: string) => {
+    scrollToKey.mockImplementation((key: string) => {
       messageVirtualListMocks.navigationBaseKey = key
     })
 
@@ -445,33 +444,24 @@ describe('MessageList', () => {
       <MessageListProvider
         value={createValue(
           [userMessage1, assistantMessage1, userMessage2, assistantMessage2, userMessage3, assistantMessage3],
-          { messageNavigation: 'buttons' }
+          { messageNavigation: 'anchor' }
         )}>
         <MessageList />
       </MessageListProvider>
     )
 
     const scrollElement = screen.getByTestId('virtual-list')
-    scrollElement.getBoundingClientRect = vi.fn(() => ({
-      bottom: 500,
-      height: 500,
-      left: 0,
-      right: 500,
-      top: 0,
-      width: 500,
-      x: 0,
-      y: 0,
-      toJSON: () => ({})
-    }))
-    fireEvent.mouseMove(scrollElement, { clientX: 470, clientY: 250 })
 
-    await user.click(screen.getByRole('button', { name: 'Previous Message' }))
-    await user.click(screen.getByRole('button', { name: 'Previous Message' }))
+    fireEvent.keyDown(scrollElement, { key: 'ArrowUp', altKey: true })
+    fireEvent.keyDown(scrollElement, { key: 'ArrowUp', altKey: true })
+    // At the oldest turn the step clamps to the top instead of scrolling past it.
+    fireEvent.keyDown(scrollElement, { key: 'ArrowUp', altKey: true })
 
     expect(scrollToKey.mock.calls).toEqual([
       [`user${userMessage2.id}`, 'start'],
       [`user${userMessage1.id}`, 'start']
     ])
+    expect(scrollToTop).toHaveBeenCalledWith('smooth')
   })
 
   it('keeps artifact popup and approval state when the source virtual row unmounts', async () => {
@@ -924,14 +914,6 @@ describe('MessageList', () => {
     runtime?.locateMessage(nextMessage.id)
 
     expect(scrollToKey).toHaveBeenCalledWith('assistantassistant-1', 'start')
-  })
-
-  it('does not register the message outline scroll listener while outline is disabled', () => {
-    const addEventListenerSpy = vi.spyOn(messageVirtualListMocks.scrollElement!, 'addEventListener')
-
-    renderMessageList([createMessage('assistant-1', 'assistant')])
-
-    expect(addEventListenerSpy).not.toHaveBeenCalledWith('scroll', expect.any(Function), { passive: true })
   })
 
   it('exports topic image from a complete non-virtualized capture surface', async () => {
