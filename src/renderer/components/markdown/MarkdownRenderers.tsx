@@ -148,7 +148,7 @@ function MarkdownLinkRenderer(props: MarkdownRendererProps<'a'>) {
   )
 }
 
-function MarkdownCodeRenderer({ children: rawChildren, className, node: _node }: MarkdownRendererProps<'code'>) {
+export function MarkdownCodeRenderer({ children: rawChildren, className, node: _node }: MarkdownRendererProps<'code'>) {
   void _node
   const children = typeof rawChildren === 'string' ? rawChildren : String(rawChildren ?? '')
   const languageMatch = /language-([\w-+]+)/.exec(className || '')
@@ -232,7 +232,7 @@ export function MarkdownImageRenderer(props: MarkdownRendererProps<'img'>) {
   )
 }
 
-function MarkdownPreRenderer({ node: _node, ...props }: MarkdownRendererProps<'pre'>) {
+export function MarkdownPreRenderer({ node: _node, ...props }: MarkdownRendererProps<'pre'>) {
   void _node
   return <pre style={PRE_STYLE} {...props} />
 }

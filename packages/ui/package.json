@@ -137,7 +137,7 @@
     "remark-definition-list": "^2.0.0",
     "remark-github-blockquote-alert": "^2.0.0",
     "remark-mark-highlight": "^0.1.1",
-    "streamdown": "^2.5.0",
+    "streamdown": "^2.6.0",
     "tailwind-merge": "^2.5.5",
     "unified": "^11.0.5",
     "unist-util-visit": "5.0.0",

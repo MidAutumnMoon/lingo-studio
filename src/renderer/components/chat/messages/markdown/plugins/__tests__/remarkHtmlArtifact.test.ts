@@ -5,7 +5,11 @@ import { describe, expect, it } from 'vitest'
 
 import { remarkLatexMath } from '@renderer/utils/remarkLatexMath'
 
-import { classifyHtmlArtifactSource, remarkHtmlArtifact } from '../remarkHtmlArtifact'
+import {
+  classifyHtmlArtifactSource,
+  createTransformMarkdownOutsideHtmlArtifacts,
+  remarkHtmlArtifact
+} from '../remarkHtmlArtifact'
 
 function parse(source: string, withLatexMath = false): Root {
   const processor = withLatexMath
@@ -186,5 +190,100 @@ Still generating`)
       expect(verdicts.length).toBeGreaterThan(0)
       expect(new Set(verdicts)).toEqual(new Set(['fragment']))
     })
+  })
+})
+
+describe('createTransformMarkdownOutsideHtmlArtifacts', () => {
+  // A visible transform so misplaced range masking cannot pass by accident.
+  const upper = (markdown: string) => markdown.toUpperCase()
+
+  const expectMatchesOneShot = (parts: string[]) => {
+    const cached = createTransformMarkdownOutsideHtmlArtifacts()
+    const oneShot = (source: string) => createTransformMarkdownOutsideHtmlArtifacts()(source, upper)
+    let settled = ''
+    for (const part of parts) {
+      for (let cut = 1; cut < 3; cut += 1) {
+        const source = settled + part.slice(0, Math.ceil((part.length * cut) / 3))
+        if (source === settled) continue
+        expect(cached(source, upper)).toBe(oneShot(source))
+      }
+      settled += part
+      expect(cached(settled, upper)).toBe(oneShot(settled))
+    }
+  }
+
+  it('matches a one-shot parse on every append-only tick', () => {
+    expectMatchesOneShot([
+      'Intro prose with **bold**.\n\n',
+      '<div class="fragment">live</div>\n\n',
+      '```html\n<span>fenced</span>\n```\n\n',
+      'Middle prose.\n\n',
+      '<!doctype html>\n<html>\n<body>\n<p>One</p>\n</body>\n</html>\n\n',
+      'After the document.\n\n',
+      '<html>\n<body><p>Two</p></body>\n</html>\n\n',
+      'Tail prose.\n\n'
+    ])
+  })
+
+  it('matches one-shot while an HTML document streams open and then merges on close', () => {
+    // Blank lines split the streaming document into separate raw-HTML nodes; the
+    // closing </html> merges them all into one protected range — the cached path
+    // must not have frozen anything inside the open document.
+    expectMatchesOneShot([
+      'Before.\n\n',
+      '<html>\n<head><title>t</title></head>\n\n',
+      '<body>\n<p>a</p>\n\n',
+      '<p>b</p>\n</body>\n\n',
+      '</html>\n\n',
+      'After close.\n\n'
+    ])
+  })
+
+  it('does not let a literal </html> inside fenced code close a streaming document', () => {
+    // remark sees the fenced sample as code, not html — the document stays open
+    // until its real closer arrives, and the merge must reach the real opener.
+    expectMatchesOneShot([
+      'Intro.\n\n',
+      '<!doctype html>\n<html>\n<body>\n\n',
+      '<p>a</p>\n\n',
+      '<div>b</div>\n\n',
+      '```\ncode with </html> inside\n```\n\n',
+      'tail content\n\n',
+      '</body>\n</html>\n',
+      'After close.\n\n'
+    ])
+  })
+
+  it('does not let a literal </html> in inline code close a streaming document', () => {
+    expectMatchesOneShot([
+      'Intro.\n\n',
+      '<html>\n<body>\n\n',
+      '<p>see `</html>` inline</p>\n\n',
+      '<p>more prose</p>\n\n',
+      '</body>\n</html>\n\n',
+      'After.\n\n'
+    ])
+  })
+
+  it('does not let a literal </html> in tilde fences or indented code close a streaming document', () => {
+    expectMatchesOneShot([
+      'Intro.\n\n',
+      '<html>\n<body>\n\n',
+      '<p>a</p>\n\n',
+      '~~~\ncode with </html> inside\n~~~\n\n',
+      '<p>between samples</p>\n\n',
+      '    indented </html> sample\n\n',
+      '<p>after samples</p>\n\n',
+      '</body>\n</html>\n',
+      'After close.\n\n'
+    ])
+  })
+
+  it('self-heals after a non-append edit', () => {
+    const cached = createTransformMarkdownOutsideHtmlArtifacts()
+    cached('Intro.\n\n<div>frag</div>\n\nMore prose.\n\n', upper)
+
+    const edited = 'REWRITTEN.\n\n<div>frag</div>\n\nMore prose.\n\n'
+    expect(cached(edited, upper)).toBe(createTransformMarkdownOutsideHtmlArtifacts()(edited, upper))
   })
 })

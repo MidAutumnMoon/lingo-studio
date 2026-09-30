@@ -210,6 +210,10 @@ export function createMarkdownSanitizeSchema(schema: MarkdownSanitizeSchema): Ma
 
   return {
     ...schema,
+    // Streamdown 2.6.0 disables rehype-sanitize's clobber prefix in its default
+    // schema. Keep it: id-clobbering protection, in-page anchors, and
+    // rehypePrefixSvgReferences all depend on the stable `user-content-` prefix.
+    clobberPrefix: 'user-content-',
     tagNames: mergeUnique(schema.tagNames, ['mark', 'progress', 'small', 'span', 'u'], SVG_ELEMENTS),
     strip: mergeUnique(schema.strip, ['style']),
     attributes: {

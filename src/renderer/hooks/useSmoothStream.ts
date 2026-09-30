@@ -75,9 +75,17 @@ const GAP_SAMPLES = 32
 const RELAX_SEC = 0.3
 const MAX_BACKLOG = 400
 /** rAF doesn't fire in background tabs; on return `dt` would be huge and
- *  drain the whole queue. Clamp so a hidden→visible tab resumes smoothly. */
+ * drain the whole queue. Clamp so a hidden→visible tab resumes smoothly. */
 const MAX_FRAME_DT_MS = 100
 const MIN_STEP = 1
+/**
+ * Playout floor grows with the displayed length: each reveal re-parses the tail
+ * through the markdown pipeline, and per-tick cost (and footnote-collapsed
+ * messages' full re-parse) scales with message size — mirroring the overlay
+ * commit interval's chars→ms scaling in ExecutionStreamOverlayService.
+ */
+const SIZE_DELAY_CAP_MS = 100
+const SIZE_DELAY_CHARS_PER_MS = 2000
 
 export const useSmoothStream = ({
   onUpdate,
@@ -260,9 +268,14 @@ export const useSmoothStream = ({
 
     // Throttle on the *unclamped* elapsed so minDelay > MAX_FRAME_DT_MS still
     // works; clamp only the dt that drives the playout math (so a
-    // backgrounded-then-resumed tab doesn't dump the queue).
+    // backgrounded-then-resumed tab doesn't dump the queue). The floor grows
+    // with the displayed length so large messages tick slower (see SIZE_DELAY_*).
     const elapsed = now - last
-    if (elapsed < minDelay) {
+    const sizeAwareFloor = Math.min(
+      SIZE_DELAY_CAP_MS,
+      minDelay + displayedTextRef.current.length / SIZE_DELAY_CHARS_PER_MS
+    )
+    if (elapsed < sizeAwareFloor) {
       animationFrameRef.current = requestAnimationFrame(renderLoop)
       return
     }

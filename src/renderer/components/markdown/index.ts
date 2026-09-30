@@ -6,6 +6,12 @@
  */
 
 export { MarkdownHostProvider } from './MarkdownHostProvider'
-export { MarkdownImageRenderer, scrollToMarkdownAnchor, shouldShowMarkdownLinkFavicon } from './MarkdownRenderers'
+export {
+  MarkdownCodeRenderer,
+  MarkdownImageRenderer,
+  MarkdownPreRenderer,
+  scrollToMarkdownAnchor,
+  shouldShowMarkdownLinkFavicon
+} from './MarkdownRenderers'
 export { createLatexMarkdownBlockParser } from './parseLatexMarkdownBlocks'
 export { StaticMarkdown } from './StaticMarkdown'

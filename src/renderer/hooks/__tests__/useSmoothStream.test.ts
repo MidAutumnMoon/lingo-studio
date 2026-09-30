@@ -72,6 +72,25 @@ describe('useSmoothStream', () => {
     expect(onUpdate).toHaveBeenLastCalledWith('abcdefghij')
   })
 
+  // Large displayed text raises the throttle floor (mirroring the overlay's
+  // commit-interval scaling): 16ms frames must not commit until it elapses.
+  it('slows ticks while displaying a large message', () => {
+    const onUpdate = vi.fn()
+    const { result } = renderHook(() => useSmoothStream({ onUpdate, streamDone: false, minDelay: 0 }))
+
+    act(() => result.current.reset('x'.repeat(204_800)))
+    act(() => result.current.addChunk('y'.repeat(500)))
+    // Frame 1: establishes the clock and reveals MIN_STEP regardless of the floor.
+    act(() => tick(16))
+    onUpdate.mockClear()
+
+    // 5 × 16ms frames: all below the 100ms capped floor → no commit.
+    act(() => tick(16, 5))
+    expect(onUpdate).not.toHaveBeenCalled()
+    act(() => tick(16, 3))
+    expect(onUpdate).toHaveBeenCalled()
+  })
+
   // Regression: the loop must stay alive after the queue drains to exactly 0
   // mid-stream so a later addChunk is still revealed.
   it('keeps revealing after the queue drains to zero mid-stream', () => {

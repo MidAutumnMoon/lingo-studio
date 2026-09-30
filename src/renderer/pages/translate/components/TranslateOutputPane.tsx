@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { defaultMarkdownPlugins, Scrollbar, StreamingMarkdown, withMath } from '@cherrystudio/ui'
+import { MarkdownCodeRenderer, MarkdownPreRenderer } from '@renderer/components/markdown'
 
 import IconButton from './IconButton'
 
@@ -17,6 +18,11 @@ type Props = {
   onExportToNotes: () => void
   onScroll: () => void
 }
+
+// While translating, fenced code renders through the app's streaming code path
+// (plain until the fence closes) instead of re-tokenizing the growing block on
+// every commit via the default shiki plugin.
+const STREAMING_CODE_COMPONENTS = { code: MarkdownCodeRenderer, pre: MarkdownPreRenderer }
 
 const TranslateOutputPane = ({
   ref,
@@ -47,7 +53,11 @@ const TranslateOutputPane = ({
             enableMarkdown ? (
               // The shared streaming component memoizes completed blocks, so
               // long documents render live without a per-frame full reparse.
-              <StreamingMarkdown id="translate-output" plugins={markdownPlugins} parseIncompleteMarkdown={translating}>
+              <StreamingMarkdown
+                id="translate-output"
+                plugins={markdownPlugins}
+                components={translating ? STREAMING_CODE_COMPONENTS : undefined}
+                parseIncompleteMarkdown={translating}>
                 {translatedContent}
               </StreamingMarkdown>
             ) : (

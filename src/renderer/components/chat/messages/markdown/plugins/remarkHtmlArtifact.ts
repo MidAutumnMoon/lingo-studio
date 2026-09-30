@@ -3,6 +3,8 @@ import remarkParse from 'remark-parse'
 import type { Plugin } from 'unified'
 import { unified } from 'unified'
 
+const rangeParser = unified().use(remarkParse).freeze()
+
 const LEADING_HTML_METADATA_REGEX = /^(?:\s*(?:<!--[\s\S]*?-->|<!doctype[^>]*>|<\?[\s\S]*?\?>))*/i
 const HTML_DOCUMENT_START_REGEX = /^<html(?:\s|>)/i
 const HTML_DOCUMENT_END_REGEX = /<\/html\s*>/i
@@ -146,12 +148,135 @@ function collectProtectedHtmlRanges(tree: Root): SourceRange[] {
 /**
  * Runs general Markdown preprocessing without changing the exact source of raw
  * or fenced HTML artifacts.
+ *
+ * Per-message factory: under append-only growth the protected ranges before the
+ * streaming tail are re-derived from a cached prefix instead of re-parsing the
+ * whole message each tick. Ranges stay unfrozen while an HTML document is still
+ * open (`</html>` merges consecutive nodes arbitrarily far back into one range)
+ * plus a one-range margin for other reshape-at-the-boundary cases.
  */
-export function transformMarkdownOutsideHtmlArtifacts(source: string, transform: (markdown: string) => string): string {
-  if (!source.includes('<')) return transform(source)
+export function createTransformMarkdownOutsideHtmlArtifacts(): (
+  source: string,
+  transform: (markdown: string) => string
+) => string {
+  let frozenRanges: SourceRange[] = []
+  let frozenPrefix = ''
 
-  const processor = unified().use(remarkParse)
-  const ranges = collectProtectedHtmlRanges(processor.parse(source))
+  const parseRanges = (source: string, offset = 0): SourceRange[] =>
+    collectProtectedHtmlRanges(rangeParser.parse(source)).map((range) => ({
+      start: range.start + offset,
+      end: range.end + offset
+    }))
+
+  return (source, transform) => {
+    if (!source.includes('<')) {
+      frozenRanges = []
+      frozenPrefix = ''
+      return transform(source)
+    }
+
+    let ranges: SourceRange[]
+    if (frozenPrefix && source.startsWith(frozenPrefix)) {
+      ranges = [...frozenRanges, ...parseRanges(source.slice(frozenPrefix.length), frozenPrefix.length)]
+    } else {
+      ranges = parseRanges(source)
+    }
+
+    // Advance the freeze boundary: everything strictly before an open `<html`
+    // document can no longer merge, and the trailing range is never frozen
+    // because its node still grows with appended text.
+    const openDocumentStart = findOpenHtmlDocumentStart(source)
+    let freezable = openDocumentStart < 0 ? ranges : ranges.filter((range) => range.end <= openDocumentStart)
+    if (freezable.length > 0) freezable = freezable.slice(0, -1)
+    frozenRanges = freezable
+    frozenPrefix = freezable.length > 0 ? source.slice(0, freezable[freezable.length - 1].end) : ''
+
+    return maskProtectedRanges(source, ranges, transform)
+  }
+}
+
+/**
+ * Offset of the earliest `<html …>` opener that has no `</html>` after it, or
+ * -1 when every document is closed. Html-looking tokens inside code — backtick
+ * or tilde fences, inline code spans, indented code lines — are ignored,
+ * because remark sees those as code, not html, so they never close a real
+ * streaming document. Erring toward "open" only skips caching; the parse
+ * result itself is unaffected.
+ */
+function findOpenHtmlDocumentStart(source: string): number {
+  const openers: number[] = []
+  const closers: number[] = []
+  let index = 0
+  let atLineStart = true
+
+  // Skip a backtick/tilde run and the span or fence it opens (closing run must
+  // match the opening length). A missing closer consumes the rest — always the
+  // conservative direction. Tilde runs only fence at 3+, so shorter ones just
+  // consume the run itself.
+  const skipCodeRun = () => {
+    const marker = source[index]
+    const runStart = index
+    while (index < source.length && source[index] === marker) index += 1
+    const runLength = index - runStart
+    if (runLength < 3 && marker === '~') return
+    while (index < source.length) {
+      if (source[index] === marker) {
+        const closingStart = index
+        while (index < source.length && source[index] === marker) index += 1
+        if (index - closingStart === runLength) return
+      } else {
+        index += 1
+      }
+    }
+  }
+
+  while (index < source.length) {
+    const char = source[index]
+    if (char === '\n') {
+      index += 1
+      atLineStart = true
+      continue
+    }
+    if (atLineStart && (char === '\t' || source.startsWith('    ', index))) {
+      // Indented lines are code blocks or nested content, never top-level html.
+      const newline = source.indexOf('\n', index)
+      index = newline < 0 ? source.length : newline
+      continue
+    }
+    atLineStart = false
+
+    if (char === '`' || char === '~') {
+      skipCodeRun()
+      atLineStart = index === 0 || source[index - 1] === '\n'
+      continue
+    }
+    if (char === '<' && isHtmlTagAt(source, index, '<html')) {
+      openers.push(index)
+      index += 5
+      continue
+    }
+    if (char === '<' && isHtmlTagAt(source, index, '</html')) {
+      closers.push(index)
+      index += 6
+      continue
+    }
+    index += 1
+  }
+
+  for (const start of openers) {
+    if (!closers.some((close) => close > start)) return start
+  }
+  return -1
+}
+
+/** True when `tag` (e.g. `<html` / `</html`) sits at `index` followed by whitespace or `>`. */
+function isHtmlTagAt(source: string, index: number, tag: string): boolean {
+  if (!source.startsWith(tag, index)) return false
+  const next = source[index + tag.length]
+  return next === ' ' || next === '\t' || next === '\n' || next === '>'
+}
+
+function maskProtectedRanges(source: string, ranges: SourceRange[], transform: (markdown: string) => string): string {
   if (ranges.length === 0) return transform(source)
 
   let placeholderPrefix = PROTECTED_HTML_PLACEHOLDER_PREFIX

@@ -11,6 +11,7 @@ describe('Markdown sanitize schema', () => {
     const { sanitize, harden } = defaultRehypePlugins as Record<string, any>
     const [sanitizeFn, schema] = sanitize
     const [hardenFn, hardenOptions] = harden
+    const extendedSchema = createMarkdownSanitizeSchema(schema)
     const html = `
       <svg width="100" height="50" viewBox="0 0 100 50">
         <defs>
@@ -29,8 +30,8 @@ describe('Markdown sanitize schema', () => {
     const output = String(
       await unified()
         .use(rehypeParse, { fragment: true })
-        .use(sanitizeFn, createMarkdownSanitizeSchema(schema))
-        .use(rehypePrefixSvgReferences, schema.clobberPrefix)
+        .use(sanitizeFn, extendedSchema)
+        .use(rehypePrefixSvgReferences, extendedSchema.clobberPrefix)
         .use(hardenFn, hardenOptions)
         .use(rehypeStringify)
         .process(html)
