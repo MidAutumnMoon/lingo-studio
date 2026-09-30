@@ -73,7 +73,9 @@ describe('getTurnPreview', () => {
   })
 
   it('returns no text and zero counts for a turn without content parts', () => {
-    const preview = getTurnPreview([{ type: 'data-translation', data: { content: 'x', targetLanguage: 'de' } } as unknown as CherryMessagePart])
+    const preview = getTurnPreview([
+      { type: 'data-translation', data: { content: 'x', targetLanguage: 'de' } } as unknown as CherryMessagePart
+    ])
 
     expect(preview).toEqual({ text: '', imageCount: 0, fileCount: 0 })
   })

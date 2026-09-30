@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
     gridPopoverTrigger: 'click',
     messageFont: 'system',
     fontSize: 14,
-    messageStyle: 'plain',
+    messageStyle: 'plain'
   }),
   EventEmitter: {
     on: vi.fn(() => vi.fn()),
@@ -302,7 +302,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
     mocks.messageListActions.mockReturnValue({
       setActiveBranch: vi.fn(),
@@ -445,7 +445,7 @@ describe('MessageGroup', () => {
         gridPopoverTrigger: 'click',
         messageFont: 'system',
         fontSize: 14,
-        messageStyle: 'plain',
+        messageStyle: 'plain'
       })
       const messages = [
         createMessage('msg-1', 0, multiModelMessageStyle),
@@ -501,7 +501,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
     const messages = [
       createMessage('msg-1', 0, 'grid'),
@@ -523,7 +523,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
     const messages = [createMessage('msg-1', 0, 'grid'), createMessage('msg-2', 1, 'grid')]
 
@@ -541,7 +541,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
     const messages = [createMessage('msg-1', 0, 'fold'), createMessage('msg-2', 1, 'fold')]
 
@@ -589,7 +589,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'bubble',
+      messageStyle: 'bubble'
     })
     const messages = [{ ...createMessage('msg-1', 0, 'vertical'), role: 'user' as const }]
 
@@ -605,7 +605,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'bubble',
+      messageStyle: 'bubble'
     })
     const messages = [{ ...createMessage('msg-1', 0, 'vertical'), role: 'user' as const }]
 
@@ -873,7 +873,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
 
     const messages = [createMessage('msg-1', 0, 'vertical'), createMessage('msg-2', 1, 'vertical')]
@@ -911,7 +911,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
     const message = {
       ...createMessage('user-editing-1', 0, 'vertical'),
@@ -1036,7 +1036,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'bubble',
+      messageStyle: 'bubble'
     })
     const message = {
       ...createMessage('user-bubble-editing-1', 0, 'vertical'),
@@ -1060,7 +1060,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'bubble',
+      messageStyle: 'bubble'
     })
     const sender = { agentId: 'agent-a', sessionId: 'sender' }
     const message = {
@@ -1124,7 +1124,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
     mocks.messageListActions.mockReturnValue({
       updateMessageUiState: vi.fn()
@@ -1144,7 +1144,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
     const onMultiModelMessageStyleChange = vi.fn()
     const updateMessageUiState = vi.fn()
@@ -1177,7 +1177,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
     const updateMessageUiState = vi.fn()
     mocks.messageListActions.mockReturnValue({
@@ -1214,7 +1214,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
     const updateMessageUiState = vi.fn()
     mocks.messageListActions.mockReturnValue({
@@ -1257,7 +1257,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
     const setActiveBranch = vi.fn().mockResolvedValue(undefined)
     mocks.messageListActions.mockReturnValue({
@@ -1303,7 +1303,7 @@ describe('MessageGroup', () => {
       gridPopoverTrigger: 'click',
       messageFont: 'system',
       fontSize: 14,
-      messageStyle: 'plain',
+      messageStyle: 'plain'
     })
     mocks.messageListUiSelectors.mockReturnValue({
       getMessageUiState: (messageId: string) => ({ useful: messageId === 'model-a' })

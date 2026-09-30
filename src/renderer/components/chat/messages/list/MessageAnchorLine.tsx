@@ -1,8 +1,8 @@
 import {
   type FC,
   memo,
-  type MouseEvent as ReactMouseEvent,
-  type UIEvent as ReactUIEvent,
+  type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -17,6 +17,7 @@ import type { CherryMessagePart } from '@shared/data/types/message'
 
 import { useMessageParts } from '../blocks/MessagePartsContext'
 import type { AnchorMessage } from '../types'
+import { getTurnPreview } from '../utils/turnPreview'
 
 interface MessageLineProps {
   /** Topology only — see `AnchorMessage`. MessageList projects onto it so this
@@ -50,16 +51,6 @@ interface AnchorTurn {
 }
 
 const TICK_BASE_WIDTH = 6
-/** The hovered tick leads the wave without towering over it. */
-const TICK_PEAK_WIDTH = 20
-/** Neighbouring ticks swell towards the peak so the wave reads as one shape. */
-const TICK_WAVE_BONUS = 10
-const HOVER_FALLOFF_DISTANCE = 56
-/** Beyond this distance from the nearest tick, nothing is focused and no card shows. */
-const FOCUS_MAX_DISTANCE = 24
-/** Keep the preview card's center away from the rail's vertical edges. */
-const PREVIEW_EDGE_INSET = 56
-const PREVIEW_MAX_CHARS = 240
 /** Below this usable height the rail is cramped, so hide it. */
 const RAIL_MIN_HEIGHT_PX = 220
 /** Fixed minimum gap kept above the first and below the last tick — the ticks
@@ -72,6 +63,8 @@ const RAIL_TICK_PITCH_PX = 10
 const RAIL_FADE_PX = 44
 /** With fewer turns there is nothing worth anchoring — the rail stays hidden. */
 const RAIL_MIN_TURNS = 5
+/** Width of the hover-revealed turn list. */
+const FLYOUT_WIDTH_PX = 320
 const EMPTY_MESSAGE_PARTS: CherryMessagePart[] = []
 
 const tickTransitionClassName =
@@ -91,15 +84,14 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
 
   const wrapperRef = useRef<HTMLDivElement>(null)
   const railScrollRef = useRef<HTMLDivElement>(null)
-  const latestClientYRef = useRef<number | null>(null)
-  const animationFrameRef = useRef<number | null>(null)
+  const flyoutListRef = useRef<HTMLDivElement>(null)
 
   /** Rail height in px; drives every tick position so they never depend on DOM reads. */
   const [railHeight, setRailHeight] = useState(0)
   /** The rail's own scroll offset (only moves when the user wheels the rail itself). */
   const [scrollTop, setScrollTop] = useState(0)
-  /** Cursor Y relative to the rail's top; null when not hovering. */
-  const [mouseY, setMouseY] = useState<number | null>(null)
+  /** The turn list is revealed on rail hover and hidden on leave. */
+  const [isFlyoutOpen, setIsFlyoutOpen] = useState(false)
   /** Once the composer inset leaves too little height, the rail is cramped — hide it. */
   const tooShort = railHeight > 0 && railHeight < RAIL_MIN_HEIGHT_PX
   const visible = railOpacity > 0.02 && !tooShort
@@ -159,8 +151,7 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
   // viewport = railHeight − 2·edgeMargin (the space between the fixed margins).
   // • ticks fit      → centred within the viewport, wider margins.
   // • ticks overflow → the strip scrolls inside the fixed margins.
-  // The margins live OUTSIDE the scroll area, so they never move while scrolling,
-  // and every query (nearest tick, wave, card) is arithmetic against `scrollTop`.
+  // The margins live OUTSIDE the scroll area, so they never move while scrolling.
   // The alignment is latched at mount and never changes for this rail's
   // lifetime (the list remounts per topic): a conversation that entered with
   // unloaded history stays bottom-anchored even after the last page lands —
@@ -178,67 +169,16 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
     // upward without moving a single visible tick.
     const padTop = alignToBottomRef.current ? free : free / 2
     const padBottom = free - padTop
-    // Center of tick `index` in rail coordinates: fixed margin + top pad +
-    // its slot, projected into the viewport by the strip's own scroll offset.
-    const centerOf = (index: number) =>
-      RAIL_MIN_EDGE_MARGIN_PX + padTop + index * RAIL_TICK_PITCH_PX + RAIL_TICK_PITCH_PX / 2 - scrollTop
-    return { padTop, padBottom, centerOf }
-  }, [turns.length, railHeight, scrollTop])
+    return { padTop, padBottom }
+  }, [turns.length, railHeight])
 
-  // Nearest tick to the cursor, only when the cursor is genuinely near one.
-  const focusedIndex = useMemo(() => {
-    if (mouseY === null || turns.length === 0 || railHeight === 0) return null
-    const raw = Math.round((mouseY - geometry.centerOf(0)) / RAIL_TICK_PITCH_PX)
-    const index = Math.min(Math.max(raw, 0), turns.length - 1)
-    return Math.abs(mouseY - geometry.centerOf(index)) <= FOCUS_MAX_DISTANCE ? index : null
-  }, [mouseY, turns.length, railHeight, geometry])
+  const handleRailMouseEnter = useCallback(() => setIsFlyoutOpen(true), [])
+  const handleRailMouseLeave = useCallback(() => setIsFlyoutOpen(false), [])
 
-  const flushMouseMove = useCallback(() => {
-    animationFrameRef.current = null
-    const wrapper = wrapperRef.current
-    const clientY = latestClientYRef.current
-    if (!wrapper || clientY === null) return
-    setMouseY(clientY - wrapper.getBoundingClientRect().top)
-  }, [])
-
-  // Pointer moves fire far faster than paint, and each one re-renders every
-  // tick — coalesce them so at most one layout read and one render happen per
-  // frame, always against the latest cursor position.
-  const handleMouseMove = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      latestClientYRef.current = event.clientY
-      if (animationFrameRef.current !== null) return
-      animationFrameRef.current = requestAnimationFrame(flushMouseMove)
-    },
-    [flushMouseMove]
-  )
-
-  const clearPointerState = useCallback(() => {
-    latestClientYRef.current = null
-    if (animationFrameRef.current !== null) {
-      cancelAnimationFrame(animationFrameRef.current)
-      animationFrameRef.current = null
-    }
-    setMouseY(null)
-  }, [])
-
-  // The rail scrolls independently of the conversation and never auto-follows
-  // reading, so a tick's on-screen position is stable until the user scrolls
-  // the rail itself. Mirror that offset into state so the card and wave track it.
-  const handleScroll = (event: ReactUIEvent<HTMLDivElement>) => setScrollTop(event.currentTarget.scrollTop)
-
-  // Fading out mid-hover would otherwise freeze the wave and card behind the
-  // fade.
+  // Fading out mid-hover would strand an open flyout behind the fade.
   useEffect(() => {
-    if (!visible) clearPointerState()
-  }, [clearPointerState, visible])
-
-  useEffect(
-    () => () => {
-      if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current)
-    },
-    []
-  )
+    if (!visible) setIsFlyoutOpen(false)
+  }, [visible])
 
   // Few messages don't need anchoring. Only the rail is gated — the content's
   // gutter (MessageList) follows width alone, so when the turn count crosses
@@ -292,23 +232,22 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
     return () => observer.disconnect()
   }, [hasRail])
 
+  // Reveal the active row whenever the list opens or the reading line moves
+  // while it is open — but only scroll when the row is actually out of view,
+  // so browsing the list never fights the auto-reveal.
+  useLayoutEffect(() => {
+    if (!isFlyoutOpen) return
+    const list = flyoutListRef.current
+    const activeRow = list?.querySelector<HTMLElement>('[data-message-anchor-row][data-active="true"]')
+    if (!list || !activeRow) return
+    const top = activeRow.offsetTop
+    const bottom = top + activeRow.offsetHeight
+    if (top < list.scrollTop || bottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = Math.max(0, top - list.clientHeight / 2 + activeRow.offsetHeight / 2)
+    }
+  }, [activeTurnIndex, isFlyoutOpen, turns])
+
   if (!hasRail) return null
-
-  const isHovering = mouseY !== null
-  const focusedTurn = focusedIndex !== null ? turns[focusedIndex] : null
-  const cardTop =
-    focusedIndex !== null
-      ? Math.min(
-          Math.max(geometry.centerOf(focusedIndex), PREVIEW_EDGE_INSET),
-          Math.max(railHeight - PREVIEW_EDGE_INSET, PREVIEW_EDGE_INSET)
-        )
-      : 0
-
-  const waveBonus = (index: number) => {
-    if (mouseY === null) return 0
-    const falloff = Math.max(0, 1 - Math.abs(geometry.centerOf(index) - mouseY) / HOVER_FALLOFF_DISTANCE)
-    return TICK_WAVE_BONUS * falloff ** 1.5
-  }
 
   // Fade whichever end still has ticks scrolled past it, signalling "there's
   // more" like Codex. Derived from the model — no DOM reads.
@@ -327,18 +266,15 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
       ref={wrapperRef}
       className={classNames(
         // right-4 keeps the ticks clear of the scrollbar gutter (~15px) so the
-        // thumb never overlaps them while scrolling. The gutter is 15px because
-        // the Scrollbar composite's inline scrollbar-color opts Chromium out of
-        // the global 6px ::-webkit-scrollbar styling into the standard CSS
-        // scrollbar; scrollbar-gutter:stable only keeps it reserved while hidden.
-        // top-2.5 sits just below the header; bottom-8 keeps the last tick clear
-        // of the very bottom edge. The composer is inset to the left of this
-        // gutter, so the ticks clear it. The fade opacity lives on the tick
-        // strip below — NOT here — so the hover preview card stays fully
-        // opaque and readable even while the ticks are still fading in. The
-        // strip's width (hitStripWidth) grows with the gutter so it never
-        // covers message content mid-fade — the visible ticks are clickable at
-        // any fade stage, and clicks left of the strip reach the messages.
+        // thumb never overlaps them while scrolling. top-2.5 sits just below
+        // the header; bottom-8 keeps the last tick clear of the very bottom
+        // edge. The composer is inset to the left of this gutter, so the ticks
+        // clear it. The fade opacity lives on the tick strip below — NOT here
+        // — so the hover flyout stays fully opaque and readable even while the
+        // ticks are still fading in. The strip's width (hitStripWidth) grows
+        // with the gutter so it never covers message content mid-fade — the
+        // visible ticks are clickable at any fade stage, and clicks left of
+        // the strip reach the messages.
         'group absolute top-2.5 right-4 bottom-8 z-20 select-none',
         !visible && 'pointer-events-none'
       )}
@@ -346,11 +282,11 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
       // tree — an invisible layer must not take keyboard focus.
       inert={!visible}
       style={{ width: hitStripWidth }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={clearPointerState}>
+      onMouseEnter={handleRailMouseEnter}
+      onMouseLeave={handleRailMouseLeave}>
       <div
         ref={railScrollRef}
-        onScroll={handleScroll}
+        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
         className={classNames(
           // The scroll viewport is inset by the fixed edge margins (top/bottom),
           // so those margins sit OUTSIDE the scroll and never move while the strip
@@ -364,7 +300,7 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
           // The width-driven fade (railOpacity needs no transition — it already
           // ramps continuously) combines with the resting 70% dim that hover
           // lifts (the transition-opacity above eases that lift).
-          opacity: (visible ? railOpacity : 0) * (isHovering ? 1 : 0.7),
+          opacity: (visible ? railOpacity : 0) * (isFlyoutOpen ? 1 : 0.7),
           maskImage: railMask,
           WebkitMaskImage: railMask
         }}>
@@ -373,15 +309,6 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
           style={{ paddingTop: geometry.padTop, paddingBottom: geometry.padBottom }}>
           {turns.map((turn, index) => {
             const isActive = index === activeTurnIndex
-            const isFocused = index === focusedIndex
-            // The active turn is marked by color only — every tick keeps the same
-            // length at rest; length changes belong to the hover wave.
-            const width = isHovering
-              ? isFocused
-                ? TICK_PEAK_WIDTH
-                : TICK_BASE_WIDTH + waveBonus(index)
-              : TICK_BASE_WIDTH
-            const emphasized = focusedIndex !== null ? isFocused : isActive
             return (
               <button
                 key={turn.anchorId}
@@ -397,109 +324,200 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
                 onClick={() => scrollToMessageId?.(turn.anchorId)}>
                 <div
                   className={classNames(
-                    'rounded-full',
+                    'h-[1.5px] rounded-full',
                     tickTransitionClassName,
-                    isFocused ? 'h-0.5' : 'h-[1.5px]',
-                    emphasized ? 'bg-foreground' : 'bg-border-strong'
+                    isActive ? 'bg-foreground' : 'bg-border-strong'
                   )}
-                  style={{ width }}
+                  style={{ width: TICK_BASE_WIDTH }}
                 />
               </button>
             )
           })}
         </div>
       </div>
-      {focusedTurn && (
-        <MessageAnchorPreviewCard
-          turn={focusedTurn}
-          top={cardTop}
+      {isFlyoutOpen && (
+        <MessageAnchorFlyout
+          turns={turns}
+          activeTurnIndex={activeTurnIndex}
           historyPartsByMessageId={historyPartsByMessageId}
           liveMessageIdSet={liveMessageIdSet}
+          flyoutListRef={flyoutListRef}
+          onJump={(messageId) => {
+            setIsFlyoutOpen(false)
+            scrollToMessageId?.(messageId)
+          }}
         />
       )}
     </div>
   )
 })
 
-interface AnchorPreviewProps {
+interface FlyoutSharedProps {
   historyPartsByMessageId: Record<string, CherryMessagePart[]>
   liveMessageIdSet: ReadonlySet<string>
 }
 
-interface MessageAnchorPreviewCardProps extends AnchorPreviewProps {
-  turn: AnchorTurn
-  top: number
+interface MessageAnchorFlyoutProps extends FlyoutSharedProps {
+  turns: AnchorTurn[]
+  activeTurnIndex: number
+  flyoutListRef: RefObject<HTMLDivElement | null>
+  onJump: (messageId: string) => void
 }
 
-const MessageAnchorPreviewCard: FC<MessageAnchorPreviewCardProps> = ({ turn, top, ...preview }) => (
-  <div
-    className="pointer-events-none absolute right-full z-30 flex w-max max-w-80 -translate-y-1/2 flex-col gap-1 rounded-xl border-[0.5px] border-border bg-popover p-3 text-popover-foreground shadow-lg transition-[top] duration-150 ease-[cubic-bezier(0.25,1,0.5,1)] empty:hidden"
-    style={{ top }}>
-    <AnchorPreviewLine
-      {...preview}
-      messageId={turn.userMessageId}
-      className="line-clamp-1 text-sm font-medium break-all text-foreground"
-    />
-    <AnchorPreviewLine
-      {...preview}
-      messageId={turn.assistantMessageId}
-      className="line-clamp-2 text-sm leading-5 break-all text-muted-foreground"
-    />
-  </div>
-)
-
-interface AnchorPreviewLineProps extends AnchorPreviewProps {
-  messageId?: string
-  className: string
-}
-
-const AnchorPreviewLine: FC<AnchorPreviewLineProps> = ({
-  messageId,
+const MessageAnchorFlyout: FC<MessageAnchorFlyoutProps> = ({
+  turns,
+  activeTurnIndex,
   historyPartsByMessageId,
   liveMessageIdSet,
-  className
+  flyoutListRef,
+  onJump
 }) => {
-  if (!messageId) return null
-  if (liveMessageIdSet.has(messageId)) return <LiveMessagePreview messageId={messageId} className={className} />
-  return <MessagePreview parts={historyPartsByMessageId[messageId] ?? EMPTY_MESSAGE_PARTS} className={className} />
+  const { t } = useTranslation()
+  return (
+    // The list is a child of the rail strip's wrapper positioned flush against
+    // its left edge (right-full), so the pointer travels from ticks to rows
+    // without leaving the wrapper's hover scope.
+    <nav
+      aria-label={t('chat.navigation.flyout.label')}
+      className="absolute top-0 right-full bottom-0 z-30 flex flex-col rounded-xl border-[0.5px] border-border bg-popover text-popover-foreground shadow-lg"
+      style={{ width: FLYOUT_WIDTH_PX }}>
+      <div ref={flyoutListRef} className="flex flex-col gap-0.5 overflow-y-auto p-1.5">
+        {turns.map((turn, index) => {
+          const isActive = index === activeTurnIndex
+          return (
+            <button
+              key={turn.anchorId}
+              type="button"
+              data-message-anchor-row
+              data-active={isActive}
+              aria-label={t('chat.navigation.anchor.jump_to_turn', { number: index + 1 })}
+              aria-current={isActive ? 'true' : undefined}
+              className="flex flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring-inset data-[active=true]:bg-accent"
+              onClick={() => onJump(turn.anchorId)}>
+              <FlyoutPreviewText
+                messageId={turn.userMessageId}
+                historyPartsByMessageId={historyPartsByMessageId}
+                liveMessageIdSet={liveMessageIdSet}
+                className="line-clamp-2 text-sm font-medium break-all text-foreground"
+                fallback={
+                  turn.userMessageId ? t('chat.navigation.flyout.empty_user') : t('chat.navigation.flyout.agent_turn')
+                }
+                showAttachmentBadge
+              />
+              <FlyoutPreviewText
+                messageId={turn.assistantMessageId}
+                historyPartsByMessageId={historyPartsByMessageId}
+                liveMessageIdSet={liveMessageIdSet}
+                className="line-clamp-2 text-sm leading-5 break-all text-muted-foreground"
+              />
+            </button>
+          )
+        })}
+      </div>
+    </nav>
+  )
 }
 
-const LiveMessagePreview: FC<{ messageId: string; className: string }> = ({ messageId, className }) => {
+interface FlyoutPreviewTextProps extends FlyoutSharedProps {
+  messageId?: string
+  className: string
+  /** Rendered when the message has no previewable content at all. */
+  fallback?: string
+  /** Show attachment counts when the message has no text. */
+  showAttachmentBadge?: boolean
+}
+
+const FlyoutPreviewText: FC<FlyoutPreviewTextProps> = ({
+  messageId,
+  className,
+  fallback,
+  showAttachmentBadge = false,
+  historyPartsByMessageId,
+  liveMessageIdSet
+}) => {
+  if (!messageId) {
+    return fallback ? <div className={className}>{fallback}</div> : null
+  }
+  if (liveMessageIdSet.has(messageId)) {
+    return (
+      <LiveFlyoutPreviewText
+        messageId={messageId}
+        className={className}
+        fallback={fallback}
+        showAttachmentBadge={showAttachmentBadge}
+      />
+    )
+  }
+  return (
+    <HistoryFlyoutPreviewText
+      parts={historyPartsByMessageId[messageId] ?? EMPTY_MESSAGE_PARTS}
+      className={className}
+      fallback={fallback}
+      showAttachmentBadge={showAttachmentBadge}
+    />
+  )
+}
+
+interface LiveFlyoutPreviewTextProps {
+  messageId: string
+  className: string
+  fallback?: string
+  showAttachmentBadge?: boolean
+}
+
+/** Live tail rows subscribe to the parts context at this leaf only, so a
+ * streaming chunk never re-renders the rail or the sealed history rows. */
+const LiveFlyoutPreviewText: FC<LiveFlyoutPreviewTextProps> = ({
+  messageId,
+  className,
+  fallback,
+  showAttachmentBadge
+}) => {
   const parts = useMessageParts(messageId)
-  return <MessagePreview parts={parts} className={className} />
+  return (
+    <HistoryFlyoutPreviewText
+      parts={parts}
+      className={className}
+      fallback={fallback}
+      showAttachmentBadge={showAttachmentBadge}
+    />
+  )
 }
 
-const MessagePreview = memo(function MessagePreview({
-  parts,
-  className
-}: {
+interface HistoryFlyoutPreviewTextProps {
   parts: CherryMessagePart[]
   className: string
-}) {
-  const preview = getTextPreview(parts)
-  if (!preview) return null
-  return <div className={className}>{preview}</div>
-})
+  fallback?: string
+  showAttachmentBadge?: boolean
+}
 
-function getTextPreview(parts: CherryMessagePart[]): string {
-  let preview = ''
+function formatAttachmentBadge(
+  preview: { imageCount: number; fileCount: number },
+  t: (key: string, options?: Record<string, unknown>) => string
+): string | null {
+  const segments: string[] = []
+  if (preview.imageCount > 0) segments.push(t('chat.navigation.flyout.images', { count: preview.imageCount }))
+  if (preview.fileCount > 0) segments.push(t('chat.navigation.flyout.files', { count: preview.fileCount }))
+  return segments.length > 0 ? segments.join(' · ') : null
+}
 
-  for (const part of parts) {
-    if (part.type !== 'text') continue
+const HistoryFlyoutPreviewText: FC<HistoryFlyoutPreviewTextProps> = ({
+  parts,
+  className,
+  fallback,
+  showAttachmentBadge
+}) => {
+  const { t } = useTranslation()
+  const preview = getTurnPreview(parts)
 
-    const text = part.text
-    if (!/\S/.test(text)) continue
-
-    if (preview.length > 0) {
-      preview += '\n\n'
-      if (preview.length >= PREVIEW_MAX_CHARS) return preview.slice(0, PREVIEW_MAX_CHARS)
-    }
-
-    preview += text.slice(0, PREVIEW_MAX_CHARS - preview.length)
-    if (preview.length >= PREVIEW_MAX_CHARS) return preview
+  let content: ReactNode = preview.text
+  if (!content && showAttachmentBadge) {
+    content = formatAttachmentBadge(preview, t)
   }
+  if (!content) content = fallback
 
-  return preview
+  if (!content) return null
+  return <div className={className}>{content}</div>
 }
 
 export default MessageAnchorLine

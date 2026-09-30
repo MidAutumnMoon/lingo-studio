@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { act, fireEvent, render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { type ComponentProps, createContext, use } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -24,8 +24,10 @@ vi.mock('../../blocks/MessagePartsContext', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: Record<string, unknown>) =>
-      options && 'number' in options ? `${key} ${options.number}` : key
+    t: (key: string, options?: Record<string, unknown>) => {
+      const n = options && ('number' in options || 'count' in options) ? ` ${options.number ?? options.count}` : ''
+      return `${key}${n}`
+    }
   })
 }))
 
@@ -127,29 +129,6 @@ function installRailGeometry(metrics: StripMetrics): () => void {
   }
 }
 
-/** Pointer state lands on the next frame, so every hover assertion has to flush
- * one first. A deterministic queue beats waiting on a real frame: it also
- * proves the coalescing (one request for many moves) the component relies on. */
-function installDeferredAnimationFrame() {
-  const callbacks: FrameRequestCallback[] = []
-  const request = vi.fn((callback: FrameRequestCallback) => {
-    callbacks.push(callback)
-    return callbacks.length
-  })
-
-  vi.stubGlobal('requestAnimationFrame', request)
-  vi.stubGlobal('cancelAnimationFrame', vi.fn())
-
-  return {
-    request,
-    flushNext: () => {
-      const callback = callbacks.shift()
-      expect(callback).toBeDefined()
-      act(() => callback?.(0))
-    }
-  }
-}
-
 type RailProps = ComponentProps<typeof MessageAnchorLine>
 
 const NO_LIVE_MESSAGE_IDS: readonly string[] = []
@@ -168,11 +147,11 @@ const rail = (
 
 const renderRail = (...args: Parameters<typeof rail>) => render(rail(...args))
 
-let restoreGeometry: (() => void) | null = null
+const openFlyout = (container: HTMLElement) => {
+  fireEvent.mouseEnter(container.firstElementChild as HTMLElement)
+}
 
-/** Center Y of tick `index` with 5 turns, full geometry, and no strip scroll:
- * 24 (edge margin) + 151 (centring pad) + index · 10 + 5. */
-const tickCenterOf5 = (index: number) => 180 + index * 10
+let restoreGeometry: (() => void) | null = null
 
 afterEach(() => {
   restoreGeometry?.()
@@ -287,7 +266,7 @@ describe('MessageAnchorLine', () => {
       // it keeps its clicks and selection.
       expect(rail.style.width).toBe('20px')
       // The visual fade lives on the tick strip (railOpacity × the resting 70%
-      // dim) so the hover preview card itself stays fully opaque.
+      // dim) so the flyout itself stays fully opaque.
       const strip = rail.querySelector<HTMLElement>('.overflow-y-auto')
       expect(strip?.style.opacity).toBe('0.35')
       expect(rail.style.opacity).toBe('')
@@ -310,14 +289,12 @@ describe('MessageAnchorLine', () => {
       expect(strip.querySelector<HTMLElement>('.overflow-y-auto')?.style.opacity).toBe('0')
     })
 
-    it('clears the hover preview when the rail fades out mid-hover', () => {
+    it('closes the flyout when the rail fades out mid-hover', () => {
       restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
-      const animationFrame = installDeferredAnimationFrame()
       partsMap['user-2'] = [textPart('Question two')]
       const { container, rerender, queryByText } = renderRail({ messages, railOpacity: 1 })
 
-      fireEvent.mouseMove(container.firstElementChild as HTMLElement, { clientY: tickCenterOf5(1) })
-      animationFrame.flushNext()
+      openFlyout(container)
       expect(queryByText('Question two')).toBeInTheDocument()
 
       rerender(rail({ messages, railOpacity: 0.01 }))
@@ -325,29 +302,89 @@ describe('MessageAnchorLine', () => {
     })
   })
 
-  describe('update isolation', () => {
-    it('coalesces pointer updates and focuses the tick nearest the latest position', () => {
+  describe('flyout turn list', () => {
+    it('reveals the turn list on hover and hides it on leave', () => {
       restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
-      const animationFrame = installDeferredAnimationFrame()
-      partsMap['user-1'] = [textPart('Question one')]
-      partsMap['user-2'] = [textPart('Question two')]
-      const { container, getByText, queryByText } = renderRail({ messages })
-      const strip = container.firstElementChild as HTMLElement
+      const { container, queryAllByText } = renderRail({ messages })
 
-      fireEvent.mouseMove(strip, { clientY: tickCenterOf5(0) })
-      fireEvent.mouseMove(strip, { clientY: tickCenterOf5(1) })
+      expect(container.querySelector('[data-message-anchor-row]')).toBeNull()
 
-      expect(animationFrame.request).toHaveBeenCalledTimes(1)
-      expect(queryByText('Question two')).not.toBeInTheDocument()
+      openFlyout(container)
+      expect(container.querySelectorAll('[data-message-anchor-row]')).toHaveLength(5)
 
-      animationFrame.flushNext()
-      expect(getByText('Question two')).toBeInTheDocument()
-      expect(queryByText('Question one')).not.toBeInTheDocument()
+      fireEvent.mouseLeave(container.firstElementChild as HTMLElement)
+      expect(container.querySelector('[data-message-anchor-row]')).toBeNull()
+      void queryAllByText
     })
 
+    it('lists every turn with its user and assistant preview', () => {
+      restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
+      partsMap['user-1'] = [textPart('Question one')]
+      partsMap['assistant-1'] = [textPart('Answer one')]
+      partsMap['user-5'] = [textPart('Question five')]
+      const { container, getByText } = renderRail({ messages })
+
+      openFlyout(container)
+
+      expect(getByText('Question one')).toBeInTheDocument()
+      expect(getByText('Answer one')).toBeInTheDocument()
+      expect(getByText('Question five')).toBeInTheDocument()
+    })
+
+    it('jumps to the turn and closes the flyout on row click', () => {
+      restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
+      const scrollToMessageId = vi.fn()
+      const { container } = renderRail({ messages, scrollToMessageId })
+
+      openFlyout(container)
+      const rows = container.querySelectorAll('[data-message-anchor-row]')
+      fireEvent.click(rows[2])
+
+      expect(scrollToMessageId).toHaveBeenCalledWith('user-3')
+      expect(container.querySelector('[data-message-anchor-row]')).toBeNull()
+    })
+
+    it('marks the active turn row as current', () => {
+      restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
+      const { container } = renderRail({ messages, activeMessageId: 'assistant-2b' })
+
+      openFlyout(container)
+
+      const rows = container.querySelectorAll('[data-message-anchor-row]')
+      expect(rows[1]).toHaveAttribute('data-active', 'true')
+      expect(rows[1]).toHaveAttribute('aria-current', 'true')
+      expect(rows[0]).toHaveAttribute('data-active', 'false')
+      expect(rows[0]).not.toHaveAttribute('aria-current')
+    })
+
+    it('falls back to attachment counts for a textless file-only turn', () => {
+      restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
+      partsMap['user-2'] = [
+        { type: 'file', mediaType: 'image/png', url: 'file:///a' },
+        { type: 'file', mediaType: 'image/png', url: 'file:///b' },
+        { type: 'file', mediaType: 'application/pdf', url: 'file:///c' }
+      ] as unknown as CherryMessagePart[]
+      const { container, getByText } = renderRail({ messages })
+
+      openFlyout(container)
+
+      expect(getByText('chat.navigation.flyout.images 2 · chat.navigation.flyout.files 1')).toBeInTheDocument()
+    })
+
+    it('labels an agent-initiated turn that has no user message', () => {
+      restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
+      const agentTurn = makeMessage({ id: 'agent-start', role: 'assistant' })
+      const { container, getByText } = renderRail({ messages: [agentTurn, ...messages] })
+
+      openFlyout(container)
+
+      expect(getByText('chat.navigation.flyout.agent_turn')).toBeInTheDocument()
+    })
+  })
+
+  describe('update isolation', () => {
     it('updates a live preview without reading sealed history again', () => {
       restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
-      const animationFrame = installDeferredAnimationFrame()
       let historySealed = false
       const historyParts = [
         {
@@ -363,8 +400,7 @@ describe('MessageAnchorLine', () => {
       const railProps = { messages, historyPartsByMessageId, liveMessageIds }
       const view = renderRail(railProps, { 'assistant-2': [textPart('Live answer one')] })
 
-      fireEvent.mouseMove(view.container.firstElementChild as HTMLElement, { clientY: tickCenterOf5(1) })
-      animationFrame.flushNext()
+      openFlyout(view.container)
       expect(view.getByText('Stable question')).toBeInTheDocument()
       expect(view.getByText('Live answer one')).toBeInTheDocument()
 
@@ -379,7 +415,6 @@ describe('MessageAnchorLine', () => {
 
     it('stops extracting a historical preview at the visible character limit', () => {
       restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
-      const animationFrame = installDeferredAnimationFrame()
       const preview = 'x'.repeat(240)
       const historyPartsByMessageId = {
         'user-2': [
@@ -394,17 +429,15 @@ describe('MessageAnchorLine', () => {
       }
       const view = renderRail({ messages, historyPartsByMessageId })
 
-      fireEvent.mouseMove(view.container.firstElementChild as HTMLElement, { clientY: tickCenterOf5(1) })
-      animationFrame.flushNext()
+      openFlyout(view.container)
 
       expect(view.getByText(preview)).toBeInTheDocument()
     })
   })
 
-  describe('hover preview branch selection', () => {
+  describe('flyout branch selection', () => {
     it('previews the active-branch assistant rather than an off-path sibling', () => {
       restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
-      const animationFrame = installDeferredAnimationFrame()
       partsMap['user-2'] = [textPart('Question two')]
       partsMap['assistant-2'] = [textPart('Off-path sibling reply')]
       partsMap['assistant-2b'] = [textPart('Active branch reply')]
@@ -417,8 +450,7 @@ describe('MessageAnchorLine', () => {
       )
       const { container, getByText, queryByText } = renderRail({ messages: branched })
 
-      fireEvent.mouseMove(container.firstElementChild as HTMLElement, { clientY: tickCenterOf5(1) })
-      animationFrame.flushNext()
+      openFlyout(container)
 
       expect(getByText('Active branch reply')).toBeInTheDocument()
       expect(queryByText('Off-path sibling reply')).not.toBeInTheDocument()
@@ -426,30 +458,26 @@ describe('MessageAnchorLine', () => {
 
     it('falls back to the first assistant when no member carries the branch flag', () => {
       restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
-      const animationFrame = installDeferredAnimationFrame()
       partsMap['assistant-2'] = [textPart('First reply')]
       partsMap['assistant-2b'] = [textPart('Second reply')]
       const { container, getByText } = renderRail({ messages })
 
-      fireEvent.mouseMove(container.firstElementChild as HTMLElement, { clientY: tickCenterOf5(1) })
-      animationFrame.flushNext()
+      openFlyout(container)
 
       expect(getByText('First reply')).toBeInTheDocument()
     })
 
-    it('styles the preview card with the semantic popover surface only', () => {
+    it('styles the flyout with the semantic popover surface only', () => {
       restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
-      const animationFrame = installDeferredAnimationFrame()
       partsMap['user-2'] = [textPart('Question two')]
       partsMap['assistant-2'] = [textPart('Answer two')]
       const { container, getByText } = renderRail({ messages })
 
-      fireEvent.mouseMove(container.firstElementChild as HTMLElement, { clientY: tickCenterOf5(1) })
-      animationFrame.flushNext()
+      openFlyout(container)
 
-      const card = container.querySelector<HTMLElement>('.bg-popover')
-      expect(card).not.toBeNull()
-      expect(card?.className).not.toContain('dark:bg-neutral-800')
+      const flyout = container.querySelector<HTMLElement>('nav.bg-popover')
+      expect(flyout).not.toBeNull()
+      expect(flyout?.className).not.toContain('dark:bg-neutral-800')
       // These maintained semantic tokens are the visual contract after the
       // foreground hierarchy migration on main.
       expect(getByText('Answer two')).toHaveClass('text-muted-foreground')
