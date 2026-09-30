@@ -2,7 +2,7 @@ import { replaceComposerTokenPromptText } from '@renderer/utils/message/composer
 import type { CherryMessagePart } from '@shared/data/types/message'
 import { readCherryMeta } from '@shared/data/types/uiParts'
 
-export const TURN_PREVIEW_MAX_CHARS = 240
+const TURN_PREVIEW_MAX_CHARS = 240
 
 export interface TurnPreview {
   /** Display text: composer-token markers for user turns, plain text otherwise. Empty when the turn has no text. */
@@ -10,8 +10,6 @@ export interface TurnPreview {
   imageCount: number
   fileCount: number
 }
-
-const EMPTY_PREVIEW: TurnPreview = { text: '', imageCount: 0, fileCount: 0 }
 
 /** Extraction stops at the character cap, so parts beyond it are never read —
  * sealed history may own getters that must not fire again after the first pass. */
@@ -54,9 +52,7 @@ export function getTurnPreview(parts: CherryMessagePart[]): TurnPreview {
     text += partText.slice(0, TURN_PREVIEW_MAX_CHARS - text.length)
   }
 
-  const preview =
-    text.length === 0 && imageCount === 0 && fileCount === 0 ? EMPTY_PREVIEW : { text, imageCount, fileCount }
-
+  const preview: TurnPreview = { text, imageCount, fileCount }
   previewCache.set(parts, preview)
   return preview
 }

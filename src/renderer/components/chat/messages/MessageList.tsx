@@ -39,11 +39,7 @@ import {
 } from './MessageListProvider'
 import { defaultMessageRenderConfig } from './types'
 import { groupAnchorTurns } from './utils/anchorTurns'
-import {
-  getLatestAssistantGroupKey,
-  getMessageGroupKey,
-  getOwningUserMessageIdByAssistantId
-} from './utils/messageGroupKey'
+import { getLatestAssistantGroupKey, getMessageGroupKey } from './utils/messageGroupKey'
 import { shouldUseWideLayoutForMessageGroup } from './utils/messageGroupLayout'
 import { getDirectAssistantModelsByUserId, shareDirectAssistantModelsByUserId } from './utils/messageListItem'
 import { createStableAnchorMessagesCache, stableAnchorMessages } from './utils/stableAnchorMessages'
@@ -314,8 +310,8 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
     messageListRef.current?.scrollToBottom()
   }, [])
 
-  // Navigation buttons scroll through the virtua-aware runtime handle (smooth,
-  // remeasure-safe) rather than a raw scrollTo on the virtualized scroller.
+  // Alt+Arrow's top clamp scrolls through the virtua-aware runtime handle
+  // (smooth, remeasure-safe) rather than a raw scrollTo on the virtualized scroller.
   const navigateToTop = useCallback(() => {
     messageListRef.current?.scrollToTop('smooth')
   }, [])
@@ -326,23 +322,17 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
     messageListRef.current?.scrollToKey(getMessageGroupKey(target), 'start')
   }, [])
 
+  /** Any turn member of the runtime's base group; boundary rows belong to no
+   * turn, so a boundary-only group yields null and the caller falls back to
+   * the reading-line message. */
   const getNavigationBaseMessageId = useCallback(() => {
     const key = messageListRef.current?.getNavigationBaseKey()
     if (!key) return null
 
     const groupMessages = groupedMessages.find(([groupKey]) => groupKey === key)?.[1]
-    if (!groupMessages) return null
-
-    const userMessage = groupMessages.find((message) => message.role === 'user')
-    if (userMessage) return userMessage.id
-
-    const owningUserMessageIdByAssistantId = getOwningUserMessageIdByAssistantId(messages)
-    for (const message of groupMessages) {
-      const ownerId = owningUserMessageIdByAssistantId.get(message.id)
-      if (ownerId) return ownerId
-    }
-    return null
-  }, [groupedMessages, messages])
+    const baseMessage = groupMessages?.find((message) => !message.isContextBoundary)
+    return baseMessage?.id ?? null
+  }, [groupedMessages])
 
   const scrollToRange = useCallback((range: Range) => {
     messageListRef.current?.scrollToRange(range)
@@ -405,9 +395,7 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
     (direction: 1 | -1) => {
       if (anchorTurns.length === 0) return
       const baseMessageId = getNavigationBaseMessageId() ?? activeAnchorMessageId
-      const baseIndex = baseMessageId
-        ? anchorTurns.findIndex((turn) => turn.anchorId === baseMessageId || turn.memberIds.includes(baseMessageId))
-        : -1
+      const baseIndex = baseMessageId ? anchorTurns.findIndex((turn) => turn.memberIds.includes(baseMessageId)) : -1
       if (baseIndex === -1) {
         if (direction > 0) scrollToBottom()
         else navigateToTop()
@@ -431,6 +419,9 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
       if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+      // Editable regions inside the list keep their native Alt+Arrow behavior.
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])')) return
       event.preventDefault()
       stepToAdjacentTurnRef.current(event.key === 'ArrowDown' ? 1 : -1)
     }

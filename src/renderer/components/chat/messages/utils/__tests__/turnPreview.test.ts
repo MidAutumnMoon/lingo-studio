@@ -2,20 +2,20 @@ import { describe, expect, it } from 'vitest'
 
 import type { CherryMessagePart } from '@shared/data/types/message'
 
-import { getTurnPreview, TURN_PREVIEW_MAX_CHARS } from '../turnPreview'
+import { getTurnPreview } from '../turnPreview'
 
 const textPart = (text: string): CherryMessagePart => ({ type: 'text', text })
 
 const filePart = (mediaType: string): CherryMessagePart => ({ type: 'file', mediaType, url: 'file:///x' })
 
 describe('getTurnPreview', () => {
-  it('joins text parts and caps the preview at the character limit', () => {
+  it('joins text parts and caps the preview at 240 characters', () => {
     const a = 'x'.repeat(200)
     const b = 'y'.repeat(200)
     const preview = getTurnPreview([textPart(a), textPart(b)])
 
     expect(preview.text).toBe(`${a}\n\n${'y'.repeat(38)}`)
-    expect(preview.text).toHaveLength(TURN_PREVIEW_MAX_CHARS)
+    expect(preview.text).toHaveLength(240)
   })
 
   it('stops reading parts once the cap is reached', () => {
@@ -27,7 +27,7 @@ describe('getTurnPreview', () => {
     } as CherryMessagePart
     const preview = getTurnPreview([textPart('x'.repeat(240)), beyond])
 
-    expect(preview.text).toHaveLength(TURN_PREVIEW_MAX_CHARS)
+    expect(preview.text).toHaveLength(240)
   })
 
   it('shows composer token markers instead of the substituted prompt text', () => {
@@ -105,6 +105,6 @@ describe('getTurnPreview', () => {
 
   it('treats two different parts arrays as distinct cache entries', () => {
     expect(getTurnPreview([textPart('a')]).text).toBe('a')
-    expect(getTurnPreview([textPart('a')]).text).toBe('a')
+    expect(getTurnPreview([textPart('b')]).text).toBe('b')
   })
 })

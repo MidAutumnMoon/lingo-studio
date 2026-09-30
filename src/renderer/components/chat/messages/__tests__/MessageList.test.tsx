@@ -464,6 +464,29 @@ describe('MessageList', () => {
     expect(scrollToTop).toHaveBeenCalledWith('smooth')
   })
 
+  it('steps across a clear-context boundary without turning it into a turn', () => {
+    const userMessage1 = createMessage('user-1', 'user')
+    const assistantMessage1 = { ...createMessage('assistant-1', 'assistant'), parentId: userMessage1.id }
+    const boundary = { ...createMessage('boundary', 'user'), isContextBoundary: true }
+    const userMessage2 = createMessage('user-2', 'user')
+    const assistantMessage2 = { ...createMessage('assistant-2', 'assistant'), parentId: userMessage2.id }
+    messageVirtualListMocks.navigationBaseKey = `assistant${userMessage2.id}`
+    messageVirtualListMocks.scrollElement = null
+
+    render(
+      <MessageListProvider
+        value={createValue([userMessage1, assistantMessage1, boundary, userMessage2, assistantMessage2], {
+          messageNavigation: 'anchor'
+        })}>
+        <MessageList />
+      </MessageListProvider>
+    )
+
+    fireEvent.keyDown(screen.getByTestId('virtual-list'), { key: 'ArrowUp', altKey: true })
+
+    expect(scrollToKey).toHaveBeenCalledWith(`user${userMessage1.id}`, 'start')
+  })
+
   it('keeps artifact popup and approval state when the source virtual row unmounts', async () => {
     const user = userEvent.setup()
     const sourceMessage = createMessage('artifact-source', 'assistant')

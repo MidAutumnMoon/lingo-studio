@@ -305,7 +305,7 @@ describe('MessageAnchorLine', () => {
   describe('flyout turn list', () => {
     it('reveals the turn list on hover and hides it on leave', () => {
       restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
-      const { container, queryAllByText } = renderRail({ messages })
+      const { container } = renderRail({ messages })
 
       expect(container.querySelector('[data-message-anchor-row]')).toBeNull()
 
@@ -314,7 +314,6 @@ describe('MessageAnchorLine', () => {
 
       fireEvent.mouseLeave(container.firstElementChild as HTMLElement)
       expect(container.querySelector('[data-message-anchor-row]')).toBeNull()
-      void queryAllByText
     })
 
     it('lists every turn with its user and assistant preview', () => {

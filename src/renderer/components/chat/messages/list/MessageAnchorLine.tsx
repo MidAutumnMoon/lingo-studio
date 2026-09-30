@@ -2,7 +2,6 @@ import {
   type FC,
   memo,
   type ReactNode,
-  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -59,9 +58,6 @@ const RAIL_MIN_TURNS = 5
 const FLYOUT_WIDTH_PX = 320
 const EMPTY_MESSAGE_PARTS: CherryMessagePart[] = []
 
-const tickTransitionClassName =
-  'transition-[width,height,background-color] duration-150 ease-[cubic-bezier(0.25,1,0.5,1)] [will-change:width]'
-
 const MessageAnchorLine = memo(function MessageAnchorLine({
   messages,
   activeMessageId,
@@ -76,7 +72,6 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
 
   const wrapperRef = useRef<HTMLDivElement>(null)
   const railScrollRef = useRef<HTMLDivElement>(null)
-  const flyoutListRef = useRef<HTMLDivElement>(null)
 
   /** Rail height in px; drives every tick position so they never depend on DOM reads. */
   const [railHeight, setRailHeight] = useState(0)
@@ -191,21 +186,6 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
     return () => observer.disconnect()
   }, [hasRail])
 
-  // Reveal the active row whenever the list opens or the reading line moves
-  // while it is open — but only scroll when the row is actually out of view,
-  // so browsing the list never fights the auto-reveal.
-  useLayoutEffect(() => {
-    if (!isFlyoutOpen) return
-    const list = flyoutListRef.current
-    const activeRow = list?.querySelector<HTMLElement>('[data-message-anchor-row][data-active="true"]')
-    if (!list || !activeRow) return
-    const top = activeRow.offsetTop
-    const bottom = top + activeRow.offsetHeight
-    if (top < list.scrollTop || bottom > list.scrollTop + list.clientHeight) {
-      list.scrollTop = Math.max(0, top - list.clientHeight / 2 + activeRow.offsetHeight / 2)
-    }
-  }, [activeTurnIndex, isFlyoutOpen, turns])
-
   if (!hasRail) return null
 
   // Fade whichever end still has ticks scrolled past it, signalling "there's
@@ -283,8 +263,7 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
                 onClick={() => scrollToMessageId?.(turn.anchorId)}>
                 <div
                   className={classNames(
-                    'h-[1.5px] rounded-full',
-                    tickTransitionClassName,
+                    'h-[1.5px] rounded-full transition-colors duration-150',
                     isActive ? 'bg-foreground' : 'bg-border-strong'
                   )}
                   style={{ width: TICK_BASE_WIDTH }}
@@ -300,7 +279,6 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
           activeTurnIndex={activeTurnIndex}
           historyPartsByMessageId={historyPartsByMessageId}
           liveMessageIdSet={liveMessageIdSet}
-          flyoutListRef={flyoutListRef}
           onJump={(messageId) => {
             setIsFlyoutOpen(false)
             scrollToMessageId?.(messageId)
@@ -319,7 +297,6 @@ interface FlyoutSharedProps {
 interface MessageAnchorFlyoutProps extends FlyoutSharedProps {
   turns: AnchorTurn[]
   activeTurnIndex: number
-  flyoutListRef: RefObject<HTMLDivElement | null>
   onJump: (messageId: string) => void
 }
 
@@ -328,10 +305,26 @@ const MessageAnchorFlyout: FC<MessageAnchorFlyoutProps> = ({
   activeTurnIndex,
   historyPartsByMessageId,
   liveMessageIdSet,
-  flyoutListRef,
   onJump
 }) => {
   const { t } = useTranslation()
+  const listRef = useRef<HTMLDivElement>(null)
+
+  // Reveal the active row on mount and whenever the reading line moves while
+  // the list is open — but only scroll when the row is actually out of view,
+  // so browsing the list never fights the auto-reveal. Viewport-relative rect
+  // math keeps the row position independent of offsetParent subtleties.
+  useLayoutEffect(() => {
+    const list = listRef.current
+    const activeRow = list?.querySelector<HTMLElement>('[data-message-anchor-row][data-active="true"]')
+    if (!list || !activeRow) return
+    const rowTop = activeRow.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop
+    const rowBottom = rowTop + activeRow.getBoundingClientRect().height
+    if (rowTop < list.scrollTop || rowBottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = Math.max(0, rowTop - (list.clientHeight - activeRow.getBoundingClientRect().height) / 2)
+    }
+  }, [activeTurnIndex, turns])
+
   return (
     // The list is a child of the rail strip's wrapper positioned flush against
     // its left edge (right-full), so the pointer travels from ticks to rows
@@ -340,7 +333,7 @@ const MessageAnchorFlyout: FC<MessageAnchorFlyoutProps> = ({
       aria-label={t('chat.navigation.flyout.label')}
       className="absolute top-0 right-full bottom-0 z-30 flex flex-col rounded-xl border-[0.5px] border-border bg-popover text-popover-foreground shadow-lg"
       style={{ width: FLYOUT_WIDTH_PX }}>
-      <div ref={flyoutListRef} className="flex flex-col gap-0.5 overflow-y-auto p-1.5">
+      <div ref={listRef} className="flex flex-col gap-0.5 overflow-y-auto p-1.5">
         {turns.map((turn, index) => {
           const isActive = index === activeTurnIndex
           return (
@@ -450,16 +443,6 @@ interface HistoryFlyoutPreviewTextProps {
   showAttachmentBadge?: boolean
 }
 
-function formatAttachmentBadge(
-  preview: { imageCount: number; fileCount: number },
-  t: (key: string, options?: Record<string, unknown>) => string
-): string | null {
-  const segments: string[] = []
-  if (preview.imageCount > 0) segments.push(t('chat.navigation.flyout.images', { count: preview.imageCount }))
-  if (preview.fileCount > 0) segments.push(t('chat.navigation.flyout.files', { count: preview.fileCount }))
-  return segments.length > 0 ? segments.join(' · ') : null
-}
-
 const HistoryFlyoutPreviewText: FC<HistoryFlyoutPreviewTextProps> = ({
   parts,
   className,
@@ -471,7 +454,13 @@ const HistoryFlyoutPreviewText: FC<HistoryFlyoutPreviewTextProps> = ({
 
   let content: ReactNode = preview.text
   if (!content && showAttachmentBadge) {
-    content = formatAttachmentBadge(preview, t)
+    const badge = [
+      preview.imageCount > 0 ? t('chat.navigation.flyout.images', { count: preview.imageCount }) : null,
+      preview.fileCount > 0 ? t('chat.navigation.flyout.files', { count: preview.fileCount }) : null
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    if (badge) content = badge
   }
   if (!content) content = fallback
 

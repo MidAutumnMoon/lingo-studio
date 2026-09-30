@@ -121,11 +121,6 @@ export const entries: SettingsSearchEntry[] = [
     aliases: ['thinking', '思维链']
   },
   {
-    anchorId: 'show-message-outline',
-    titleKey: 'settings.messages.show_message_outline',
-    groupKey: messagesGroup
-  },
-  {
     anchorId: 'message-style',
     titleKey: 'message.message.style.label',
     groupKey: messagesGroup,
