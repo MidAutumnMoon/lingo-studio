@@ -8,11 +8,12 @@ import { HarnessClient } from '@deepseek-ai/dsh-sdk-client'
 import { expect, it, vi } from 'vitest'
 import { parse, stringify } from 'yaml'
 
-import { BRIDGE_SOCKET_ENV, BRIDGE_TOKEN_ENV } from '@cherrystudio/dsh-bridge'
-
+import { BRIDGE_SOCKET_ENV, BRIDGE_TOKEN_ENV, type DshAssistantChunk } from '@cherrystudio/dsh-bridge'
+import type { CherryUIMessageChunk } from '@shared/data/types/message'
 import { resolveDshBunRuntime } from '../bunRuntime'
 import { buildDshCompositionYaml, resolveDshRuntimeBinPath } from '../compositionBuilder'
 import { DshBridgeServer } from '../DshBridgeServer'
+import { DshStreamAdapter } from '../dshStreamAdapter'
 
 // Explicit opt-in: this exercises native payloads and an actual runtime process.
 it.skipIf(process.env.CHERRY_DSH_SMOKE !== '1')(
@@ -22,6 +23,17 @@ it.skipIf(process.env.CHERRY_DSH_SMOKE !== '1')(
     const packagedRoot = process.env.CHERRY_DSH_SMOKE_UNPACKED
     const runtimeDir = packagedRoot ? path.join(root, 'node_modules/@cherrystudio/dsh-bridge/dist/runtime') : undefined
     const events: any[] = []
+    const chunks: CherryUIMessageChunk[] = []
+    const streamedSessions = new Set<string>()
+    const adapter = new DshStreamAdapter({
+      enqueue: (chunk) => chunks.push(chunk),
+      onTurnEnd: () => {},
+      onAssistantUsage: () => {},
+      onCompaction: () => {},
+      onApiRetry: () => {},
+      onAutonomousTurnState: () => {},
+      onPlanMode: () => {}
+    })
     const childEdges: any[] = []
     const requests: any[] = []
     const imagePath = path.join(root, 'pixel.png')
@@ -42,7 +54,16 @@ it.skipIf(process.env.CHERRY_DSH_SMOKE !== '1')(
         arguments: {
           command:
             process.platform === 'win32'
-              ? 'if ($env:CHERRY_DSH_SMOKE_LEAK -or -not (Test-Path -LiteralPath "./pixel.png")) { exit 1 }; echo cherry-bun-shell-ok'
+              ? [
+                  "$ErrorActionPreference = 'Stop'",
+                  'if ($env:CHERRY_DSH_SMOKE_LEAK -or -not (Test-Path -LiteralPath "./pixel.png")) { exit 1 }',
+                  "$cleanupDir = Join-Path $env:TEMP ('cherry-cleanup-' + [guid]::NewGuid())",
+                  'New-Item -ItemType Directory -Path $cleanupDir | Out-Null',
+                  "Set-Content -LiteralPath (Join-Path $cleanupDir 'probe.txt') -Value 'cleanup'",
+                  'Remove-Item -LiteralPath $cleanupDir -Recurse',
+                  'if (Test-Path -LiteralPath $cleanupDir) { exit 1 }',
+                  'echo cherry-bun-shell-ok'
+                ].join('; ')
               : 'test -z "$CHERRY_DSH_SMOKE_LEAK" && test -f ./pixel.png && echo cherry-bun-shell-ok',
           description: 'Check environment isolation and workspace access'
         }
@@ -172,7 +193,18 @@ it.skipIf(process.env.CHERRY_DSH_SMOKE !== '1')(
       let closingSubscription = false
       const collect = (async () => {
         for await (const notification of subscription) {
-          if (notification.method === 'session.event') events.push(notification.params)
+          if (notification.method === 'session.event') {
+            const params = notification.params as any
+            events.push(params)
+            if (params.sessionId === 'bun-smoke') {
+              if (params.event.type === 'assistant/message') expect(streamedSessions.has(params.sessionId)).toBe(true)
+              adapter.handleEvent(params.event)
+            }
+          } else if (notification.method === 'session.chunk') {
+            const { sessionId, ...data } = notification.params as unknown as DshAssistantChunk
+            streamedSessions.add(sessionId)
+            if (sessionId === 'bun-smoke') adapter.handleEvent({ type: 'assistant/chunk', data })
+          }
         }
       })().catch((error) => {
         if (!closingSubscription) throw error
@@ -199,11 +231,20 @@ it.skipIf(process.env.CHERRY_DSH_SMOKE !== '1')(
         const results = events.filter((item) => item.event.type === 'tool/result')
         expect(results.length).toBeGreaterThanOrEqual(3)
         for (const result of results) {
-          expect(result.event.data.message.content).toEqual(
-            expect.arrayContaining([expect.objectContaining({ type: 'tool-result', isError: false })])
-          )
+          expect(result.event.data.message, JSON.stringify(result.event.data.message)).toMatchObject({
+            role: 'tool',
+            isError: false
+          })
         }
         expect(JSON.stringify(results)).toContain('cherry-bun-shell-ok')
+        expect(
+          chunks
+            .filter((chunk) => chunk.type === 'text-delta')
+            .map((chunk) => chunk.delta)
+            .join('')
+        ).toContain('cherry-bun-parent-ok')
+        expect(chunks.filter((chunk) => chunk.type === 'tool-output-available')).toHaveLength(3)
+        expect(streamedSessions.size).toBeGreaterThan(1)
         expect(requests.some((payload) => JSON.stringify(payload.messages).includes('data:image/png;base64,'))).toBe(
           true
         )
