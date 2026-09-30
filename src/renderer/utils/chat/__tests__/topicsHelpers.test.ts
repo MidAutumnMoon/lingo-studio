@@ -2,21 +2,17 @@ import { describe, expect, it } from 'vitest'
 
 import type { Topic } from '@renderer/types/topic'
 
-import {
-  createTopicTimeGroupResolver,
-  getTopicTimeBucket,
-  groupTopicByPinned,
-  sortTopicsForDisplayGroups
-} from '../topicsHelpers'
+import { createTopicTimeGroupResolver, sortTopicsForDisplayGroups } from '../topicsHelpers'
 
 const TOPIC_GROUP_LABELS = {
   pinned: 'Pinned',
-  time: {
+  tiers: {
     today: 'Today',
     yesterday: 'Yesterday',
-    'this-week': 'This week',
-    earlier: 'Earlier'
-  }
+    'seven-days': '7 Days',
+    'thirty-days': '30 Days'
+  },
+  invalid: 'Earlier'
 }
 
 function localIso(year: number, month: number, day: number, hour = 12) {
@@ -38,61 +34,43 @@ function createTopic(overrides: Partial<Topic> = {}): Topic {
 }
 
 describe('Topics helpers', () => {
-  it('groups pinned topics separately for ResourceList rendering', () => {
-    expect(groupTopicByPinned(createTopic({ pinned: true }), 'Pinned', 'Topics')).toEqual({
-      id: 'pinned',
-      label: 'Pinned'
-    })
-    expect(groupTopicByPinned(createTopic({ pinned: false }), 'Pinned', 'Topics')).toEqual({
-      id: 'topics',
-      label: 'Topics'
-    })
-  })
-
-  it('classifies topic lastActivityAt values into reusable time buckets', () => {
-    const now = new Date(2026, 4, 15, 12)
-
-    expect(getTopicTimeBucket(localIso(2026, 5, 15, 9), now)).toBe('today')
-    expect(getTopicTimeBucket(localIso(2026, 5, 14, 9), now)).toBe('yesterday')
-    expect(getTopicTimeBucket(localIso(2026, 5, 13, 9), now)).toBe('this-week')
-    expect(getTopicTimeBucket(localIso(2026, 5, 8, 23), now)).toBe('earlier')
-  })
-
-  it('builds the history resolver as pinned first, then the named time buckets', () => {
-    const now = new Date(2026, 4, 15, 12)
+  it('builds the history resolver as pinned first, then the time ladder with literal month labels', () => {
+    const now = new Date(2026, 8, 30, 12)
     const groupTopic = createTopicTimeGroupResolver({ labels: TOPIC_GROUP_LABELS, now })
 
-    // Pinned wins over the bucket the topic would otherwise fall into.
-    expect(groupTopic(createTopic({ id: 'pinned', pinned: true, lastActivityAt: localIso(2026, 5, 15, 9) }))).toEqual({
+    // Pinned wins over the rung the topic would otherwise fall into.
+    expect(groupTopic(createTopic({ id: 'pinned', pinned: true, lastActivityAt: localIso(2026, 9, 30, 9) }))).toEqual({
       id: 'topic:pinned',
       label: 'Pinned'
     })
-    expect(groupTopic(createTopic({ id: 'today', lastActivityAt: localIso(2026, 5, 15, 9) }))).toEqual({
+    expect(groupTopic(createTopic({ id: 'today', lastActivityAt: localIso(2026, 9, 30, 9) }))).toEqual({
       id: 'topic:time:today',
       label: 'Today'
     })
-    expect(groupTopic(createTopic({ id: 'yesterday', lastActivityAt: localIso(2026, 5, 14, 9) }))).toEqual({
+    expect(groupTopic(createTopic({ id: 'yesterday', lastActivityAt: localIso(2026, 9, 29, 9) }))).toEqual({
       id: 'topic:time:yesterday',
       label: 'Yesterday'
     })
-    expect(groupTopic(createTopic({ id: 'week', lastActivityAt: localIso(2026, 5, 13, 9) }))).toEqual({
-      id: 'topic:time:this-week',
-      label: 'This week'
+    expect(groupTopic(createTopic({ id: 'week', lastActivityAt: localIso(2026, 9, 26, 9) }))).toEqual({
+      id: 'topic:time:seven-days',
+      label: '7 Days'
     })
-    expect(groupTopic(createTopic({ id: 'earlier', lastActivityAt: localIso(2026, 5, 8, 23) }))).toEqual({
-      id: 'topic:time:earlier',
-      label: 'Earlier'
+    expect(groupTopic(createTopic({ id: 'month', lastActivityAt: localIso(2026, 8, 16, 9) }))).toEqual({
+      id: 'topic:time:2026-08',
+      label: '2026-08'
     })
   })
 
-  it('keeps pinned topics stable and sorts time buckets by lastActivityAt descending', () => {
-    const now = new Date(2026, 4, 15, 12)
+  it('keeps pinned topics stable and sorts the ladder newest rung first, months newest month first', () => {
+    const now = new Date(2026, 8, 30, 12)
     const topics = [
-      createTopic({ id: 'today-old', lastActivityAt: localIso(2026, 5, 15, 8) }),
-      createTopic({ id: 'week', lastActivityAt: localIso(2026, 5, 13, 9) }),
-      createTopic({ id: 'pinned-old', pinned: true, lastActivityAt: localIso(2026, 5, 8, 23) }),
-      createTopic({ id: 'today-new', lastActivityAt: localIso(2026, 5, 15, 9) }),
-      createTopic({ id: 'pinned-new', pinned: true, lastActivityAt: localIso(2026, 5, 15, 9) })
+      createTopic({ id: 'today-old', lastActivityAt: localIso(2026, 9, 30, 8) }),
+      createTopic({ id: 'week', lastActivityAt: localIso(2026, 9, 26, 9) }),
+      createTopic({ id: 'august', lastActivityAt: localIso(2026, 8, 20, 9) }),
+      createTopic({ id: 'july', lastActivityAt: localIso(2026, 7, 2, 9) }),
+      createTopic({ id: 'pinned-old', pinned: true, lastActivityAt: localIso(2026, 7, 2, 23) }),
+      createTopic({ id: 'today-new', lastActivityAt: localIso(2026, 9, 30, 9) }),
+      createTopic({ id: 'pinned-new', pinned: true, lastActivityAt: localIso(2026, 9, 30, 9) })
     ]
 
     expect(sortTopicsForDisplayGroups(topics, { mode: 'time', now }).map((topic) => topic.id)).toEqual([
@@ -100,7 +78,9 @@ describe('Topics helpers', () => {
       'pinned-new',
       'today-new',
       'today-old',
-      'week'
+      'week',
+      'august',
+      'july'
     ])
   })
 

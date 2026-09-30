@@ -20,6 +20,7 @@ import {
   type ResourceListItemBase,
   type ResourceListSection,
   useResourceListActions,
+  useResourceListChromeLayout,
   useResourceListControlsState,
   useResourceListMeta,
   useResourceListRowLayout,
@@ -121,10 +122,13 @@ type ResourceListVirtualRow<T extends ResourceListItemBase> = GroupedVirtualList
   ResourceListVirtualFooter
 >
 
-const estimateResourceListChromeSize = () => RESOURCE_LIST_CHROME_ROW_LAYOUT.size
-
-function renderResourceListGroupHeader(header: ResourceListVirtualHeader) {
-  return header.type === 'section' ? <SectionHeader section={header.section} /> : <GroupHeader group={header.group} />
+function renderResourceListGroupHeader(header: ResourceListVirtualHeader, _group: unknown, groupIndex: number) {
+  return header.type === 'section' ? (
+    <SectionHeader section={header.section} />
+  ) : (
+    // The first header sits flush: its section spacing would only push content away from the top.
+    <GroupHeader group={header.group} spaced={groupIndex > 0} />
+  )
 }
 
 function toSectionVirtualGroup(section: ResourceListSection): ResourceListVirtualGroupData {
@@ -539,6 +543,15 @@ export function VirtualItems<T extends ResourceListItemBase>({
   const meta = useResourceListMeta<T>()
   const { estimateItemSize, getItemId, revealRequest } = meta
   const rowLayout = useResourceListRowLayout()
+  const chromeLayout = useResourceListChromeLayout()
+  const estimateChromeSize = useCallback(() => chromeLayout.size, [chromeLayout])
+  // The first header renders flush (standard height, no section spacing), so its estimate must not
+  // claim the taller chrome — offsets computed before the first measurement would overshoot.
+  const estimateGroupHeaderSize = useCallback(
+    (_header: ResourceListVirtualHeader, _group: unknown, groupIndex: number) =>
+      groupIndex === 0 ? RESOURCE_LIST_CHROME_ROW_LAYOUT.size : chromeLayout.size,
+    [chromeLayout]
+  )
   const view = useResourceListView<T>()
   const renderContext = useResourceListRenderContext<T>()
   const groups = useMemo(() => buildVirtualGroups(view, Boolean(meta.groupEmptyLabel)), [meta.groupEmptyLabel, view])
@@ -620,9 +633,9 @@ export function VirtualItems<T extends ResourceListItemBase>({
         onChange={handleVirtualizerChange}
         onScroll={handleScroll}
         overscan={6}
-        estimateGroupHeaderSize={estimateResourceListChromeSize}
+        estimateGroupHeaderSize={estimateGroupHeaderSize}
         estimateItemSize={estimateVirtualItemSize}
-        estimateGroupFooterSize={estimateResourceListChromeSize}
+        estimateGroupFooterSize={estimateChromeSize}
         renderGroupHeader={renderResourceListGroupHeader}
         renderItem={renderVirtualItem}
         renderGroupFooter={renderGroupFooter}
@@ -648,6 +661,13 @@ export function VirtualDraggableItems<T extends ResourceListItemBase>({
   const actions = useResourceListActions()
   const meta = useResourceListMeta<T>()
   const rowLayout = useResourceListRowLayout()
+  const chromeLayout = useResourceListChromeLayout()
+  const estimateChromeSize = useCallback(() => chromeLayout.size, [chromeLayout])
+  const estimateGroupHeaderSize = useCallback(
+    (_header: ResourceListVirtualHeader, _group: unknown, groupIndex: number) =>
+      groupIndex === 0 ? RESOURCE_LIST_CHROME_ROW_LAYOUT.size : chromeLayout.size,
+    [chromeLayout]
+  )
   const {
     canDragGroup: canDragGroupMeta,
     canDragItem: canDragItemMeta,
@@ -867,9 +887,9 @@ export function VirtualDraggableItems<T extends ResourceListItemBase>({
         getGroupBoundaryId={getGroupBoundaryId}
         getItemId={getVirtualItemId}
         dragCapabilities={dragCapabilities}
-        estimateGroupHeaderSize={estimateResourceListChromeSize}
+        estimateGroupHeaderSize={estimateGroupHeaderSize}
         estimateItemSize={estimateVirtualItemSize}
-        estimateGroupFooterSize={estimateResourceListChromeSize}
+        estimateGroupFooterSize={estimateChromeSize}
         canDragGroup={canDragGroup}
         canDragItem={canDragVirtualItem}
         canDropGroup={canDropGroup}

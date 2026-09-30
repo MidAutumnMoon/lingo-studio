@@ -5,10 +5,10 @@ import {
   composeResourceListGroupResolvers,
   createPinnedGroupResolver,
   createTimeGroupResolver,
-  getResourceTimeBucket,
+  resolveResourceTimeGroup,
   type ResourceListGroup,
   type ResourceListGroupResolver,
-  type ResourceListTimeBucket,
+  type ResourceListTimeGroupLabels,
   sortRankedResourceItems,
   withResourceListGroupIdPrefix
 } from '@renderer/utils/chat/resourceListBase'
@@ -16,70 +16,28 @@ import {
 /** How the history surfaces read the same topic list: by recency, or grouped under its assistant. */
 export type TopicSortMode = 'time' | 'assistant'
 
-export type TopicListGroupKind = 'pinned' | 'time'
-
 export type TopicDisplayGroupLabels = {
   pinned: string
-  time: Record<ResourceListTimeBucket, string>
-}
+} & ResourceListTimeGroupLabels
 
 export type TopicDisplayTimeGroupOptions = {
   labels: TopicDisplayGroupLabels
-  now?: Parameters<typeof getResourceTimeBucket>[1]
+  now?: Parameters<typeof resolveResourceTimeGroup>[1]
 }
 
 export type TopicDisplaySortOptions = {
   assistantRankById?: ReadonlyMap<string, number>
   mode: TopicSortMode
-  now?: Parameters<typeof getResourceTimeBucket>[1]
-}
-
-export type TopicListItem = Topic & {
-  name: string
-  orderKey?: string
-}
-
-const TOPIC_TIME_BUCKET_RANK: Record<ResourceListTimeBucket, number> = {
-  today: 1,
-  yesterday: 2,
-  'this-week': 3,
-  earlier: 4
+  now?: Parameters<typeof resolveResourceTimeGroup>[1]
 }
 
 export const TOPIC_PINNED_GROUP_ID = 'topic:pinned'
-export const TOPIC_UNLINKED_ASSISTANT_GROUP_ID = 'topic:assistant:unknown'
-
-const TOPIC_ASSISTANT_GROUP_ID_PREFIX = 'topic:assistant:'
-const TOPIC_UNLINKED_ASSISTANT_RANK = Number.MAX_SAFE_INTEGER
-
-export function groupTopicByPinned(topic: Pick<Topic, 'pinned'>, pinnedLabel: string, topicLabel: string) {
-  if (topic.pinned) {
-    return { id: 'pinned', label: pinnedLabel }
-  }
-
-  return { id: 'topics', label: topicLabel }
-}
-
-export function getTopicTimeBucket(
-  lastActivityAt: string,
-  now?: Parameters<typeof getResourceTimeBucket>[1]
-): ResourceListTimeBucket {
-  return getResourceTimeBucket(lastActivityAt, now)
-}
 
 function withTopicGroupIdPrefix<T>(resolver: ResourceListGroupResolver<T>): ResourceListGroupResolver<T> {
   return withResourceListGroupIdPrefix('topic:', resolver)
 }
 
-export function getAssistantIdFromTopicGroupId(groupId: string): string | undefined {
-  if (groupId === TOPIC_UNLINKED_ASSISTANT_GROUP_ID || !groupId.startsWith(TOPIC_ASSISTANT_GROUP_ID_PREFIX)) {
-    return undefined
-  }
-
-  return groupId.slice(TOPIC_ASSISTANT_GROUP_ID_PREFIX.length)
-}
-
-/** Pinned first, then the time buckets the history list reads in. */
+/** Pinned first, then the time ladder the history list reads in. */
 export function createTopicTimeGroupResolver<T extends Pick<Topic, 'lastActivityAt' | 'pinned'>>({
   labels,
   now
@@ -94,7 +52,7 @@ export function createTopicTimeGroupResolver<T extends Pick<Topic, 'lastActivity
       pinnedResolver,
       createTimeGroupResolver<T>({
         getTimestamp: (topic) => topic.lastActivityAt,
-        labels: labels.time,
+        labels,
         now
       })
     )
@@ -110,7 +68,7 @@ function getAssistantGroupRank<T extends Pick<Topic, 'assistantId'>>(
     return assistantRank
   }
 
-  return TOPIC_UNLINKED_ASSISTANT_RANK
+  return Number.MAX_SAFE_INTEGER
 }
 
 function readOptionalOrderKey<T extends object>(item: T): string | undefined {
@@ -138,8 +96,7 @@ export function sortTopicsForDisplayGroups<T extends Pick<Topic, 'assistantId' |
   }
 
   return sortRankedResourceItems(topics, {
-    getRank: (topic) =>
-      topic.pinned === true ? 0 : TOPIC_TIME_BUCKET_RANK[getTopicTimeBucket(topic.lastActivityAt, options.now)],
+    getRank: (topic) => (topic.pinned === true ? 0 : resolveResourceTimeGroup(topic.lastActivityAt, options.now).rank),
     isPinned,
     compareWithinGroup: compareResourceRecency((topic) => topic.lastActivityAt)
   })

@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 type VirtualizerOptionsMock = {
   count: number
   estimateSize: (index: number) => number
+  itemContainerStyle?: { height?: number }
   overscan?: number
 }
 
@@ -139,6 +140,7 @@ import {
 import type { ResourceListContextValue, ResourceListItemBase } from '../ResourceListContext'
 import {
   DEFAULT_RESOURCE_LIST_ROW_LAYOUT,
+  RESOURCE_LIST_BUCKET_CHROME_ROW_LAYOUT,
   RESOURCE_LIST_CHROME_ROW_LAYOUT,
   RESOURCE_LIST_ROW_LAYOUTS
 } from '../resourceListLayout'
@@ -593,12 +595,12 @@ describe('ResourceList', () => {
     expect(estimateItemSize).toHaveBeenCalledWith(0)
   })
 
-  it('renders item rows at the declared row layout, keeping chrome at the shared height', () => {
+  it('renders item rows at the declared row layout, with taller chrome from the declared chrome layout', () => {
     const Provider = ResourceList.Provider<TestItem>
     const { container } = render(
       <Provider
         items={ITEMS}
-        rowLayout={RESOURCE_LIST_ROW_LAYOUTS.history}
+        chromeRowLayout={RESOURCE_LIST_BUCKET_CHROME_ROW_LAYOUT}
         groupBy={(item) => ({ id: item.kind, label: item.kind })}>
         <ResourceList.Frame>
           <ResourceList.VirtualItems<TestItem>
@@ -612,15 +614,17 @@ describe('ResourceList', () => {
       </Provider>
     )
 
-    // The virtualizer measures the wrapper and the item paints the surface: both must follow the
-    // declared layout, or rows drift from their scroll offsets.
+    // The item rows stay on the compact rhythm while headers carry the taller chrome — except the
+    // first header, which renders flush at the standard height so its estimate must not claim the
+    // surplus. Because the two heights differ, rows must be measured rather than pinned to a single
+    // fixed wrapper height.
     const itemRow = container.querySelector('[data-resource-list-item-row="true"]')
-    expect(itemRow?.className).toContain(RESOURCE_LIST_ROW_LAYOUTS.history.containerClassName)
-    expect(itemRow?.firstElementChild?.firstElementChild?.className).toContain(
-      RESOURCE_LIST_ROW_LAYOUTS.history.visualClassName
-    )
-    expect(lastVirtualizerOptions().estimateSize(0)).toBe(RESOURCE_LIST_CHROME_ROW_LAYOUT.size)
-    expect(lastVirtualizerOptions().estimateSize(1)).toBe(RESOURCE_LIST_ROW_LAYOUTS.history.size)
+    expect(itemRow?.className).toContain(RESOURCE_LIST_ROW_LAYOUTS.compact.containerClassName)
+    const options = lastVirtualizerOptions()
+    expect(options.estimateSize(0)).toBe(RESOURCE_LIST_CHROME_ROW_LAYOUT.size)
+    expect(options.estimateSize(1)).toBe(RESOURCE_LIST_ROW_LAYOUTS.compact.size)
+    expect(options.estimateSize(3)).toBe(RESOURCE_LIST_BUCKET_CHROME_ROW_LAYOUT.size)
+    expect(options.itemContainerStyle).toBeUndefined()
   })
 
   it('defaults to the compact row layout when the list declares none', () => {
@@ -2187,6 +2191,54 @@ describe('ResourceList', () => {
     expect(screen.getByText('Item 5')).toBeInTheDocument()
     expect(screen.queryByText('Item 6')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Show more' })).toBeInTheDocument()
+  })
+
+  it('lets a raised default visible count override a count stored while the cap was lower', () => {
+    // A mode switch can raise the per-group default on the same mounted list (entity mode's capped
+    // "pinned" group persisting into uncapped time mode). The stored finite count must not keep
+    // capping the group — the default acts as a floor.
+    const Provider = ResourceList.Provider<TestItem>
+    const items = Array.from({ length: 8 }, (_, index) => ({
+      id: `item-${index + 1}`,
+      name: `Item ${index + 1}`,
+      kind: 'session' as const,
+      updatedAt: index
+    }))
+    const groupBy = () => ({ id: 'group', label: 'Group' })
+    const renderItem = (item: TestItem) => (
+      <ResourceList.Item item={item}>
+        <span>{item.name}</span>
+      </ResourceList.Item>
+    )
+
+    const view = render(
+      <Provider
+        items={items}
+        groupBy={groupBy}
+        groupShowMoreLabel="Show more"
+        groupCollapseLabel="Collapse"
+        defaultGroupVisibleCount={5}>
+        <ResourceList.Frame>
+          <ResourceList.VirtualItems<TestItem> renderItem={renderItem} />
+        </ResourceList.Frame>
+      </Provider>
+    )
+
+    // Expand fully, then collapse back: the reducer now stores a finite count for the group.
+    fireEvent.click(screen.getByRole('button', { name: 'Show more' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse' }))
+    expect(screen.queryByText('Item 6')).not.toBeInTheDocument()
+
+    view.rerender(
+      <Provider items={items} groupBy={groupBy} defaultGroupVisibleCount={Number.POSITIVE_INFINITY}>
+        <ResourceList.Frame>
+          <ResourceList.VirtualItems<TestItem> renderItem={renderItem} />
+        </ResourceList.Frame>
+      </Provider>
+    )
+
+    expect(screen.getByText('Item 8')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument()
   })
 
   it('restores the default visible count after a controlled group is collapsed and reopened', async () => {

@@ -23,12 +23,13 @@ import { createResourceListGroupReorderPayload, createResourceListItemReorderPay
 
 const SESSION_GROUP_LABELS = {
   pinned: 'Pinned',
-  time: {
+  tiers: {
     today: 'Today',
     yesterday: 'Yesterday',
-    'this-week': 'This week',
-    earlier: 'Earlier'
+    'seven-days': '7 Days',
+    'thirty-days': '30 Days'
   },
+  invalid: 'Earlier',
   agent: {
     unknown: 'Unknown agent'
   },
@@ -147,50 +148,54 @@ describe('SessionList helpers', () => {
       id: 'session:time:today',
       label: 'Today'
     })
-    expect(groupSession(createSession({ id: 'earlier', lastActivityAt: localIso(2026, 5, 8, 9) }))).toEqual({
-      id: 'session:time:earlier',
-      label: 'Earlier'
+    expect(groupSession(createSession({ id: 'week', lastActivityAt: localIso(2026, 5, 12, 9) }))).toEqual({
+      id: 'session:time:seven-days',
+      label: '7 Days'
+    })
+    expect(groupSession(createSession({ id: 'month', lastActivityAt: localIso(2026, 4, 10, 9) }))).toEqual({
+      id: 'session:time:2026-04',
+      label: '2026-04'
     })
   })
 
-  it('drops the time bucket label when every session falls into the same bucket', () => {
+  it('drops the time group label when every session falls into the same group', () => {
     const now = new Date(2026, 4, 15, 12)
     const groupSession = createSessionDisplayGroupResolver({
       labels: SESSION_GROUP_LABELS,
       mode: 'time',
       now
     })
-    const earlierOnly = [
-      createSession({ id: 'earlier-a', lastActivityAt: localIso(2026, 5, 8, 9) }),
-      createSession({ id: 'earlier-b', lastActivityAt: localIso(2026, 5, 7, 9) })
+    const sameMonthOnly = [
+      createSession({ id: 'month-a', lastActivityAt: localIso(2026, 4, 10, 9) }),
+      createSession({ id: 'month-b', lastActivityAt: localIso(2026, 4, 1, 9) })
     ]
 
-    const soleBucket = withSoleGroupLabelHidden(groupSession, earlierOnly)
-    expect(soleBucket(earlierOnly[0])).toEqual({ id: 'session:time:earlier', label: '' })
+    const soleBucket = withSoleGroupLabelHidden(groupSession, sameMonthOnly)
+    expect(soleBucket(sameMonthOnly[0])).toEqual({ id: 'session:time:2026-04', label: '' })
 
-    const mixed = [...earlierOnly, createSession({ id: 'today', lastActivityAt: localIso(2026, 5, 15, 9) })]
+    const mixed = [...sameMonthOnly, createSession({ id: 'today', lastActivityAt: localIso(2026, 5, 15, 9) })]
     const twoBuckets = withSoleGroupLabelHidden(groupSession, mixed)
-    expect(twoBuckets(earlierOnly[0])).toEqual({ id: 'session:time:earlier', label: 'Earlier' })
+    expect(twoBuckets(sameMonthOnly[0])).toEqual({ id: 'session:time:2026-04', label: '2026-04' })
   })
 
-  it('keeps the time bucket label once a pinned group shares the list, and never blanks pinned itself', () => {
+  it('keeps the time group label once a pinned group shares the list, and never blanks pinned itself', () => {
     const now = new Date(2026, 4, 15, 12)
     const groupSession = createSessionDisplayGroupResolver({
       labels: SESSION_GROUP_LABELS,
       mode: 'time',
       now
     })
-    const pinned = createSession({ id: 'pinned', pinned: true, lastActivityAt: localIso(2026, 5, 8, 9) })
-    const earlier = createSession({ id: 'earlier', lastActivityAt: localIso(2026, 5, 7, 9) })
+    const pinned = createSession({ id: 'pinned', pinned: true, lastActivityAt: localIso(2026, 4, 10, 9) })
+    const month = createSession({ id: 'month', lastActivityAt: localIso(2026, 4, 1, 9) })
 
-    // "Earlier" now marks where the pinned block ends, so it keeps its label.
-    const withPinned = withSoleGroupLabelHidden(groupSession, [pinned, earlier], {
+    // The month label now marks where the pinned block ends, so it keeps its label.
+    const withPinned = withSoleGroupLabelHidden(groupSession, [pinned, month], {
       ignoreGroupIds: [SESSION_PINNED_GROUP_ID]
     })
-    expect(withPinned(earlier)).toEqual({ id: 'session:time:earlier', label: 'Earlier' })
+    expect(withPinned(month)).toEqual({ id: 'session:time:2026-04', label: '2026-04' })
     expect(withPinned(pinned)).toEqual({ id: SESSION_PINNED_GROUP_ID, label: 'Pinned' })
 
-    // A list that is nothing but pinned rows still says so — "Pinned" is a state, not a time bucket.
+    // A list that is nothing but pinned rows still says so — "Pinned" is a state, not a time group.
     const allPinned = withSoleGroupLabelHidden(groupSession, [pinned], {
       ignoreGroupIds: [SESSION_PINNED_GROUP_ID]
     })

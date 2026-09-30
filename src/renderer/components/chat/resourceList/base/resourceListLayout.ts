@@ -8,14 +8,17 @@ export type ResourceListRowLayout = {
 }
 
 /**
- * Item-row geometry is a per-list decision, not a global one: entity rails and the default list read
- * one line per row, the conversation history reads two (title + time). Keep the measured size and the
- * rendered classes together — virtual-list estimates must never drift from the row they describe.
- * 32px row surface + 4px breathing room is the shared rhythm (DESIGN.md puts menu items at 32px).
+ * Item-row geometry is a per-list decision, not a global one. Two single-line rhythms: `compact`
+ * for dense structural rails (entity rails, agent entity modes), `conversation` for lists whose
+ * rows are the primary click target (chat and session histories) — its taller pill keeps clicks
+ * comfortable without going back to two-line rows. Keep the measured size and the rendered classes
+ * together — virtual-list estimates must never drift from the row they describe.
+ * 32px row surface + 4px breathing room is the shared rail rhythm (DESIGN.md puts menu items at
+ * 32px); conversations get 40px + 4px.
  */
 export const RESOURCE_LIST_ROW_LAYOUTS = {
   compact: { size: 36, containerClassName: 'h-9', visualClassName: 'h-8 rounded-lg' },
-  history: { size: 64, containerClassName: 'h-16', visualClassName: 'h-15 rounded-xl' }
+  conversation: { size: 44, containerClassName: 'h-11', visualClassName: 'h-10 rounded-lg' }
 } as const satisfies Record<string, ResourceListRowLayout>
 
 export type ResourceListRowLayoutName = keyof typeof RESOURCE_LIST_ROW_LAYOUTS
@@ -29,6 +32,19 @@ export const DEFAULT_RESOURCE_LIST_ROW_LAYOUT: ResourceListRowLayout = RESOURCE_
 export const RESOURCE_LIST_CHROME_ROW_LAYOUT: ResourceListRowLayout = {
   size: 36,
   containerClassName: 'h-9',
+  visualClassName: 'h-8 rounded-lg'
+}
+
+/**
+ * Chrome for time-ladder lists (Today / Yesterday / 7 Days / 30 Days / "2026-08"): the header row
+ * rides taller than its label and anchors the label to its bottom, so the surplus height reads as
+ * the section spacing above each group while the label hugs the rows it names. `size` must cover
+ * the full pitch — surplus plus the standard 36px chrome — because the virtualizer treats it as the
+ * exact header-row height.
+ */
+export const RESOURCE_LIST_BUCKET_CHROME_ROW_LAYOUT: ResourceListRowLayout = {
+  size: 56,
+  containerClassName: 'flex h-14 flex-col justify-end',
   visualClassName: 'h-8 rounded-lg'
 }
 

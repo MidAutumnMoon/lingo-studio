@@ -1,7 +1,7 @@
 import type * as DndKitUtilities from '@dnd-kit/utilities'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Activity, type ComponentProps, type ReactNode } from 'react'
+import { type ComponentProps, type ReactNode } from 'react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as CherryStudioUi from '@cherrystudio/ui'
@@ -637,16 +637,17 @@ vi.mock('react-i18next', () => ({
         'agent.session.group.collapse': 'Collapse display',
         'agent.session.group.collapse_all': 'Collapse all',
         'agent.session.group.conversation': 'Conversations',
-        'agent.session.group.earlier': 'Earlier',
         'agent.session.group.expand_all': 'Expand all',
         'agent.session.group.no_workdir': 'No work directory',
         'agent.session.group.show_more': 'Expand display',
         'agent.session.group.tasks': 'Tasks',
-        'agent.session.group.this_week': 'This week',
-        'agent.session.group.today': 'Today',
         'agent.session.group.unknown_agent': 'Unlinked Agent',
         'agent.session.group.unknown_agent_tip': 'Historical sessions without an agent',
-        'agent.session.group.yesterday': 'Yesterday',
+        'resourceList.time.today': 'Today',
+        'resourceList.time.yesterday': 'Yesterday',
+        'resourceList.time.7_days': '7 Days',
+        'resourceList.time.30_days': '30 Days',
+        'resourceList.time.earlier': 'Earlier',
         'agent.session.list.title': 'Tasks',
         'agent.session.new': 'New task',
         'agent.pin.title': 'Pin Agent',
@@ -727,7 +728,6 @@ const CURRENT_SESSION_ISO = new Date().toISOString()
 // Time groups only label themselves when the list spans more than one bucket, so fixtures that
 // assert on a bucket header need something older to contrast with.
 const EARLIER_SESSION_ISO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-const SESSION_EXPANSION_TIME_KEY = 'ui.agent.session.expansion.time'
 const SESSION_EXPANSION_AGENT_KEY = 'ui.agent.session.expansion.agent'
 const SESSION_EXPANSION_WORKDIR_KEY = 'ui.agent.session.expansion.workdir'
 
@@ -762,7 +762,6 @@ function getHeaderNewTaskButton() {
 }
 
 type SessionGroupCollapseFixture = {
-  time: string[]
   agent: string[] | null
   workdir: string[] | null
 }
@@ -770,21 +769,18 @@ type SessionGroupCollapseFixture = {
 // Default fixture: nothing collapsed (everything expanded).
 function createExpandedSessionGroupExpansionFixture(): SessionGroupCollapseFixture {
   return {
-    time: [],
     agent: [],
     workdir: []
   }
 }
 
 function setSessionGroupExpansionCache(value: SessionGroupCollapseFixture) {
-  cacheMocks.values.set(SESSION_EXPANSION_TIME_KEY, value.time)
   cacheMocks.values.set(SESSION_EXPANSION_AGENT_KEY, value.agent)
   cacheMocks.values.set(SESSION_EXPANSION_WORKDIR_KEY, value.workdir)
 }
 
 function getSessionGroupExpansionCache() {
   return {
-    time: cacheMocks.values.get(SESSION_EXPANSION_TIME_KEY),
     agent: cacheMocks.values.get(SESSION_EXPANSION_AGENT_KEY),
     workdir: cacheMocks.values.get(SESSION_EXPANSION_WORKDIR_KEY)
   } as SessionGroupCollapseFixture
@@ -1181,57 +1177,7 @@ describe('Sessions', () => {
     expect(pinMocks.usePins).not.toHaveBeenCalledWith('agent', { enabled: true })
   })
 
-  it('keeps right-panel group expansion across an <Activity> hide/show and resets it when the agent filter changes', () => {
-    // Two agents, each with a today + an earlier session, so the time buckets
-    // render headers under either filter.
-    setupSessions({
-      sessions: [
-        createSession({ id: 'session-a', name: 'Alpha session', orderKey: 'a' }),
-        createSession({ id: 'session-a-old', name: 'Alpha older', orderKey: 'b', updatedAt: EARLIER_SESSION_ISO }),
-        createSession({ agentId: 'agent-b', id: 'session-b', name: 'Beta session', orderKey: 'c' }),
-        createSession({
-          agentId: 'agent-b',
-          id: 'session-b-old',
-          name: 'Beta older',
-          orderKey: 'd',
-          updatedAt: EARLIER_SESSION_ISO
-        })
-      ]
-    })
-
-    const view = render(
-      <Activity mode="visible">
-        <SessionsForTest agentIdFilter="agent-a" presentation="right-panel" />
-      </Activity>
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
-    expect(screen.getByRole('button', { name: 'Today' })).toHaveAttribute('aria-expanded', 'false')
-
-    // Tab switch (hidden→visible with the same filter): effects re-run but the
-    // user's collapsed state must survive.
-    view.rerender(
-      <Activity mode="hidden">
-        <SessionsForTest agentIdFilter="agent-a" presentation="right-panel" />
-      </Activity>
-    )
-    view.rerender(
-      <Activity mode="visible">
-        <SessionsForTest agentIdFilter="agent-a" presentation="right-panel" />
-      </Activity>
-    )
-    expect(screen.getByRole('button', { name: 'Today' })).toHaveAttribute('aria-expanded', 'false')
-
-    // Actual filter change: the stale per-agent collapsed state must reset.
-    view.rerender(
-      <Activity mode="visible">
-        <SessionsForTest agentIdFilter="agent-b" presentation="right-panel" />
-      </Activity>
-    )
-    expect(screen.getByRole('button', { name: 'Today' })).toHaveAttribute('aria-expanded', 'true')
-  })
-
-  it.each(['time', 'agent', 'workdir'])('expands all sessions in %s groups with one click', async (displayMode) => {
+  it.each(['agent', 'workdir'])('expands all sessions in %s groups with one click', async (displayMode) => {
     const user = userEvent.setup()
     preferenceMocks.values.set('agent.session.display_mode', displayMode)
     setupSessions({
@@ -1251,13 +1197,39 @@ describe('Sessions', () => {
     render(<SessionsForTest />)
 
     expect(screen.getByText('Session 1')).toBeInTheDocument()
-    expect(screen.getByText(displayMode === 'time' ? 'Session 50' : 'Session 5')).toBeInTheDocument()
-    expect(screen.queryByText(displayMode === 'time' ? 'Session 51' : 'Session 6')).not.toBeInTheDocument()
+    expect(screen.getByText('Session 5')).toBeInTheDocument()
+    expect(screen.queryByText('Session 6')).not.toBeInTheDocument()
     expect(screen.queryByText('Session 56')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Expand display' }))
 
     expect(screen.getByText('Session 56')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand display' })).not.toBeInTheDocument()
+  })
+
+  it('renders every time-grouped session with nothing to expand', () => {
+    preferenceMocks.values.set('agent.session.display_mode', 'time')
+    setupSessions({
+      sessions: [
+        ...Array.from({ length: 56 }, (_, index) =>
+          createSession({
+            id: `session-${index + 1}`,
+            name: `Session ${index + 1}`,
+            orderKey: String(index + 1).padStart(3, '0'),
+            updatedAt: CURRENT_SESSION_ISO
+          })
+        ),
+        createSession({ id: 'session-old', name: 'Older session', orderKey: 'zzz', updatedAt: EARLIER_SESSION_ISO })
+      ]
+    })
+
+    render(<SessionsForTest />)
+
+    // Time mode is uncapped like the chat list: every row renders, no footer button.
+    expect(screen.getByText('Session 1')).toBeInTheDocument()
+    expect(screen.getByText('Session 51')).toBeInTheDocument()
+    expect(screen.getByText('Session 56')).toBeInTheDocument()
+    expect(screen.getByText('Older session')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Expand display' })).not.toBeInTheDocument()
   })
 
@@ -1976,7 +1948,9 @@ describe('Sessions', () => {
     render(<SessionsForTest />)
 
     expect(screen.getByText('Alpha session')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument()
+    // Time headers are labels, not controls.
+    expect(screen.getByText('Today')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -1991,7 +1965,7 @@ describe('Sessions', () => {
 
     render(<SessionsForTest />)
 
-    const todayHeader = screen.getByRole('button', { name: 'Today' }).closest('div')
+    const todayHeader = screen.getByText('Today').closest('div')
     expect(todayHeader).toBeInTheDocument()
     expect(within(todayHeader as HTMLElement).queryByRole('button', { name: 'New task' })).not.toBeInTheDocument()
   })
@@ -2432,7 +2406,8 @@ describe('Sessions', () => {
 
     render(<SessionsForTest />)
 
-    expect(screen.getByRole('button', { name: 'Pinned' })).toBeInTheDocument()
+    // "Pinned" is a state, not a point on the time axis: it stays legible even alone.
+    expect(screen.getByText('Pinned')).toBeInTheDocument()
   })
 
   it('moves a session to the Recycle Bin immediately and offers Undo', async () => {

@@ -23,6 +23,7 @@ export type {
   ResourceListDragCapabilities,
   ResourceListFilterOption,
   ResourceListGroup,
+  ResourceListGroupHeaderClickBehavior,
   ResourceListGroupHeaderKind,
   ResourceListGroupReorderPayload,
   ResourceListGroupSeed,
@@ -54,14 +55,19 @@ export {
   useResourceListView
 } from './ResourceList'
 export { remapResourceListCollapsedGroupIds } from './resourceListExpansion'
-export type { ResourceListGroupResolver, ResourceListTimeBucket } from './resourceListGrouping'
+export type {
+  ResourceListGroupResolver,
+  ResourceListTimeGroup,
+  ResourceListTimeGroupLabels,
+  ResourceListTimeTier
+} from './resourceListGrouping'
 export {
   compareResourceRecency,
   composeResourceListGroupResolvers,
   createPinnedFirstSorter,
   createPinnedGroupResolver,
   createTimeGroupResolver,
-  getResourceTimeBucket,
+  resolveResourceTimeGroup,
   sortByResourceGroupRank,
   sortRankedResourceItems
 } from './resourceListGrouping'
@@ -75,6 +81,7 @@ export {
 } from './resourceListReorder'
 export {
   DEFAULT_RESOURCE_LIST_ROW_LAYOUT,
+  RESOURCE_LIST_BUCKET_CHROME_ROW_LAYOUT,
   RESOURCE_LIST_CHROME_ROW_LAYOUT,
   RESOURCE_LIST_ROW_LAYOUTS,
   type ResourceListRowLayout

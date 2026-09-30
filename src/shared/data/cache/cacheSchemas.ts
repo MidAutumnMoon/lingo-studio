@@ -408,15 +408,12 @@ export type RendererPersistCacheSchema = {
   'ui.chat.last_used_topic_id': string | null
   // Classic assistant rail group collapse, kept separate from topic display-mode groups.
   'ui.assistant.entity_rail.expansion': string[]
-  // Collapsed groups of the chat list (time buckets). Null means no user preference has been
-  // written yet, so the view may apply its default.
-  'ui.topic.expansion.time': string[]
   'ui.agent.last_used_session_id': string | null
   'ui.agent.last_used_agent_id': string | null
   'ui.agent.last_used_workspace_id': string | null
   // Kept separate so the assistant and agent surfaces don't bleed into each other.
   'ui.agent.right_pane_open_override': boolean | null
-  'ui.agent.session.expansion.time': string[]
+  // Time-mode lists no longer collapse their groups; only the entity modes keep expansion state.
   'ui.agent.session.expansion.agent': string[] | null
   'ui.agent.session.expansion.workdir': string[] | null
   'settings.provider.last_selected_provider_id': string | null
@@ -464,12 +461,10 @@ export const DefaultRendererPersistCache: RendererPersistCacheSchema = {
   'ui.chat.last_used_assistant_id': null,
   'ui.chat.last_used_topic_id': null,
   'ui.assistant.entity_rail.expansion': [],
-  'ui.topic.expansion.time': [],
   'ui.agent.last_used_session_id': null,
   'ui.agent.last_used_agent_id': null,
   'ui.agent.last_used_workspace_id': null,
   'ui.agent.right_pane_open_override': null,
-  'ui.agent.session.expansion.time': [],
   'ui.agent.session.expansion.agent': null,
   'ui.agent.session.expansion.workdir': null,
   'settings.provider.last_selected_provider_id': null,

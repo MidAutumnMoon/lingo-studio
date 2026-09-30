@@ -2,7 +2,11 @@ import { createContext, type ReactNode, use, useCallback, useSyncExternalStore }
 
 import type { CommandContextMenuExtraItem } from '@renderer/components/command'
 
-import { DEFAULT_RESOURCE_LIST_ROW_LAYOUT, type ResourceListRowLayout } from './resourceListLayout'
+import {
+  DEFAULT_RESOURCE_LIST_ROW_LAYOUT,
+  RESOURCE_LIST_CHROME_ROW_LAYOUT,
+  type ResourceListRowLayout
+} from './resourceListLayout'
 import type {
   ResourceListGroupStateSnapshot,
   ResourceListRowStateSnapshot,
@@ -249,9 +253,14 @@ export const ResourceListSourceItemsContext = createContext<readonly ResourceLis
 export const ResourceListUiStoreContext = createContext<ResourceListUiService | null>(null)
 export const ResourceListViewContext = createContext<ResourceListView<ResourceListItemBase> | null>(null)
 export const ResourceListRowLayoutContext = createContext<ResourceListRowLayout>(DEFAULT_RESOURCE_LIST_ROW_LAYOUT)
+export const ResourceListChromeLayoutContext = createContext<ResourceListRowLayout>(RESOURCE_LIST_CHROME_ROW_LAYOUT)
 
 export function useResourceListRowLayout(): ResourceListRowLayout {
   return use(ResourceListRowLayoutContext)
+}
+
+export function useResourceListChromeLayout(): ResourceListRowLayout {
+  return use(ResourceListChromeLayoutContext)
 }
 
 export function useResourceList<T extends ResourceListItemBase = ResourceListItemBase>() {

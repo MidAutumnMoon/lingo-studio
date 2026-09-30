@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Tooltip } from '@cherrystudio/ui'
 import { dataApiService } from '@data/DataApiService'
-import { useCache, usePersistCache, useSharedCacheSelector } from '@data/hooks/useCache'
+import { useCache, useSharedCacheSelector } from '@data/hooks/useCache'
 import { useMultiplePreferences, usePreference } from '@data/hooks/usePreference'
 import { loggerService } from '@logger'
 import { ResourceListActionContextMenu } from '@renderer/components/chat/actions/ResourceListActionContextMenu'
@@ -20,10 +20,10 @@ import {
   ConversationRowStatus,
   type ConversationRowStatusValue,
   renderAssistantEntityIcon,
-  resolveDefaultCollapsedGroupIds,
   ResourceList,
   type ResourceListGroupHeaderKind,
   type ResourceListRevealRequest,
+  RESOURCE_LIST_BUCKET_CHROME_ROW_LAYOUT,
   RESOURCE_LIST_ROW_LAYOUTS,
   TopicListOptionsMenu,
   useResourceListActions,
@@ -72,7 +72,6 @@ import { formatErrorMessageWithPrefix } from '@renderer/utils/error'
 import { findLatestActive, pickNeighbourAfterRemoval } from '@renderer/utils/resourceEntity'
 import { createSidebarShortcutTarget, SIDEBAR_SHORTCUT_PROVIDER_IDS } from '@renderer/utils/sidebar'
 import { cn } from '@renderer/utils/style'
-import { formatListTimestamp } from '@renderer/utils/time'
 import { classifyTurn, type TopicStatusSnapshotEntry } from '@shared/ai/transport'
 import { isTrashTargetNotFoundError, isTrashTopicBusyError } from '@shared/ipc/errors/trash'
 
@@ -89,8 +88,6 @@ import { EMPTY_TOPIC_LIST_ITEM_RECONCILIATION, reconcileTopicListItems } from '.
 const logger = loggerService.withContext('Topics')
 // Let the context menu close before mounting the heavier offscreen message list.
 const IMAGE_CAPTURE_START_DELAY_MS = 160
-
-const LEFT_PANEL_TIME_TOPIC_GROUP_VISIBLE_COUNT = 50
 const TOPIC_EXPORT_MENU_PREFERENCE_KEYS = {
   docx: 'data.export.menus.docx',
   image: 'data.export.menus.image',
@@ -179,7 +176,6 @@ export function Topics({
   const { updateTopic: patchTopic, deleteTopic: deleteTopicById, refreshTopics, restoreTopic } = useTopicMutations()
   const [assistantIconType] = usePreference('assistant.icon_type')
   const [defaultModelId] = usePreference('chat.default_model_id')
-  const [topicExpansionTime, setTopicExpansionTime] = usePersistCache('ui.topic.expansion.time')
   const [renamingTopics] = useCache('topic.renaming')
   const [newlyRenamedTopics] = useCache('topic.newly_renamed')
   const { queueTarget: queueImageCaptureTarget, targets: imageCaptureTargets } = useImageCaptureTargets<Topic>({
@@ -491,12 +487,13 @@ export function Topics({
       createTopicTimeGroupResolver<Topic>({
         labels: {
           pinned: t('selector.common.pinned_title'),
-          time: {
-            today: t('chat.topics.group.today'),
-            yesterday: t('chat.topics.group.yesterday'),
-            'this-week': t('chat.topics.group.this_week'),
-            earlier: t('chat.topics.group.earlier')
-          }
+          tiers: {
+            today: t('resourceList.time.today'),
+            yesterday: t('resourceList.time.yesterday'),
+            'seven-days': t('resourceList.time.7_days'),
+            'thirty-days': t('resourceList.time.30_days')
+          },
+          invalid: t('resourceList.time.earlier')
         },
         now: groupNow
       }),
@@ -507,7 +504,7 @@ export function Topics({
     () => sortTopicsForDisplayGroups(scopedTopics, { mode: 'time', now: groupNow }),
     [groupNow, scopedTopics]
   )
-  // "Earlier" above a list with nothing newer restates the list itself.
+  // A sole time group above a list with nothing newer restates the list itself.
   const topicGroupByForDisplay = useMemo(
     () => withSoleGroupLabelHidden<Topic>(topicGroupBy, groupedTopics, { ignoreGroupIds: [TOPIC_PINNED_GROUP_ID] }),
     [groupedTopics, topicGroupBy]
@@ -516,22 +513,6 @@ export function Topics({
   const handleHeaderCreate = useCallback(() => {
     void onNewTopic?.(headerCreateTopicPayload)
   }, [headerCreateTopicPayload, onNewTopic])
-
-  const collapsedTopicState = useMemo(
-    () =>
-      resolveDefaultCollapsedGroupIds({
-        collapsedIds: topicExpansionTime,
-        groupBy: topicGroupBy,
-        items: groupedTopics
-      }),
-    [groupedTopics, topicExpansionTime, topicGroupBy]
-  )
-  const handleTopicCollapsedStateChange = useCallback(
-    (nextCollapsedIds: string[]) => {
-      setTopicExpansionTime(nextCollapsedIds)
-    },
-    [setTopicExpansionTime]
-  )
 
   const listError = error
   const historyLoading = isLoadingAll || !isFullyLoaded
@@ -562,20 +543,19 @@ export function Topics({
     <>
       <TopicResourceList<Topic>
         key={`topic-resource:${activeAssistantId ?? 'unlinked'}`}
-        rowLayout={RESOURCE_LIST_ROW_LAYOUTS.history}
         items={visibleTopics}
         status={listStatus}
         selectedId={hasActiveCenterSurface ? null : activeTopic?.id}
         groupBy={topicGroupByForDisplay}
-        collapsedState={collapsedTopicState}
         revealRequest={revealRequest}
-        defaultGroupVisibleCount={LEFT_PANEL_TIME_TOPIC_GROUP_VISIBLE_COUNT}
-        groupLoadStep={Number.POSITIVE_INFINITY}
+        chromeRowLayout={RESOURCE_LIST_BUCKET_CHROME_ROW_LAYOUT}
+        rowLayout={RESOURCE_LIST_ROW_LAYOUTS.conversation}
         getGroupHeaderKind={getBucketGroupHeaderKind}
-        groupShowMoreLabel={t('chat.topics.group.show_more')}
-        groupCollapseLabel={t('chat.topics.group.collapse')}
-        onRenameItem={handleRenameTopic}
-        onCollapsedStateChange={handleTopicCollapsedStateChange}>
+        // The list is virtualized, so no group caps its rows and no header folds: time headers are
+        // labels, not controls.
+        defaultGroupVisibleCount={Number.POSITIVE_INFINITY}
+        groupHeaderClickBehavior="none"
+        onRenameItem={handleRenameTopic}>
         <ResourceList.Header>
           <ResourceList.HeaderItem
             data-ui="chat.topic-list.action.create"
@@ -816,7 +796,7 @@ const TopicRow = memo(function TopicRow({
   topic,
   topicsLength
 }: TopicRowProps) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const rightPanelState = useOptionalRightPanelState()
   const rightPanelActions = useOptionalRightPanelActions()
   const actions = useResourceListActions()
@@ -824,7 +804,6 @@ const TopicRow = memo(function TopicRow({
   const streamStatus = useTopicListStreamStatus(topic.id)
   const topicDisplayName = topic.name.trim() ? topic.name : t('chat.conversation.new')
   const topicName = topicDisplayName.replace('`', '')
-  const timestamp = formatListTimestamp(topic.lastActivityAt, i18n.language)
   const nameAnimationClassName = isRenaming(topic.id)
     ? 'animation-shimmer'
     : isNewlyRenamed(topic.id)
@@ -899,29 +878,23 @@ const TopicRow = memo(function TopicRow({
         onClick={(event) => event.stopPropagation()}
       />
       {!rowState.renaming && (
-        // Title over time: two lines carry both what the conversation is and when it happened,
-        // which is what a history list is scanned for.
-        <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-          <ResourceList.ItemTitle
-            fade
-            title={topicDisplayName}
-            className={cn(
-              'flex-none',
-              nameAnimationClassName,
-              // The stream indicator is an absolute overlay (keeps no flex space),
-              // so the title needs a standing yield for its dot zone; on hover the
-              // overlay fades out, the standing yield closes, and the in-flow action rail expands.
-              // The draft indicator needs no yield — it stays in flow and reserves its own space.
-              hasTopicStreamIndicator && CONVERSATION_ROW_STATUS_TITLE_CLASS
-            )}
-            onDoubleClick={(event) => {
-              event.stopPropagation()
-              startInlineRename()
-            }}>
-            {topicName}
-          </ResourceList.ItemTitle>
-          {timestamp && <span className="truncate text-foreground-tertiary text-xs leading-4">{timestamp}</span>}
-        </span>
+        <ResourceList.ItemTitle
+          fade
+          title={topicDisplayName}
+          className={cn(
+            nameAnimationClassName,
+            // The stream indicator is an absolute overlay (keeps no flex space), so the title needs
+            // a standing yield for its dot zone; on hover the overlay fades out, the standing yield
+            // closes, and the in-flow action rail expands. The draft indicator needs no yield — it
+            // stays in flow and reserves its own space.
+            hasTopicStreamIndicator && CONVERSATION_ROW_STATUS_TITLE_CLASS
+          )}
+          onDoubleClick={(event) => {
+            event.stopPropagation()
+            startInlineRename()
+          }}>
+          {topicName}
+        </ResourceList.ItemTitle>
       )}
       {!rowState.renaming && (
         <TopicTrailingStatus

@@ -6,7 +6,18 @@ export type ResourceListGroup = {
   count?: number
 }
 
-export type ResourceListTimeBucket = 'today' | 'yesterday' | 'this-week' | 'earlier'
+/** Fixed recency tiers; anything older than the 30-day tier falls into calendar-month groups. */
+export type ResourceListTimeTier = 'today' | 'yesterday' | 'seven-days' | 'thirty-days'
+
+/**
+ * One rung of the time ladder. Tier and month rungs are stable: a calendar month never re-buckets
+ * an item as time passes, so group ids survive restarts and persisted UI state. The invalid rung is
+ * the terminal catch-all for timestamps that carry no usable date.
+ */
+export type ResourceListTimeGroup =
+  | { kind: 'tier'; id: string; rank: number; tier: ResourceListTimeTier }
+  | { kind: 'month'; id: string; rank: number; monthKey: string }
+  | { kind: 'invalid'; id: string; rank: number }
 
 export type ResourceListGroupResolver<T> = (item: T) => ResourceListGroup | null
 
@@ -34,35 +45,92 @@ export type ResourceListGroupReorderPayload = {
 type TimestampInput = dayjs.ConfigType
 type GroupRankResolver<T> = (item: T) => number
 
-export function getResourceTimeBucket(timestamp: TimestampInput, now?: TimestampInput): ResourceListTimeBucket {
+const MS_PER_DAY = 86_400_000
+/** Anything dated before this reads as corrupt data, not history — parked in the invalid rung. */
+const MIN_PLAUSIBLE_YEAR = 2000
+
+const TIER_GROUP_IDS: Record<ResourceListTimeTier, string> = {
+  today: 'time:today',
+  yesterday: 'time:yesterday',
+  'seven-days': 'time:seven-days',
+  'thirty-days': 'time:thirty-days'
+}
+
+const TIER_RANKS: Record<ResourceListTimeTier, number> = {
+  today: 1,
+  yesterday: 2,
+  'seven-days': 3,
+  'thirty-days': 4
+}
+
+// Descending by month age: a newer month must always rank lower (sort earlier) than an older one,
+// and every month rank must stay above the 30-day tier. The base leaves room for any plausible year.
+const MONTH_RANK_BASE = 100_000
+
+const INVALID_TIME_GROUP_ID = 'time:invalid'
+
+function createInvalidTimeGroup(): ResourceListTimeGroup {
+  return { kind: 'invalid', id: INVALID_TIME_GROUP_ID, rank: Number.MAX_SAFE_INTEGER }
+}
+
+/**
+ * The conversation-list time ladder: Today, Yesterday, 7 Days (2-7 days back), 30 Days (8-30 days
+ * back), then one group per calendar month ("2026-08"). Day math uses rounded local-midnight deltas
+ * so a DST transition (two local midnights 23h/25h apart) cannot merge two days into one bucket.
+ * Future timestamps and pre-2000 dates land in the invalid rung instead of minting a phantom group.
+ */
+export function resolveResourceTimeGroup(timestamp: TimestampInput, now?: TimestampInput): ResourceListTimeGroup {
   if (timestamp === undefined) {
-    return 'earlier'
+    return createInvalidTimeGroup()
   }
 
   const item = dayjs(timestamp)
   const current = now === undefined ? dayjs() : dayjs(now)
-  if (!item.isValid() || !current.isValid()) {
-    return 'earlier'
+  if (!item.isValid() || !current.isValid() || item.year() < MIN_PLAUSIBLE_YEAR) {
+    return createInvalidTimeGroup()
   }
 
   const itemStart = item.startOf('day')
   const todayStart = current.startOf('day')
+  const ageInDays = Math.round((todayStart.valueOf() - itemStart.valueOf()) / MS_PER_DAY)
 
-  if (itemStart.isSame(todayStart)) {
-    return 'today'
+  // A negative age is a future timestamp (clock skew) — park it rather than minting a phantom group.
+  if (ageInDays < 0) {
+    return createInvalidTimeGroup()
   }
 
-  const yesterdayStart = todayStart.subtract(1, 'day')
-  if (itemStart.isSame(yesterdayStart)) {
-    return 'yesterday'
+  if (ageInDays === 0) {
+    return { kind: 'tier', id: TIER_GROUP_IDS.today, rank: TIER_RANKS.today, tier: 'today' }
   }
 
-  const weekStart = todayStart.startOf('week')
-  if (itemStart.isSame(weekStart) || (itemStart.isAfter(weekStart) && itemStart.isBefore(yesterdayStart))) {
-    return 'this-week'
+  if (ageInDays === 1) {
+    return { kind: 'tier', id: TIER_GROUP_IDS.yesterday, rank: TIER_RANKS.yesterday, tier: 'yesterday' }
   }
 
-  return 'earlier'
+  if (ageInDays <= 7) {
+    return { kind: 'tier', id: TIER_GROUP_IDS['seven-days'], rank: TIER_RANKS['seven-days'], tier: 'seven-days' }
+  }
+
+  if (ageInDays <= 30) {
+    return {
+      kind: 'tier',
+      id: TIER_GROUP_IDS['thirty-days'],
+      rank: TIER_RANKS['thirty-days'],
+      tier: 'thirty-days'
+    }
+  }
+
+  // Anything past the 30-day tier always predates the current month (a month spans at most 30
+  // same-month days), so month ranks never collide with the tiers above.
+  const monthKey = item.format('YYYY-MM')
+  const monthIndex = item.year() * 12 + item.month()
+  return { kind: 'month', id: `time:${monthKey}`, rank: MONTH_RANK_BASE - monthIndex, monthKey }
+}
+
+export type ResourceListTimeGroupLabels = {
+  tiers: Record<ResourceListTimeTier, string>
+  /** Label of the terminal bucket for timestamps without a usable date. */
+  invalid: string
 }
 
 export function composeResourceListGroupResolvers<T>(
@@ -93,12 +161,20 @@ export function createTimeGroupResolver<T>({
   now
 }: {
   getTimestamp: (item: T) => TimestampInput
-  labels: Record<ResourceListTimeBucket, string>
+  labels: ResourceListTimeGroupLabels
   now?: TimestampInput
 }): ResourceListGroupResolver<T> {
   return (item) => {
-    const bucket = getResourceTimeBucket(getTimestamp(item), now)
-    return { id: `time:${bucket}`, label: labels[bucket] }
+    const group = resolveResourceTimeGroup(getTimestamp(item), now)
+    switch (group.kind) {
+      case 'tier':
+        return { id: group.id, label: labels.tiers[group.tier] }
+      case 'month':
+        // Month labels are the literal numeric key ("2026-08") — deliberately unlocalized.
+        return { id: group.id, label: group.monthKey }
+      case 'invalid':
+        return { id: group.id, label: labels.invalid }
+    }
   }
 }
 
@@ -194,9 +270,9 @@ export function moveResourceListStringGroupAfterDrop(
 }
 
 /**
- * Time buckets only carry meaning against each other: a list that falls entirely into "Earlier"
+ * Time groups only carry meaning against each other: a list that falls entirely into one group
  * gains nothing from a header saying so. Blank the label in that case — {@link ResourceList} drops
- * headers without one — while keeping the group id so ordering and collapse state stay intact.
+ * headers without one — while keeping the group id so ordering stays intact.
  *
  * Any other group in the list — "Pinned" in particular — puts the label back to work: it now marks
  * where that group ends, so only a list that is ONE group top to bottom drops its header.

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } 
 
 import {
   ResourceListActionsContext,
+  ResourceListChromeLayoutContext,
   ResourceListContext,
   type ResourceListContextValue,
   ResourceListControlsContext,
@@ -33,7 +34,11 @@ import {
   type ResourceListViewSection,
   ResourceListRowLayoutContext
 } from './ResourceListContext'
-import { DEFAULT_RESOURCE_LIST_ROW_LAYOUT, type ResourceListRowLayout } from './resourceListLayout'
+import {
+  DEFAULT_RESOURCE_LIST_ROW_LAYOUT,
+  RESOURCE_LIST_CHROME_ROW_LAYOUT,
+  type ResourceListRowLayout
+} from './resourceListLayout'
 import { ResourceListUiService } from './ResourceListUiService'
 
 const EMPTY_SORT_OPTIONS: ResourceListSortOption<ResourceListItemBase>[] = []
@@ -175,7 +180,13 @@ function buildResourceListGroups<T extends ResourceListItemBase>({
   return [...groups.values()].map(({ group, items }) => {
     const totalCount = items.length
     const collapsed = Boolean(group.label) && collapsedIdSet.has(group.id)
-    const configuredVisibleCount = groupVisibleCounts[group.id] ?? defaultGroupVisibleCount
+    // Stored counts can outlive a mode switch that raises the default (an entity mode's capped
+    // "pinned" group persisting into uncapped time mode on the same mounted list), so the default
+    // acts as a floor. Legitimate writes always store >= the current default, so this only heals.
+    const configuredVisibleCount = Math.max(
+      groupVisibleCounts[group.id] ?? defaultGroupVisibleCount,
+      defaultGroupVisibleCount
+    )
     const visibleCount = Math.min(configuredVisibleCount, totalCount)
     const hasMore = !collapsed && visibleCount < totalCount
     const canCollapseToDefault = !collapsed && totalCount > defaultGroupVisibleCount && visibleCount >= totalCount
@@ -378,6 +389,8 @@ export type ResourceListProviderProps<T extends ResourceListItemBase> = {
   estimateItemSize?: (index: number) => number
   /** Row geometry for this list's items. Defaults to the compact single-line row. */
   rowLayout?: ResourceListRowLayout
+  /** Geometry for this list's structural rows (headers, empty states, show-more). Defaults to the standard chrome; time-ladder lists pass the taller bucket chrome. */
+  chromeRowLayout?: ResourceListRowLayout
   onSelectItem?: (id: string) => void
   onRenameItem?: (id: string, name: string) => void
   onGroupHeaderSelectItem?: (id: string) => void
@@ -575,6 +588,7 @@ export function ResourceListProvider<T extends ResourceListItemBase>({
   groupCollapseLabel,
   estimateItemSize: providedEstimateItemSize,
   rowLayout = DEFAULT_RESOURCE_LIST_ROW_LAYOUT,
+  chromeRowLayout = RESOURCE_LIST_CHROME_ROW_LAYOUT,
   onSelectItem,
   onRenameItem,
   onGroupHeaderSelectItem,
@@ -598,9 +612,11 @@ export function ResourceListProvider<T extends ResourceListItemBase>({
 
   const filterById = useMemo(() => new Map(filterOptions.map((option) => [option.id, option])), [filterOptions])
   const sortById = useMemo(() => new Map(sortOptions.map((option) => [option.id, option])), [sortOptions])
-  // A caller-supplied estimator means rows vary in height (measured virtualization); otherwise every
-  // row is exactly the declared layout size, which the virtualizer can use as a fixed-height hint.
-  const measuredItems = providedEstimateItemSize !== undefined
+  // Rows are measured (instead of pinned at one fixed height) whenever row heights genuinely vary:
+  // a caller-supplied estimator means rows vary on their own, and chrome taller than the item rows
+  // means header and item rows differ. Otherwise every row is exactly the declared layout size,
+  // which the virtualizer can use as a fixed-height hint.
+  const measuredItems = providedEstimateItemSize !== undefined || chromeRowLayout.size !== rowLayout.size
   const rowSize = rowLayout.size
   const estimateItemSize = useMemo(
     () => providedEstimateItemSize ?? (() => rowSize),
@@ -1043,22 +1059,24 @@ export function ResourceListProvider<T extends ResourceListItemBase>({
   return (
     <ResourceListUiStoreContext value={uiStore}>
       <ResourceListRowLayoutContext value={rowLayout}>
-        <ResourceListActionsContext value={actions}>
-          <ResourceListItemAccessorsContext
-            value={itemAccessors as unknown as ResourceListItemAccessors<ResourceListItemBase>}>
-            <ResourceListMetaContext value={meta as unknown as ResourceListMeta<ResourceListItemBase>}>
-              <ResourceListSourceItemsContext value={items}>
-                <ResourceListViewContext value={view}>
-                  <ResourceListControlsContext value={controlsState}>
-                    <ResourceListContext value={context as unknown as ResourceListContextValue<ResourceListItemBase>}>
-                      {children}
-                    </ResourceListContext>
-                  </ResourceListControlsContext>
-                </ResourceListViewContext>
-              </ResourceListSourceItemsContext>
-            </ResourceListMetaContext>
-          </ResourceListItemAccessorsContext>
-        </ResourceListActionsContext>
+        <ResourceListChromeLayoutContext value={chromeRowLayout}>
+          <ResourceListActionsContext value={actions}>
+            <ResourceListItemAccessorsContext
+              value={itemAccessors as unknown as ResourceListItemAccessors<ResourceListItemBase>}>
+              <ResourceListMetaContext value={meta as unknown as ResourceListMeta<ResourceListItemBase>}>
+                <ResourceListSourceItemsContext value={items}>
+                  <ResourceListViewContext value={view}>
+                    <ResourceListControlsContext value={controlsState}>
+                      <ResourceListContext value={context as unknown as ResourceListContextValue<ResourceListItemBase>}>
+                        {children}
+                      </ResourceListContext>
+                    </ResourceListControlsContext>
+                  </ResourceListViewContext>
+                </ResourceListSourceItemsContext>
+              </ResourceListMetaContext>
+            </ResourceListItemAccessorsContext>
+          </ResourceListActionsContext>
+        </ResourceListChromeLayoutContext>
       </ResourceListRowLayoutContext>
     </ResourceListUiStoreContext>
   )

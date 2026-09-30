@@ -11,7 +11,10 @@ import {
   renderAgentEntityIcon,
   resolveDefaultCollapsedGroupIds,
   ResourceList,
+  RESOURCE_LIST_BUCKET_CHROME_ROW_LAYOUT,
+  RESOURCE_LIST_ROW_LAYOUTS,
   type ResourceListGroup,
+  type ResourceListGroupHeaderClickBehavior,
   type ResourceListGroupHeaderKind,
   type ResourceListGroupSeed,
   type ResourceListItemReorderPayload,
@@ -151,7 +154,7 @@ const EMPTY_WORKSPACE_ROWS: AgentWorkspaceEntity[] = []
 // Let the context menu close before mounting the heavier offscreen message list.
 const IMAGE_CAPTURE_START_DELAY_MS = 160
 const DEFAULT_SESSION_GROUP_VISIBLE_COUNT = 5
-const LEFT_PANEL_TIME_SESSION_GROUP_VISIBLE_COUNT = 50
+const EMPTY_COLLAPSED_GROUP_IDS: readonly string[] = []
 
 type CreateSessionSeed = {
   agentId?: string | null
@@ -398,7 +401,6 @@ const Sessions = ({
   const resolvedPanePosition = panePosition ?? storedPanePosition
   const setResolvedPanePosition =
     panePosition === undefined ? (onSetPanePosition ?? setStoredPanePosition) : onSetPanePosition
-  const [sessionExpansionTime, setSessionExpansionTime] = usePersistCache('ui.agent.session.expansion.time')
   const [sessionExpansionAgent, setSessionExpansionAgent] = usePersistCache('ui.agent.session.expansion.agent')
   const [sessionExpansionWorkdir, setSessionExpansionWorkdir] = usePersistCache('ui.agent.session.expansion.workdir')
   const {
@@ -455,29 +457,13 @@ const Sessions = ({
     : sessionDisplayMode === 'workdir' || sessionDisplayMode === 'agent'
       ? sessionDisplayMode
       : 'time'
+  // Time mode is virtualized and uncapped, like the chat list; the draggable entity modes keep a
+  // tight per-group page so drag preparation stays proportional to what is on screen.
   const defaultGroupVisibleCount =
-    !isRightPanel && displayMode === 'time'
-      ? LEFT_PANEL_TIME_SESSION_GROUP_VISIBLE_COUNT
-      : DEFAULT_SESSION_GROUP_VISIBLE_COUNT
+    displayMode === 'time' ? Number.POSITIVE_INFINITY : DEFAULT_SESSION_GROUP_VISIBLE_COUNT
   const isDraggableMode = displayMode !== 'time'
-  const [rightPanelSessionExpansion, setRightPanelSessionExpansion] = useState<string[]>([])
-  const sessionExpansion = isRightPanel
-    ? rightPanelSessionExpansion
-    : displayMode === 'agent'
-      ? sessionExpansionAgent
-      : displayMode === 'workdir'
-        ? sessionExpansionWorkdir
-        : sessionExpansionTime
-
-  // Ref-guarded against <Activity> re-show: hide/show re-runs this effect with
-  // an unchanged filter, and the fresh [] would wipe the user's expansion state
-  // and force a re-render on every tab switch.
-  const rightPanelExpansionFilterRef = useRef(agentIdFilter)
-  useEffect(() => {
-    if (rightPanelExpansionFilterRef.current === agentIdFilter) return
-    rightPanelExpansionFilterRef.current = agentIdFilter
-    if (isRightPanel) setRightPanelSessionExpansion([])
-  }, [agentIdFilter, isRightPanel])
+  const sessionExpansion =
+    displayMode === 'agent' ? sessionExpansionAgent : displayMode === 'workdir' ? sessionExpansionWorkdir : undefined
 
   const dragReady = isDraggableMode && isFullyLoaded && !isLoadingAll && !isLoadingMore && !isValidating && !isLoading
   const {
@@ -717,12 +703,13 @@ const Sessions = ({
         agentById,
         labels: {
           pinned: t('selector.common.pinned_title'),
-          time: {
-            today: t('agent.session.group.today'),
-            yesterday: t('agent.session.group.yesterday'),
-            'this-week': t('agent.session.group.this_week'),
-            earlier: t('agent.session.group.earlier')
+          tiers: {
+            today: t('resourceList.time.today'),
+            yesterday: t('resourceList.time.yesterday'),
+            'seven-days': t('resourceList.time.7_days'),
+            'thirty-days': t('resourceList.time.30_days')
           },
+          invalid: t('resourceList.time.earlier'),
           agent: {
             unknown: t('agent.session.group.unknown_agent')
           },
@@ -737,7 +724,7 @@ const Sessions = ({
       }),
     [agentById, displayMode, groupNow, t, workdirDisplay]
   )
-  // Time mode only: "Earlier" above a list with nothing newer restates the list itself.
+  // Time mode only: a sole time group above a list with nothing newer restates the list itself.
   const sessionGroupByForDisplay = useMemo(
     () =>
       displayMode === 'time'
@@ -810,8 +797,12 @@ const Sessions = ({
   }, [agentsForDisplay, displayMode, filteredGroupedSessions, t, workdirDisplay, workspaceRowsForDisplay])
 
   const collapsedSessionState = useMemo(() => {
+    // Time-mode headers are labels, not controls — nothing can collapse, and the constant empty
+    // list keeps the provider's controlled-collapse path inert.
+    if (displayMode === 'time') return EMPTY_COLLAPSED_GROUP_IDS
+
     const resolvedSessionExpansion = resolveDefaultCollapsedGroupIds({
-      collapsedIds: sessionExpansion,
+      collapsedIds: sessionExpansion ?? null,
       groupBy: sessionGroupBy,
       items: filteredGroupedSessions
     })
@@ -828,16 +819,10 @@ const Sessions = ({
 
   const handleSessionCollapsedStateChange = useCallback(
     (nextCollapsedIds: string[]) => {
-      if (isRightPanel) {
-        setRightPanelSessionExpansion(nextCollapsedIds)
-        return
-      }
-
       if (displayMode === 'agent') setSessionExpansionAgent(nextCollapsedIds)
       else if (displayMode === 'workdir') setSessionExpansionWorkdir(nextCollapsedIds)
-      else setSessionExpansionTime(nextCollapsedIds)
     },
-    [displayMode, isRightPanel, setSessionExpansionAgent, setSessionExpansionTime, setSessionExpansionWorkdir]
+    [displayMode, setSessionExpansionAgent, setSessionExpansionWorkdir]
   )
 
   const handleDeleteSession = useCallback(
@@ -1531,8 +1516,12 @@ const Sessions = ({
     [setActiveSessionId]
   )
   const getGroupHeaderClickBehavior = useCallback(
-    (group: ResourceListGroup) =>
-      displayMode === 'agent' && group.id !== SESSION_PINNED_GROUP_ID ? 'select-first-then-toggle' : 'toggle',
+    (group: ResourceListGroup): ResourceListGroupHeaderClickBehavior => {
+      // Time-mode headers are plain labels, matching the chat list.
+      if (displayMode === 'time') return 'none'
+      if (displayMode === 'agent' && group.id !== SESSION_PINNED_GROUP_ID) return 'select-first-then-toggle'
+      return 'toggle'
+    },
     [displayMode]
   )
   const canDragSessionItem = useCallback(
@@ -2068,6 +2057,8 @@ const Sessions = ({
       sectionBy={sessionSectionBy}
       collapsedState={collapsedSessionState}
       revealRequest={revealRequest}
+      chromeRowLayout={displayMode === 'time' ? RESOURCE_LIST_BUCKET_CHROME_ROW_LAYOUT : undefined}
+      rowLayout={RESOURCE_LIST_ROW_LAYOUTS.conversation}
       defaultGroupVisibleCount={defaultGroupVisibleCount}
       groupLoadStep={Number.POSITIVE_INFINITY}
       getSectionHeaderAction={getSectionHeaderAction}

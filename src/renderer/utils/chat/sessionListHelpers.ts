@@ -6,13 +6,13 @@ import {
   composeResourceListGroupResolvers,
   createPinnedGroupResolver,
   createTimeGroupResolver,
-  getResourceTimeBucket,
   moveResourceListStringGroupAfterDrop,
+  resolveResourceTimeGroup,
   type ResourceListGroup,
   type ResourceListGroupReorderPayload,
   type ResourceListGroupResolver,
   type ResourceListItemReorderPayload,
-  type ResourceListTimeBucket,
+  type ResourceListTimeGroupLabels,
   sortRankedResourceItems,
   withResourceListGroupIdPrefix
 } from '@renderer/utils/chat/resourceListBase'
@@ -30,20 +30,20 @@ export type SessionDisplayAgent = {
 
 export type SessionDisplayGroupLabels = {
   pinned: string
-  time: Record<ResourceListTimeBucket, string>
-  agent: {
-    unknown: string
+} & ResourceListTimeGroupLabels & {
+    agent: {
+      unknown: string
+    }
+    workdir: {
+      none: string
+    }
   }
-  workdir: {
-    none: string
-  }
-}
 
 export type SessionDisplayGroupOptions = {
   agentById?: ReadonlyMap<string, SessionDisplayAgent>
   labels: SessionDisplayGroupLabels
   mode: AgentSessionDisplayMode
-  now?: Parameters<typeof getResourceTimeBucket>[1]
+  now?: Parameters<typeof resolveResourceTimeGroup>[1]
   pinnedAsSection?: boolean
   workdirDisplay?: SessionWorkdirDisplayMaps
 }
@@ -51,7 +51,7 @@ export type SessionDisplayGroupOptions = {
 export type SessionDisplaySortOptions = {
   agentRankById?: ReadonlyMap<string, number>
   mode: AgentSessionDisplayMode
-  now?: Parameters<typeof getResourceTimeBucket>[1]
+  now?: Parameters<typeof resolveResourceTimeGroup>[1]
   workdirDisplay?: Pick<SessionWorkdirDisplayMaps, 'groupIdByPath' | 'groupIdByWorkspaceId' | 'rankByGroupId'>
 }
 
@@ -69,13 +69,6 @@ export type SessionWorkdirDisplayMaps = {
   pathByGroupId: ReadonlyMap<string, string>
   rankByGroupId: ReadonlyMap<string, number>
   workspaceIdByGroupId: ReadonlyMap<string, string>
-}
-
-const SESSION_TIME_BUCKET_RANK: Record<ResourceListTimeBucket, number> = {
-  today: 1,
-  yesterday: 2,
-  'this-week': 3,
-  earlier: 4
 }
 
 export const SESSION_PINNED_GROUP_ID = 'session:pinned'
@@ -287,7 +280,7 @@ export function createSessionDisplayGroupResolver<T extends SessionListItem>({
         pinnedResolver,
         createTimeGroupResolver<T>({
           getTimestamp: (session) => session.lastActivityAt,
-          labels: labels.time,
+          labels,
           now
         })
       )
@@ -356,9 +349,7 @@ export function sortSessionsForDisplayGroups<T extends SessionListItem>(
   if (options.mode === 'time') {
     return sortRankedResourceItems(sessions, {
       getRank: (session) =>
-        session.pinned === true
-          ? 0
-          : SESSION_TIME_BUCKET_RANK[getResourceTimeBucket(session.lastActivityAt, options.now)],
+        session.pinned === true ? 0 : resolveResourceTimeGroup(session.lastActivityAt, options.now).rank,
       isPinned,
       compareWithinGroup: compareResourceRecency((session) => session.lastActivityAt)
     })
