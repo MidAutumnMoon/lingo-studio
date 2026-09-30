@@ -25,7 +25,6 @@ const mocks = vi.hoisted(() => ({
     messageFont: 'system',
     fontSize: 14,
     messageStyle: 'plain',
-    showMessageOutline: false
   }),
   EventEmitter: {
     on: vi.fn(() => vi.fn()),
@@ -57,7 +56,6 @@ const mocks = vi.hoisted(() => ({
       menubar
     </div>
   )),
-  MessageOutline: vi.fn(() => null),
   messageListActions: vi.fn(),
   messageListSelection: vi.fn(),
   messageListEditingId: vi.fn(),
@@ -215,7 +213,6 @@ vi.mock('../MessageListProvider', () => ({
       codeFancyBlock: true,
       thoughtAutoCollapse: true,
       mathEnableSingleDollar: false,
-      showMessageOutline: settings.showMessageOutline,
       multiModelMessageStyle: settings.multiModelMessageStyle,
       multiModelGridColumns: settings.gridColumns,
       multiModelGridPopoverTrigger: settings.gridPopoverTrigger
@@ -248,10 +245,6 @@ vi.mock('../frame/MessageHeader', () => ({
 
 vi.mock('../frame/MessageMenuBar', () => ({
   default: mocks.MessageMenuBar
-}))
-
-vi.mock('../frame/MessageOutline', () => ({
-  default: mocks.MessageOutline
 }))
 
 const { default: MessageGroup } = await import('../list/MessageGroup')
@@ -310,7 +303,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
     mocks.messageListActions.mockReturnValue({
       setActiveBranch: vi.fn(),
@@ -454,7 +446,6 @@ describe('MessageGroup', () => {
         messageFont: 'system',
         fontSize: 14,
         messageStyle: 'plain',
-        showMessageOutline: false
       })
       const messages = [
         createMessage('msg-1', 0, multiModelMessageStyle),
@@ -511,7 +502,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
     const messages = [
       createMessage('msg-1', 0, 'grid'),
@@ -534,7 +524,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
     const messages = [createMessage('msg-1', 0, 'grid'), createMessage('msg-2', 1, 'grid')]
 
@@ -553,7 +542,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
     const messages = [createMessage('msg-1', 0, 'fold'), createMessage('msg-2', 1, 'fold')]
 
@@ -602,7 +590,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'bubble',
-      showMessageOutline: false
     })
     const messages = [{ ...createMessage('msg-1', 0, 'vertical'), role: 'user' as const }]
 
@@ -619,7 +606,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'bubble',
-      showMessageOutline: false
     })
     const messages = [{ ...createMessage('msg-1', 0, 'vertical'), role: 'user' as const }]
 
@@ -888,7 +874,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
 
     const messages = [createMessage('msg-1', 0, 'vertical'), createMessage('msg-2', 1, 'vertical')]
@@ -927,7 +912,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
     const message = {
       ...createMessage('user-editing-1', 0, 'vertical'),
@@ -1053,7 +1037,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'bubble',
-      showMessageOutline: false
     })
     const message = {
       ...createMessage('user-bubble-editing-1', 0, 'vertical'),
@@ -1078,7 +1061,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'bubble',
-      showMessageOutline: false
     })
     const sender = { agentId: 'agent-a', sessionId: 'sender' }
     const message = {
@@ -1143,7 +1125,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
     mocks.messageListActions.mockReturnValue({
       updateMessageUiState: vi.fn()
@@ -1164,7 +1145,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
     const onMultiModelMessageStyleChange = vi.fn()
     const updateMessageUiState = vi.fn()
@@ -1198,7 +1178,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
     const updateMessageUiState = vi.fn()
     mocks.messageListActions.mockReturnValue({
@@ -1236,7 +1215,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
     const updateMessageUiState = vi.fn()
     mocks.messageListActions.mockReturnValue({
@@ -1280,7 +1258,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
     const setActiveBranch = vi.fn().mockResolvedValue(undefined)
     mocks.messageListActions.mockReturnValue({
@@ -1327,7 +1304,6 @@ describe('MessageGroup', () => {
       messageFont: 'system',
       fontSize: 14,
       messageStyle: 'plain',
-      showMessageOutline: false
     })
     mocks.messageListUiSelectors.mockReturnValue({
       getMessageUiState: (messageId: string) => ({ useful: messageId === 'model-a' })

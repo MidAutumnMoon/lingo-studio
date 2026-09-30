@@ -1,4 +1,4 @@
-import { type ComponentProps, lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ComponentProps, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { HtmlArtifactPopupHost } from '@renderer/components/chat/HtmlArtifactPopupContext'
 import { useChatLayoutMode } from '@renderer/components/chat/layout/ChatLayoutModeContext'
@@ -50,8 +50,6 @@ import { createStableAnchorMessagesCache, stableAnchorMessages } from './utils/s
 import { createStableGroupedMessagesCache, stableGroupedMessages } from './utils/stableGroupedMessages'
 
 const MULTI_SELECT_BOTTOM_PADDING_PX = 96
-const MESSAGE_OUTLINE_LAYOUTS: MultiModelMessageStyle[] = ['horizontal', 'vertical', 'fold', 'grid']
-const MessageOutline = lazy(() => import('./frame/MessageOutline'))
 /** Chat content's side padding — matches NarrowLayout's `px-6`, so the inline
  * override is invisible until the rail gutter adds onto it. */
 const CHAT_SIDE_PADDING_PX = 24
@@ -65,11 +63,6 @@ const RAIL_GUTTER_START_PX = 700
 const RAIL_GUTTER_FADE_PX = 120
 const EMPTY_LIVE_MESSAGE_IDS: readonly string[] = []
 const EMPTY_PARTS_BY_MESSAGE_ID: Record<string, CherryMessagePart[]> = {}
-
-interface ActiveMessageOutline {
-  messageId: string
-  multiModelMessageStyle: MultiModelMessageStyle
-}
 
 type TopicImageRuntimeAction = 'copy' | 'export'
 
@@ -100,10 +93,6 @@ function rejectPendingTopicImageActions(topicId: string, reason: unknown): void 
   for (const pendingAction of takePendingTopicImageActions(topicId)) {
     pendingAction.reject(reason)
   }
-}
-
-function getMessageElementLayout(element: HTMLElement): MultiModelMessageStyle {
-  return MESSAGE_OUTLINE_LAYOUTS.find((layout) => element.classList.contains(layout)) ?? 'fold'
 }
 
 type MessageGroupLayerProps = ComponentProps<typeof MessageGroup> & {
@@ -198,7 +187,6 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
   const { setTimeoutTimer } = useTimer()
   const isMultiSelectMode = selection?.isMultiSelectMode ?? false
   const selectedMessageIds = selection?.selectedMessageIds ?? []
-  const [activeOutline, setActiveOutline] = useState<ActiveMessageOutline | null>(null)
   const [activeAnchorMessageId, setActiveAnchorMessageId] = useState<string | null>(null)
   const bottomOverlayInsets = useChatBottomOverlayInset()
 
@@ -297,7 +285,6 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
     [getMessageUiState, groupLayoutOverrides, groupedMessages, isMultiSelectMode, renderConfig.multiModelMessageStyle]
   )
   const messageListNarrowMode = renderConfig.narrowMode && !useWideMessageLayout
-  const shouldTrackMessageOutline = renderConfig.showMessageOutline && !isMultiSelectMode
 
   useEffect(() => {
     setForceWideLayout(useWideMessageLayout)
@@ -360,94 +347,11 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
     return null
   }, [groupedMessages, messages])
 
-  const scrollToOutlineElement = useCallback((element: HTMLElement) => {
-    messageListRef.current?.scrollToElement(element)
-  }, [])
-
   const scrollToRange = useCallback((range: Range) => {
     messageListRef.current?.scrollToRange(range)
   }, [])
 
   const getOuterScroller = useCallback(() => messageListRef.current?.getScrollElement() ?? null, [])
-
-  const updateActiveMessageOutline = useCallback(() => {
-    if (!shouldTrackMessageOutline) {
-      setActiveOutline((current) => (current ? null : current))
-      return
-    }
-
-    const scrollElement = scrollContainerRef.current ?? messageListRef.current?.getScrollElement()
-    if (!scrollElement) {
-      setActiveOutline(null)
-      return
-    }
-
-    const containerRect = scrollElement.getBoundingClientRect()
-    const viewportCenter = containerRect.top + containerRect.height / 2
-    let bestMatch: { messageId: string; multiModelMessageStyle: MultiModelMessageStyle; distance: number } | null = null
-
-    for (const [messageId, element] of messageElements.current) {
-      const message = messageById.get(messageId)
-      if (!message) {
-        messageElements.current.delete(messageId)
-        continue
-      }
-      if (message.role !== 'assistant' || message.isContextBoundary) continue
-
-      if (!element.isConnected || !scrollElement.contains(element)) {
-        messageElements.current.delete(messageId)
-        continue
-      }
-
-      const rect = element.getBoundingClientRect()
-      const visibleHeight = Math.min(rect.bottom, containerRect.bottom) - Math.max(rect.top, containerRect.top)
-      if (visibleHeight <= 0) continue
-
-      const distance =
-        rect.top <= viewportCenter && rect.bottom >= viewportCenter
-          ? 0
-          : Math.min(Math.abs(rect.top - viewportCenter), Math.abs(rect.bottom - viewportCenter))
-
-      if (!bestMatch || distance < bestMatch.distance) {
-        bestMatch = {
-          messageId: message.id,
-          multiModelMessageStyle: getMessageElementLayout(element),
-          distance
-        }
-      }
-    }
-
-    setActiveOutline((current) => {
-      if (
-        current?.messageId === bestMatch?.messageId &&
-        current?.multiModelMessageStyle === bestMatch?.multiModelMessageStyle
-      ) {
-        return current
-      }
-      return bestMatch
-        ? {
-            messageId: bestMatch.messageId,
-            multiModelMessageStyle: bestMatch.multiModelMessageStyle
-          }
-        : null
-    })
-  }, [messageById, shouldTrackMessageOutline])
-  const updateActiveMessageOutlineRef = useRef(updateActiveMessageOutline)
-  updateActiveMessageOutlineRef.current = updateActiveMessageOutline
-  const activeMessageOutlineFrameRef = useRef<number | null>(null)
-  const requestActiveMessageOutlineUpdate = useCallback(() => {
-    if (activeMessageOutlineFrameRef.current !== null) return
-
-    activeMessageOutlineFrameRef.current = requestAnimationFrame(() => {
-      activeMessageOutlineFrameRef.current = null
-      updateActiveMessageOutlineRef.current()
-    })
-  }, [])
-  const cancelActiveMessageOutlineUpdate = useCallback(() => {
-    if (activeMessageOutlineFrameRef.current === null) return
-    cancelAnimationFrame(activeMessageOutlineFrameRef.current)
-    activeMessageOutlineFrameRef.current = null
-  }, [])
 
   const shouldTrackAnchorPosition = messageNavigation === 'anchor'
 
@@ -669,32 +573,6 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
   }, [flushPendingTopicImageAction, groupedMessages])
 
   useEffect(() => {
-    if (shouldTrackMessageOutline) {
-      requestActiveMessageOutlineUpdate()
-      return
-    }
-    cancelActiveMessageOutlineUpdate()
-    setActiveOutline((current) => (current ? null : current))
-  }, [cancelActiveMessageOutlineUpdate, groupedMessages, requestActiveMessageOutlineUpdate, shouldTrackMessageOutline])
-
-  useEffect(() => cancelActiveMessageOutlineUpdate, [cancelActiveMessageOutlineUpdate])
-
-  useEffect(() => {
-    if (!shouldTrackMessageOutline) return
-    const scrollElement = messageListRef.current?.getScrollElement()
-    if (!scrollElement) return
-
-    const handleOutlineUpdate = requestActiveMessageOutlineUpdate
-    scrollElement.addEventListener('scroll', handleOutlineUpdate, { passive: true })
-    window.addEventListener('resize', handleOutlineUpdate)
-
-    return () => {
-      scrollElement.removeEventListener('scroll', handleOutlineUpdate)
-      window.removeEventListener('resize', handleOutlineUpdate)
-    }
-  }, [data.isInitialLoading, data.listKey, requestActiveMessageOutlineUpdate, shouldTrackMessageOutline, topic.id])
-
-  useEffect(() => {
     if (!shouldTrackAnchorPosition) {
       setActiveAnchorMessageId((current) => (current ? null : current))
       return
@@ -763,9 +641,6 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
     return <MessageListInitialLoading />
   }
 
-  const activeOutlineMessage = activeOutline
-    ? messages.find((message) => message.id === activeOutline.messageId)
-    : undefined
   const defaultBottomPadding = isMultiSelectMode
     ? MULTI_SELECT_BOTTOM_PADDING_PX
     : MESSAGE_VIRTUAL_LIST_DEFAULT_BOTTOM_PADDING_PX
@@ -898,16 +773,6 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
           railOpacity={railGutterPx / RAIL_GUTTER_MAX_PX}
           scrollToMessageId={scrollToMessageById}
         />
-      )}
-      {activeOutline && activeOutlineMessage && (
-        <Suspense fallback={null}>
-          <MessageOutline
-            getMessageElement={getMessageElement}
-            message={activeOutlineMessage}
-            multiModelMessageStyle={activeOutline.multiModelMessageStyle}
-            onNavigateToElement={scrollToOutlineElement}
-          />
-        </Suspense>
       )}
       {messageNavigation === 'buttons' && (
         <MessageNavigation

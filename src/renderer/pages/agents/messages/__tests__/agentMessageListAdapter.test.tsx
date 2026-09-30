@@ -115,7 +115,6 @@ vi.mock('@renderer/components/chat/messages/hooks/useMessageListRenderConfig', (
       codeFancyBlock: true,
       thoughtAutoCollapse: true,
       mathEnableSingleDollar: false,
-      showMessageOutline: false,
       multiModelMessageStyle: 'horizontal',
       multiModelGridColumns: 2,
       multiModelGridPopoverTrigger: 'click'

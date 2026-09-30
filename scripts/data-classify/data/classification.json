@@ -2314,9 +2314,9 @@
           "originalKey": "showMessageOutline",
           "type": "boolean",
           "defaultValue": false,
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "chat.message.show_outline"
+          "status": "deleted",
+          "category": null,
+          "targetKey": null
         }
       ],
       "shortcuts": [

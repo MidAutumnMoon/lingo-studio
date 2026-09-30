@@ -158,7 +158,7 @@ function TopicMessageFlowNodePreviewCard({
         <MessageContentProvider
           messages={messageItems}
           partsByMessageId={partsByMessageId}
-          renderConfig={{ narrowMode: false, showMessageOutline: false }}>
+          renderConfig={{ narrowMode: false }}>
           <div className={cn('min-w-0', bodySmTypographyClassName)}>
             <MessageContent message={previewMessage} />
           </div>

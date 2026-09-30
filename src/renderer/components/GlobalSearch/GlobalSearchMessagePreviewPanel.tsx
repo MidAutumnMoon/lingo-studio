@@ -424,7 +424,7 @@ export function GlobalSearchMessagePreviewPanel({
           messages={messageItems}
           partsByMessageId={partsByMessageId}
           topic={previewTopic}
-          renderConfig={{ narrowMode: false, showMessageOutline: false }}>
+          renderConfig={{ narrowMode: false }}>
           <DynamicVirtualList
             ref={virtualListRef}
             list={messageItems}

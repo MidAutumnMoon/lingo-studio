@@ -260,7 +260,6 @@ export interface MessageRenderConfig {
   thoughtAutoCollapse: boolean
   collapseCompletedToolHistory: boolean
   mathEnableSingleDollar: boolean
-  showMessageOutline: boolean
   showEstimatedTokens: boolean
   multiModelMessageStyle: MultiModelMessageStyle
   multiModelGridColumns: number
@@ -278,7 +277,6 @@ export const defaultMessageRenderConfig: MessageRenderConfig = {
   thoughtAutoCollapse: true,
   collapseCompletedToolHistory: true,
   mathEnableSingleDollar: false,
-  showMessageOutline: false,
   showEstimatedTokens: false,
   multiModelMessageStyle: 'horizontal',
   multiModelGridColumns: 2,

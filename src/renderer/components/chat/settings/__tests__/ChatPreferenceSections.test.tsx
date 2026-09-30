@@ -25,7 +25,6 @@ const mocks = vi.hoisted(() => ({
     'chat.input.paste_long_text_as_file': false,
     'chat.input.paste_long_text_threshold': 1500,
     'chat.message.render_as_markdown': false,
-    'chat.message.show_outline': false,
     'chat.code.show_line_numbers': false,
     'chat.code.collapsible': false,
     'chat.code.wrappable': false,
@@ -130,7 +129,7 @@ describe('ChatPreferenceSections', () => {
     expect(screen.queryByText('settings.math.engine.label')).toBeNull()
     expect(screen.getByText('settings.math.single_dollar.label')).toBeInTheDocument()
     expect(screen.getByText('chat.settings.code_fancy_block.label')).toBeInTheDocument()
-    expect(screen.getByText('settings.messages.show_message_outline')).toBeInTheDocument()
+    expect(screen.queryByText('settings.messages.show_message_outline')).toBeNull()
     expect(screen.getByText('message.message.multi_model_style.label')).toBeInTheDocument()
     expect(screen.getByText('settings.messages.input.show_estimated_tokens')).toBeInTheDocument()
     expect(screen.queryByText('settings.messages.input.enable_quick_triggers')).toBeNull()

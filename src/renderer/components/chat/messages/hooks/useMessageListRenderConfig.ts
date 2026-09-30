@@ -13,7 +13,6 @@ export function useMessageListRenderConfig() {
   const [codeFancyBlock] = usePreference('chat.code.fancy_block')
   const [thoughtAutoCollapse] = usePreference('chat.message.thought.auto_collapse')
   const [mathEnableSingleDollar] = usePreference('chat.message.math.single_dollar')
-  const [showMessageOutline] = usePreference('chat.message.show_outline')
   const [showEstimatedTokens] = usePreference('chat.input.show_estimated_tokens')
   const [multiModelMessageStyle] = usePreference('chat.message.multi_model.style')
   const [multiModelGridColumns, setMultiModelGridColumns] = usePreference('chat.message.multi_model.grid_columns')
@@ -33,7 +32,6 @@ export function useMessageListRenderConfig() {
       thoughtAutoCollapse,
       collapseCompletedToolHistory: true,
       mathEnableSingleDollar,
-      showMessageOutline,
       showEstimatedTokens,
       multiModelMessageStyle,
       multiModelGridColumns,
@@ -51,7 +49,6 @@ export function useMessageListRenderConfig() {
       narrowMode,
       renderInputMessageAsMarkdown,
       showEstimatedTokens,
-      showMessageOutline,
       thoughtAutoCollapse,
       userName
     ]

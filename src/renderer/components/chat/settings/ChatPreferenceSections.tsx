@@ -88,7 +88,6 @@ const ChatPreferenceSections: FC<ChatPreferenceSectionsProps> = ({ sectionClassN
   const [renderInputMessageAsMarkdown, setRenderInputMessageAsMarkdown] = usePreference(
     'chat.message.render_as_markdown'
   )
-  const [showMessageOutline, setShowMessageOutline] = usePreference('chat.message.show_outline')
   const [codeShowLineNumbers, setCodeShowLineNumbers] = usePreference('chat.code.show_line_numbers')
   const [codeCollapsible, setCodeCollapsible] = usePreference('chat.code.collapsible')
   const [codeWrappable, setCodeWrappable] = usePreference('chat.code.wrappable')
@@ -353,14 +352,6 @@ const ChatPreferenceSections: FC<ChatPreferenceSectionsProps> = ({ sectionClassN
               onCheckedChange={setThoughtAutoCollapse}
               label={t('chat.settings.thought_auto_collapse.label')}
               hint={t('chat.settings.thought_auto_collapse.tip')}
-            />
-          </SettingRow>
-          <SettingDivider />
-          <SettingRow id="setting-appearance-show-message-outline" className="scroll-mt-6">
-            <SettingSwitch
-              checked={showMessageOutline}
-              onCheckedChange={(checked) => setShowMessageOutline(checked)}
-              label={t('settings.messages.show_message_outline')}
             />
           </SettingRow>
           <SettingDivider />

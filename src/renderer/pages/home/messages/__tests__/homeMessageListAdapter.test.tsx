@@ -173,7 +173,6 @@ vi.mock('@renderer/components/chat/messages/hooks/useMessageListRenderConfig', (
       fontSize: 14,
       multiModelMessageStyle: 'horizontal',
       narrowMode: false,
-      showMessageOutline: false
     },
     updateRenderConfig: vi.fn()
   })

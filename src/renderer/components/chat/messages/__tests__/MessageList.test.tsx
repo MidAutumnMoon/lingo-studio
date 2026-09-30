@@ -34,7 +34,6 @@ const messageVirtualListMocks = vi.hoisted(() => ({
 const messageGroupRenderCounts = vi.hoisted(() => new Map<string, number>())
 const messageGroupMountCounts = vi.hoisted(() => new Map<string, number>())
 const messageCaptureProbes = vi.hoisted(() => new Map<string, () => Promise<string | undefined>>())
-const messageOutlineModule = vi.hoisted(() => ({ loaded: false }))
 const messageListSearchMock = vi.hoisted(() => ({
   props: null as {
     messages: MessageListItem[]
@@ -143,14 +142,6 @@ vi.mock('../layout/NarrowLayout', () => ({
     return <div {...props}>{children}</div>
   }
 }))
-
-vi.mock('../frame/MessageOutline', () => {
-  messageOutlineModule.loaded = true
-  return {
-    __esModule: true,
-    default: () => null
-  }
-})
 
 vi.mock('../layout/MessageListLoading', () => ({
   MessageListInitialLoading: () => <div data-testid="message-list-loading" />
@@ -428,12 +419,6 @@ describe('MessageList', () => {
     messageListSearchMock.props = null
     chatLayoutModeMock.railGutterPx = 0
     chatLayoutModeMock.setRailGutterPx.mockReset()
-  })
-
-  it('does not load the message outline module while outline is disabled', () => {
-    renderMessageList([createMessage('assistant-1', 'assistant')])
-
-    expect(messageOutlineModule.loaded).toBe(false)
   })
 
   it('exposes a stable message-list boundary', () => {
