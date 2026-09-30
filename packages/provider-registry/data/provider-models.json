@@ -22065,6 +22065,31 @@
       "supportsFastMode": true
     },
     {
+      "apiModelId": "gpt-6.1-sol",
+      "endpointTypes": ["openai-responses"],
+      "limits": {
+        "contextWindow": 272000,
+        "maxInputTokens": 144000
+      },
+      "modelId": "gpt-6-1-sol",
+      "providerId": "openai-codex",
+      "reasoningContracts": {
+        "openai-responses": {
+          "support": {
+            "controls": [
+              {
+                "default": "low",
+                "kind": "effort",
+                "values": ["low", "medium", "high", "xhigh", "max"]
+              }
+            ],
+            "defaultEffort": "low"
+          }
+        }
+      },
+      "supportsFastMode": true
+    },
+    {
       "apiModelId": "gpt-6-astra",
       "endpointTypes": ["openai-responses"],
       "limits": {
@@ -42792,5 +42817,5 @@
       "providerId": "zhipu"
     }
   ],
-  "version": "6c9f2b253ec2d162"
+  "version": "95938af3fbb2576a"
 }
