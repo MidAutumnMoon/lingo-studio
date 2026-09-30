@@ -46,6 +46,10 @@ On a merge/rebase conflict with an upstream migration: **delete your local `.sql
 
 ⚠️ **`drizzle-kit generate` exits `0` even on a forked chain** — it can never be your integrity check. Only `pnpm db:migrations:check` detects a duplicate/forked chain. CI runs **both** (chain-check + a generate-and-diff drift gate). **Local `pnpm lint` / `pnpm test` / `pnpm build:check` run neither** — chain forks and schema↔migration drift are invisible until CI, so regenerate + commit before pushing.
 
+### migrations run with `foreign_keys = OFF`
+
+`applyMigrations` runs `migrate()` inside `PRAGMA foreign_keys = OFF` (so table-rebuild migrations don't cascade-delete children through old FKs). Consequence for hand-edited **data** migrations: `ON DELETE` actions never fire — deleting parent rows must delete children explicitly in the same migration, or the children survive as orphans that the boot-time `foreign_key_check` reports on every start (0027's agent deletions hit exactly this; `AgentOrphanRowCleanupSeeder` removed the orphans afterward).
+
 ### Additive vs table-rebuild
 
 drizzle decides automatically; your lever is schema design. A rebuild copies every row via `INSERT...SELECT`, **does not backfill** existing rows (legacy NULLs need a hand-edited `COALESCE` in the rebuild SQL), and drops attached triggers (§3).

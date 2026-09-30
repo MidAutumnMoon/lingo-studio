@@ -1,4 +1,5 @@
 import type { ISeeder } from '../types'
+import { AgentOrphanRowCleanupSeeder } from './seeders/AgentOrphanRowCleanupSeeder'
 import { AssistantSidebarShortcutCleanupSeeder } from './seeders/AssistantSidebarShortcutCleanupSeeder'
 import { BrowserCapabilityUpgradeSeeder } from './seeders/browserCapabilityUpgradeSeeder'
 import { BuiltinMcpServerSeeder } from './seeders/builtinMcpServerSeeder'
@@ -31,6 +32,7 @@ export const seeders: ISeeder[] = [
   new WebSearchPreferenceUpgradeSeeder(),
   new SidebarShortcutMigrationSeeder(),
   new AssistantSidebarShortcutCleanupSeeder(),
+  new AgentOrphanRowCleanupSeeder(),
   new PreferenceSeeder(),
   new TranslateLanguageSeeder(),
   new PresetProviderSeeder(),
