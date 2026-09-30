@@ -183,10 +183,16 @@ describe('MessageAnchorLine', () => {
     expect(container.querySelectorAll('[data-message-anchor-tick]')).toHaveLength(5)
   })
 
-  it('renders nothing with fewer than five turns — no anchoring needed', () => {
-    const { container } = renderRail({ messages: messages.slice(0, 5) })
+  it('renders nothing with a single turn — everything is on screen', () => {
+    const { container } = renderRail({ messages: messages.slice(0, 2) })
 
     expect(container.firstElementChild).toBeNull()
+  })
+
+  it('renders the rail from two turns up', () => {
+    const { container } = renderRail({ messages: messages.slice(0, 5) })
+
+    expect(container.querySelectorAll('[data-message-anchor-tick]')).toHaveLength(2)
   })
 
   it('marks the turn containing the active message', () => {
@@ -311,6 +317,12 @@ describe('MessageAnchorLine', () => {
 
       openFlyout(container)
       expect(container.querySelectorAll('[data-message-anchor-row]')).toHaveLength(5)
+
+      // The list hugs its content — vertically centred on the rail and capped
+      // at its height, never stretched to fill it.
+      const flyout = container.querySelector<HTMLElement>('nav')
+      expect(flyout).toHaveClass('max-h-full', 'top-1/2')
+      expect(flyout).not.toHaveClass('bottom-0')
 
       fireEvent.mouseLeave(container.firstElementChild as HTMLElement)
       expect(container.querySelector('[data-message-anchor-row]')).toBeNull()

@@ -52,8 +52,8 @@ const RAIL_MIN_EDGE_MARGIN_PX = 24
 const RAIL_TICK_PITCH_PX = 10
 /** Length of the fade applied to whichever end still has ticks scrolled past it. */
 const RAIL_FADE_PX = 44
-/** With fewer turns there is nothing worth anchoring — the rail stays hidden. */
-const RAIL_MIN_TURNS = 5
+/** A single turn needs no anchor — everything is on screen. */
+const RAIL_MIN_TURNS = 2
 /** Width of the hover-revealed turn list. */
 const FLYOUT_WIDTH_PX = 320
 const EMPTY_MESSAGE_PARTS: CherryMessagePart[] = []
@@ -328,12 +328,13 @@ const MessageAnchorFlyout: FC<MessageAnchorFlyoutProps> = ({
   return (
     // The list is a child of the rail strip's wrapper positioned flush against
     // its left edge (right-full), so the pointer travels from ticks to rows
-    // without leaving the wrapper's hover scope.
+    // without leaving the wrapper's hover scope. It hugs its content and is
+    // vertically centred on the rail, capped at the rail's full height.
     <nav
       aria-label={t('chat.navigation.flyout.label')}
-      className="absolute top-0 right-full bottom-0 z-30 flex flex-col rounded-xl border-[0.5px] border-border bg-popover text-popover-foreground shadow-lg"
+      className="absolute top-1/2 right-full z-30 flex max-h-full -translate-y-1/2 flex-col rounded-xl border-[0.5px] border-border bg-popover text-popover-foreground shadow-lg"
       style={{ width: FLYOUT_WIDTH_PX }}>
-      <div ref={listRef} className="flex flex-col gap-0.5 overflow-y-auto p-1.5">
+      <div ref={listRef} className="flex min-h-0 flex-col gap-0.5 overflow-y-auto p-1.5">
         {turns.map((turn, index) => {
           const isActive = index === activeTurnIndex
           return (
