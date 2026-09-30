@@ -23,7 +23,7 @@ export const ipcRequestSchemas = { ...windowRequestSchemas, ...appRequestSchemas
 export type IpcRequestSchemas = typeof ipcRequestSchemas
 export type IpcRoute = keyof IpcRequestSchemas
 
-export type IpcEventSchemas = WindowEventSchemas & AppEventSchemas
+export type IpcEventSchemas = WindowEventSchemas & NotificationEventSchemas
 export type IpcEventName = keyof IpcEventSchemas
 ```
 

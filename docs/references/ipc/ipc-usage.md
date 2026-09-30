@@ -124,7 +124,7 @@ export type SystemEventSchemas = {
 Register it in the composition (`schemas/ipcSchemas.ts`):
 
 ```ts
-export type IpcEventSchemas = SystemEventSchemas & AppEventSchemas
+export type IpcEventSchemas = SystemEventSchemas & WindowEventSchemas & /* …one entry per domain that has events… */
 ```
 
 ### 2. Emit from a main service

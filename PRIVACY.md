@@ -14,7 +14,7 @@ To ensure the proper functioning of the Software, optimize user experience, and 
 
 This information is collected by default to ensure the basic functionality, security, and version compatibility of the Software:
 
-- Software version information: Used for version compatibility checks and security update delivery;
+- Software version information: Used for version compatibility checks;
 - Aggregated feature usage information: Overall usage summaries of various features (excluding specific behavioral details).
 
 ### (2) Product Improvement Information
@@ -26,7 +26,7 @@ To continuously improve the product experience, we collect the following informa
 
 The above information is highly aggregated anonymous data and does not involve your conversation content, API Keys, or any personally identifiable information.
 
-**How to Disable:** You may disable the collection of both categories of information at any time through the corresponding toggles under [Settings] - [Data Settings] - [Privacy Settings]. Disabling these options will not affect the core functionality of the Software. If you disable the collection of Basic Operational Information, you may not receive version compatibility notices and security update notifications in a timely manner.
+**How to Disable:** You may disable the collection of both categories of information at any time through the corresponding toggles under [Settings] - [Data Settings] - [Privacy Settings]. Disabling these options will not affect the core functionality of the Software. If you disable the collection of Basic Operational Information, you may not receive version compatibility notices in a timely manner.
 
 ### (3) Our Commitments
 
