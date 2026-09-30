@@ -183,16 +183,20 @@ describe('MessageAnchorLine', () => {
     expect(container.querySelectorAll('[data-message-anchor-tick]')).toHaveLength(5)
   })
 
-  it('renders nothing with a single turn — everything is on screen', () => {
+  it('renders the rail from a single turn on', () => {
     const { container } = renderRail({ messages: messages.slice(0, 2) })
 
-    expect(container.firstElementChild).toBeNull()
+    expect(container.querySelectorAll('[data-message-anchor-tick]')).toHaveLength(1)
   })
 
-  it('renders the rail from two turns up', () => {
-    const { container } = renderRail({ messages: messages.slice(0, 5) })
+  it('renders nothing for a conversation of only context boundaries', () => {
+    const boundaryOnly = [
+      makeMessage({ id: 'clear-1', role: 'user', isContextBoundary: true }),
+      makeMessage({ id: 'clear-2', role: 'user', isContextBoundary: true })
+    ]
+    const { container } = renderRail({ messages: boundaryOnly })
 
-    expect(container.querySelectorAll('[data-message-anchor-tick]')).toHaveLength(2)
+    expect(container.firstElementChild).toBeNull()
   })
 
   it('marks the turn containing the active message', () => {
@@ -424,9 +428,9 @@ describe('MessageAnchorLine', () => {
       expect(view.getByText('Live answer two')).toBeInTheDocument()
     })
 
-    it('stops extracting a historical preview at the visible character limit', () => {
+    it('stops extracting a historical preview at the extraction cap', () => {
       restoreGeometry = installRailGeometry({ scrollHeight: RAIL_VIEWPORT_PX, clientHeight: RAIL_VIEWPORT_PX })
-      const preview = 'x'.repeat(240)
+      const preview = 'x'.repeat(160)
       const historyPartsByMessageId = {
         'user-2': [
           textPart(preview),

@@ -188,8 +188,7 @@ const MessageList = ({ enableSearch = false, scrollPositionKey }: MessageListPro
 
   // The gutter follows only the width (and the anchor preference) — NOT the turn
   // count. With anchor navigation on, a wide window always yields the gutter, so
-  // when the conversation grows past the rail's turn threshold the rail simply
-  // fades into space that was already there, with no content jump.
+  // the rail simply fades into space that was already there, with no content jump.
 
   const messageListRef = useRef<MessageVirtualListHandle | null>(null)
   const messageListScopeRef = useRef<HTMLDivElement | null>(null)

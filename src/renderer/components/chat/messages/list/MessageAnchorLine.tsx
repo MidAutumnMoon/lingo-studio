@@ -41,7 +41,7 @@ interface MessageLineProps {
   scrollToMessageId?: (messageId: string) => void
 }
 
-const TICK_BASE_WIDTH = 6
+const TICK_WIDTH_PX = 9
 /** Below this usable height the rail is cramped, so hide it. */
 const RAIL_MIN_HEIGHT_PX = 220
 /** Fixed minimum gap kept above the first and below the last tick — the ticks
@@ -52,10 +52,8 @@ const RAIL_MIN_EDGE_MARGIN_PX = 24
 const RAIL_TICK_PITCH_PX = 10
 /** Length of the fade applied to whichever end still has ticks scrolled past it. */
 const RAIL_FADE_PX = 44
-/** A single turn needs no anchor — everything is on screen. */
-const RAIL_MIN_TURNS = 2
 /** Width of the hover-revealed turn list. */
-const FLYOUT_WIDTH_PX = 320
+const FLYOUT_WIDTH_PX = 300
 const EMPTY_MESSAGE_PARTS: CherryMessagePart[] = []
 
 const MessageAnchorLine = memo(function MessageAnchorLine({
@@ -134,10 +132,10 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
     if (!visible) setIsFlyoutOpen(false)
   }, [visible])
 
-  // Few messages don't need anchoring. Only the rail is gated — the content's
-  // gutter (MessageList) follows width alone, so when the turn count crosses
-  // this threshold the rail fades into space that already exists, with no jump.
-  const hasRail = turns.length >= RAIL_MIN_TURNS
+  // The rail renders from the first turn on. Only the rail is gated — the
+  // content's gutter (MessageList) follows width alone, so the rail always
+  // fades into space that already exists, with no jump.
+  const hasRail = turns.length > 0
 
   // Keep the strip's reading anchor stable across async page loads:
   // • on entry, start at the bottom — the user enters at the newest turn;
@@ -263,10 +261,10 @@ const MessageAnchorLine = memo(function MessageAnchorLine({
                 onClick={() => scrollToMessageId?.(turn.anchorId)}>
                 <div
                   className={classNames(
-                    'h-[1.5px] rounded-full transition-colors duration-150',
+                    'h-0.5 shrink-0 rounded-full transition-colors duration-150',
                     isActive ? 'bg-foreground' : 'bg-border-strong'
                   )}
-                  style={{ width: TICK_BASE_WIDTH }}
+                  style={{ width: TICK_WIDTH_PX }}
                 />
               </button>
             )
@@ -351,7 +349,7 @@ const MessageAnchorFlyout: FC<MessageAnchorFlyoutProps> = ({
                 messageId={turn.userMessageId}
                 historyPartsByMessageId={historyPartsByMessageId}
                 liveMessageIdSet={liveMessageIdSet}
-                className="line-clamp-2 text-sm font-medium break-all text-foreground"
+                className="line-clamp-1 text-[13px] leading-5 font-medium break-all text-foreground"
                 fallback={
                   turn.userMessageId ? t('chat.navigation.flyout.empty_user') : t('chat.navigation.flyout.agent_turn')
                 }
@@ -361,7 +359,7 @@ const MessageAnchorFlyout: FC<MessageAnchorFlyoutProps> = ({
                 messageId={turn.assistantMessageId}
                 historyPartsByMessageId={historyPartsByMessageId}
                 liveMessageIdSet={liveMessageIdSet}
-                className="line-clamp-2 text-sm leading-5 break-all text-muted-foreground"
+                className="line-clamp-1 text-[13px] leading-5 break-all text-muted-foreground"
               />
             </button>
           )

@@ -9,13 +9,13 @@ const textPart = (text: string): CherryMessagePart => ({ type: 'text', text })
 const filePart = (mediaType: string): CherryMessagePart => ({ type: 'file', mediaType, url: 'file:///x' })
 
 describe('getTurnPreview', () => {
-  it('joins text parts and caps the preview at 240 characters', () => {
-    const a = 'x'.repeat(200)
-    const b = 'y'.repeat(200)
+  it('joins text parts and caps the preview at 160 characters', () => {
+    const a = 'x'.repeat(100)
+    const b = 'y'.repeat(100)
     const preview = getTurnPreview([textPart(a), textPart(b)])
 
-    expect(preview.text).toBe(`${a}\n\n${'y'.repeat(38)}`)
-    expect(preview.text).toHaveLength(240)
+    expect(preview.text).toBe(`${a}\n\n${'y'.repeat(58)}`)
+    expect(preview.text).toHaveLength(160)
   })
 
   it('stops reading parts once the cap is reached', () => {
@@ -25,9 +25,9 @@ describe('getTurnPreview', () => {
         throw new Error('preview extraction read past its limit')
       }
     } as CherryMessagePart
-    const preview = getTurnPreview([textPart('x'.repeat(240)), beyond])
+    const preview = getTurnPreview([textPart('x'.repeat(160)), beyond])
 
-    expect(preview.text).toHaveLength(240)
+    expect(preview.text).toHaveLength(160)
   })
 
   it('shows composer token markers instead of the substituted prompt text', () => {
