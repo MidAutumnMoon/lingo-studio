@@ -199,7 +199,15 @@ const TranslatePage: FC = () => {
   const [isDetecting, setIsDetecting] = useCache('translate.detecting')
 
   // Every output write goes through smoothReset: a direct setTranslateOutput is replayed over by the queue's next frame.
-  const { reset: smoothReset, update: smoothUpdate } = useSmoothStream({ onUpdate: setTranslateOutput })
+  const { reset: resetOutputStream, update: smoothUpdate } = useSmoothStream({ onUpdate: setTranslateOutput })
+  const [outputRevision, setOutputRevision] = useState(0)
+  const smoothReset = useCallback(
+    (text = '') => {
+      setOutputRevision((revision) => revision + 1)
+      resetOutputStream(text)
+    },
+    [resetOutputStream]
+  )
   const {
     translate: runTranslate,
     isTranslating,
@@ -991,6 +999,7 @@ const TranslatePage: FC = () => {
                       ocrRequired: pdfTextOcrRequired,
                       content: (
                         <TranslateOutputPane
+                          key={outputRevision}
                           ref={outputTextRef}
                           translatedContent={translateOutput}
                           enableMarkdown={enableMarkdown}
@@ -1037,6 +1046,7 @@ const TranslatePage: FC = () => {
             </section>
             <section className="flex min-h-0 min-w-0 flex-col border-border-subtle border-l">
               <TranslateOutputPane
+                key={outputRevision}
                 ref={outputTextRef}
                 translatedContent={translateOutput}
                 enableMarkdown={enableMarkdown}
