@@ -17,6 +17,8 @@ export interface StreamingMarkdownProps {
   className?: string
   footnoteLabel?: string
   parseIncompleteMarkdown?: boolean
+  /** Animate newly rendered words with a CSS reveal; only while streaming. */
+  animated?: boolean
   /** Keep custom syntax intact when splitting the stream into renderable blocks. */
   parseMarkdownIntoBlocksFn?: (source: string) => string[]
   /** Preserve local file hrefs for a custom anchor while retaining URL hardening. */
@@ -34,6 +36,7 @@ export function StreamingMarkdown({
   className,
   footnoteLabel,
   parseIncompleteMarkdown = true,
+  animated,
   parseMarkdownIntoBlocksFn,
   preserveFileLinkHrefs
 }: StreamingMarkdownProps): ReactElement {
@@ -42,6 +45,7 @@ export function StreamingMarkdown({
       id={id}
       mode="streaming"
       parseIncompleteMarkdown={parseIncompleteMarkdown}
+      animated={animated}
       parseMarkdownIntoBlocksFn={parseMarkdownIntoBlocksFn}
       components={components}
       plugins={plugins}

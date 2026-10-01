@@ -343,37 +343,33 @@ describe('MainTextBlock', () => {
       expect(capturedChatMarkdownProps.at(-1)?.linkifyFilePaths).toBe(false)
     })
 
-    it('keeps inline HTML generating until smoothed content reaches the completed source', () => {
-      const requestAnimationFrameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1)
+    it('keeps inline HTML generating while streaming even once the preview is ready', () => {
       const view = render(
         <MainTextBlock
           id="html-block"
-          content="```html\n<div>"
-          inlineHtmlPreviewMode="generating"
+          content="```html\n<div>Complete</div>\n```"
+          inlineHtmlPreviewMode="ready"
           isStreaming
           role="assistant"
         />
       )
 
-      try {
-        view.rerender(
-          <MainTextBlock
-            id="html-block"
-            content="```html\n<div>Complete</div>\n```"
-            inlineHtmlPreviewMode="ready"
-            isStreaming={false}
-            role="assistant"
-          />
-        )
+      expect(getRenderedMarkdown()).toHaveAttribute('data-inline-html-preview-mode', 'generating')
 
-        expect(getRenderedMarkdown()).toHaveAttribute('data-inline-html-preview-mode', 'generating')
-      } finally {
-        view.unmount()
-        requestAnimationFrameSpy.mockRestore()
-      }
+      view.rerender(
+        <MainTextBlock
+          id="html-block"
+          content="```html\n<div>Complete</div>\n```"
+          inlineHtmlPreviewMode="ready"
+          isStreaming={false}
+          role="assistant"
+        />
+      )
+
+      expect(getRenderedMarkdown()).toHaveAttribute('data-inline-html-preview-mode', 'ready')
     })
 
-    it('renders completed inline HTML as ready when no smoothed content is pending', () => {
+    it('renders completed inline HTML as ready when the message is not streaming', () => {
       renderMainTextBlock({
         content: '```html\n<div>Complete</div>\n```',
         inlineHtmlPreviewMode: 'ready',

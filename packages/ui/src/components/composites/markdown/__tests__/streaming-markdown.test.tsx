@@ -26,9 +26,20 @@ describe('StreamingMarkdown', () => {
     expect(container.textContent).toContain('world')
   })
 
-  it('never emits animate spans (per-word animation is removed)', () => {
+  it('emits no animate spans unless `animated` is passed', () => {
     const { container } = render(<StreamingMarkdown id="s2">{'run `npm i` now'}</StreamingMarkdown>)
     expect(container.querySelectorAll('[data-sd-animate]').length).toBe(0)
+  })
+
+  it('emits animate spans while `animated` is on', () => {
+    // Streamdown needs both `animated` and `isAnimating`; the component
+    // derives both from one flag, and this is the regression guard for that.
+    const { container } = render(
+      <StreamingMarkdown id="s3" animated>
+        {'run `npm i` now'}
+      </StreamingMarkdown>
+    )
+    expect(container.querySelectorAll('[data-sd-animate]').length).toBeGreaterThan(0)
   })
 
   it('preserves GitHub alert markup while streaming', () => {

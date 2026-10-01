@@ -123,6 +123,8 @@ export interface MarkdownCoreProps {
   mode: 'static' | 'streaming'
   /** Repair half-typed markdown at the tail (only meaningful in streaming mode). */
   parseIncompleteMarkdown?: boolean
+  /** Animate newly rendered words with a CSS reveal (streaming mode only). */
+  animated?: boolean
   parseMarkdownIntoBlocksFn?: (source: string) => string[]
   className?: string
   disallowedElements?: readonly string[]
@@ -141,6 +143,7 @@ export function MarkdownCore({
   extraRemarkPlugins,
   mode,
   parseIncompleteMarkdown,
+  animated,
   parseMarkdownIntoBlocksFn,
   className,
   disallowedElements = DISALLOWED_ELEMENTS,
@@ -225,6 +228,8 @@ export function MarkdownCore({
           disallowedElements={disallowedElements}
           urlTransform={urlTransform}
           parseIncompleteMarkdown={parseIncompleteMarkdown}
+          animated={animated}
+          isAnimating={animated}
           parseMarkdownIntoBlocksFn={parseMarkdownIntoBlocksFn}
           normalizeHtmlIndentation
           remarkRehypeOptions={remarkRehypeOptions}>

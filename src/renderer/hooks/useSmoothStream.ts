@@ -5,7 +5,6 @@ interface UseSmoothStreamOptions {
   /** Optional external control. Omit to let the hook manage it via `update(_, isComplete)`. */
   streamDone?: boolean
   minDelay?: number
-  initialText?: string
 }
 
 const languages = ['en-US', 'de-DE', 'es-ES', 'zh-CN', 'zh-TW', 'ja-JP', 'ru-RU', 'el-GR', 'fr-FR', 'pt-PT', 'ro-RO']
@@ -90,14 +89,13 @@ const SIZE_DELAY_CHARS_PER_MS = 2000
 export const useSmoothStream = ({
   onUpdate,
   streamDone: externalStreamDone,
-  minDelay = 32,
-  initialText = ''
+  minDelay = 32
 }: UseSmoothStreamOptions) => {
   const chunkQueueRef = useRef<string[]>([])
   const animationFrameRef = useRef<number | null>(null)
-  const displayedTextRef = useRef<string>(initialText)
+  const displayedTextRef = useRef<string>('')
   const lastFrameTimeRef = useRef<number>(0)
-  const lastAccumulatedRef = useRef<string>(initialText)
+  const lastAccumulatedRef = useRef<string>('')
   /** Sustained-rate accumulators: graphemes since the first chunk and the
    *  first chunk's timestamp (-1 = none yet). Held across stalls so the
    *  cushion math doesn't collapse when input pauses. */

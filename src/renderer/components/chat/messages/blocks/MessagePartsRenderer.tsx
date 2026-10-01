@@ -278,7 +278,6 @@ interface RenderGroupedEntryOptions {
   citationProjectionByPart?: ReadonlyMap<CherryMessagePart, ResolvedCitationMarkers>
   readOnlyFilePreviews?: ReadonlyMap<string, ReadOnlyComposerFileTokenPreview>
   hiddenComposerTokens?: ReadonlySet<ComposerMessageToken>
-  onTextPlayoutSettledChange?: (partId: string, settled: boolean) => void
   onTextPartExpandedChange?: (partId: string, expanded: boolean) => void
   reasoningDisplay?: 'content' | 'disclosure'
   settleActiveTools?: boolean
@@ -710,7 +709,6 @@ function renderPart(
           readOnlyFilePreviews={options?.readOnlyFilePreviews}
           hiddenComposerTokens={options?.hiddenComposerTokens}
           userContentExpanded={message.role === 'user' ? options?.expandedTextPartIds?.has(partId) : undefined}
-          onPlayoutSettledChange={options?.onTextPlayoutSettledChange}
           onUserContentExpandedChange={
             message.role === 'user' && options?.onTextPartExpandedChange
               ? (expanded) => options.onTextPartExpandedChange?.(partId, expanded)
@@ -731,7 +729,6 @@ function renderPart(
           inlineHtmlPreviewMode={inlineHtmlPreviewMode}
           isStreaming={isStreaming}
           role={message.role}
-          onPlayoutSettledChange={options?.onTextPlayoutSettledChange}
         />
       )
     }
@@ -1478,9 +1475,6 @@ const MessagePartsRendererContent = React.memo(function MessagePartsRendererCont
   const { openAgentToolFlow, isAgentToolFlowActive } = useMessageListActions()
   const { t } = useTranslation()
   const [expandedTextPartIds, setExpandedTextPartIds] = React.useState<ReadonlySet<string>>(() => new Set())
-  const [unsettledTextPlayoutPartIds, setUnsettledTextPlayoutPartIds] = React.useState<ReadonlySet<string>>(
-    () => new Set()
-  )
   const handleTextPartExpandedChange = React.useCallback((partId: string, expanded: boolean) => {
     setExpandedTextPartIds((current) => {
       const hasPartId = current.has(partId)
@@ -1491,20 +1485,6 @@ const MessagePartsRendererContent = React.memo(function MessagePartsRendererCont
         next.add(partId)
       } else {
         next.delete(partId)
-      }
-      return next
-    })
-  }, [])
-  const handleTextPlayoutSettledChange = React.useCallback((partId: string, settled: boolean) => {
-    setUnsettledTextPlayoutPartIds((current) => {
-      const isUnsettled = current.has(partId)
-      if (isUnsettled === !settled) return current
-
-      const next = new Set(current)
-      if (settled) {
-        next.delete(partId)
-      } else {
-        next.add(partId)
       }
       return next
     })
@@ -1616,21 +1596,18 @@ const MessagePartsRendererContent = React.memo(function MessagePartsRendererCont
       messageCitations,
       readOnlyFilePreviews,
       hiddenComposerTokens: displayProjection.hiddenImageTokens,
-      onTextPlayoutSettledChange: handleTextPlayoutSettledChange,
       onTextPartExpandedChange: handleTextPartExpandedChange
     }),
     [
       expandedTextPartIds,
       citationProjectionByPart,
       handleTextPartExpandedChange,
-      handleTextPlayoutSettledChange,
       messageCitations,
       readOnlyFilePreviews,
       displayProjection.hiddenImageTokens
     ]
   )
-  const canRenderReportArtifacts =
-    !isActiveTurnProcessing && unsettledTextPlayoutPartIds.size === 0 && reportArtifactToolResponses.length > 0
+  const canRenderReportArtifacts = !isActiveTurnProcessing && reportArtifactToolResponses.length > 0
 
   // No parts to render — normal for user messages (content is in message text, not parts)
   // But if the message is processing (pending/streaming), show the loading placeholder.
@@ -1673,7 +1650,7 @@ const MessagePartsRendererContent = React.memo(function MessagePartsRendererCont
         renderOptions={renderOptions}
       />
       {isActiveTurnProcessing && <ActiveTurnStatusView fallback={null} />}
-      {unsettledTextPlayoutPartIds.size === 0 && sessionToolResponses.length > 0 && (
+      {sessionToolResponses.length > 0 && (
         <AnimatedBlockWrapper key={`session-results-${message.id}`} enableAnimation={false} animation="fade">
           <SessionResultCards toolResponses={sessionToolResponses} />
         </AnimatedBlockWrapper>

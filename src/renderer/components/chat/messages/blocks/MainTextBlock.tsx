@@ -6,7 +6,6 @@ import type { Components } from 'streamdown'
 import { Flex, type MarkdownSource } from '@cherrystudio/ui'
 import type { ChatInputTokenKind } from '@renderer/components/composer/chatTokenView'
 import { ComposerToken, type ReadOnlyComposerFileTokenPreview } from '@renderer/components/composer/tokenView'
-import { useSmoothStream } from '@renderer/hooks/useSmoothStream'
 import type { Citation } from '@renderer/types/message'
 import type { Model } from '@renderer/types/model'
 import { determineCitationSource, toTooltipCitation, withCitationTags } from '@renderer/utils/citation'
@@ -45,7 +44,6 @@ interface Props {
   readOnlyFilePreviews?: ReadonlyMap<string, ReadOnlyComposerFileTokenPreview>
   hiddenComposerTokens?: ReadonlySet<ComposerMessageToken>
   userContentExpanded?: boolean
-  onPlayoutSettledChange?: (partId: string, settled: boolean) => void
   onUserContentExpandedChange?: (expanded: boolean) => void
 }
 
@@ -349,7 +347,6 @@ const MainTextBlock: React.FC<Props> = ({
   readOnlyFilePreviews,
   hiddenComposerTokens,
   userContentExpanded,
-  onPlayoutSettledChange,
   onUserContentExpandedChange
 }) => {
   const { renderInputMessageAsMarkdown } = useMessageRenderConfig()
@@ -380,36 +377,15 @@ const MainTextBlock: React.FC<Props> = ({
 
   const userDisplayContent = isUserContentCollapsible && !isUserContentExpanded ? userMessagePreview.content : content
 
-  const [smoothedContent, setSmoothedContent] = useState(content)
-  const { update: updateSmoothStream } = useSmoothStream({
-    onUpdate: setSmoothedContent,
-    streamDone: !isStreaming,
-    initialText: content
-  })
-  useEffect(() => {
-    updateSmoothStream(content, !isStreaming)
-  }, [content, isStreaming, updateSmoothStream])
-
-  const isPlayoutSettled = !isStreaming && smoothedContent === content
-  useEffect(() => {
-    onPlayoutSettledChange?.(id, isPlayoutSettled)
-  }, [id, isPlayoutSettled, onPlayoutSettledChange])
-  useEffect(
-    () => () => {
-      onPlayoutSettledChange?.(id, true)
-    },
-    [id, onPlayoutSettledChange]
-  )
-
   const block: MarkdownSource = {
     id,
-    content: role === 'user' ? userDisplayContent : smoothedContent,
+    content: role === 'user' ? userDisplayContent : content,
     status: isStreaming ? 'streaming' : 'success'
   }
-  // Upstream completion can precede the smooth-stream tail. Keep the iframe unmounted
-  // until its first srcDoc contains the complete artifact.
+  // Keep the iframe unmounted while streaming so its first srcDoc contains
+  // the complete artifact.
   const resolvedInlineHtmlPreviewMode =
-    inlineHtmlPreviewMode === 'ready' && smoothedContent !== content ? 'generating' : inlineHtmlPreviewMode
+    inlineHtmlPreviewMode === 'ready' && isStreaming ? 'generating' : inlineHtmlPreviewMode
 
   // Legacy reference metadata (migrated v1 messages) wins; otherwise resolve
   // [cite:id] markers against the message's own tool/source parts and earlier turns'.

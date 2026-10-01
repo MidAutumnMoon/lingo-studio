@@ -1490,28 +1490,7 @@ describe('MessagePartsRenderer', () => {
       expect(openArtifactFile).toHaveBeenCalledWith('dist/report.md')
     })
 
-    it('waits for the turn and smooth text playout to finish before rendering result cards', () => {
-      let clock = 0
-      let rafId = 0
-      let rafCallbacks = new Map<number, FrameRequestCallback>()
-      vi.stubGlobal('performance', { now: () => clock })
-      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-        rafId += 1
-        rafCallbacks.set(rafId, callback)
-        return rafId
-      })
-      vi.stubGlobal('cancelAnimationFrame', (id: number) => {
-        rafCallbacks.delete(id)
-      })
-      const tick = (frames: number) => {
-        for (let frame = 0; frame < frames; frame++) {
-          clock += 16
-          const callbacks = rafCallbacks
-          rafCallbacks = new Map()
-          callbacks.forEach((callback) => callback(clock))
-        }
-      }
-
+    it('waits for the turn to finish before rendering result cards', () => {
       activateTurn('streaming')
       const pendingMessage = msg({ status: 'pending' })
       const reportPart = {
@@ -1548,13 +1527,12 @@ describe('MessagePartsRenderer', () => {
       ] as unknown as CherryMessagePart[]
       rerender(renderPartsTree(finalParts, pendingMessage))
 
-      finishTurn('done')
-      rerender(renderPartsTree(finalParts, msg({ status: 'success' })))
-
+      // Text finished, but the turn is still processing.
       expect(screen.queryByText('report.md')).toBeNull()
       expect(screen.queryByTestId('session-result-cards')).toBeNull()
 
-      act(() => tick(50))
+      finishTurn('done')
+      rerender(renderPartsTree(finalParts, msg({ status: 'success' })))
 
       expect(screen.getByText('report.md')).toBeInTheDocument()
       expect(screen.getByTestId('session-result-cards')).toBeInTheDocument()

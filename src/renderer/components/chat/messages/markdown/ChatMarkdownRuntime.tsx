@@ -104,6 +104,7 @@ const ChatMarkdownRuntime: FC<ChatMarkdownProps> = ({
       components={mergedComponents}
       footnoteLabel={footnoteLabel}
       parseIncompleteMarkdown={isStreaming}
+      animated={isStreaming}
       parseMarkdownIntoBlocksFn={parseMarkdownBlocks}
       preserveFileLinkHrefs={canOpenWorkspaceFiles}>
       {content}
