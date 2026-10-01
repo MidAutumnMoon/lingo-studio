@@ -1,5 +1,5 @@
 import { Icon } from '@iconify/react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Folder, FolderOpen } from 'lucide-react'
 import type React from 'react'
 import { useState } from 'react'
 
@@ -46,15 +46,14 @@ export function FileTreeRow(props: FileTreeRowProps) {
 
   const renderIcon = () => {
     if (isFolder) {
+      // The material-icon-theme set has no base folder glyph; folder chrome is
+      // UI, so it uses the repo-standard lucide icons like the chevron.
       return folderIcon ? (
         folderIcon(node, isExpanded)
+      ) : isExpanded ? (
+        <FolderOpen className="shrink-0" size={ICON_SIZE_PX} />
       ) : (
-        <Icon
-          icon={`${MATERIAL_ICON_PREFIX}${isExpanded ? 'folder-open' : 'folder'}`}
-          className="shrink-0"
-          width={ICON_SIZE_PX}
-          height={ICON_SIZE_PX}
-        />
+        <Folder className="shrink-0" size={ICON_SIZE_PX} />
       )
     }
     return fileIcon ? (

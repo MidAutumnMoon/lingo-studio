@@ -1,6 +1,10 @@
 /**
  * Maps a file path to a material-icon-theme icon name.
  * Used with @iconify/react: <Icon icon={`material-icon-theme:${getFileIconName(path)}`} />
+ *
+ * Every value must exist in @iconify-json/material-icon-theme (icons or
+ * aliases) — the offline-icons test enforces it, since a missing name renders
+ * an empty glyph with no network fallback.
  */
 
 /** Exact filename → icon name */
@@ -104,7 +108,7 @@ const extensionMap: Record<string, string> = {
   yml: 'yaml',
   toml: 'toml',
   xml: 'xml',
-  csv: 'csv',
+  csv: 'table',
   ini: 'settings',
   cfg: 'settings',
   conf: 'settings',
@@ -132,7 +136,6 @@ const extensionMap: Record<string, string> = {
   zig: 'zig',
   asm: 'assembly',
   s: 'assembly',
-  wasm: 'wasm',
 
   // JVM
   java: 'java',
@@ -167,16 +170,14 @@ const extensionMap: Record<string, string> = {
   m: 'objective-c',
   mm: 'objective-cpp',
   cs: 'csharp',
-  vb: 'visualbasic',
+  vb: 'visualstudio',
 
   // Shell
-  sh: 'shell',
-  bash: 'shell',
-  zsh: 'shell',
-  fish: 'shell',
+  sh: 'console',
+  bash: 'console',
+  zsh: 'console',
+  fish: 'console',
   ps1: 'powershell',
-  bat: 'windows',
-  cmd: 'windows',
 
   // Database
   sql: 'database',
@@ -261,3 +262,10 @@ export function getFileIconName(filePath: string): string {
 
   return DEFAULT_ICON
 }
+
+/** Every icon name this module can produce (map values + the default). */
+export const FILE_ICON_NAMES: ReadonlySet<string> = new Set([
+  ...Object.values(filenameMap),
+  ...Object.values(extensionMap),
+  DEFAULT_ICON
+])

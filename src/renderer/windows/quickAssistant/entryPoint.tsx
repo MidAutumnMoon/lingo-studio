@@ -2,10 +2,12 @@ import '@renderer/assets/styles/index.css'
 import '@renderer/assets/styles/tailwind.css'
 import { createRoot } from 'react-dom/client'
 
+import { registerOfflineIcons } from '@renderer/services/offlineIcons'
 import { prepareWindow } from '@renderer/windows/prepareWindow'
 
 import QuickAssistantApp from './QuickAssistantApp'
 
+registerOfflineIcons()
 await prepareWindow({
   preference: [
     'app.language',

@@ -1,6 +1,10 @@
+import materialIconTheme from '@iconify-json/material-icon-theme/icons.json'
 import { describe, expect, it } from 'vitest'
 
-import { getFileIconName } from '../fileIconName'
+import { OFFLINE_SIMPLE_ICONS } from '@renderer/services/offlineIcons'
+import { PRESETS_BINARY_TOOLS } from '@shared/data/presets/binaryTools'
+
+import { FILE_ICON_NAMES, getFileIconName } from '../fileIconName'
 
 describe('getFileIconName', () => {
   it('resolves simple extensions case-insensitively', () => {
@@ -42,5 +46,23 @@ describe('getFileIconName', () => {
   it('falls back to the document icon for unknown or empty names', () => {
     expect(getFileIconName('notes.unknownext')).toBe('document')
     expect(getFileIconName('')).toBe('document')
+  })
+})
+
+describe('offline icon data', () => {
+  it('maps every producible icon name to a glyph in the installed collection', () => {
+    // 'html' is a literal in HtmlArtifactsCard / HtmlArtifactView, not produced
+    // by getFileIconName — same offline collection, same requirement.
+    const names = [...FILE_ICON_NAMES, 'html']
+    const missing = names.filter((name) => !(name in materialIconTheme.icons) && !(name in materialIconTheme.aliases))
+    expect(missing).toEqual([])
+  })
+
+  it('registers every simple-icons name the binary-tool presets reference', () => {
+    const referenced = PRESETS_BINARY_TOOLS.flatMap((preset) =>
+      preset.icon?.startsWith('simple-icons:') ? [preset.icon.replace('simple-icons:', '')] : []
+    )
+    const registered = Object.keys(OFFLINE_SIMPLE_ICONS)
+    expect(referenced.filter((name) => !registered.includes(name))).toEqual([])
   })
 })
