@@ -70,6 +70,48 @@ export function withCitationTags(content: string, citations: Citation[], sourceT
 }
 
 /**
+ * Convert Gemini grounding `endIndex` byte offsets (UTF-8) to char positions
+ * in `source` with a single walk over the encoded bytes, then group the tags
+ * per position. Non-continuation bytes start a code point; 4-byte sequences
+ * (F0–F4 lead bytes) span two UTF-16 units, everything else one.
+ */
+function groupGeminiInsertionsByCharPosition(
+  pending: Array<{ endIndex: number; tag: string }>,
+  source: string
+): Array<{ start: number; replacement: string }> {
+  const bytes = new TextEncoder().encode(source)
+  const clamp = (byteOffset: number): number => Math.max(0, Math.min(byteOffset, bytes.length))
+
+  const needed = [...new Set(pending.map(({ endIndex }) => clamp(endIndex)))].sort((a, b) => a - b)
+  const byteToChar = new Map<number, number>()
+  let bytePos = 0
+  let charPos = 0
+  let next = 0
+  const recordUpTo = (): void => {
+    while (next < needed.length && needed[next] === bytePos) {
+      byteToChar.set(needed[next], charPos)
+      next++
+    }
+  }
+  for (const byte of bytes) {
+    recordUpTo()
+    if ((byte & 0xc0) !== 0x80) {
+      charPos += (byte & 0xf8) === 0xf0 ? 2 : 1
+    }
+    bytePos++
+  }
+  recordUpTo()
+
+  // Tags sharing one position render in reverse collection order.
+  const grouped = new Map<number, string>()
+  for (const { endIndex, tag } of pending) {
+    const position = byteToChar.get(clamp(endIndex)) ?? source.length
+    grouped.set(position, tag + (grouped.get(position) ?? ''))
+  }
+  return [...grouped].map(([start, replacement]) => ({ start, replacement }))
+}
+
+/**
  * Normalize source-specific citation marks into the canonical `[cite:N]` form.
  * Code blocks are protected (a `[N]` in a code block is content, not a citation).
  */
@@ -78,13 +120,12 @@ export function normalizeCitationMarks(
   citationMap: Map<number, Citation>,
   sourceType?: WebSearchSource
 ): string {
-  const codeBlockRegex = MARKDOWN_CODE_PATTERN
   const getSkipRanges = () => {
     const skipRanges: Array<{ start: number; end: number }> = []
 
-    codeBlockRegex.lastIndex = 0
+    MARKDOWN_CODE_PATTERN.lastIndex = 0
     let match: RegExpExecArray | null
-    while ((match = codeBlockRegex.exec(content)) !== null) {
+    while ((match = MARKDOWN_CODE_PATTERN.exec(content)) !== null) {
       skipRanges.push({
         start: match.index,
         end: match.index + match[0].length
@@ -94,13 +135,28 @@ export function normalizeCitationMarks(
     return skipRanges
   }
 
-  // 检查位置是否在代码块内
-  const shouldSkip = (pos: number, skipRanges = getSkipRanges()): boolean => {
+  // 检查位置是否在代码块内。skipRanges 必须显式传入：作为默认参数时每次调用都会重新扫描全文。
+  const shouldSkip = (pos: number, skipRanges: Array<{ start: number; end: number }>): boolean => {
     for (const range of skipRanges) {
       if (pos >= range.start && pos < range.end) return true
       if (range.start > pos) break
     }
     return false
+  }
+
+  // Splice all non-overlapping edits in one forward pass — a splice per edit
+  // would copy the whole string each time. Edits index into the current
+  // `content`; equal-start edits render in array order.
+  const applyEdits = (edits: Array<{ start: number; end: number; replacement: string }>): string => {
+    if (edits.length === 0) return content
+    const ordered = [...edits].sort((a, b) => a.start - b.start)
+    let result = ''
+    let cursor = 0
+    for (const { start, end, replacement } of ordered) {
+      result += content.slice(cursor, start) + replacement
+      cursor = end
+    }
+    return result + content.slice(cursor)
   }
 
   const applyReplacements = (regex: RegExp, getReplacementFn: (m: RegExpExecArray) => string | null) => {
@@ -117,9 +173,7 @@ export function normalizeCitationMarks(
         }
       }
     }
-    replacements.reverse().forEach(({ start, end, replacement }) => {
-      content = content.slice(0, start) + replacement + content.slice(end)
-    })
+    content = applyEdits(replacements)
   }
 
   const normalizePlainBracketMarks = () => {
@@ -145,15 +199,7 @@ export function normalizeCitationMarks(
       const firstCitation = Array.from(citationMap.values())[0]
       const metadata = firstCitation?.metadata as GroundingSupport[] | undefined
       if (metadata?.length) {
-        const encoder = new TextEncoder()
-        const contentBytes = encoder.encode(content)
-
-        const byteOffsetToCharOffset = (byteOffset: number): number => {
-          const decoder = new TextDecoder()
-          return decoder.decode(contentBytes.slice(0, byteOffset)).length
-        }
-
-        const insertions: Array<{ position: number; tag: string }> = []
+        const pending: Array<{ endIndex: number; tag: string }> = []
         metadata.forEach((support) => {
           if (!support.groundingChunkIndices || !support.segment) return
           const { endIndex } = support.segment
@@ -168,15 +214,16 @@ export function normalizeCitationMarks(
             .join('')
 
           if (tag) {
-            insertions.push({ position: byteOffsetToCharOffset(endIndex), tag })
+            pending.push({ endIndex, tag })
           }
         })
 
-        insertions.sort((a, b) => b.position - a.position)
-        for (const { position, tag } of insertions) {
-          if (!shouldSkip(position)) {
-            content = content.slice(0, position) + tag + content.slice(position)
-          }
+        if (pending.length > 0) {
+          const skipRanges = getSkipRanges()
+          const edits = groupGeminiInsertionsByCharPosition(pending, content)
+            .filter(({ start }) => !shouldSkip(start, skipRanges))
+            .map(({ start, replacement }) => ({ start, end: start, replacement }))
+          content = applyEdits(edits)
         }
       }
       break

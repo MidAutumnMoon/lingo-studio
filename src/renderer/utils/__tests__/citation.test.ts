@@ -350,6 +350,54 @@ Numbered list:
         expect(result).toBe('你好world[cite:1] end')
       })
 
+      it('counts surrogate pairs as two UTF-16 units when converting byte offsets', () => {
+        // "👍" is 4 UTF-8 bytes but 2 UTF-16 units: "a👍b" = 6 bytes, 4 chars
+        const content = 'a👍b end'
+        const metadata: GroundingSupport[] = [
+          {
+            segment: { startIndex: 0, endIndex: 6, text: 'a👍b' },
+            groundingChunkIndices: [0]
+          }
+        ]
+        const citations: Citation[] = [{ number: 1, url: 'https://example.com', title: 'Test', metadata }]
+        const citationMap = createCitationMap(citations)
+
+        const result = normalizeCitationMarks(content, citationMap, WEB_SEARCH_SOURCE.GEMINI)
+
+        expect(result).toBe('a👍b[cite:1] end')
+      })
+
+      it('renders tags sharing one position in reverse collection order', () => {
+        const content = 'hello world'
+        const metadata: GroundingSupport[] = [
+          { segment: { startIndex: 0, endIndex: 5, text: 'hello' }, groundingChunkIndices: [0] },
+          { segment: { startIndex: 0, endIndex: 5, text: 'hello' }, groundingChunkIndices: [1] }
+        ]
+        const citations: Citation[] = [
+          { number: 1, url: 'https://example.com/1', title: 'One', metadata },
+          { number: 2, url: 'https://example.com/2', title: 'Two', metadata }
+        ]
+        const citationMap = createCitationMap(citations)
+
+        const result = normalizeCitationMarks(content, citationMap, WEB_SEARCH_SOURCE.GEMINI)
+
+        expect(result).toBe('hello[cite:2][cite:1] world')
+      })
+
+      it('skips Gemini insertions landing inside inline code spans', () => {
+        const content = 'text `code` end'
+        const metadata: GroundingSupport[] = [
+          { segment: { startIndex: 5, endIndex: 7, text: 'od' }, groundingChunkIndices: [0] },
+          { segment: { startIndex: 11, endIndex: 15, text: ' end' }, groundingChunkIndices: [0] }
+        ]
+        const citations: Citation[] = [{ number: 1, url: 'https://example.com', title: 'Test', metadata }]
+        const citationMap = createCitationMap(citations)
+
+        const result = normalizeCitationMarks(content, citationMap, WEB_SEARCH_SOURCE.GEMINI)
+
+        expect(result).toBe('text `code` end[cite:1]')
+      })
+
       it('should handle Gemini citations without metadata', () => {
         const content = 'Content without metadata'
         const citations: Citation[] = [{ number: 1, url: 'https://example.com', title: 'Test' }]
