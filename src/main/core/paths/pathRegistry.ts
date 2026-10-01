@@ -110,6 +110,8 @@ export function buildPathRegistry() {
     // BabelDOC runtime cache (layout model, fonts, CMap/tiktoken assets)
     'feature.pdf_translation.babeldoc': path.join(appUserDataRuntime, 'models', 'babeldoc'),
 
+    'feature.pdfjs.cmaps': path.join(app.getAppPath(), 'node_modules', 'pdfjs-dist', 'cmaps'),
+    'feature.pdfjs.standard_fonts': path.join(app.getAppPath(), 'node_modules', 'pdfjs-dist', 'standard_fonts'),
     // DeepSeek Harness
     'feature.deepseek_harness.workspace': path.join(appUserDataData, 'DeepSeekHarness', 'Workspace'),
 
@@ -333,6 +335,8 @@ const NO_ENSURE = [
   'app.session.webview',
   'app.database.migrations',
   'feature.provider_registry.data',
+  'feature.pdfjs.cmaps',
+  'feature.pdfjs.standard_fonts',
   'feature.webview.preload_file',
   'feature.code_cli.skills.builtin',
   'feature.agents.builtin',
