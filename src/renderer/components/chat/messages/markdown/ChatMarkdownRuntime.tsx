@@ -1,6 +1,6 @@
 import '@cherrystudio/ui/components/composites/markdown/styles'
 import { isEmpty } from 'es-toolkit/compat'
-import { type FC, useMemo, useRef } from 'react'
+import { type FC, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PluginConfig } from 'streamdown'
 import type { Pluggable } from 'unified'
@@ -48,11 +48,16 @@ const ChatMarkdownRuntime: FC<ChatMarkdownProps> = ({
   const { mathEnableSingleDollar } = useMessageRenderConfig()
   const actions = useOptionalMessageListActions()
   const isStreaming = block.status === 'streaming'
-  const hasStreamedRef = useRef(isStreaming)
-  if (isStreaming) hasStreamedRef.current = true
+  // Latch: once a block has streamed, keep StreamingMarkdown mounted forever — switching element
+  // types when streaming ends would remount the subtree and drop renderer state. Same pattern as
+  // AnimatedBlockWrapper in MessagePartsRenderer.
+  const [hasStreamed, setHasStreamed] = useState(isStreaming)
+  useEffect(() => {
+    if (isStreaming) setHasStreamed(true)
+  }, [isStreaming])
 
-  const parseMarkdownBlocks = useMemo(createLatexMarkdownBlockParser, [])
-  const transformOutsideHtmlArtifacts = useMemo(createTransformMarkdownOutsideHtmlArtifacts, [])
+  const parseMarkdownBlocks = useMemo(() => createLatexMarkdownBlockParser(), [])
+  const transformOutsideHtmlArtifacts = useMemo(() => createTransformMarkdownOutsideHtmlArtifacts(), [])
   const plugins = useMemo(() => createDefaultPlugins(mathEnableSingleDollar), [mathEnableSingleDollar])
 
   const content = useMemo(() => {
@@ -95,7 +100,7 @@ const ChatMarkdownRuntime: FC<ChatMarkdownProps> = ({
         : undefined,
     [actions, t]
   )
-  const renderer = hasStreamedRef.current ? (
+  const renderer = hasStreamed ? (
     <StreamingMarkdown
       id={block.id}
       plugins={plugins}

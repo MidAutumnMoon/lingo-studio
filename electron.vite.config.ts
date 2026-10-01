@@ -229,8 +229,16 @@ export default defineConfig({
         generatedRouteTree: resolve('src/renderer/routeTree.gen.ts')
       }),
       tailwindcss(),
-      react(),
       ...(isDev ? [CodeInspectorPlugin({ bundler: 'vite' })] : []), // 只在开发环境下启用 CodeInspectorPlugin
+      // React Compiler (oxc) — verified compiling ~2.2k renderer functions on 2026-10-01, parked because
+      // oxc-transform-react 0.152.0 miscompiles this codebase: 56 renderer tests fail (stale-UI class,
+      // e.g. EditDialogs) and upstream bugs oxc#26519 (outlined closure → ReferenceError),
+      // oxc#27070 (nullable useState guard → TypeError), oxc#27113 (silent useMemo dep widening)
+      // (github.com/oxc-project/oxc/issues) are open. Re-enable as `compiler: { reportDiagnostics: true,
+      // logDiagnostics: true }` — both flags, otherwise bailouts are silent — and keep
+      // CodeInspectorPlugin above react() so it annotates raw JSX before the compiler lowers it.
+      react({ compiler: false }),
+      // react({ compiler: { reportDiagnostics: true, logDiagnostics: true } })
       ...visualizerPlugin('renderer'),
       ...sentrySourceMapPlugins('renderer')
     ],
