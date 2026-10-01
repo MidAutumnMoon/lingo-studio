@@ -10,6 +10,7 @@ import { parse, stringify } from 'yaml'
 
 import { BRIDGE_SOCKET_ENV, BRIDGE_TOKEN_ENV, type DshAssistantChunk } from '@cherrystudio/dsh-bridge'
 import type { CherryUIMessageChunk } from '@shared/data/types/message'
+
 import { resolveDshBunRuntime } from '../bunRuntime'
 import { buildDshCompositionYaml, resolveDshRuntimeBinPath } from '../compositionBuilder'
 import { DshBridgeServer } from '../DshBridgeServer'

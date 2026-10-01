@@ -23,11 +23,14 @@ import type { ConversationCenterSlot, PaneManualToggleSignal } from '@renderer/t
 import type { Citation } from '@renderer/types/message'
 import type { Topic } from '@renderer/types/topic'
 import { formatErrorMessageWithPrefix } from '@renderer/utils/error'
+import type { Model } from '@shared/data/types/model'
 
 import ChatContent from './ChatContent'
 import ChatNavbar from './components/ChatNavbar'
 import { TopicRightPane, useTopicBranchLiveStateSetter } from './components/TopicRightPane'
 import type { AddNewTopicPayload } from './types'
+
+const EMPTY_MODELS: Model[] = []
 
 const CitationsPanel = React.lazy(() => import('@renderer/components/chat/citations/CitationsPanel'))
 
