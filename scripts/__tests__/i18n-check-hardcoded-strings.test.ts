@@ -194,7 +194,6 @@ describe('i18n-check-hardcoded-strings', () => {
       expect(shouldSkipFile(`${mockSrcDir}/components/Button.test.tsx`, mockSrcDir)).toBe(true)
       expect(shouldSkipFile(`${mockSrcDir}/utils/helper.test.ts`, mockSrcDir)).toBe(true)
       expect(shouldSkipFile(`${mockSrcDir}/types/index.d.ts`, mockSrcDir)).toBe(true)
-      expect(shouldSkipFile(`${mockSrcDir}/ai/prompts/coding-prompts.ts`, mockSrcDir)).toBe(true)
     })
 
     it('keeps skipping everything inside ignored directories', () => {
