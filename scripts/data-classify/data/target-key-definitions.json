@@ -819,7 +819,8 @@
       "status": "classified",
       "description": "Knowledge base id last used by the save-conversation-to-knowledge dialog; preselected on the next open when it still exists and is usable."
     },
-    {      "targetKey": "data.trash.retention_days",
+    {
+      "targetKey": "data.trash.retention_days",
       "type": "number",
       "defaultValue": 30,
       "status": "classified",
