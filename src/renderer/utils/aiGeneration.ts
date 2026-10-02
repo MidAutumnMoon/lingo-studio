@@ -15,7 +15,7 @@ import type { ExportableMessage } from '@renderer/types/messageExport'
 import { getErrorMessage } from '@renderer/utils/error'
 import { purifyMarkdownImages } from '@renderer/utils/markdownLight'
 import { getNamingTextContent } from '@renderer/utils/message/find'
-import { readDefaultModel } from '@renderer/utils/model'
+import { readDefaultModel, readNamingModel } from '@renderer/utils/model'
 import { removeSpecialCharactersForTopicName } from '@renderer/utils/naming'
 import { containsSupportedVariables, replacePromptVariables } from '@renderer/utils/prompt'
 import { isFileUIPart } from '@shared/ai/uiDialect'
@@ -29,9 +29,15 @@ export async function fetchMessagesSummary({
   messages: ExportableMessage[]
 }): Promise<{ text: string | null; error?: string }> {
   let prompt = (await preferenceService.get('topic.naming_prompt')) || i18n.t('prompts.title')
-  const model = await readDefaultModel()
+  const model = await readNamingModel()
   if (!model) {
-    return { text: null, error: i18n.t('error.model.not_exists') }
+    // Manual rename mirrors auto naming's selection (feature.topic_naming.model_id,
+    // never the chat default): unset and set-but-dead get distinct messages.
+    const configured = await preferenceService.get('feature.topic_naming.model_id')
+    return {
+      text: null,
+      error: configured ? i18n.t('error.model.not_exists') : i18n.t('error.topic_naming_model_not_set')
+    }
   }
 
   if (prompt && containsSupportedVariables(prompt)) {
@@ -71,7 +77,7 @@ export async function fetchMessagesSummary({
 
 export async function fetchNoteSummary({ content }: { content: string; assistant?: Assistant }) {
   let prompt = (await preferenceService.get('topic.naming_prompt')) || i18n.t('prompts.title')
-  const model = await readDefaultModel()
+  const model = await readNamingModel()
   if (!model) return null
 
   if (prompt && containsSupportedVariables(prompt)) {

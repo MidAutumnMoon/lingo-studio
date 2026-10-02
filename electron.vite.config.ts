@@ -246,7 +246,6 @@ export default defineConfig({
       rolldownOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/windows/main/index.html'),
-          quickAssistant: resolve(__dirname, 'src/renderer/windows/quickAssistant/index.html'),
           migrationV2: resolve(__dirname, 'src/renderer/windows/migrationV2/index.html'),
           userDataRelocation: resolve(__dirname, 'src/renderer/windows/userDataRelocation/index.html'),
           subWindow: resolve(__dirname, 'src/renderer/windows/subWindow/index.html')

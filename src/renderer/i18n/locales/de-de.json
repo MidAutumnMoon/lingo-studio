@@ -1340,6 +1340,7 @@
   "error.toolInput": "Tool-Eingabe",
   "error.toolName": "Tool-Name",
   "error.tool_call_limit_reached": "Der Assistent hat das Limit für Tool-Aufrufe erreicht, bevor eine endgültige Antwort erstellt wurde. Versuchen Sie es erneut oder reduzieren Sie den Aufgabenbereich.",
+  "error.topic_naming_model_not_set": "Lege zuerst in Einstellungen → Modelle ein Modell für die Gesprächsbennennung fest.",
   "error.truncated": "Daten wurden gekürzt, Originalgröße",
   "error.truncatedBadge": "Abgeschnitten",
   "error.unknown": "Unbekannter Fehler",

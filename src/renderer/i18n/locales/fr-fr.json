@@ -1340,6 +1340,7 @@
   "error.toolInput": "entrée de l'outil",
   "error.toolName": "Nom de l'outil",
   "error.tool_call_limit_reached": "L'assistant a atteint la limite d'appels d'outils avant de produire une réponse finale. Réessayez ou réduisez la portée de la tâche.",
+  "error.topic_naming_model_not_set": "Définissez d'abord un modèle de nommage des conversations dans Paramètres → Modèles.",
   "error.truncated": "Données tronquées, taille d'origine",
   "error.truncatedBadge": "Tronqué",
   "error.unknown": "Erreur inconnue",

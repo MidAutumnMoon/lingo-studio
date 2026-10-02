@@ -1,3 +1,4 @@
+import { mockPreferenceState } from '@test-mocks/renderer/PreferenceService'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchGenerate, fetchMessagesSummary, fetchNoteSummary } from '../aiGeneration'
@@ -22,12 +23,12 @@ vi.mock('@renderer/ipc', () => ({
   ipcApi: { request: (route: string, input: any) => ipcRequestMock(route, input) }
 }))
 
-const { readQuickModelMock, readDefaultModelMock } = vi.hoisted(() => ({
-  readQuickModelMock: vi.fn(),
+const { readNamingModelMock, readDefaultModelMock } = vi.hoisted(() => ({
+  readNamingModelMock: vi.fn(),
   readDefaultModelMock: vi.fn()
 }))
 vi.mock('@renderer/utils/model', () => ({
-  readQuickModel: () => readQuickModelMock(),
+  readNamingModel: () => readNamingModelMock(),
   readDefaultModel: () => readDefaultModelMock()
 }))
 
@@ -43,8 +44,38 @@ beforeEach(() => {
     if (route === 'ai.text.abort') return Promise.resolve(undefined)
     throw new Error(`Unexpected route: ${route}`)
   })
-  readQuickModelMock.mockResolvedValue(TEST_MODEL)
+  readNamingModelMock.mockResolvedValue(TEST_MODEL)
   readDefaultModelMock.mockResolvedValue(TEST_MODEL)
+})
+
+describe('manual naming model selection', () => {
+  it('names through the naming model, never the chat default', async () => {
+    await fetchMessagesSummary({ messages: [{ role: 'user', parts: [] } as never] })
+
+    expect(readNamingModelMock).toHaveBeenCalled()
+    expect(readDefaultModelMock).not.toHaveBeenCalled()
+    expect(generateTextMock).toHaveBeenCalledWith(expect.objectContaining({ uniqueModelId: TEST_MODEL.id }))
+  })
+
+  it('reports the unset error when no naming model is configured', async () => {
+    readNamingModelMock.mockResolvedValue(undefined)
+    mockPreferenceState.delete('feature.topic_naming.model_id')
+
+    const result = await fetchMessagesSummary({ messages: [{ role: 'user', parts: [] } as never] })
+
+    expect(result).toEqual({ text: null, error: 'error.topic_naming_model_not_set' })
+    expect(generateTextMock).not.toHaveBeenCalled()
+  })
+
+  it("reports not_exists when the configured naming model's row is gone", async () => {
+    readNamingModelMock.mockResolvedValue(undefined)
+    mockPreferenceState.set('feature.topic_naming.model_id', 'dead::model')
+
+    const result = await fetchMessagesSummary({ messages: [{ role: 'user', parts: [] } as never] })
+
+    expect(result).toEqual({ text: null, error: 'error.model.not_exists' })
+    expect(generateTextMock).not.toHaveBeenCalled()
+  })
 })
 
 describe('aiGeneration reasoning opt-out', () => {

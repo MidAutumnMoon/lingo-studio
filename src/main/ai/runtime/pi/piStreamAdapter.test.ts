@@ -1,9 +1,9 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent'
-import { readUIMessageStream } from '@shared/ai/uiDialect'
 import { describe, expect, it } from 'vitest'
 
 import { webSearchOutputSchema } from '@shared/ai/builtinTools'
 import { PI_TOOL_CALL_TOOL_NAME } from '@shared/ai/piBuiltinTools'
+import { readUIMessageStream } from '@shared/ai/uiDialect'
 import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/message'
 
 import { toPiSessionEntries } from '../piChat/historyConverter'

@@ -1340,6 +1340,7 @@
   "error.toolInput": "Tool Input",
   "error.toolName": "Tool Name",
   "error.tool_call_limit_reached": "The assistant reached the tool-call limit before producing a final answer. Raise \"Max tool call rounds\" in the assistant settings, or reduce the task scope.",
+  "error.topic_naming_model_not_set": "Set a conversation naming model in Settings → Models first.",
   "error.truncated": "Data truncated, original size",
   "error.truncatedBadge": "Truncated",
   "error.unknown": "Unknown error",

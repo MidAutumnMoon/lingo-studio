@@ -1340,6 +1340,7 @@
   "error.toolInput": "Đầu vào công cụ",
   "error.toolName": "Tên công cụ",
   "error.tool_call_limit_reached": "Trợ lý đã đạt đến giới hạn gọi công cụ trước khi đưa ra câu trả lời cuối cùng. Hãy thử lại hoặc thu hẹp phạm vi nhiệm vụ.",
+  "error.topic_naming_model_not_set": "Hãy đặt mô hình đặt tên hội thoại trong Cài đặt → Mô hình trước.",
   "error.truncated": "Dữ liệu bị cắt ngắn, kích thước ban đầu",
   "error.truncatedBadge": "Bị cắt ngắn",
   "error.unknown": "Lỗi không xác định",

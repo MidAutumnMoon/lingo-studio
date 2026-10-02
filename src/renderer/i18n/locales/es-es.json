@@ -1340,6 +1340,7 @@
   "error.toolInput": "Herramienta de entrada",
   "error.toolName": "Nombre de la herramienta",
   "error.tool_call_limit_reached": "El asistente alcanzó el límite de llamadas a herramientas antes de producir una respuesta final. Inténtalo de nuevo o reduce el alcance de la tarea.",
+  "error.topic_naming_model_not_set": "Configura primero un modelo de nombres de conversación en Ajustes → Modelos.",
   "error.truncated": "Datos truncados, tamaño original",
   "error.truncatedBadge": "Truncado",
   "error.unknown": "Error desconocido",

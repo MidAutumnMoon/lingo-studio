@@ -1340,6 +1340,7 @@
   "error.toolInput": "Araç Girdisi",
   "error.toolName": "Araç Adı",
   "error.tool_call_limit_reached": "Asistan, nihai bir yanıt üretmeden önce araç çağrısı sınırına ulaştı. Asistan ayarlarında \"Maksimum araç çağrısı turu\" değerini artırın veya görevin kapsamını daraltın.",
+  "error.topic_naming_model_not_set": "Önce Ayarlar → Modeller bölümünde bir sohbet adlandırma modeli belirleyin.",
   "error.truncated": "Veriler kesildi, özgün boyut",
   "error.truncatedBadge": "Kesildi",
   "error.unknown": "Bilinmeyen hata",

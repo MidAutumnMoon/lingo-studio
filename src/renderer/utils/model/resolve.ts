@@ -24,3 +24,20 @@ export async function readTranslateModel(): Promise<Model | undefined> {
   if (!id) return undefined
   return (await dataApiService.get(`/models/${id}`)) ?? undefined
 }
+
+/**
+ * The conversation-naming model (`feature.topic_naming.model_id`) — the same
+ * selection TopicNamingService uses for auto naming. Deliberately NO fallback to
+ * the chat default (owner decision: naming is an explicit setting, skip when
+ * unset). A configured id whose row no longer exists resolves to undefined
+ * instead of throwing, so callers render their friendly "not exists" message.
+ */
+export async function readNamingModel(): Promise<Model | undefined> {
+  const id = (await preferenceService.get('feature.topic_naming.model_id')) as UniqueModelId | undefined
+  if (!id) return undefined
+  try {
+    return (await dataApiService.get(`/models/${id}`)) ?? undefined
+  } catch {
+    return undefined
+  }
+}

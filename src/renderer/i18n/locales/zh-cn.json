@@ -1340,6 +1340,7 @@
   "error.toolInput": "工具输入",
   "error.toolName": "工具名",
   "error.tool_call_limit_reached": "助手在生成最终回复前已达到工具调用上限。请在助手设置中调高“最大工具调用轮次”，或缩小任务范围。",
+  "error.topic_naming_model_not_set": "请先在 设置 → 模型 中设置对话命名模型。",
   "error.truncated": "数据已截断，原始大小",
   "error.truncatedBadge": "已截断",
   "error.unknown": "未知错误",

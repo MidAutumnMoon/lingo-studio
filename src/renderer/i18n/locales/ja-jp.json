@@ -1340,6 +1340,7 @@
   "error.toolInput": "ツール入力",
   "error.toolName": "ツール名",
   "error.tool_call_limit_reached": "アシスタントは最終回答を生成する前にツール呼び出しの上限に達しました。もう一度試すか、タスクの範囲を縮小してください。",
+  "error.topic_naming_model_not_set": "先に 設定 → モデル で会話命名モデルを設定してください。",
   "error.truncated": "データが切り捨てられました、元のサイズ",
   "error.truncatedBadge": "切り捨て",
   "error.unknown": "不明なエラー",

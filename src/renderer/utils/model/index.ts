@@ -22,7 +22,7 @@ export {
   reconcileWebSearchForModel,
   resolveReasoningEffortForModel
 } from './reconcile'
-export { readDefaultModel, readTranslateModel } from './resolve'
+export { readDefaultModel, readNamingModel, readTranslateModel } from './resolve'
 export { getSearchMatchScore } from './search'
 export { isFunctionCallingModel } from './tooluse'
 export { isGenerateImageModel, isVisionModel } from './vision'

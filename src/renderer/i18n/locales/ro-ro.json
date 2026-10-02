@@ -1340,6 +1340,7 @@
   "error.toolInput": "Intrare instrument",
   "error.toolName": "Nume instrument",
   "error.tool_call_limit_reached": "Asistentul a atins limita de apeluri la instrumente înainte de a produce un răspuns final. Încearcă din nou sau restrânge domeniul sarcinii.",
+  "error.topic_naming_model_not_set": "Setează întâi un model de denumire a conversațiilor în Setări → Modele.",
   "error.truncated": "Date trunchiate, dimensiunea originală",
   "error.truncatedBadge": "Trunchiat",
   "error.unknown": "Eroare necunoscută",
