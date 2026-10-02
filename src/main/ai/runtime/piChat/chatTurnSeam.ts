@@ -16,7 +16,6 @@ import { randomUUID } from 'node:crypto'
 
 import type { ModelThinkingLevel } from '@earendil-works/pi-ai'
 import type { ProviderConfig } from '@earendil-works/pi-coding-agent'
-import type { ToolSet, UIMessageChunk } from 'ai'
 
 import { application } from '@application'
 import type { TokenUsageSource } from '@cherrystudio/analytics-client'
@@ -24,6 +23,8 @@ import { aiUsageRecordService, type SourceSnapshot } from '@data/services/AiUsag
 import { loggerService } from '@logger'
 import { resolveChatTurnPlan, type ChatTurnPlan, type ChatTurnPlanRequest } from '@main/ai/chatTurnPlan'
 import { resolveTurnInFlightTruncateThreshold } from '@main/ai/contextBuild/inFlightTruncate'
+import type { NeutralTool } from '@main/ai/tools/neutralTool'
+import type { ToolSet, UIMessageChunk } from '@shared/ai/uiDialect'
 import type { Assistant } from '@shared/data/types/assistant'
 import type { CherryUIMessage } from '@shared/data/types/message'
 import type { Model } from '@shared/data/types/model'
@@ -39,7 +40,7 @@ import type { MainDispatchRequest } from '../../streamManager'
 import { getTemperature, getTopP } from '../../utils/modelParameters'
 import type { ResolvedReasoningInvocation } from '../../utils/reasoningSerializers'
 import { createRequestCaptureContext, resolveUsageAttribution } from '../../utils/usageCapture'
-import { assembleSystemPrompt } from '../aiSdk'
+import { assembleSystemPrompt, toSdkToolSet } from '../aiSdk'
 import {
   materializePiProviderStream,
   PiMissingApiKeyError,
@@ -400,12 +401,12 @@ function piOffExpressible(model: Model): boolean {
   return !hasConcreteTier || declared.includes('none')
 }
 
-/** `ToolSet` view of the plan's selection for the attachment budget (`ToolEntry.tool` IS an SDK tool). */
+/** `ToolSet` view of the plan's selection for the attachment budget (wrapped at the legacy boundary). */
 function toolSetOf(plan: ChatTurnPlan): ToolSet | undefined {
   if (plan.selectedEntries.length === 0) return undefined
-  const tools: ToolSet = {}
+  const tools: Record<string, NeutralTool> = {}
   for (const entry of plan.selectedEntries) tools[entry.name] = entry.tool
-  return tools
+  return toSdkToolSet(tools)
 }
 
 /**

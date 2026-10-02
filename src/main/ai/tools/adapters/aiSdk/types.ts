@@ -1,9 +1,9 @@
-import type { Tool } from 'ai'
-
 import type { EntityToolOutputCodec } from '@cherrystudio/ai-core'
 import type { Assistant } from '@shared/data/types/assistant'
 import type { ImageGenerationSupport, UniqueModelId } from '@shared/data/types/model'
 import type { WebToolRoutes } from '@shared/utils/provider'
+
+import type { NeutralTool } from '../../neutralTool'
 
 /**
  * Main-side codec: the aiCore deflate/assemble pair plus the persist-lane
@@ -111,10 +111,11 @@ export interface ToolEntry {
 
   defer: ToolDefer
 
-  tool: Tool
+  /** The SDK-neutral tool implementation (see `tools/neutralTool.ts`). */
+  tool: NeutralTool
 
   /** Materialize a request-scoped tool (for example, a model-specific input schema). */
-  buildTool?(scope: ToolApplyScope): Tool
+  buildTool?(scope: ToolApplyScope): NeutralTool
 
   applies?(scope: ToolApplyScope): boolean
 }

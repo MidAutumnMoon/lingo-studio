@@ -8,14 +8,13 @@
  *     document's `conceptId` for `kb_read`.
  *
  * Both modes live in the shared `knowledgeLookup` core so the agent MCP bridge runs identical
- * logic; this file is just the AI-SDK `tool()` wrapper.
+ * logic; this file is just the registry's neutral tool wrapper.
  *
  * Scope: when the effective scope (the assistant's static binding narrowed by the composer's per-turn
  * selection, or that selection alone when there is no binding — see `resolveKnowledgeBaseScope`) is
  * non-empty, only those bases are reachable. The tool is not exposed when that scope is empty.
  */
 
-import { tool } from 'ai'
 import * as z from 'zod'
 
 import { KB_LIST_TOOL_NAME, kbListInputSchema, kbListOutputSchema, kbTreeOutputSchema } from '@shared/ai/builtinTools'
@@ -26,6 +25,7 @@ import {
   knowledgeLookupErrorSchema,
   listOrOutlineKnowledge
 } from '../../../knowledgeLookup'
+import { zodToolSchema, type NeutralTool } from '../../../neutralTool'
 import { getToolCallContext } from '../context'
 import type { ToolEntry } from '../types'
 
@@ -35,16 +35,20 @@ export { KB_LIST_TOOL_NAME }
 // `{ error }`, so the output is a three-way union.
 const knowledgeListResultSchema = z.union([kbListOutputSchema, kbTreeOutputSchema, knowledgeLookupErrorSchema])
 
-const kbListTool = tool({
+const kbListTool: NeutralTool = {
   description: KNOWLEDGE_LIST_DESCRIPTION,
-  inputSchema: kbListInputSchema,
-  outputSchema: knowledgeListResultSchema,
+  inputSchema: zodToolSchema(kbListInputSchema),
+  outputSchema: zodToolSchema(knowledgeListResultSchema),
   execute: async (input, options) => {
     const { request } = getToolCallContext(options)
     return listOrOutlineKnowledge(input, request.knowledgeBaseIds ?? [])
   },
-  toModelOutput: ({ input, output }) => knowledgeListModelOutput(output, input)
-})
+  toModelOutput: ({ input, output }) =>
+    knowledgeListModelOutput(
+      output as z.infer<typeof knowledgeListResultSchema>,
+      input as z.infer<typeof kbListInputSchema>
+    )
+}
 
 export function createKbListToolEntry(): ToolEntry {
   return {

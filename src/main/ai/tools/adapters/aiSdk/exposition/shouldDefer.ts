@@ -56,18 +56,17 @@ async function resolveAutoDeferred(
 
 /**
  * Token cost of the auto-defer pool — name + `tool.description` + the canonical JSONSchema of
- * `tool.inputSchema`. `serializeToolSchema` normalizes Zod / `jsonSchema()` wrappers to the
- * exact schema the model receives (undefined on failure → name+description only). It shares
- * `countToolTokens` (schema normalization + per-tool formula) with the gateway estimator, but
- * deliberately uses `tokenx` — this is a defer/inline *gate*, not a budget, so it does not need
+ * `tool.inputSchema`. `serializeToolSchema` normalizes the neutral schema (or an SDK `Schema`)
+ * to the exact schema the model receives (undefined on failure → name+description only). It
+ * shares `countToolTokens` (schema normalization + per-tool formula) with the gateway estimator,
+ * but deliberately uses `tokenx` — this is a defer/inline *gate*, not a budget, so it does not need
  * the gateway's per-dialect BPE tokenizer (o200k etc.) and their absolute counts may differ.
  */
 async function estimateAutoTokens(entries: readonly ToolEntry[]): Promise<number> {
   const perEntry = await Promise.all(
     entries.map(async (entry) => {
-      const tool = entry.tool as { description?: string; inputSchema?: unknown }
-      const schema = await serializeToolSchema(tool.inputSchema)
-      return countToolTokens({ name: entry.name, description: tool.description, schema }, tokenxTokenizer)
+      const schema = await serializeToolSchema(entry.tool.inputSchema)
+      return countToolTokens({ name: entry.name, description: entry.tool.description, schema }, tokenxTokenizer)
     })
   )
   return perEntry.reduce((sum, tokens) => sum + tokens, 0)

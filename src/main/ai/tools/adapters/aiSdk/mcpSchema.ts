@@ -1,5 +1,7 @@
 import { CfWorkerJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/cfworker'
-import { jsonSchema, type JSONSchema7 } from 'ai'
+import type { JSONSchema7 } from 'json-schema'
+
+import type { ToolSchema } from '../../neutralTool'
 
 const jsonSchemaValidator = new CfWorkerJsonSchemaValidator({ draft: '2020-12', shortcircuit: false })
 
@@ -14,8 +16,10 @@ export function createMcpJsonSchemaValidator<T = unknown>(schema: JSONSchema7) {
   }
 }
 
-export function createMcpInputSchema(schema: JSONSchema7) {
-  return jsonSchema<Record<string, unknown>>(schema, {
+/** MCP input schema in the registry's neutral form: the raw wire schema plus its validator. */
+export function createMcpInputSchema(schema: JSONSchema7): ToolSchema {
+  return {
+    jsonSchema: schema,
     validate: createMcpJsonSchemaValidator<Record<string, unknown>>(schema)
-  })
+  }
 }

@@ -1,9 +1,9 @@
-import { jsonSchema, type Tool, type ToolSet } from 'ai'
 import { describe, expect, it, vi } from 'vitest'
 
+import { TOOL_INVOKE_TOOL_NAME } from '../../../../metaToolNames'
+import type { NeutralTool, ToolExecuteOptions } from '../../../../neutralTool'
 import { createBrowserToolEntries } from '../../builtin/BrowserTools'
 import { TOOL_INSPECT_TOOL_NAME } from '../../meta/toolInspect'
-import { TOOL_INVOKE_TOOL_NAME } from '../../meta/toolInvoke'
 import { TOOL_SEARCH_TOOL_NAME } from '../../meta/toolSearch'
 import { ToolRegistry } from '../../registry'
 import type { ToolDefer, ToolEntry } from '../../types'
@@ -15,13 +15,13 @@ function makeEntry(name: string, defer: ToolDefer, descriptionChars = 10): ToolE
     namespace: name.includes('__') ? `mcp:${name.split('__')[1]}` : 'web',
     description: 'd',
     defer,
-    tool: { description: 'x'.repeat(descriptionChars), inputSchema: {} } as unknown as Tool
+    tool: { description: 'x'.repeat(descriptionChars), inputSchema: { jsonSchema: {} } }
   }
 }
 
-function buildRegistryWith(entries: ToolEntry[]): { registry: ToolRegistry; tools: ToolSet } {
+function buildRegistryWith(entries: ToolEntry[]): { registry: ToolRegistry; tools: Record<string, NeutralTool> } {
   const registry = new ToolRegistry()
-  const tools: ToolSet = {}
+  const tools: Record<string, NeutralTool> = {}
   for (const entry of entries) {
     registry.register(entry)
     tools[entry.name] = entry.tool
@@ -96,9 +96,9 @@ describe('applyDeferExposition', () => {
       tool: {
         type: 'function',
         description: 'inner',
-        inputSchema: jsonSchema({ type: 'object' }),
+        inputSchema: { jsonSchema: { type: 'object' } },
         execute
-      } as unknown as Tool
+      }
     }
     registry.register(entry)
     const { tools } = await applyDeferExposition({ mcp__s1__t: entry.tool }, registry, 32_000)
@@ -106,7 +106,7 @@ describe('applyDeferExposition', () => {
       toolCallId: 'tc-1',
       messages: [],
       experimental_context: { requestId: 'req-1', abortSignal: new AbortController().signal }
-    } as Parameters<NonNullable<Tool['execute']>>[1]
+    } satisfies ToolExecuteOptions
     return { execute, inspect: tools![TOOL_INSPECT_TOOL_NAME], invoke: tools![TOOL_INVOKE_TOOL_NAME], opts }
   }
 
@@ -136,11 +136,14 @@ describe('applyDeferExposition', () => {
       toolCallId: 'browser-1',
       messages: [],
       experimental_context: { requestId: 'request-1', topicId: 'topic-1', assistant: { id: 'assistant-1' } }
-    } as Parameters<NonNullable<Tool['execute']>>[1]
+    } satisfies ToolExecuteOptions
 
     expect(metaTools.browser_open).toBeUndefined()
     expect(exposed.deferredEntries.map((entry) => entry.name)).toContain('browser_open')
-    const found = await metaTools[TOOL_SEARCH_TOOL_NAME].execute!({ query: 'browser_open', namespace: 'browser' }, opts)
+    const found = (await metaTools[TOOL_SEARCH_TOOL_NAME].execute!(
+      { query: 'browser_open', namespace: 'browser' },
+      opts
+    )) as { matchedNamespaces: Array<{ tools: Array<{ name: string }> }> }
     expect(found.matchedNamespaces[0].tools.map((entry: { name: string }) => entry.name)).toContain('browser_open')
     const signature = await metaTools[TOOL_INSPECT_TOOL_NAME].execute!({ name: 'browser_open' }, opts)
     expect(signature).toContain('browser_open')
@@ -158,8 +161,8 @@ describe('applyDeferExposition', () => {
 
   it('skips entries that have a tool but no registry entry', async () => {
     const registry = new ToolRegistry()
-    const tools: ToolSet = {
-      orphan: { description: 'o', inputSchema: {} } as unknown as Tool
+    const tools: Record<string, NeutralTool> = {
+      orphan: { description: 'o', inputSchema: { jsonSchema: {} } }
     }
     const result = await applyDeferExposition(tools, registry, 32_000)
     expect(result.tools).toBe(tools)

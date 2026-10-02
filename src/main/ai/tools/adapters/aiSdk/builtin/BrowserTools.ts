@@ -1,9 +1,9 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import { tool } from 'ai'
 
 import { application } from '@application'
 import { sessionToolDefinitions } from '@main/ai/mcp/browserToolDefinitions'
 
+import { type NeutralTool, zodToolSchema } from '../../../neutralTool'
 import { getToolCallContext } from '../context'
 import type { ToolEntry } from '../types'
 
@@ -15,9 +15,9 @@ export function createBrowserToolEntries(): ToolEntry[] {
     defer: 'always',
     truncatable: false,
     applies: (scope) => scope.browserEnabled === true,
-    tool: tool({
+    tool: {
       description,
-      inputSchema,
+      inputSchema: zodToolSchema(inputSchema),
       execute: async (args, options) => {
         const { request } = getToolCallContext(options)
         if (!request.topicId || !request.assistant) throw new Error('Browser tools require a conversation owner')
@@ -33,9 +33,9 @@ export function createBrowserToolEntries(): ToolEntry[] {
             )
           )
       },
-      toModelOutput: ({ output }: { output: CallToolResult }) => ({
-        type: 'content',
-        value: output.content.flatMap<
+      toModelOutput: ({ output }) => ({
+        type: 'content' as const,
+        value: (output as CallToolResult).content.flatMap<
           { type: 'text'; text: string } | { type: 'image-data'; data: string; mediaType: string }
         >((part) => {
           if (part.type === 'text') return [{ type: 'text' as const, text: part.text }]
@@ -43,6 +43,6 @@ export function createBrowserToolEntries(): ToolEntry[] {
           return []
         })
       })
-    })
+    } satisfies NeutralTool
   }))
 }

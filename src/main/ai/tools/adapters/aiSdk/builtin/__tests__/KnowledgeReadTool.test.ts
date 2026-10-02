@@ -1,8 +1,9 @@
-import type { ToolExecutionOptions } from '@ai-sdk/provider-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DataApiErrorFactory } from '@shared/data/api/errors'
 import type { Assistant } from '@shared/data/types/assistant'
+
+import type { ToolExecuteOptions } from '../../../../neutralTool'
 
 const readConcept = vi.fn()
 // Grep mode (kb_read with a pattern) routes to grepConcept; read mode routes to readConcept.
@@ -43,7 +44,7 @@ type ReadArgs = {
 }
 
 function callExecute(args: ReadArgs, ctx: { knowledgeBaseIds?: string[] } = {}): Promise<unknown> {
-  const execute = entry.tool.execute as (args: ReadArgs, options: ToolExecutionOptions) => Promise<unknown>
+  const execute = entry.tool.execute as (args: ReadArgs, options: ToolExecuteOptions) => Promise<unknown>
   return execute(
     // Mode-specific fields are omitted, not sentinel-valued — kb_read runs without `strict`, so its
     // schema is plain optionals and the model omits what the mode does not use.

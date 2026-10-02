@@ -1,7 +1,6 @@
-import type { ToolExecutionOptions } from '@ai-sdk/provider-utils'
-
 import { type ExecResult, runExecCode } from '@main/ai/tools/codeMode/runtime'
 
+import type { ToolExecuteOptions } from '../../../../neutralTool'
 import { isApprovalGated } from '../../isApprovalGated'
 import type { ToolRegistry } from '../../registry'
 
@@ -9,7 +8,7 @@ export type { ExecResult }
 
 export interface ExecRuntimeContext {
   registry: ToolRegistry
-  parentOptions: ToolExecutionOptions
+  parentOptions: ToolExecuteOptions
 }
 
 export function runExec(code: string, ctx: ExecRuntimeContext): Promise<ExecResult> {

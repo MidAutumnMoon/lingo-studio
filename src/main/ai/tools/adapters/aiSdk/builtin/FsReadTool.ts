@@ -9,7 +9,6 @@
 import fsp from 'node:fs/promises'
 import { isAbsolute, resolve } from 'node:path'
 
-import { tool } from 'ai'
 import * as z from 'zod'
 
 import { loggerService } from '@logger'
@@ -25,6 +24,7 @@ import {
 import { AbsoluteFilePathSchema } from '@shared/types/file'
 import { MB } from '@shared/utils/constants'
 
+import { zodToolSchema, type NeutralTool } from '../../../neutralTool'
 import { makeTextFieldCodec } from '../../../outputCodec'
 import { getToolCallContext } from '../context'
 import type { ToolEntry } from '../types'
@@ -246,7 +246,7 @@ export async function executeFsRead(
   }
 }
 
-const fsReadTool = tool({
+const fsReadTool: NeutralTool = {
   description: `Read a text file by absolute path.
 
 Primary use: retrieving the full content behind a <persisted-output> marker — call with the path shown after "Full output saved to:". Markers from earlier turns work too (persisted outputs live as long as their message does). Only paths from this conversation's markers are readable; reads elsewhere return access-denied.
@@ -256,14 +256,14 @@ Pagination is line-based: pass \`offset\` (1-indexed line) + \`limit\` for large
 When reading a persisted output to summarize, analyze, or act on it, read sequential pages (advance \`offset\` to the returned \`endLine\` + 1) until you have covered 100% of the content. Before summarizing or drawing conclusions, state what fraction you actually read — and if you did not read all of it (including the single-oversized-line case), say so explicitly rather than implying full coverage.
 
 The persistence layer applies to non-read tools only; this tool never persists its own output — narrow the read (smaller \`limit\`) instead.`,
-  inputSchema,
-  outputSchema: fsReadOutputSchema,
-  toModelOutput: ({ output }) => fsReadModelOutput(output),
+  inputSchema: zodToolSchema(inputSchema),
+  outputSchema: zodToolSchema(fsReadOutputSchema),
+  toModelOutput: ({ output }) => fsReadModelOutput(output as FsReadOutput),
   execute: async (input, options) => {
     const { request } = getToolCallContext(options)
     return executeFsRead(input, request.persistedOutputPaths, request.toolOutputCharCap)
   }
-})
+}
 
 export function createFsReadToolEntry(): ToolEntry {
   return {

@@ -1,12 +1,13 @@
 import type { TranscriptContext } from '@earendil-works/pi-ai'
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent'
-import { readUIMessageStream, tool } from 'ai'
+import { readUIMessageStream } from 'ai'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as z from 'zod'
 
 import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/message'
 
 import { toolApprovalRegistry } from '../../toolApproval/ToolApprovalRegistry'
+import { zodToolSchema } from '../../tools/neutralTool'
 import { markTrustedLocalToolTerminalFailure, ToolLoopTerminalError } from '../../tools/toolLoopTerminal'
 import type { AgentRuntimeUsageInvocation } from '../types'
 import { streamPiChatTurn, type PiChatProviderSource } from './chatEngine'
@@ -1245,12 +1246,12 @@ describe('streamPiChatTurn', () => {
         namespace: 'test',
         description: 'Echo',
         defer: 'never' as const,
-        tool: tool({
+        tool: {
           description: 'Echo the query back',
-          inputSchema: z.object({ q: z.string() }),
+          inputSchema: zodToolSchema(z.object({ q: z.string() })),
           needsApproval: true,
           execute
-        })
+        }
       }
       const surface = toPiChatToolSurface(
         [entry],
@@ -1476,11 +1477,11 @@ describe('streamPiChatTurn', () => {
         namespace: 'test',
         description: 'Echo',
         defer: 'never' as const,
-        tool: tool({
+        tool: {
           description: 'Echo the query back',
-          inputSchema: z.object({ q: z.string() }),
+          inputSchema: zodToolSchema(z.object({ q: z.string() })),
           execute
-        })
+        }
       }
       const surface = toPiChatToolSurface(
         [entry],

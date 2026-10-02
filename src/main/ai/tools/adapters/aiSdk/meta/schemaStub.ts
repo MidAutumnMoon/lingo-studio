@@ -5,20 +5,25 @@
  * signature back in one round-trip.
  */
 
-import { asSchema } from 'ai'
+import { asSchema } from '@shared/ai/uiDialect'
 
 import type { ToolEntry } from '../types'
 import { schemaToJSDoc } from './formatJsDoc'
 
 /**
- * Normalise a tool's `inputSchema` to canonical JSONSchema. Tools carry either
- * Zod or a `jsonSchema()`-wrapped schema (e.g. MCP tools); `asSchema(...).jsonSchema`
- * is the shape the model actually sees inline. Returns undefined on any failure so
- * the stub degrades to a description-only signature.
+ * Normalise a tool's `inputSchema` to canonical JSONSchema. Registry tools carry the
+ * neutral `ToolSchema` and wrapped/legacy sets carry the AI SDK `Schema` — both expose
+ * `.jsonSchema`, which is the shape the model actually sees inline. Anything else (a raw
+ * Zod schema, a lazy schema factory) falls through to the dialect's `asSchema`. Returns
+ * undefined on any failure so the stub degrades to a description-only signature.
  */
 export async function serializeToolSchema(schema: unknown): Promise<unknown> {
   if (!schema) return undefined
   try {
+    const candidate = schema as { jsonSchema?: unknown }
+    // Neutral records expose it sync; the SDK's `Schema` may hand back a
+    // PromiseLike — `Promise.resolve` covers both without lying about the type.
+    if (candidate.jsonSchema !== undefined) return Promise.resolve(candidate.jsonSchema)
     return await asSchema(schema as Parameters<typeof asSchema>[0]).jsonSchema
   } catch {
     return undefined

@@ -55,10 +55,10 @@ import type {
  * `metadata.createdAt` (epoch 0 when absent).
  */
 import type { SessionMessageEntry } from '@earendil-works/pi-coding-agent'
-import { isToolUIPart } from 'ai'
 
 import { loggerService } from '@logger'
 import { readToolPartMetadataValue } from '@shared/ai/toolPartMetadata'
+import { isToolUIPart } from '@shared/ai/uiDialect'
 import type { CherryMessagePart, CherryUIMessage, MessageStats } from '@shared/data/types/message'
 import { parseDataUrl } from '@shared/utils/dataUrl'
 
@@ -71,7 +71,7 @@ import {
 } from '../../messages/messageRules'
 import { renderPersistedToolOutputs } from '../../messages/persistedOutputRendering'
 import { isMcpCallToolResult, mcpResultToTextSummary } from '../../messages/toolResultRendering'
-import { TOOL_INVOKE_TOOL_NAME } from '../../tools/adapters/aiSdk/meta/toolInvoke'
+import { TOOL_INVOKE_TOOL_NAME } from '../../tools/metaToolNames'
 import type { UserTextSuffix } from './userThinkingSuffix'
 import { applyUserTextSuffix } from './userThinkingSuffix'
 

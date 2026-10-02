@@ -7,10 +7,9 @@
  * `resolveKnowledgeBaseScope`) flows in via
  * `RequestContext.knowledgeBaseIds` and scopes which base IDs are accepted. The search itself lives
  * in the shared `knowledgeLookup` core so the agent MCP
- * bridge runs identical logic; this file is just the AI-SDK `tool()` wrapper.
+ * bridge runs identical logic; this file is just the registry's neutral tool wrapper.
  */
 
-import { type InferToolInput, type InferToolOutput, tool } from 'ai'
 import * as z from 'zod'
 
 import { KB_SEARCH_TOOL_NAME, kbSearchInputSchema, kbSearchOutputSchema } from '@shared/ai/builtinTools'
@@ -21,6 +20,7 @@ import {
   knowledgeSearchModelOutput,
   searchKnowledge
 } from '../../../knowledgeLookup'
+import { zodToolSchema, type NeutralTool } from '../../../neutralTool'
 import { makeEntitiesCodec } from '../../../outputCodec'
 import { getToolCallContext } from '../context'
 import type { ToolEntry } from '../types'
@@ -30,16 +30,16 @@ export { KB_SEARCH_TOOL_NAME }
 // Mirror the web tool: an all-bases-failed lookup returns `{ error }`, so the output is a union.
 const knowledgeSearchResultSchema = z.union([kbSearchOutputSchema, knowledgeLookupErrorSchema])
 
-const kbSearchTool = tool({
+const kbSearchTool: NeutralTool = {
   description: KNOWLEDGE_SEARCH_DESCRIPTION,
-  inputSchema: kbSearchInputSchema,
-  outputSchema: knowledgeSearchResultSchema,
-  execute: async ({ query, baseIds }, options) => {
+  inputSchema: zodToolSchema(kbSearchInputSchema),
+  outputSchema: zodToolSchema(knowledgeSearchResultSchema),
+  execute: async ({ query, baseIds }: { query: string; baseIds: string[] }, options) => {
     const { request } = getToolCallContext(options)
     return searchKnowledge(query, baseIds, request.knowledgeBaseIds ?? [])
   },
-  toModelOutput: ({ output }) => knowledgeSearchModelOutput(output)
-})
+  toModelOutput: ({ output }) => knowledgeSearchModelOutput(output as KnowledgeSearchToolOutput)
+}
 
 export function createKbSearchToolEntry(): ToolEntry {
   return {
@@ -57,5 +57,5 @@ export function createKbSearchToolEntry(): ToolEntry {
   }
 }
 
-export type KnowledgeSearchToolInput = InferToolInput<typeof kbSearchTool>
-export type KnowledgeSearchToolOutput = InferToolOutput<typeof kbSearchTool>
+export type KnowledgeSearchToolInput = z.infer<typeof kbSearchInputSchema>
+export type KnowledgeSearchToolOutput = z.infer<typeof knowledgeSearchResultSchema>

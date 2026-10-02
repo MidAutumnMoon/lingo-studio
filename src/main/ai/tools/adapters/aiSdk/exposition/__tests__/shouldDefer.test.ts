@@ -1,14 +1,20 @@
-import { jsonSchema, type Tool } from 'ai'
+import type { JSONSchema7 } from 'json-schema'
 import { describe, expect, it } from 'vitest'
 
+import type { NeutralTool } from '../../../../neutralTool'
 import type { ToolEntry } from '../../types'
 import { shouldDefer } from '../shouldDefer'
+
+/** A schema-less neutral tool (empty JSON Schema) so fixture cost scales by description only. */
+function schemalessTool(description: string): NeutralTool {
+  return { description, inputSchema: { jsonSchema: {} } }
+}
 
 function makeEntry(overrides: Partial<ToolEntry> & Pick<ToolEntry, 'name' | 'defer'>): ToolEntry {
   return {
     namespace: 'test',
     description: `${overrides.name} description`,
-    tool: { description: 'tool desc', inputSchema: undefined } as unknown as Tool,
+    tool: schemalessTool('tool desc'),
     ...overrides
   }
 }
@@ -22,7 +28,7 @@ function manyAutoEntries(count: number, words: number): ToolEntry[] {
     makeEntry({
       name: `mcp__a${i}__t`,
       defer: 'auto',
-      tool: { description: 'lorem '.repeat(words), inputSchema: undefined } as unknown as Tool
+      tool: schemalessTool('lorem '.repeat(words))
     })
   )
 }
@@ -50,7 +56,7 @@ describe('shouldDefer', () => {
         makeEntry({
           name: 'mcp__big__t',
           defer: 'auto',
-          tool: { description: 'lorem '.repeat(10_000), inputSchema: undefined } as unknown as Tool
+          tool: schemalessTool('lorem '.repeat(10_000))
         })
       ],
       32_000
@@ -68,17 +74,17 @@ describe('shouldDefer', () => {
   it('counts the canonical inputSchema (normalized) toward the defer decision', async () => {
     // Cost lives entirely in a large JSON schema, no description — proves serializeToolSchema
     // normalizes the schema and countToolTokens counts it.
-    const bigSchema = jsonSchema({
+    const bigSchema: JSONSchema7 = {
       type: 'object',
       properties: Object.fromEntries(
         Array.from({ length: 200 }, (_, i) => [`field_${i}`, { type: 'string', description: 'a parameter value' }])
       )
-    })
+    }
     const entries = Array.from({ length: 5 }, (_, i) =>
       makeEntry({
         name: `mcp__s${i}__t`,
         defer: 'auto',
-        tool: { description: '', inputSchema: bigSchema }
+        tool: { description: '', inputSchema: { jsonSchema: bigSchema } }
       })
     )
     const result = await shouldDefer(entries, 32_000)

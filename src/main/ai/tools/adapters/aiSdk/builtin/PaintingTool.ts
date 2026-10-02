@@ -4,15 +4,14 @@
  * The model supplies a prompt, model-supported canonical parameters, and optional image references.
  * The actual generation/editing (painting-model resolution, vendor
  * mapping, persistence) lives in the shared `painting` core so the agent
- * MCP bridge runs the exact same logic; this file is just the AI-SDK `dynamicTool()`
- * wrapper.
+ * MCP bridge runs the exact same logic; this file is just the registry's
+ * neutral dynamic-tool wrapper.
  */
-
-import { dynamicTool } from 'ai'
 
 import { GENERATE_IMAGE_TOOL_NAME } from '@shared/ai/builtinTools'
 
 import { buildGenerateImageToolSchema, type GenerateImageToolInput } from '../../../generateImageTool'
+import { zodToolSchema, type NeutralTool } from '../../../neutralTool'
 import {
   type ConfiguredPaintingModel,
   GENERATE_IMAGE_DESCRIPTION,
@@ -25,11 +24,12 @@ import type { ToolEntry } from '../types'
 
 export { GENERATE_IMAGE_TOOL_NAME }
 
-function buildGenerateImageTool(configuredModel?: ConfiguredPaintingModel) {
+function buildGenerateImageTool(configuredModel?: ConfiguredPaintingModel): NeutralTool {
   const inputSchema = buildGenerateImageToolSchema(configuredModel?.support)
-  return dynamicTool({
+  return {
+    type: 'dynamic',
     description: GENERATE_IMAGE_DESCRIPTION,
-    inputSchema,
+    inputSchema: zodToolSchema(inputSchema),
     execute: async (input, options) => {
       const parsed = inputSchema.parse(input) as GenerateImageToolInput
       return configuredModel === undefined
@@ -37,7 +37,7 @@ function buildGenerateImageTool(configuredModel?: ConfiguredPaintingModel) {
         : generateImageFromPrompt(parsed, getToolCallContext(options).request.abortSignal, configuredModel)
     },
     toModelOutput: ({ output }) => paintingModelOutput(output as PaintingResult)
-  })
+  }
 }
 
 const fallbackGenerateImageTool = buildGenerateImageTool()

@@ -11,7 +11,7 @@
  * (`needsApproval: true`) — Cherry surfaces the approval card before it runs. The
  * mutation itself lives in the shared `knowledgeLookup` core so the agent
  * MCP bridge runs identical logic (gated there by the runtime's own permission
- * prompt); this file is just the AI-SDK `tool()` wrapper.
+ * prompt); this file is just the registry's neutral tool wrapper.
  *
  * `defer: 'never'` (kept inline, never behind `tool_search`/`tool_invoke`): the same rule
  * `mcp/mcpTools.ts` applies to force-prompt MCP tools. Deferring an approval-gated tool would strip
@@ -19,7 +19,6 @@
  * refuses it too (it never runs an approval-gated tool blind) — an unreachable tool either way.
  */
 
-import { type InferToolInput, type InferToolOutput, tool } from 'ai'
 import * as z from 'zod'
 
 import { KB_MANAGE_TOOL_NAME, kbManageInputSchema, kbManageOutputSchema } from '@shared/ai/builtinTools'
@@ -30,6 +29,7 @@ import {
   knowledgeManageModelOutput,
   manageKnowledge
 } from '../../../knowledgeLookup'
+import { zodToolSchema, type NeutralTool } from '../../../neutralTool'
 import { getToolCallContext } from '../context'
 import type { ToolEntry } from '../types'
 
@@ -38,18 +38,18 @@ export { KB_MANAGE_TOOL_NAME }
 // Mirror the read tools: an out-of-scope base / missing field / service error returns `{ error }`, so the output is a union.
 const knowledgeManageResultSchema = z.union([kbManageOutputSchema, knowledgeLookupErrorSchema])
 
-const kbManageTool = tool({
+const kbManageTool: NeutralTool = {
   description: KNOWLEDGE_MANAGE_DESCRIPTION,
-  inputSchema: kbManageInputSchema,
-  outputSchema: knowledgeManageResultSchema,
+  inputSchema: zodToolSchema(kbManageInputSchema),
+  outputSchema: zodToolSchema(knowledgeManageResultSchema),
   // Every action (add / delete / refresh) modifies the base; gate on explicit user approval.
   needsApproval: true,
   execute: async (input, options) => {
     const { request } = getToolCallContext(options)
     return manageKnowledge(input, request.knowledgeBaseIds ?? [])
   },
-  toModelOutput: ({ output }) => knowledgeManageModelOutput(output)
-})
+  toModelOutput: ({ output }) => knowledgeManageModelOutput(output as KnowledgeManageToolOutput)
+}
 
 export function createKbManageToolEntry(): ToolEntry {
   return {
@@ -62,5 +62,5 @@ export function createKbManageToolEntry(): ToolEntry {
   }
 }
 
-export type KnowledgeManageToolInput = InferToolInput<typeof kbManageTool>
-export type KnowledgeManageToolOutput = InferToolOutput<typeof kbManageTool>
+export type KnowledgeManageToolInput = z.infer<typeof kbManageInputSchema>
+export type KnowledgeManageToolOutput = z.infer<typeof knowledgeManageResultSchema>

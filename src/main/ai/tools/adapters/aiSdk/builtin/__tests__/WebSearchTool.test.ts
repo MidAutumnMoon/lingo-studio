@@ -1,9 +1,9 @@
-import { asSchema, safeValidateTypes, type ToolExecutionOptions } from '@ai-sdk/provider-utils'
-import type { StepResult, ToolSet } from 'ai'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getLastTerminalToolFailure, stopOnTerminalToolFailure } from '@main/ai/runtime/aiSdk/loop/toolLoopTermination'
 import { WebSearchConfigError, type WebSearchConfigErrorCode } from '@main/services/webSearch'
+
+import type { ToolExecuteOptions } from '../../../../neutralTool'
 
 const { fetchUrls, searchKeywords } = vi.hoisted(() => ({
   fetchUrls: vi.fn(),
@@ -25,7 +25,7 @@ import { createWebSearchToolEntry, WEB_FETCH_TOOL_NAME, WEB_SEARCH_TOOL_NAME } f
 const searchEntry = createWebSearchToolEntry()
 const fetchEntry = createWebFetchToolEntry()
 
-function makeOptions(abortSignal = new AbortController().signal): ToolExecutionOptions {
+function makeOptions(abortSignal = new AbortController().signal): ToolExecuteOptions {
   return {
     toolCallId: 'tc-1',
     messages: [],
@@ -46,25 +46,19 @@ function response() {
 }
 
 function callSearchExecute(args: { query: string }, abortSignal?: AbortSignal): Promise<unknown> {
-  const execute = searchEntry.tool.execute as (
-    args: { query: string },
-    options: ToolExecutionOptions
-  ) => Promise<unknown>
+  const execute = searchEntry.tool.execute as (args: { query: string }, options: ToolExecuteOptions) => Promise<unknown>
   return execute(args, makeOptions(abortSignal))
 }
 
 function callFetchExecute(args: { urls: string[] }, abortSignal?: AbortSignal): Promise<unknown> {
-  const execute = fetchEntry.tool.execute as (
-    args: { urls: string[] },
-    options: ToolExecutionOptions
-  ) => Promise<unknown>
+  const execute = fetchEntry.tool.execute as (args: { urls: string[] }, options: ToolExecuteOptions) => Promise<unknown>
   return execute(args, makeOptions(abortSignal))
 }
 
 function makeToolResultSteps(
   output: unknown,
   { toolName = WEB_SEARCH_TOOL_NAME, providerExecuted }: { toolName?: string; providerExecuted?: boolean } = {}
-): Array<StepResult<ToolSet>> {
+): Parameters<typeof getLastTerminalToolFailure>[0] {
   return [
     {
       toolResults: [
@@ -280,30 +274,24 @@ describe('web_fetch', () => {
     expect(fetchUrls).toHaveBeenCalledWith({ urls: ['https://example.com'] }, { signal: abortSignal })
   })
 
-  // The schema is what the AI SDK validates a model tool call against, so a malformed URL has to be
-  // rejected *here* — before `execute`. Asserted through the SDK's own validator rather than
-  // `safeParse`, because the property that matters is that the SDK honours the refinement: that is
-  // what raises `InvalidToolInputError` and lets the repair path fix the call. If the URL slipped
-  // through, `normalizeWebSearchUrls` would throw inside the service and `classifyWebLookupError`
-  // would dress a deterministic input error up as a retryable network failure.
+  // The schema is what validates a model tool call before `execute`, so a malformed URL has to be
+  // rejected *here*. The neutral schema's `validate` is the exact parse the legacy engine applies
+  // (same zod refinement — that is what raises `InvalidToolInputError` and lets the repair path fix
+  // the call). If the URL slipped through, `normalizeWebSearchUrls` would throw inside the service
+  // and `classifyWebLookupError` would dress a deterministic input error up as a retryable network
+  // failure.
   describe('input validation happens before execute', () => {
     it.each([
       ['a bare host', 'example.com'],
       ['a non-http scheme', 'file:///etc/passwd']
-    ])('rejects %s at the SDK validator, before execute', async (_label, url) => {
-      const validated = await safeValidateTypes({
-        value: { urls: [url] },
-        schema: asSchema(fetchEntry.tool.inputSchema)
-      })
+    ])('rejects %s at the schema validator, before execute', async (_label, url) => {
+      const validated = await fetchEntry.tool.inputSchema.validate!({ urls: [url] })
 
       expect(validated.success).toBe(false)
     })
 
     it('accepts a well-formed http(s) URL', async () => {
-      const validated = await safeValidateTypes({
-        value: { urls: ['https://example.com'] },
-        schema: asSchema(fetchEntry.tool.inputSchema)
-      })
+      const validated = await fetchEntry.tool.inputSchema.validate!({ urls: ['https://example.com'] })
 
       expect(validated.success).toBe(true)
     })
@@ -311,7 +299,7 @@ describe('web_fetch', () => {
     // No builtin tool is `strict` any more, but `format: "uri"` stays out on purpose: it is what
     // strict OpenAI-compatible endpoints reject, and `isHttpUrl` is narrower than `.url()` anyway.
     it('keeps the `uri` format out of the provider-facing schema', () => {
-      const { jsonSchema } = asSchema(fetchEntry.tool.inputSchema)
+      const { jsonSchema } = fetchEntry.tool.inputSchema
 
       // Whole-document rather than `properties.urls.items.format`: an optional chain that stops
       // matching after a shape change would report success while `format` reappeared elsewhere.

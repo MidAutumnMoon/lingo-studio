@@ -11,9 +11,6 @@
  * land whole in the model's context with no layer left to trim it.
  */
 
-import { type ToolResultOutput } from '@ai-sdk/provider-utils'
-import { tool } from 'ai'
-
 import { application } from '@application'
 import { isPathInside, openReadableFileSnapshot, realpath } from '@main/utils/file'
 import {
@@ -26,6 +23,7 @@ import {
 } from '@shared/ai/builtinTools'
 import { AbsoluteFilePathSchema } from '@shared/types/file'
 
+import { zodToolSchema, type NeutralTool, type ToolModelOutput } from '../../../neutralTool'
 import { getToolCallContext } from '../context'
 import { isMcpResourceReadForcePrompt, resolveMcpResourceServers } from '../mcp/resolveAssistantMcpTools'
 import { readScopedMcpResource } from '../mcp/scopedResources'
@@ -56,7 +54,7 @@ async function readSavedImage(blob: McpResourceSavedBlob): Promise<string | null
 }
 
 /** Keep the stored/UI result path-only while giving vision models the decoded image for this model step. */
-export async function mcpResourceReadModelOutput(output: McpResourceReadResult): Promise<ToolResultOutput> {
+export async function mcpResourceReadModelOutput(output: McpResourceReadResult): Promise<ToolModelOutput> {
   if ('error' in output) return { type: 'text', value: output.error }
 
   const images = await Promise.all(
@@ -78,10 +76,10 @@ export async function mcpResourceReadModelOutput(output: McpResourceReadResult):
   }
 }
 
-const mcpResourceReadTool = tool({
+const mcpResourceReadTool: NeutralTool = {
   description: MCP_RESOURCE_READ_DESCRIPTION,
-  inputSchema: mcpResourceReadInputSchema,
-  outputSchema: mcpResourceReadResultSchema,
+  inputSchema: zodToolSchema(mcpResourceReadInputSchema),
+  outputSchema: zodToolSchema(mcpResourceReadResultSchema),
   needsApproval: async (input, options) => {
     // Wildcard-gated servers prompt for every tool call; reading their resources must not be the one
     // silent path. The policy is read off the server this call addresses — one gated server must not
@@ -97,8 +95,8 @@ const mcpResourceReadTool = tool({
       return true
     }
   },
-  toModelOutput: ({ output }) => mcpResourceReadModelOutput(output),
-  execute: async ({ serverId, uri, offset }, options) => {
+  toModelOutput: ({ output }) => mcpResourceReadModelOutput(output as McpResourceReadResult),
+  execute: async ({ serverId, uri, offset }: { serverId: string; uri: string; offset?: number }, options) => {
     const { request } = getToolCallContext(options)
     return readScopedMcpResource(resolveMcpResourceServers(request.assistant, request.mcpResourceServerIds), {
       serverId,
@@ -108,7 +106,7 @@ const mcpResourceReadTool = tool({
       signal: request.abortSignal
     })
   }
-})
+}
 
 export function createMcpResourceReadToolEntry(): ToolEntry {
   return {

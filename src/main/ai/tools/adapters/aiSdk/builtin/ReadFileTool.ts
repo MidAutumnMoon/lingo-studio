@@ -15,9 +15,6 @@
  * cancellation it is.
  */
 
-import { isAbortError } from '@ai-sdk/provider-utils'
-import { type InferToolInput, type InferToolOutput, tool } from 'ai'
-
 import { application } from '@application'
 import { loggerService } from '@logger'
 import { extractDocumentText, noExtractableTextNote } from '@main/ai/messages/attachmentTextExtraction'
@@ -36,11 +33,17 @@ import {
 import { FILE_TYPE } from '@shared/types/file'
 import { getFileTypeByExt } from '@shared/utils/file'
 
+import { zodToolSchema, type NeutralTool } from '../../../neutralTool'
 import { makeTextFieldCodec } from '../../../outputCodec'
 import { getToolCallContext } from '../context'
 import type { ToolEntry } from '../types'
 
 const logger = loggerService.withContext('ReadFile')
+
+/** Local abort predicate (the dialect's `isAbortError`, kept out of the tool layer's imports). */
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError'
+}
 
 export const READ_FILE_DESCRIPTION = `Read more text from a file the user attached to this conversation.
 
@@ -125,16 +128,16 @@ export async function readFile(
 /** Project a `read_file` result into an AI-SDK tool-result output (always text). */
 export { readFileModelOutput }
 
-const readFileTool = tool({
+const readFileTool: NeutralTool = {
   description: READ_FILE_DESCRIPTION,
-  inputSchema: readFileInputSchema,
-  outputSchema: readFileResultSchema,
+  inputSchema: zodToolSchema(readFileInputSchema),
+  outputSchema: zodToolSchema(readFileResultSchema),
   execute: async (input, options) => {
     const { request } = getToolCallContext(options)
     return readFile(input, { attachments: request.fileAttachments ?? [] }, request.abortSignal)
   },
-  toModelOutput: ({ output }) => readFileModelOutput(output)
-})
+  toModelOutput: ({ output }) => readFileModelOutput(output as ReadFileResult)
+}
 
 export function createReadFileToolEntry(): ToolEntry {
   return {
@@ -151,5 +154,5 @@ export function createReadFileToolEntry(): ToolEntry {
   }
 }
 
-export type ReadFileToolInput = InferToolInput<typeof readFileTool>
-export type ReadFileToolOutput = InferToolOutput<typeof readFileTool>
+export type ReadFileToolInput = ReadFileInput
+export type ReadFileToolOutput = ReadFileResult

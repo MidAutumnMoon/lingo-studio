@@ -13,10 +13,9 @@
  * `resolveKnowledgeBaseScope`) flows in via
  * `RequestContext.knowledgeBaseIds` and scopes which bases are reachable. Both modes live in the
  * shared `knowledgeLookup` core so the agent MCP bridge runs
- * identical logic; this file is just the AI-SDK `tool()` wrapper.
+ * identical logic; this file is just the registry's neutral tool wrapper.
  */
 
-import { type InferToolInput, type InferToolOutput, tool } from 'ai'
 import * as z from 'zod'
 
 import { KB_READ_TOOL_NAME, kbGrepOutputSchema, kbReadInputSchema, kbReadOutputSchema } from '@shared/ai/builtinTools'
@@ -27,6 +26,7 @@ import {
   knowledgeReadModelOutput,
   readOrGrepConcept
 } from '../../../knowledgeLookup'
+import { zodToolSchema, type NeutralTool } from '../../../neutralTool'
 import { getToolCallContext } from '../context'
 import type { ToolEntry } from '../types'
 
@@ -36,16 +36,16 @@ export { KB_READ_TOOL_NAME }
 // / invalid pattern / service error returns `{ error }`, so the output is a three-way union.
 const knowledgeReadResultSchema = z.union([kbReadOutputSchema, kbGrepOutputSchema, knowledgeLookupErrorSchema])
 
-const kbReadTool = tool({
+const kbReadTool: NeutralTool = {
   description: KNOWLEDGE_READ_DESCRIPTION,
-  inputSchema: kbReadInputSchema,
-  outputSchema: knowledgeReadResultSchema,
+  inputSchema: zodToolSchema(kbReadInputSchema),
+  outputSchema: zodToolSchema(knowledgeReadResultSchema),
   execute: async (input, options) => {
     const { request } = getToolCallContext(options)
     return readOrGrepConcept(input, request.knowledgeBaseIds ?? [])
   },
-  toModelOutput: ({ output }) => knowledgeReadModelOutput(output)
-})
+  toModelOutput: ({ output }) => knowledgeReadModelOutput(output as KnowledgeReadToolOutput)
+}
 
 export function createKbReadToolEntry(): ToolEntry {
   return {
@@ -58,5 +58,5 @@ export function createKbReadToolEntry(): ToolEntry {
   }
 }
 
-export type KnowledgeReadToolInput = InferToolInput<typeof kbReadTool>
-export type KnowledgeReadToolOutput = InferToolOutput<typeof kbReadTool>
+export type KnowledgeReadToolInput = z.infer<typeof kbReadInputSchema>
+export type KnowledgeReadToolOutput = z.infer<typeof knowledgeReadResultSchema>

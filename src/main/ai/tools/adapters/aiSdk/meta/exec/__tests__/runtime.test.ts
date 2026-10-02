@@ -1,7 +1,6 @@
-import type { ToolExecutionOptions } from '@ai-sdk/provider-utils'
-import type { Tool } from 'ai'
 import { describe, expect, it, vi } from 'vitest'
 
+import type { NeutralTool, ToolExecuteOptions } from '../../../../../neutralTool'
 import { ToolRegistry } from '../../../registry'
 import type { ToolEntry } from '../../../types'
 import { runExec } from '../runtime'
@@ -15,7 +14,7 @@ import { runExec } from '../runtime'
  * error propagation without poking at worker internals.
  */
 
-function makeOptions(overrides: Partial<ToolExecutionOptions> = {}): ToolExecutionOptions {
+function makeOptions(overrides: Partial<ToolExecuteOptions> = {}): ToolExecuteOptions {
   return {
     toolCallId: 'outer-1',
     messages: [],
@@ -35,13 +34,13 @@ function registryWith(entry: Partial<ToolEntry> & Pick<ToolEntry, 'name' | 'tool
   return reg
 }
 
-function toolWith(overrides: Partial<Tool>): Tool {
+function toolWith(overrides: Partial<NeutralTool>): NeutralTool {
   return {
     type: 'function',
     description: 'inner',
-    inputSchema: { type: 'object' } as unknown as Tool['inputSchema'],
+    inputSchema: { jsonSchema: { type: 'object' } },
     ...overrides
-  } as Tool
+  }
 }
 
 describe('runExec / handleToolCall', () => {
@@ -65,7 +64,7 @@ describe('runExec / handleToolCall', () => {
     const code = `return await tools.invoke('mcp__s1__t', {})`
     await runExec(code, { registry: reg, parentOptions: makeOptions({ toolCallId: 'outer-9' }) })
 
-    const passedOptions = execute.mock.calls[0][1] as ToolExecutionOptions
+    const passedOptions = execute.mock.calls[0][1] as ToolExecuteOptions
     expect(passedOptions.toolCallId).toMatch(/^outer-9::exec::/)
   })
 
@@ -172,7 +171,7 @@ describe('runExec / handleToolCall', () => {
     let childSignal: AbortSignal | undefined
     let abortedReason: unknown
 
-    const execute = vi.fn().mockImplementation((_params, options: ToolExecutionOptions) => {
+    const execute = vi.fn().mockImplementation((_params, options: ToolExecuteOptions) => {
       childSignal = options.abortSignal
       return new Promise((resolve) => {
         // Resolve only once the child signal aborts, so we can observe propagation.

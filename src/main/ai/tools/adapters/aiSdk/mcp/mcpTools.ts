@@ -1,4 +1,4 @@
-import { type JSONSchema7, type Tool } from 'ai'
+import type { JSONSchema7 } from 'json-schema'
 
 import { application } from '@application'
 import { loggerService } from '@logger'
@@ -9,6 +9,7 @@ import { isMcpToolForcePromptBySource } from '@shared/ai/tools/mcpSourcePolicy'
 import type { McpServer } from '@shared/data/types/mcpServer'
 import type { McpTool } from '@shared/types/mcp'
 
+import type { NeutralTool } from '../../../neutralTool'
 import { getRequestContext } from '../context'
 import { createMcpInputSchema } from '../mcpSchema'
 import { registry, type ToolRegistry } from '../registry'
@@ -29,8 +30,8 @@ function resolveActiveServerById(serverId: string): McpServer | undefined {
   return server?.isActive ? server : undefined
 }
 
-/** Build the AI SDK Tool wrapper around a single McpTool. */
-function createMcpTool(mcpTool: McpTool, forcePrompt: boolean): Tool {
+/** Build the neutral registry tool around a single McpTool. */
+function createMcpTool(mcpTool: McpTool, forcePrompt: boolean): NeutralTool {
   const metadata = {
     description: mcpTool.description,
     name: mcpTool.name,

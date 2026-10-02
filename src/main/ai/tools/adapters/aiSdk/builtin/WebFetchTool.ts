@@ -3,16 +3,16 @@
  *
  * The model supplies known page URLs (often from a prior `web_search`) and
  * gets back their readable content. The lookup itself lives in the shared
- * `webLookup` core so the agent MCP bridge runs identical logic; this
- * file is just the AI-SDK `tool()` wrapper.
+ * `webLookup` core so the agent MCP bridge runs identical logic; this file is
+ * just the registry's neutral tool wrapper.
  */
 
-import { type InferToolInput, type InferToolOutput, tool } from 'ai'
 import * as z from 'zod'
 
 import { markTrustedLocalToolTerminalFailure } from '@main/ai/tools/toolLoopTerminal'
 import { WEB_FETCH_TOOL_NAME, webFetchInputSchema, webFetchOutputSchema } from '@shared/ai/builtinTools'
 
+import { zodToolSchema, type NeutralTool } from '../../../neutralTool'
 import { makeEntitiesCodec } from '../../../outputCodec'
 import { fetchWeb, WEB_FETCH_DESCRIPTION, webLookupErrorSchema, webLookupModelOutput } from '../../../webLookup'
 import { getToolCallContext } from '../context'
@@ -20,14 +20,14 @@ import type { ToolEntry } from '../types'
 
 const webFetchResultSchema = z.union([webFetchOutputSchema, webLookupErrorSchema])
 
-const webFetchTool = tool({
+const webFetchTool: NeutralTool = {
   description: WEB_FETCH_DESCRIPTION,
-  inputSchema: webFetchInputSchema,
-  outputSchema: webFetchResultSchema,
-  execute: async ({ urls }, options) =>
+  inputSchema: zodToolSchema(webFetchInputSchema),
+  outputSchema: zodToolSchema(webFetchResultSchema),
+  execute: async ({ urls }: { urls: string[] }, options) =>
     markTrustedLocalToolTerminalFailure(await fetchWeb(urls, getToolCallContext(options).request.abortSignal)),
-  toModelOutput: ({ output }) => webLookupModelOutput(output)
-})
+  toModelOutput: ({ output }) => webLookupModelOutput(output as WebFetchToolOutput)
+}
 
 export function createWebFetchToolEntry(): ToolEntry {
   return {
@@ -46,5 +46,5 @@ export function createWebFetchToolEntry(): ToolEntry {
   }
 }
 
-export type WebFetchToolInput = InferToolInput<typeof webFetchTool>
-export type WebFetchToolOutput = InferToolOutput<typeof webFetchTool>
+export type WebFetchToolInput = z.infer<typeof webFetchInputSchema>
+export type WebFetchToolOutput = z.infer<typeof webFetchResultSchema>

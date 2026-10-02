@@ -1,6 +1,6 @@
-import type { Tool } from 'ai'
 import { describe, expect, it } from 'vitest'
 
+import type { NeutralTool } from '../../../neutralTool'
 import { ToolRegistry } from '../registry'
 import type { ToolApplyScope, ToolEntry } from '../types'
 
@@ -11,7 +11,7 @@ function makeEntry(overrides: Partial<ToolEntry> & Pick<ToolEntry, 'name'>): Too
     namespace: 'test',
     description: `${overrides.name} description`,
     defer: 'never',
-    tool: { description: '' } as unknown as Tool,
+    tool: { description: '', inputSchema: { jsonSchema: {} } },
     ...overrides
   }
 }
@@ -153,8 +153,8 @@ describe('ToolRegistry', () => {
 
     it('materializes a request-scoped tool without mutating the registered entry', () => {
       const reg = new ToolRegistry()
-      const staticTool = { description: 'static' } as unknown as Tool
-      const requestTool = { description: 'request' } as unknown as Tool
+      const staticTool: NeutralTool = { description: 'static', inputSchema: { jsonSchema: {} } }
+      const requestTool: NeutralTool = { description: 'request', inputSchema: { jsonSchema: {} } }
       reg.register(
         makeEntry({
           name: 'dynamic',

@@ -1,20 +1,22 @@
-import { jsonSchema, type Tool } from 'ai'
 import { describe, expect, it, vi } from 'vitest'
 import * as z from 'zod'
 
+import { TOOL_INVOKE_TOOL_NAME } from '../../../../metaToolNames'
+import type { NeutralTool } from '../../../../neutralTool'
+import { zodToolSchema } from '../../../../neutralTool'
 import { ToolRegistry } from '../../registry'
 import type { ToolEntry } from '../../types'
-import { createToolInvokeTool, TOOL_INVOKE_TOOL_NAME } from '../toolInvoke'
+import { createToolInvokeTool } from '../toolInvoke'
 
 const innerExecute = vi.fn()
 const innerToModelOutput = vi.fn()
 
 function makeRegistry(): ToolRegistry {
   const reg = new ToolRegistry()
-  const innerTool: Tool = {
+  const innerTool: NeutralTool = {
     type: 'function',
     description: 'inner',
-    inputSchema: jsonSchema({ type: 'object' }),
+    inputSchema: { jsonSchema: { type: 'object' } },
     execute: innerExecute
   }
   const entry: ToolEntry = {
@@ -39,7 +41,7 @@ function makeRegistryWithToModelOutput(): ToolRegistry {
     tool: {
       type: 'function',
       description: 'inner',
-      inputSchema: jsonSchema({ type: 'object' }),
+      inputSchema: { jsonSchema: { type: 'object' } },
       execute: innerExecute,
       toModelOutput: innerToModelOutput
     }
@@ -57,7 +59,7 @@ function inspected(...names: string[]): Set<string> {
   return new Set(names)
 }
 
-async function callInvoke(tool: Tool, args: { name: string; params?: unknown }) {
+async function callInvoke(tool: NeutralTool, args: { name: string; params?: unknown }) {
   if (typeof tool.execute !== 'function') throw new Error('not executable')
   return tool.execute(args, {
     toolCallId: 'outer-1',
@@ -112,7 +114,7 @@ describe('tool_invoke meta-tool', () => {
       namespace: 'meta',
       description: '',
       defer: 'auto',
-      tool: { type: 'function', description: 'inert', inputSchema: {} } as unknown as Tool
+      tool: { type: 'function', description: 'inert', inputSchema: { jsonSchema: {} } }
     })
     const tool = createToolInvokeTool(reg, allowAll('inert'), inspected('inert'))
     await expect(callInvoke(tool, { name: 'inert' })).rejects.toThrow(/no execute handler/)
@@ -129,7 +131,7 @@ describe('tool_invoke meta-tool', () => {
       tool: {
         type: 'function',
         description: 'gated',
-        inputSchema: jsonSchema({ type: 'object' }),
+        inputSchema: { jsonSchema: { type: 'object' } },
         needsApproval: async () => true,
         execute: innerExecute
       }
@@ -197,9 +199,9 @@ describe('tool_invoke meta-tool', () => {
         tool: {
           type: 'function',
           description: 'search',
-          inputSchema: z.object({ query: z.string(), limit: z.number().default(10) }),
+          inputSchema: zodToolSchema(z.object({ query: z.string(), limit: z.number().default(10) })),
           execute: innerExecute
-        } as unknown as Tool
+        }
       })
       return reg
     }
@@ -257,10 +259,10 @@ describe('tool_invoke meta-tool', () => {
         tool: {
           type: 'function',
           description: 'search',
-          inputSchema: z.object({ query: z.string(), limit: z.number().default(10) }),
+          inputSchema: zodToolSchema(z.object({ query: z.string(), limit: z.number().default(10) })),
           execute: innerExecute,
           toModelOutput: innerToModelOutput
-        } as unknown as Tool
+        }
       })
       const tool = createToolInvokeTool(reg, allowAll('web_search'), inspected('web_search'))
 
@@ -270,7 +272,7 @@ describe('tool_invoke meta-tool', () => {
 
       // toModelOutput on the SAME toolCallId must feed the inner formatter the cached PARSED params,
       // not the raw `input.params`, so its view matches a native dispatch.
-      tool.toModelOutput!({
+      await tool.toModelOutput!({
         toolCallId: 'outer-1',
         input: { name: 'web_search', params: { query: 'mcp' } },
         output: { ok: true }
@@ -310,15 +312,14 @@ describe('tool_invoke meta-tool', () => {
     })
 
     it('serializes params as an open object — the wire schema must accept the inputExample', async () => {
-      // Regression pin: the SDK's zod conversion force-sets
+      // Regression pin: the dialect's zod conversion force-sets
       // additionalProperties:false on every object node, which turned `params`
       // into a dead schema (Anthropic validates input_examples against
       // input_schema and 400s the whole request when defer exposes this tool).
-      // The hand-written jsonSchema() bypasses that post-processing.
+      // The hand-written raw JSON Schema bypasses that post-processing.
       const reg = makeRegistry()
       const tool = createToolInvokeTool(reg, allowAll('mcp__s1__t'), inspected('mcp__s1__t'))
-      const { asSchema } = await import('ai')
-      const wire = asSchema(tool.inputSchema).jsonSchema as {
+      const wire = tool.inputSchema.jsonSchema as {
         properties: { params: { additionalProperties?: unknown } }
       }
       expect(wire.properties.params.additionalProperties).toBe(true)
@@ -327,11 +328,10 @@ describe('tool_invoke meta-tool', () => {
     it('validate still rejects malformed input at runtime', async () => {
       const reg = makeRegistry()
       const tool = createToolInvokeTool(reg, allowAll('mcp__s1__t'), inspected('mcp__s1__t'))
-      const { asSchema } = await import('ai')
-      const schema = asSchema(tool.inputSchema)
-      expect(await schema.validate!({ name: 'x', params: { a: 1 } })).toMatchObject({ success: true })
-      expect(await schema.validate!({ params: {} })).toMatchObject({ success: false })
-      expect(await schema.validate!({ name: 1 })).toMatchObject({ success: false })
+      const validate = tool.inputSchema.validate!
+      expect(await validate({ name: 'x', params: { a: 1 } })).toMatchObject({ success: true })
+      expect(await validate({ params: {} })).toMatchObject({ success: false })
+      expect(await validate({ name: 1 })).toMatchObject({ success: false })
     })
   })
 })

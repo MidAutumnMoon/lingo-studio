@@ -2,7 +2,6 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-import type { ToolExecutionOptions } from '@ai-sdk/provider-utils'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as z from 'zod'
 
@@ -10,6 +9,8 @@ import { mcpResourceReadInputSchema, type McpResourceReadOutput } from '@shared/
 import type { Assistant } from '@shared/data/types/assistant'
 import type { McpServer } from '@shared/data/types/mcpServer'
 import type { McpResource } from '@shared/types/mcp'
+
+import type { ToolExecuteOptions } from '../../../../neutralTool'
 
 const listResources = vi.fn<(serverId: string) => Promise<McpResource[]>>()
 const getResource = vi.fn()
@@ -78,7 +79,7 @@ function callExecute(
   args: Record<string, unknown>,
   request: Record<string, unknown> = {}
 ): Promise<unknown> {
-  const execute = entry.tool.execute as (args: unknown, options: ToolExecutionOptions) => Promise<unknown>
+  const execute = entry.tool.execute as (args: unknown, options: ToolExecuteOptions) => Promise<unknown>
   return execute(args, {
     toolCallId: 'tc-1',
     messages: [],
@@ -87,10 +88,7 @@ function callExecute(
 }
 
 function callNeedsApproval(args: Record<string, unknown>, request: Record<string, unknown>): Promise<boolean> {
-  const needsApproval = readEntry.tool.needsApproval as (
-    args: unknown,
-    options: ToolExecutionOptions
-  ) => Promise<boolean>
+  const needsApproval = readEntry.tool.needsApproval as (args: unknown, options: ToolExecuteOptions) => Promise<boolean>
   return needsApproval(args, {
     toolCallId: 'tc-1',
     messages: [],

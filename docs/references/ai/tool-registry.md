@@ -15,23 +15,31 @@ interface ToolEntry {
   namespaceLabel?: string // what `tool_search` groups by and shows; defaults to `namespace`
   description: string  // one-line summary for `tool_search`
   defer: 'never' | 'always' | 'auto'
-  tool: Tool           // AI SDK Tool (schema + execute + needsApproval + toModelOutput)
+  tool: NeutralTool    // SDK-neutral plain object (schema + execute + needsApproval + toModelOutput)
   applies?(scope): boolean
 }
 ```
+
+`tool` is the SDK-neutral contract defined in `src/main/ai/tools/neutralTool.ts`:
+a plain object with `inputSchema` (raw JSON Schema plus an optional
+canonicalizing `validate`), `execute`, `toModelOutput`, `needsApproval`,
+`metadata`, and `inputExamples`. Zod-backed tools convert once at
+definition time via `zodToolSchema` (the vendored dialect's `asSchema`).
+The legacy engine wraps these back into AI SDK `Tool`s at its boundary
+(`runtime/aiSdk/params/toSdkToolSet.ts`).
 
 `registry` (`src/main/ai/tools/adapters/aiSdk/registry.ts`) is a
 process-wide singleton. `AiService.onInit()` calls the single
 `registerBuiltinTools()` entry point; request preparation reads the
 registry through `selectRegistryTools` in `chatTurnPlan.ts` — the
 engine-agnostic selection both chat engines share (the legacy path then
-merges client tools and applies defer exposition in `buildAgentParams`).
-The pi chat engine consumes this same registry through
-`toPiChatToolSurface` (`runtime/piChat/chatToolSurface.ts`), which converts
-entries to pi `ToolDefinition`s and pairs them with the approval
-authorizer. Agent-session runtimes are the exception: they build their own
-runtime-native tool surfaces (Pi's bridged custom tools, DSH's bridge
-catalog) and do not consume this `ToolRegistry`.
+merges client tools, wraps to the SDK `ToolSet`, and applies defer
+exposition in `buildAgentParams`). The pi chat engine consumes this same
+registry through `toPiChatToolSurface` (`runtime/piChat/chatToolSurface.ts`),
+which converts entries to pi `ToolDefinition`s and pairs them with the
+approval authorizer. Agent-session runtimes are the exception: they build
+their own runtime-native tool surfaces (Pi's bridged custom tools, DSH's
+bridge catalog) and do not consume this `ToolRegistry`.
 
 Tests construct their own `new ToolRegistry()` to avoid singleton pollution.
 
@@ -176,7 +184,7 @@ see [Pi code mode](./agent-session-runtime.md#pi-code-mode).
 - `applies(scope: ToolApplyScope)` — per-entry predicate consulted at
   `registry.selectActive`. Throws are caught and treated as "inactive"
   with a warning log.
-- `createAiRepair(...)` (`tools/adapters/aiSdk/repair.ts`) — passed to AI SDK as
+- `createAiRepair(...)` (`runtime/aiSdk/params/repair.ts`) — passed to AI SDK as
   `experimental_repairToolCall`. When the model emits **malformed args**
   (`InvalidToolInputError`), the repair function gets one chance to fix it via a
   follow-up LLM call. Other failures (e.g. an unknown tool name) are

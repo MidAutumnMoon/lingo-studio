@@ -1,4 +1,3 @@
-import { tool } from 'ai'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as z from 'zod'
 
@@ -7,6 +6,7 @@ import type { CherryUIMessageChunk } from '@shared/data/types/message'
 import { toolApprovalRegistry } from '../../toolApproval/ToolApprovalRegistry'
 import { getToolCallContext } from '../../tools/adapters/aiSdk/context'
 import type { ToolEntry } from '../../tools/adapters/aiSdk/types'
+import { zodToolSchema } from '../../tools/neutralTool'
 import { createChatToolAuthorizer } from './chatToolApproval'
 
 afterEach(() => {
@@ -21,12 +21,12 @@ function gatedEntry(gated: boolean, execute = vi.fn(async () => ({ ok: true })))
     namespace: 'test',
     description: 'A gated tool',
     defer: 'never',
-    tool: tool({
+    tool: {
       description: 'A gated tool',
-      inputSchema: z.object({ path: z.string() }),
+      inputSchema: zodToolSchema(z.object({ path: z.string() })),
       ...(gated ? { needsApproval: true } : {}),
       execute
-    })
+    }
   }
 }
 
@@ -89,18 +89,21 @@ describe('createChatToolAuthorizer', () => {
       namespace: 'test',
       description: 'A context-gated tool',
       defer: 'never',
-      tool: tool({
+      tool: {
         description: 'A context-gated tool',
-        inputSchema: z.object({ path: z.string() }),
-        needsApproval: async (input: { path: string }, options) => {
+        inputSchema: zodToolSchema(z.object({ path: z.string() })),
+        needsApproval: async (input: unknown, options) => {
           try {
-            return input.path === 'blocked' || getToolCallContext(options).request.requestId !== 'req-open'
+            return (
+              (input as { path: string }).path === 'blocked' ||
+              getToolCallContext(options).request.requestId !== 'req-open'
+            )
           } catch {
             return true
           }
         },
         execute: vi.fn(async () => ({ ok: true }))
-      })
+      }
     }
 
     const allowed = harness(entry, { context: { requestContext: { requestId: 'req-open' } } })

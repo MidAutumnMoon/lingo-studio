@@ -2,6 +2,7 @@ import { type ModelMessage, tool, type UIMessage } from 'ai'
 import { describe, expect, it } from 'vitest'
 import * as z from 'zod'
 
+import { toSdkTool } from '../../runtime/aiSdk'
 import { createToolSearchTool } from '../../tools/adapters/aiSdk/meta/toolSearch'
 import { ToolRegistry } from '../../tools/adapters/aiSdk/registry'
 import { coalesceConsecutiveSameRole, ensureNonEmptyAssistantContent, toModelMessages } from '../messageRules'
@@ -237,7 +238,7 @@ describe('toModelMessages', () => {
         ui('user', [{ type: 'text', text: 'continue' }], 'u1')
       ],
       undefined,
-      { tool_search: toolSearch }
+      { tool_search: toSdkTool(toolSearch) }
     )
 
     expect(model[1]).toMatchObject({

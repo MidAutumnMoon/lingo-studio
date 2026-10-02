@@ -1,6 +1,6 @@
-import { jsonSchema, type Tool } from 'ai'
 import { describe, expect, it } from 'vitest'
 
+import type { NeutralTool } from '../../../../neutralTool'
 import { ToolRegistry } from '../../registry'
 import type { ToolEntry } from '../../types'
 import { createToolSearchTool, TOOL_SEARCH_TOOL_NAME } from '../toolSearch'
@@ -10,7 +10,7 @@ function makeEntry(overrides: Partial<ToolEntry> & Pick<ToolEntry, 'name'>): Too
     namespace: 'mcp:s1',
     description: `${overrides.name} description`,
     defer: 'auto',
-    tool: { description: 'inner', inputSchema: jsonSchema({ type: 'object' }) },
+    tool: { description: 'inner', inputSchema: { jsonSchema: { type: 'object' } } },
     ...overrides
   }
 }
@@ -24,7 +24,7 @@ function setup() {
   return reg
 }
 
-async function callExecute(tool: Tool, args: { query?: string; namespace?: string; verbose?: boolean }) {
+async function callExecute(tool: NeutralTool, args: { query?: string; namespace?: string; verbose?: boolean }) {
   if (typeof tool.execute !== 'function') throw new Error('not executable')
   return tool.execute(args, {
     toolCallId: 'tc-1',

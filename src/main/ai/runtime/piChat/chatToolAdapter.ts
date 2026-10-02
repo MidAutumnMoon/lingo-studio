@@ -1,21 +1,21 @@
-import type { ToolResultOutput } from '@ai-sdk/provider-utils'
 /**
  * W4a — chat tool registry → pi `ToolDefinition`s (plan:
  * docs/plans/2026-09-pi-unification.md, W4).
  *
- * One uniform bridge over `ToolEntry`: builtin (Zod), MCP (raw JSON Schema behind
- * the AI SDK `jsonSchema()` wrapper), and meta tools all convert the same way,
- * because the registry entry — not the pi adapter — owns execution. MCP tools keep
- * routing through their registry execute (`McpRuntimeService.callTool` with its
- * per-topic abort scope and catalog routing); the agent path's InMemoryTransport
- * bridge (`piMcpToolAdapter`) assembles its OWN server instances per session and
- * does not fit the chat registry model.
+ * One uniform bridge over `ToolEntry`: builtin (Zod-backed), MCP (raw JSON Schema
+ * with its validator), and meta tools all convert the same way, because the registry
+ * entry — not the pi adapter — owns execution. MCP tools keep routing through their
+ * registry execute (`McpRuntimeService.callTool` with its per-topic abort scope and
+ * catalog routing); the agent path's InMemoryTransport bridge (`piMcpToolAdapter`)
+ * assembles its OWN server instances per session and does not fit the chat registry
+ * model.
  *
- * Schema pivot: `asSchema(entry.tool.inputSchema).jsonSchema` normalizes every
- * AI SDK `FlexibleSchema` variant to raw JSON Schema. pi validates raw JSON
- * Schema natively (`validateToolArguments` falls back to a JSON-Schema path for
- * schemas without TypeBox kind symbols — same contract the pi MCP adapter relies
- * on), so no TypeBox rewrite is needed.
+ * Schema pivot: the registry's neutral `ToolSchema.jsonSchema` is the raw JSON Schema
+ * the model sees — Zod tools converted it once at definition time through the vendored
+ * dialect's `asSchema` (see `tools/neutralTool.ts`), so it matches the legacy engine's
+ * wire byte for byte. pi validates raw JSON Schema natively (`validateToolArguments`
+ * falls back to a JSON-Schema path for schemas without TypeBox kind symbols — same
+ * contract the pi MCP adapter relies on), so no TypeBox rewrite is needed.
  *
  * Result split (`AgentToolResult`): `content` is the MODEL-facing view — the
  * entry's `toModelOutput` when it declares one, else the raw output as JSON text
@@ -25,26 +25,27 @@ import type { ToolResultOutput } from '@ai-sdk/provider-utils'
  * replay see exactly what the legacy engine persisted.
  */
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent'
-import { asSchema } from 'ai'
 
 import { truncateInFlightToolResultText } from '@main/ai/contextBuild/inFlightTruncate'
 import { createFileManagerStorageAdapter } from '@main/ai/contextBuild/persistedOutputAdapter'
 
 import type { RequestContext } from '../../tools/adapters/aiSdk/context'
 import type { ToolEntry } from '../../tools/adapters/aiSdk/types'
+import type { ToolModelContentBlock, ToolModelOutput } from '../../tools/neutralTool'
 import { getTrustedLocalToolTerminalFailure } from '../../tools/toolLoopTerminal'
 
 /** pi content blocks for tool results (the multimodal subset the adapter projects). */
 type PiToolContent = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
 
-/** A block of a `content` view — the AI SDK's own union, not a restated mirror. */
-type ToolContentBlock = Extract<ToolResultOutput, { type: 'content' }>['value'][number]
+/** A block of a `content` view — the registry's neutral block union. */
+type ToolContentBlock = ToolModelContentBlock
 
 export interface PiChatToolContext {
   /**
-   * Threaded to every registry execute as AI SDK `experimental_context`; the tools
-   * read it via `getToolCallContext` (a missing context throws there, so it is
-   * required here too — the W6 seam builds it from the request).
+   * Threaded to every registry execute as `experimental_context` (the dialect's
+   * execute-options field); the tools read it via `getToolCallContext` (a missing
+   * context throws there, so it is required here too — the W6 seam builds it from
+   * the request).
    */
   requestContext: RequestContext
 }
@@ -56,7 +57,7 @@ export function toPiChatToolDefinition(entry: ToolEntry, context: PiChatToolCont
     name: entry.name,
     label: entry.namespaceLabel ?? entry.name,
     description: tool.description ?? entry.description,
-    parameters: asSchema(tool.inputSchema).jsonSchema,
+    parameters: tool.inputSchema.jsonSchema,
     async execute(toolCallId, params, signal) {
       const execute = tool.execute
       if (!execute) {
@@ -139,7 +140,7 @@ export function toPiChatTools(entries: readonly ToolEntry[], context: PiChatTool
  * message ("Attached image(s) from tool result:"). Anything else (file data, urls)
  * has no pi representation and becomes a note, never a silent drop.
  */
-function toPiContent(view: ToolResultOutput | undefined, output: unknown): PiToolContent[] {
+function toPiContent(view: ToolModelOutput | undefined, output: unknown): PiToolContent[] {
   if (view === undefined) {
     return [{ type: 'text', text: stringify(output) }]
   }

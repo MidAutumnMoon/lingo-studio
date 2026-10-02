@@ -12,41 +12,39 @@
  *   B. param validation — arguments are validated against the tool input
  *      schema when it provides a validator; a mismatch is rejected with the signature.
  *
- * Forwards the AI SDK execution options (messages, abortSignal,
+ * Forwards the execution options (messages, abortSignal,
  * experimental_context) onto the inner tool's `execute` so the per-request
  * RequestContext flows through. The inner `toolCallId` is suffixed with the
  * target name so telemetry can rebuild the call tree.
  */
 
-import { asSchema, jsonSchema, type Tool, tool } from 'ai'
 import * as z from 'zod'
 
+import { type NeutralTool, type ToolSchema } from '../../../neutralTool'
 import { isApprovalGated } from '../isApprovalGated'
 import type { ToolRegistry } from '../registry'
 import type { ToolEntry } from '../types'
 import { buildToolStub } from './schemaStub'
 
-export const TOOL_INVOKE_TOOL_NAME = 'tool_invoke'
-
-/** Runtime validation for tool_invoke's own input (the SDK skips zod when the
- *  schema is a `jsonSchema()` wrapper, so the validate callback carries it). */
+/** Runtime validation for tool_invoke's own input (the wire schema below is hand-written,
+ *  so the zod parse rides the neutral schema's `validate`). */
 const toolInvokeInputZod = z.object({
   name: z.string(),
   params: z.record(z.string(), z.unknown()).optional()
 })
 
 /**
- * Hand-written JSON Schema instead of the zod schema above: the AI SDK's zod
+ * Hand-written JSON Schema instead of the zod schema above: the dialect's zod
  * conversion (`addAdditionalPropertiesToJsonSchema` in @ai-sdk/provider-utils)
  * force-sets `additionalProperties: false` on EVERY object node — including
  * the free-form `params` record — regardless of the record's value type. The
  * resulting wire schema forbids all `params` keys, so Anthropic's
  * `input_examples` validation 400s the whole request and strict endpoints
- * reject real calls. `asSchema` passes a pre-wrapped `jsonSchema()` through
- * untouched, so `additionalProperties: true` survives here.
+ * reject real calls. A raw JSON Schema never runs that post-processing, so
+ * `additionalProperties: true` survives here.
  */
-const toolInvokeInputSchema = jsonSchema<{ name: string; params?: Record<string, unknown> }>(
-  {
+const toolInvokeInputSchema: ToolSchema = {
+  jsonSchema: {
     type: 'object',
     properties: {
       name: { type: 'string', description: 'Tool name as returned by tool_search' },
@@ -55,13 +53,11 @@ const toolInvokeInputSchema = jsonSchema<{ name: string; params?: Record<string,
     required: ['name'],
     additionalProperties: false
   },
-  {
-    validate: (value) => {
-      const result = toolInvokeInputZod.safeParse(value)
-      return result.success ? { success: true, value: result.data } : { success: false, error: result.error }
-    }
+  validate: (value) => {
+    const result = toolInvokeInputZod.safeParse(value)
+    return result.success ? { success: true, value: result.data } : { success: false, error: result.error }
   }
-)
+}
 
 /**
  * @param allowedNames per-request tool name set (the request's active inline ∪ deferred names).
@@ -75,13 +71,13 @@ export function createToolInvokeTool(
   registry: ToolRegistry,
   allowedNames: ReadonlySet<string>,
   inspectedNames: Set<string>
-): Tool {
+): NeutralTool {
   // Per-request cache of the Guard-B-parsed params keyed by the tool_invoke call id, so the
   // `toModelOutput` hook below can feed the inner formatter the SAME input `execute` ran on
   // (defaults / coercions applied) — native dispatch keeps execute's and toModelOutput's input
   // identical, and the inner formatter (e.g. kb_list) keys its output off those params.
   const parsedParamsByCallId = new Map<string, Record<string, unknown>>()
-  return tool({
+  return {
     description:
       'Call a single tool discovered via `tool_search` by name, passing arguments under `params`. ' +
       "If the tool hasn't been inspected, or the arguments don't match its schema, the call returns the " +
@@ -135,17 +131,18 @@ export function createToolInvokeTool(
     // the inner tool's `toModelOutput` (e.g. MCP summarises its full response to text). Without this
     // the model sees `tool_invoke`'s raw JSON return — the inner formatter is otherwise bypassed.
     toModelOutput: ({ toolCallId, input, output }) => {
-      const entry = allowedNames.has(input.name) ? registry.getByName(input.name) : undefined
+      const { name, params } = input as z.infer<typeof toolInvokeInputZod>
+      const entry = allowedNames.has(name) ? registry.getByName(name) : undefined
       const innerToModelOutput = entry?.tool.toModelOutput
       if (innerToModelOutput) {
         // Feed the inner formatter the parsed params `execute` ran on, not the raw `input.params`,
         // so its view matches native dispatch. Falls back to raw input if no parse was recorded.
-        const innerInput = parsedParamsByCallId.get(toolCallId) ?? input.params ?? {}
-        return innerToModelOutput({ toolCallId: `${toolCallId}::${input.name}`, input: innerInput, output })
+        const innerInput = parsedParamsByCallId.get(toolCallId) ?? params ?? {}
+        return innerToModelOutput({ toolCallId: `${toolCallId}::${name}`, input: innerInput, output })
       }
       return { type: 'json', value: output }
     }
-  })
+  }
 }
 
 /**
@@ -154,7 +151,7 @@ export function createToolInvokeTool(
  * on mismatch. Schemas without a validator pass through unchanged.
  */
 async function validateParams(entry: ToolEntry, params: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const validate = asSchema(entry.tool.inputSchema as Parameters<typeof asSchema>[0]).validate
+  const validate = entry.tool.inputSchema.validate
   if (!validate) return params
 
   const result = await validate(params)

@@ -20,6 +20,7 @@ import { createFsReadToolEntry } from '../../../../tools/adapters/aiSdk/builtin/
 import type { RequestContext } from '../../../../tools/adapters/aiSdk/context'
 import { registry } from '../../../../tools/adapters/aiSdk/registry'
 import type { ToolEntry } from '../../../../tools/adapters/aiSdk/types'
+import type { NeutralTool } from '../../../../tools/neutralTool'
 import type { AppProviderSettingsMap } from '../../../../types'
 import type { CallOverrides } from '../../../../types/requests'
 import type { AgentOptions } from '../../loop/types'
@@ -832,7 +833,7 @@ describe('buildAgentParams web-tool routing', () => {
     namespace: 'web',
     description: 'client search',
     defer: 'never',
-    tool: {} as Tool,
+    tool: { description: 'stub', inputSchema: { jsonSchema: {} } },
     applies: (scope) => scope.webToolRoutes?.webSearch === 'client'
   }
   const clientFetchEntry: ToolEntry = {
@@ -840,7 +841,7 @@ describe('buildAgentParams web-tool routing', () => {
     namespace: 'web',
     description: 'client fetch',
     defer: 'never',
-    tool: {} as Tool,
+    tool: { description: 'stub', inputSchema: { jsonSchema: {} } },
     applies: (scope) => scope.webToolRoutes?.webFetch === 'client'
   }
 
@@ -877,8 +878,10 @@ describe('buildAgentParams web-tool routing', () => {
       assistant
     })
 
-    expect(result.tools?.web_search).toBe(clientSearchEntry.tool)
-    expect(result.tools?.web_fetch).toBe(clientFetchEntry.tool)
+    // The registry's neutral entries wrap into SDK tools at the boundary — assert the exposed
+    // tool derives from the registered entry (description + wire schema), not object identity.
+    expect(result.tools?.web_search?.description).toBe(clientSearchEntry.tool.description)
+    expect(result.tools?.web_fetch?.description).toBe(clientFetchEntry.tool.description)
     expect(result.plugins.some((plugin) => plugin.name === 'webSearch')).toBe(false)
     expect(result.plugins.some((plugin) => plugin.name === 'urlContext')).toBe(false)
   })
@@ -903,7 +906,7 @@ describe('buildAgentParams web-tool routing', () => {
       assistant
     })
 
-    expect(result.tools?.web_search).toBe(clientSearchEntry.tool)
+    expect(result.tools?.web_search?.description).toBe(clientSearchEntry.tool.description)
     expect(result.plugins.some((plugin) => plugin.name === 'webSearch')).toBe(false)
   })
 
@@ -1298,7 +1301,7 @@ describe('buildAgentParams assistant-less reasoning', () => {
       namespace: 'web',
       description: 'first-party search',
       defer: 'never',
-      tool: {} as Tool
+      tool: { description: 'stub', inputSchema: { jsonSchema: {} } }
     }
     registry.register(entry)
 
@@ -1695,7 +1698,7 @@ describe('buildAgentParams knowledge-scope enforcement', () => {
     namespace: 'test',
     description: 'test-only tool that records the effective knowledge scope it is resolved with',
     defer: 'never',
-    tool: {} as Tool,
+    tool: { description: 'stub', inputSchema: { jsonSchema: {} } },
     applies: (scope) => {
       observedScope = scope.knowledgeBaseIds
       return true
@@ -1767,7 +1770,7 @@ describe('resolveTools knowledge-base wiring', () => {
     namespace: 'test',
     description: 'test-only tool gated on knowledgeBaseIds',
     defer: 'never',
-    tool: {} as Tool,
+    tool: { description: 'stub', inputSchema: { jsonSchema: {} } },
     applies: (scope) => (scope.knowledgeBaseIds?.length ?? 0) > 0
   }
 
@@ -1793,7 +1796,7 @@ describe('resolveTools knowledge-base wiring', () => {
 })
 
 describe('resolveTools citation provenance', () => {
-  const tool = {} as Tool
+  const tool: NeutralTool = { description: 'stub', inputSchema: { jsonSchema: {} } }
   const entry: ToolEntry = {
     name: 'web_search',
     namespace: 'web',
@@ -1833,7 +1836,7 @@ describe('resolveTools fs_read gating', () => {
     namespace: 'test',
     description: 'ungated test tool',
     defer: 'never',
-    tool: {} as Tool
+    tool: { description: 'stub', inputSchema: { jsonSchema: {} } }
   }
 
   beforeEach(() => registry.register(createFsReadToolEntry()))

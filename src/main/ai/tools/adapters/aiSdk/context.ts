@@ -1,8 +1,7 @@
-import type { ToolExecutionOptions } from '@ai-sdk/provider-utils'
-import type { ModelMessage } from 'ai'
-
 import type { FileAttachmentRef } from '@main/ai/messages/attachmentTypes'
 import type { Assistant } from '@shared/data/types/assistant'
+
+import type { ToolExecuteOptions } from '../../neutralTool'
 
 /**
  * Per-request context constructed once in `buildAgentParams` and
@@ -77,11 +76,11 @@ export interface RequestContext {
   readonly toolResultTruncation?: { thresholdChars: number; canOffload: boolean }
 }
 
-/** Per-call context: {@link RequestContext} + AI SDK's per-`execute` fields. */
+/** Per-call context: {@link RequestContext} + the neutral execute options' per-call fields. */
 export interface ToolCallContext {
   readonly request: RequestContext
   readonly toolCallId: string
-  readonly messages: ModelMessage[]
+  readonly messages: readonly unknown[]
 }
 
 /**
@@ -89,7 +88,7 @@ export interface ToolCallContext {
  * `buildAgentParams` didn't thread `RequestContext` through, or a test
  * forgot to mock it.
  */
-export function getToolCallContext(options: ToolExecutionOptions): ToolCallContext {
+export function getToolCallContext(options: ToolExecuteOptions): ToolCallContext {
   const request = options.experimental_context
   if (!isRequestContext(request)) {
     throw new Error(
@@ -108,7 +107,7 @@ export function getToolCallContext(options: ToolExecutionOptions): ToolCallConte
  * (e.g. abort-scope tagging): returns undefined instead of throwing when the
  * context is absent, so the tool call itself never fails over a missing extra.
  */
-export function getRequestContext(options: ToolExecutionOptions): RequestContext | undefined {
+export function getRequestContext(options: ToolExecuteOptions): RequestContext | undefined {
   const request = options.experimental_context
   return isRequestContext(request) ? request : undefined
 }

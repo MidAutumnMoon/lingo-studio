@@ -1,15 +1,15 @@
-import type { Tool } from 'ai'
 import { describe, expect, it } from 'vitest'
 
+import type { NeutralTool } from '../../../neutralTool'
 import { isApprovalGated } from '../isApprovalGated'
 
-function toolWith(needsApproval?: Tool['needsApproval']): Tool {
+function toolWith(needsApproval?: NeutralTool['needsApproval']): NeutralTool {
   return {
     type: 'function',
     description: 't',
-    inputSchema: {},
+    inputSchema: { jsonSchema: {} },
     ...(needsApproval !== undefined ? { needsApproval } : {})
-  } as unknown as Tool
+  }
 }
 
 describe('isApprovalGated', () => {

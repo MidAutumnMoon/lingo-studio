@@ -12,7 +12,9 @@ import { readUIMessageStream, streamText } from 'ai'
 import { convertArrayToReadableStream, MockLanguageModelV3 } from 'ai/test'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ToolRegistry } from '../../registry'
+import { ToolRegistry } from '@main/ai/tools/adapters/aiSdk/registry'
+
+import { toSdkTool } from '../toSdkToolSet'
 
 const listTools = vi.fn()
 const list = vi.fn()
@@ -32,7 +34,7 @@ vi.mock('@main/data/services/McpServerService', () => ({
   mcpServerService: { list, getById: (id: string) => ({ id, name: '票据 OCR', isActive: true }) }
 }))
 
-const { syncMcpToolsToRegistry } = await import('../mcpTools')
+const { syncMcpToolsToRegistry } = await import('@main/ai/tools/adapters/aiSdk/mcp/mcpTools')
 
 const WIRE_ID = 'mcp__piaoJuOcr__shiBieFaPiao_0123456789abcdef0123'
 
@@ -82,7 +84,7 @@ describe('MCP tool metadata reaches the UI parts', () => {
 
     const result = streamText({
       model: mockModelEmittingToolCall(),
-      tools: { [WIRE_ID]: entry!.tool },
+      tools: { [WIRE_ID]: toSdkTool(entry!.tool) },
       prompt: 'read the invoice'
     })
 

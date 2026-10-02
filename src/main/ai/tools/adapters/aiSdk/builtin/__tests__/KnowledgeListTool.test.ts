@@ -1,9 +1,10 @@
-import type { ToolExecutionOptions } from '@ai-sdk/provider-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DataApiErrorFactory } from '@shared/data/api/errors'
 import type { Assistant } from '@shared/data/types/assistant'
 import type { KnowledgeBase, KnowledgeItem } from '@shared/data/types/knowledge'
+
+import type { ToolExecuteOptions } from '../../../../neutralTool'
 
 const knowledgeServiceListBasesForDiscovery = vi.fn()
 const knowledgeServiceListRootItems = vi.fn<(baseId: string) => KnowledgeItem[]>()
@@ -169,7 +170,7 @@ function listPage(items: KnowledgeBase[], nextCursor?: string) {
 }
 
 function callExecute(args: ListArgs, ctx: { knowledgeBaseIds?: string[] } = {}): Promise<unknown> {
-  const execute = entry.tool.execute as (args: ListArgs, options: ToolExecutionOptions) => Promise<unknown>
+  const execute = entry.tool.execute as (args: ListArgs, options: ToolExecuteOptions) => Promise<unknown>
   return execute(
     // Unused filters are omitted, not sentinel-valued — kb_list runs without `strict`, so its schema
     // is plain optionals and the model omits what it does not filter on.

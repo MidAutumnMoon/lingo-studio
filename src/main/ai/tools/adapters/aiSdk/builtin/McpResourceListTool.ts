@@ -9,8 +9,6 @@
  * Servers are request scope, not a model argument, so the tool takes no input.
  */
 
-import { tool } from 'ai'
-
 import { loggerService } from '@logger'
 import {
   MCP_RESOURCE_LIST_TOOL_NAME,
@@ -18,6 +16,7 @@ import {
   mcpResourceListOutputSchema
 } from '@shared/ai/builtinTools'
 
+import { zodToolSchema, type NeutralTool } from '../../../neutralTool'
 import { getToolCallContext } from '../context'
 import { resolveMcpResourceServers } from '../mcp/resolveAssistantMcpTools'
 import { listScopedMcpResources } from '../mcp/scopedResources'
@@ -31,10 +30,10 @@ export const MCP_RESOURCE_LIST_DESCRIPTION =
   'content with mcp_resource_read using the serverId and uri returned here — serverName is for ' +
   'display only and is not unique.'
 
-const mcpResourceListTool = tool({
+const mcpResourceListTool: NeutralTool = {
   description: MCP_RESOURCE_LIST_DESCRIPTION,
-  inputSchema: mcpResourceListInputSchema,
-  outputSchema: mcpResourceListOutputSchema,
+  inputSchema: zodToolSchema(mcpResourceListInputSchema),
+  outputSchema: zodToolSchema(mcpResourceListOutputSchema),
   execute: async (_input, options) => {
     const { request } = getToolCallContext(options)
     const servers = resolveMcpResourceServers(request.assistant, request.mcpResourceServerIds)
@@ -42,7 +41,7 @@ const mcpResourceListTool = tool({
     logger.debug('Listed MCP resources', { servers: servers.length, resources: resources.length })
     return { resources }
   }
-})
+}
 
 export function createMcpResourceListToolEntry(): ToolEntry {
   return {

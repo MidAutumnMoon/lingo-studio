@@ -1,5 +1,4 @@
 import { validateToolArguments } from '@earendil-works/pi-ai'
-import { jsonSchema, tool } from 'ai'
 import { describe, expect, it, vi } from 'vitest'
 import * as z from 'zod'
 
@@ -7,6 +6,7 @@ import { mcpResultToTextSummary } from '../../messages/toolResultRendering'
 import { registerBuiltinTools } from '../../tools/adapters/aiSdk/builtin/registerBuiltinTools'
 import { ToolRegistry } from '../../tools/adapters/aiSdk/registry'
 import type { ToolEntry } from '../../tools/adapters/aiSdk/types'
+import { zodToolSchema } from '../../tools/neutralTool'
 import { markTrustedLocalToolTerminalFailure } from '../../tools/toolLoopTerminal'
 import { toPiChatToolDefinition, toPiChatTools } from './chatToolAdapter'
 
@@ -20,11 +20,11 @@ function zodEntry(overrides: Partial<ToolEntry> = {}): ToolEntry {
     namespace: 'test',
     description: 'Echo the query',
     defer: 'never',
-    tool: tool({
+    tool: {
       description: 'Echo the query back',
-      inputSchema: z.object({ q: z.string().describe('the query') }),
+      inputSchema: zodToolSchema(z.object({ q: z.string().describe('the query') })),
       execute
-    }),
+    },
     ...overrides
   }
   return entry
@@ -71,7 +71,7 @@ describe('toPiChatToolDefinition', () => {
   it('truncates the model-facing text in flight while the payload keeps the full output', async () => {
     const huge = { blob: 'x'.repeat(4000) + '\n' + 'y'.repeat(4000) }
     const entry = zodEntry({
-      tool: tool({ description: 'echo', inputSchema: z.object({}), execute: async () => huge })
+      tool: { description: 'echo', inputSchema: zodToolSchema(z.object({})), execute: async () => huge }
     })
     const context = {
       requestContext: { requestId: 'req-trunc', toolResultTruncation: { thresholdChars: 100, canOffload: false } }
@@ -96,12 +96,12 @@ describe('toPiChatToolDefinition', () => {
       ]
     }
     const entry = zodEntry({
-      tool: tool({
+      tool: {
         description: 'browser',
-        inputSchema: z.object({}),
+        inputSchema: zodToolSchema(z.object({})),
         execute: async () => ({ ignored: true }),
         toModelOutput: () => view
-      })
+      }
     })
     const context = {
       requestContext: { requestId: 'req-multi', toolResultTruncation: { thresholdChars: 2000, canOffload: false } }
@@ -127,11 +127,11 @@ describe('toPiChatToolDefinition', () => {
       description: 'exempt',
       defer: 'never',
       truncatable: false,
-      tool: tool({
+      tool: {
         description: 'exempt',
-        inputSchema: z.object({}),
+        inputSchema: zodToolSchema(z.object({})),
         execute: async () => ({ text: huge })
-      })
+      }
     }
     const context = {
       requestContext: { requestId: 'req-exempt', toolResultTruncation: { thresholdChars: 100, canOffload: false } }
@@ -144,12 +144,15 @@ describe('toPiChatToolDefinition', () => {
 
   it('uses the tool declared model view when present', async () => {
     const entry = zodEntry({
-      tool: tool({
+      tool: {
         description: 'echo',
-        inputSchema: z.object({ q: z.string() }),
-        execute: async ({ q }) => ({ results: [{ id: 'x', content: q }] }),
-        toModelOutput: ({ output }) => ({ type: 'text' as const, value: `[x] ${output.results[0].content}` })
-      })
+        inputSchema: zodToolSchema(z.object({ q: z.string() })),
+        execute: async ({ q }: { q: string }) => ({ results: [{ id: 'x', content: q }] }),
+        toModelOutput: ({ output }) => ({
+          type: 'text' as const,
+          value: `[x] ${(output as { results: Array<{ content: string }> }).results[0].content}`
+        })
+      }
     })
     const definition = toPiChatToolDefinition(entry, { requestContext })
 
@@ -160,7 +163,7 @@ describe('toPiChatToolDefinition', () => {
   })
 
   it('converts an MCP registry entry: raw JSON Schema parameters and the summary model view', async () => {
-    // Mirrors `createMcpTool`: jsonSchema-wrapped input schema, full McpCallToolResponse
+    // Mirrors `createMcpTool`: raw-JSON-Schema input schema, full McpCallToolResponse
     // output, text-summary toModelOutput.
     const callResponse = {
       content: [{ type: 'text', text: '{"rows":1}' }],
@@ -177,11 +180,13 @@ describe('toPiChatToolDefinition', () => {
       tool: {
         type: 'function',
         description: 'Query the database',
-        inputSchema: jsonSchema({
-          type: 'object',
-          properties: { sql: { type: 'string' } },
-          required: ['sql']
-        } as never),
+        inputSchema: {
+          jsonSchema: {
+            type: 'object',
+            properties: { sql: { type: 'string' } },
+            required: ['sql']
+          }
+        },
         execute: vi.fn(async () => callResponse),
         toModelOutput: ({ output }) => ({ type: 'text' as const, value: mcpResultToTextSummary(output as never) })
       }
@@ -204,7 +209,7 @@ describe('toPiChatToolDefinition', () => {
 
   it('fails loudly at call time for an entry without execute', async () => {
     const entry = zodEntry({
-      tool: { description: 'stub', inputSchema: z.object({ q: z.string() }) }
+      tool: { description: 'stub', inputSchema: zodToolSchema(z.object({ q: z.string() })) }
     })
     const definition = toPiChatToolDefinition(entry, { requestContext })
     await expect(definition.execute('call-4', { q: 'x' }, undefined, undefined, {} as never)).rejects.toThrow(
@@ -214,9 +219,9 @@ describe('toPiChatToolDefinition', () => {
 
   it('carries a multimodal model view into pi content blocks', async () => {
     const entry = zodEntry({
-      tool: tool({
+      tool: {
         description: 'screenshot',
-        inputSchema: z.object({}),
+        inputSchema: zodToolSchema(z.object({})),
         execute: async () => ({ blob: 'aGk=', text: 'shot' }),
         toModelOutput: () => ({
           type: 'content' as const,
@@ -225,7 +230,7 @@ describe('toPiChatToolDefinition', () => {
             { type: 'image-data' as const, data: 'aGk=', mediaType: 'image/png' }
           ]
         })
-      })
+      }
     })
 
     const result = await toPiChatToolDefinition(entry, { requestContext }).execute(
@@ -246,15 +251,15 @@ describe('toPiChatToolDefinition', () => {
 
     // Blocks pi cannot carry (file data, urls) become a note — never a silent drop.
     const fileEntry = zodEntry({
-      tool: tool({
+      tool: {
         description: 'attachment',
-        inputSchema: z.object({}),
+        inputSchema: zodToolSchema(z.object({})),
         execute: async () => ({ ok: true }),
         toModelOutput: () => ({
           type: 'content' as const,
           value: [{ type: 'file-data' as const, data: 'aGk=', mediaType: 'application/pdf' }]
         })
-      })
+      }
     })
     const fileResult = await toPiChatToolDefinition(fileEntry, { requestContext }).execute(
       'call-7',
@@ -291,11 +296,11 @@ describe('toPiChatToolDefinition', () => {
 
   it('maps a trusted terminal failure onto pi terminate hint', async () => {
     const entry = zodEntry({
-      tool: tool({
+      tool: {
         description: 'lookup',
-        inputSchema: z.object({ q: z.string() }),
+        inputSchema: zodToolSchema(z.object({ q: z.string() })),
         execute: async () => markTrustedLocalToolTerminalFailure({ terminal: true, retryable: false, error: 'gone' })
-      })
+      }
     })
     const definition = toPiChatToolDefinition(entry, { requestContext })
 

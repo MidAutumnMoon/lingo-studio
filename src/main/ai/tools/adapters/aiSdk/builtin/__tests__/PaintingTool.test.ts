@@ -1,7 +1,5 @@
 import { resolve } from 'node:path'
 
-import type { ToolExecutionOptions } from '@ai-sdk/provider-utils'
-import type { Tool } from 'ai'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { readProviderModelRegistry } from '@cherrystudio/provider-registry/node'
@@ -9,6 +7,7 @@ import { DataApiErrorFactory } from '@shared/data/api/errors'
 import type { Assistant } from '@shared/data/types/assistant'
 import type { ImageGenerationSupport } from '@shared/data/types/model'
 
+import type { NeutralTool, ToolExecuteOptions } from '../../../../neutralTool'
 import type { ToolApplyScope } from '../../types'
 
 const { getPreference, getModelByKey, getImageGenerationSupport, generateImage, fileRead } = vi.hoisted(() => ({
@@ -54,7 +53,7 @@ import { createGenerateImageToolEntry, GENERATE_IMAGE_TOOL_NAME } from '../Paint
 
 const entry = createGenerateImageToolEntry()
 
-function makeOptions(abortSignal = new AbortController().signal): ToolExecutionOptions {
+function makeOptions(abortSignal = new AbortController().signal): ToolExecuteOptions {
   return {
     toolCallId: 't1',
     messages: [],
@@ -65,11 +64,11 @@ function makeOptions(abortSignal = new AbortController().signal): ToolExecutionO
 function callExecute(
   args: { prompt: string; image_ids?: string[]; [key: string]: unknown },
   abortSignal?: AbortSignal,
-  selectedTool: Tool = entry.tool
+  selectedTool: NeutralTool = entry.tool
 ): Promise<unknown> {
   const execute = selectedTool.execute as (
     args: { prompt: string; image_ids?: string[]; [key: string]: unknown },
-    options: ToolExecutionOptions
+    options: ToolExecuteOptions
   ) => Promise<unknown>
   return execute(args, makeOptions(abortSignal))
 }
@@ -92,7 +91,7 @@ const editableSupport = {
   }
 } satisfies ImageGenerationSupport
 
-function buildTool(support: ImageGenerationSupport): Tool {
+function buildTool(support: ImageGenerationSupport): NeutralTool {
   return entry.buildTool!({
     mcpToolIds: new Set(),
     paintingModel: { uniqueModelId: 'openai::gpt-image-1', support }

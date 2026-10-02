@@ -1,6 +1,6 @@
-import type { ToolExecutionOptions } from '@ai-sdk/provider-utils'
 import { describe, expect, it } from 'vitest'
 
+import type { ToolExecuteOptions } from '../../../neutralTool'
 import { getToolCallContext, type RequestContext } from '../context'
 
 function makeRequest(overrides: Partial<RequestContext> = {}): RequestContext {
@@ -11,7 +11,7 @@ function makeRequest(overrides: Partial<RequestContext> = {}): RequestContext {
   }
 }
 
-function makeOptions(experimental_context: unknown): ToolExecutionOptions {
+function makeOptions(experimental_context: unknown): ToolExecuteOptions {
   return {
     toolCallId: 'call-1',
     messages: [],

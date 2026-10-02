@@ -1,7 +1,7 @@
-import type { Tool } from 'ai'
 import { describe, expect, it } from 'vitest'
 
 import type { ToolEntry } from '../../../../tools/adapters/aiSdk/types'
+import type { NeutralTool } from '../../../../tools/neutralTool'
 import { getDeferredToolsSystemPrompt } from '../deferredTools'
 
 const entry = (overrides: Partial<ToolEntry>): ToolEntry => ({
@@ -9,7 +9,7 @@ const entry = (overrides: Partial<ToolEntry>): ToolEntry => ({
   namespace: 'mcp:11111111-2222-3333-4444-555555555555',
   description: 'send mail',
   defer: 'auto',
-  tool: {} as Tool,
+  tool: {} as NeutralTool,
   ...overrides
 })
 

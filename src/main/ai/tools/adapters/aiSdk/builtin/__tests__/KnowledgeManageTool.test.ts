@@ -1,8 +1,9 @@
-import type { ToolExecutionOptions } from '@ai-sdk/provider-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DataApiErrorFactory } from '@shared/data/api/errors'
 import type { Assistant } from '@shared/data/types/assistant'
+
+import type { ToolExecuteOptions } from '../../../../neutralTool'
 
 const addItems = vi.fn()
 const deleteConcepts = vi.fn()
@@ -44,7 +45,7 @@ type ManageArgs = {
 }
 
 function callExecute(args: ManageArgs, ctx: { knowledgeBaseIds?: string[] } = {}): Promise<unknown> {
-  const execute = entry.tool.execute as (args: ManageArgs, options: ToolExecutionOptions) => Promise<unknown>
+  const execute = entry.tool.execute as (args: ManageArgs, options: ToolExecuteOptions) => Promise<unknown>
   return execute(
     // Fields the action does not use are omitted, not sentinel-valued — kb_manage runs without
     // `strict`, so its schema is plain optionals.

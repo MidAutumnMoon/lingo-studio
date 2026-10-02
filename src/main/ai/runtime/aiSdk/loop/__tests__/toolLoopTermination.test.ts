@@ -1,8 +1,9 @@
-import { jsonSchema, type StepResult, type ToolSet } from 'ai'
+import { type StepResult, type ToolSet } from 'ai'
 import { describe, expect, it } from 'vitest'
 
-import { createToolInvokeTool, TOOL_INVOKE_TOOL_NAME } from '@main/ai/tools/adapters/aiSdk/meta/toolInvoke'
+import { createToolInvokeTool } from '@main/ai/tools/adapters/aiSdk/meta/toolInvoke'
 import { ToolRegistry } from '@main/ai/tools/adapters/aiSdk/registry'
+import { TOOL_INVOKE_TOOL_NAME } from '@main/ai/tools/metaToolNames'
 import { markTrustedLocalToolTerminalFailure } from '@main/ai/tools/toolLoopTerminal'
 
 import {
@@ -94,7 +95,7 @@ describe('tool-loop termination', () => {
       tool: {
         type: 'function',
         description: 'Local lookup',
-        inputSchema: jsonSchema({ type: 'object' }),
+        inputSchema: { jsonSchema: { type: 'object' } },
         execute: async () => output
       }
     })

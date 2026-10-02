@@ -7,9 +7,9 @@
  * request's ToolSet would be redundant in search results.
  */
 
-import { type Tool, tool } from 'ai'
 import * as z from 'zod'
 
+import { type NeutralTool, zodToolSchema } from '../../../neutralTool'
 import type { ToolRegistry } from '../registry'
 import { serializeToolSchema } from './schemaStub'
 
@@ -39,24 +39,26 @@ export function createToolSearchTool(
   registry: ToolRegistry,
   deferredNames: ReadonlySet<string>,
   inspectedNames: Set<string>
-): Tool {
-  return tool({
+): NeutralTool {
+  return {
     description:
       'Discover available tools by namespace. This is tool discovery (NOT web search). Tools are ' +
       'grouped by domain (web, kb, mcp:gmail, ...). Omit `query` to browse all. Inspect a name ' +
       'returned here with `tool_inspect`, then call it with `tool_invoke`.',
-    inputSchema: z.object({
-      query: z
-        .string()
-        .optional()
-        .describe('Substring match against tool name, description, and namespace (case-insensitive)'),
-      namespace: z.string().optional().describe('Restrict the result to a single namespace'),
-      verbose: z
-        .boolean()
-        .optional()
-        .default(false)
-        .describe('Include each tool full input schema in the result (more tokens)')
-    }),
+    inputSchema: zodToolSchema(
+      z.object({
+        query: z
+          .string()
+          .optional()
+          .describe('Substring match against tool name, description, and namespace (case-insensitive)'),
+        namespace: z.string().optional().describe('Restrict the result to a single namespace'),
+        verbose: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('Include each tool full input schema in the result (more tokens)')
+      })
+    ),
     inputExamples: [{ input: { query: 'gmail', verbose: false } }, { input: { namespace: 'web', verbose: true } }],
     execute: async ({ query, namespace, verbose }) => {
       const grouped = registry.getByNamespace({ query, namespace })
@@ -90,7 +92,7 @@ export function createToolSearchTool(
     // easier for the model to scan tool names. Names are verbatim so they can be passed to
     // `tool_inspect` / `tool_invoke` as-is.
     toModelOutput: ({ output }) => ({ type: 'text', value: formatSearchForModel(output) })
-  })
+  }
 }
 
 function formatSearchForModel(output: unknown): string {

@@ -1,4 +1,3 @@
-import type { Tool } from 'ai'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ToolRegistry } from '../../registry'
@@ -120,7 +119,7 @@ describe('syncMcpToolsToRegistry', () => {
       namespace: 'mcp:gone',
       description: 'stale',
       defer: 'auto',
-      tool: { description: '' } as unknown as Tool
+      tool: { description: '', inputSchema: { jsonSchema: {} } }
     } satisfies ToolEntry)
 
     list.mockReturnValue({ items: [activeServer('s1')] })
@@ -168,7 +167,7 @@ describe('syncMcpToolsToRegistry', () => {
       namespace: 'web',
       description: 'builtin',
       defer: 'never',
-      tool: { description: '' } as unknown as Tool
+      tool: { description: '', inputSchema: { jsonSchema: {} } }
     } satisfies ToolEntry)
 
     list.mockReturnValue({ items: [] })
@@ -280,7 +279,7 @@ describe('syncMcpToolsToRegistry', () => {
         namespace: 'mcp:jira',
         description: 'pre-existing jira tool',
         defer: 'auto',
-        tool: { description: '' } as unknown as Tool
+        tool: { description: '', inputSchema: { jsonSchema: {} } }
       } satisfies ToolEntry)
 
       list.mockReturnValue({ items: [activeServer('gh'), activeServer('jira')] })
@@ -315,7 +314,7 @@ describe('syncMcpToolsToRegistry', () => {
         namespace: 'mcp:gone',
         description: 'stale',
         defer: 'auto',
-        tool: { description: '' } as unknown as Tool
+        tool: { description: '', inputSchema: { jsonSchema: {} } }
       } satisfies ToolEntry)
 
       list.mockReturnValue({ items: [activeServer('gh')] })

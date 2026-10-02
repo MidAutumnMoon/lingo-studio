@@ -4,10 +4,9 @@
  * The model picks search queries and may call multiple times with refined
  * terms. The actual lookup (provider resolution, mapping, error handling)
  * lives in the shared `webLookup` core so the agent MCP bridge runs the
- * exact same logic; this file is just the AI-SDK `tool()` wrapper.
+ * exact same logic; this file is just the registry's neutral tool wrapper.
  */
 
-import { type InferToolInput, type InferToolOutput, tool } from 'ai'
 import * as z from 'zod'
 
 import { markTrustedLocalToolTerminalFailure } from '@main/ai/tools/toolLoopTerminal'
@@ -18,6 +17,7 @@ import {
   webSearchOutputSchema
 } from '@shared/ai/builtinTools'
 
+import { zodToolSchema, type NeutralTool } from '../../../neutralTool'
 import { makeEntitiesCodec } from '../../../outputCodec'
 import { searchWeb, WEB_SEARCH_DESCRIPTION, webLookupErrorSchema, webLookupModelOutput } from '../../../webLookup'
 import { getToolCallContext } from '../context'
@@ -27,11 +27,11 @@ export { WEB_FETCH_TOOL_NAME, WEB_SEARCH_TOOL_NAME }
 
 const webSearchResultSchema = z.union([webSearchOutputSchema, webLookupErrorSchema])
 
-const webSearchTool = tool({
+const webSearchTool: NeutralTool = {
   description: WEB_SEARCH_DESCRIPTION,
-  inputSchema: webSearchInputSchema,
-  outputSchema: webSearchResultSchema,
-  execute: async ({ query }, options) => {
+  inputSchema: zodToolSchema(webSearchInputSchema),
+  outputSchema: zodToolSchema(webSearchResultSchema),
+  execute: async ({ query }: { query?: string }, options) => {
     if (typeof query !== 'string' || !query.trim()) {
       return []
     }
@@ -39,8 +39,8 @@ const webSearchTool = tool({
       await searchWeb(query.trim(), getToolCallContext(options).request.abortSignal)
     )
   },
-  toModelOutput: ({ output }) => webLookupModelOutput(output)
-})
+  toModelOutput: ({ output }) => webLookupModelOutput(output as WebSearchToolOutput)
+}
 
 export function createWebSearchToolEntry(): ToolEntry {
   return {
@@ -58,5 +58,5 @@ export function createWebSearchToolEntry(): ToolEntry {
   }
 }
 
-export type WebSearchToolInput = InferToolInput<typeof webSearchTool>
-export type WebSearchToolOutput = InferToolOutput<typeof webSearchTool>
+export type WebSearchToolInput = z.infer<typeof webSearchInputSchema>
+export type WebSearchToolOutput = z.infer<typeof webSearchResultSchema>

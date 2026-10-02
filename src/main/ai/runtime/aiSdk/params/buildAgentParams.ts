@@ -26,8 +26,8 @@ import { resolveSdkConfig } from '../../../provider/sdkConfig'
 import type { RequestContext } from '../../../tools/adapters/aiSdk/context'
 import { applyDeferExposition } from '../../../tools/adapters/aiSdk/exposition/applyDeferExposition'
 import { registry, ToolRegistry } from '../../../tools/adapters/aiSdk/registry'
-import { createAiRepair } from '../../../tools/adapters/aiSdk/repair'
 import type { ToolEntry } from '../../../tools/adapters/aiSdk/types'
+import type { NeutralTool } from '../../../tools/neutralTool'
 import type { AiChatRequest, CallOverrides } from '../../../types'
 import {
   adjustMaxOutputTokensForReasoning,
@@ -53,7 +53,9 @@ import { createCustomParamsFetch, selectCustomBodyParameters } from './customPar
 import type { RequestFeature } from './feature'
 import { INTERNAL_FEATURES } from './features/internalFeatures'
 import { type NativeFileSupport, resolveNativeFileSupport } from './nativeFileSupport'
+import { createAiRepair } from './repair'
 import type { RequestScope, SdkConfig } from './scope'
+import { toSdkToolSet } from './toSdkToolSet'
 
 const NO_WEB_TOOL_ROUTES: WebToolRoutes = { webSearch: 'none', webFetch: 'none' }
 
@@ -242,33 +244,35 @@ export function applyResponsesInstructions(
 /**
  * The legacy ToolSet tail over a plan selection: client-tool merge, defer
  * exposition, and the citable flag. Selection itself lives in the shared plan
- * (`selectRegistryTools`), so this only shapes what the AI SDK consumes.
+ * (`selectRegistryTools`), so this only shapes what the AI SDK consumes — the
+ * neutral registry entries wrap into SDK tools here, at the legacy boundary.
  */
 async function toExposedToolSet(
   selectedEntries: readonly ToolEntry[],
   clientTools: CallOverrides['tools'],
   model: Model
 ): Promise<{ tools: ToolSet | undefined; deferredEntries: ToolEntry[]; hasCitableTools: boolean }> {
-  // Client tools (no `execute`) from assistant-less callers; merged below so
-  // they share the registry/defer-exposition path.
+  // Client tools (no `execute`) from assistant-less callers; merged after the wrap so the
+  // defer-exposition path still sees their names (they count toward the meta-tools' allowed set).
   const clientToolNames = new Set(Object.keys(clientTools ?? {}))
-  let tools: ToolSet | undefined
+  let neutral: Record<string, NeutralTool> | undefined
   if (selectedEntries.length > 0) {
-    tools = {}
-    for (const entry of selectedEntries) tools[entry.name] = entry.tool
+    neutral = {}
+    for (const entry of selectedEntries) neutral[entry.name] = entry.tool
   }
+  // Meta-tools must see request-materialized entries rather than the process-wide static entries.
+  const requestRegistry = new ToolRegistry()
+  for (const entry of selectedEntries) requestRegistry.register(entry)
+  const exposed = await applyDeferExposition(neutral, requestRegistry, model.contextWindow, clientToolNames)
+  let tools = toSdkToolSet(exposed.tools)
   if (clientTools && Object.keys(clientTools).length > 0) {
     tools = {
       ...tools,
       ...clientTools
     }
   }
-  // Meta-tools must see request-materialized entries rather than the process-wide static entries.
-  const requestRegistry = new ToolRegistry()
-  for (const entry of selectedEntries) requestRegistry.register(entry)
-  const exposed = await applyDeferExposition(tools, requestRegistry, model.contextWindow)
   return {
-    tools: exposed.tools,
+    tools,
     deferredEntries: exposed.deferredEntries,
     hasCitableTools: hasCitableSelection(selectedEntries, clientToolNames)
   }

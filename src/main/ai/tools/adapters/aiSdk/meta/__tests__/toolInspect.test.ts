@@ -1,6 +1,6 @@
-import { jsonSchema, type Tool } from 'ai'
 import { describe, expect, it } from 'vitest'
 
+import type { NeutralTool } from '../../../../neutralTool'
 import { ToolRegistry } from '../../registry'
 import type { ToolEntry } from '../../types'
 import { createToolInspectTool, TOOL_INSPECT_TOOL_NAME } from '../toolInspect'
@@ -15,14 +15,16 @@ function makeRegistry(): ToolRegistry {
     tool: {
       type: 'function',
       description: 'inner',
-      inputSchema: jsonSchema({ type: 'object', properties: { query: { type: 'string' } }, required: ['query'] })
+      inputSchema: {
+        jsonSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
+      }
     }
   }
   reg.register(entry)
   return reg
 }
 
-async function callInspect(tool: Tool, args: { name: string }) {
+async function callInspect(tool: NeutralTool, args: { name: string }) {
   if (typeof tool.execute !== 'function') throw new Error('not executable')
   return tool.execute(args, {
     toolCallId: 'tc-1',

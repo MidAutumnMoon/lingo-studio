@@ -15,26 +15,28 @@
  * The user MUST `return` the final value. Hard timeout: 60s.
  */
 
-import { type Tool, tool } from 'ai'
 import * as z from 'zod'
 
+import { type NeutralTool, zodToolSchema } from '../../../neutralTool'
 import type { ToolRegistry } from '../registry'
 import { runExec } from './exec/runtime'
 
 export const TOOL_EXEC_TOOL_NAME = 'tool_exec'
 
-export function createToolExecTool(registry: ToolRegistry): Tool {
-  return tool({
+export function createToolExecTool(registry: ToolRegistry): NeutralTool {
+  return {
     description:
       'Execute JavaScript that orchestrates multiple tool calls in one round. Use `tools.invoke(name, params)` to call any tool. ' +
       'You MUST explicitly `return` the final value. Available helpers: `parallel(...)`, `settle(...)`, `console.*`, `tools.log(level, msg, fields?)`.',
-    inputSchema: z.object({
-      code: z
-        .string()
-        .describe(
-          'JavaScript body, runs inside an async wrapper (you can `await` directly). MUST `return` the final value.'
-        )
-    }),
+    inputSchema: zodToolSchema(
+      z.object({
+        code: z
+          .string()
+          .describe(
+            'JavaScript body, runs inside an async wrapper (you can `await` directly). MUST `return` the final value.'
+          )
+      })
+    ),
     execute: async ({ code }, options) => {
       const result = await runExec(code, { registry, parentOptions: options })
       return {
@@ -44,5 +46,5 @@ export function createToolExecTool(registry: ToolRegistry): Tool {
         ...(result.isError ? { isError: true } : {})
       }
     }
-  })
+  }
 }

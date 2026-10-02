@@ -5,9 +5,9 @@
  * first lets the model confirm parameters without a guess-and-retry round-trip.
  */
 
-import { type Tool, tool } from 'ai'
 import * as z from 'zod'
 
+import { type NeutralTool, zodToolSchema } from '../../../neutralTool'
 import type { ToolRegistry } from '../registry'
 import { buildToolStub } from './schemaStub'
 
@@ -23,14 +23,16 @@ export function createToolInspectTool(
   registry: ToolRegistry,
   allowedNames: ReadonlySet<string>,
   inspectedNames: Set<string>
-): Tool {
-  return tool({
+): NeutralTool {
+  return {
     description:
       'Get a single tool signature as a JSDoc stub — its description and parameter shapes. ' +
       'Use it before `tool_invoke` to confirm parameter names and shapes and avoid a guess-and-retry.',
-    inputSchema: z.object({
-      name: z.string().describe('Tool name as returned by tool_search')
-    }),
+    inputSchema: zodToolSchema(
+      z.object({
+        name: z.string().describe('Tool name as returned by tool_search')
+      })
+    ),
     inputExamples: [{ input: { name: 'web_search' } }],
     execute: async ({ name }) => {
       if (!allowedNames.has(name)) throw new Error(`Tool not available in this request: ${name}`)
@@ -42,6 +44,6 @@ export function createToolInspectTool(
     },
     // The stub is documentation, not data — hand it to the model as plain text instead of a
     // JSON-quoted string so it reads as the signature it is.
-    toModelOutput: ({ output }) => ({ type: 'text', value: output })
-  })
+    toModelOutput: ({ output }) => ({ type: 'text', value: output as string })
+  }
 }

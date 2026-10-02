@@ -1,6 +1,6 @@
-import type { ModelMessage, Tool } from 'ai'
-
 import { loggerService } from '@logger'
+
+import type { NeutralTool } from '../../neutralTool'
 
 const logger = loggerService.withContext('isApprovalGated')
 
@@ -8,7 +8,7 @@ export interface ApprovalGateOptions {
   /** The tool input, for an input-dependent `needsApproval`. Omitted at defer build time. */
   input?: unknown
   toolCallId?: string
-  messages?: ModelMessage[]
+  messages?: readonly unknown[]
   experimental_context?: unknown
 }
 
@@ -25,7 +25,7 @@ export interface ApprovalGateOptions {
  * is input-independent (today's MCP source policy). The call-time guard in `tool_invoke`, which
  * passes the real input, is authoritative for any future input-dependent gate.
  */
-export async function isApprovalGated(tool: Tool, opts: ApprovalGateOptions = {}): Promise<boolean> {
+export async function isApprovalGated(tool: NeutralTool, opts: ApprovalGateOptions = {}): Promise<boolean> {
   const needsApproval = tool.needsApproval
   if (needsApproval === undefined) return false
   if (typeof needsApproval === 'boolean') return needsApproval

@@ -1,36 +1,42 @@
 /**
- * Apply defer-based tool exposition to a per-request ToolSet.
+ * Apply defer-based tool exposition to a per-request tool map.
  *
  * Decides which entries are deferred (via {@link shouldDefer}) and rebuilds
- * the ToolSet so the model sees:
+ * the map so the model sees:
  *   - non-deferred entries inline, exactly as before
  *   - `tool_search` + `tool_inspect` + `tool_invoke` meta-tools when at least
  *     one entry is deferred, so the deferred set is still discoverable /
  *     inspectable / callable
  *
- * Returns the deferred entries alongside the rebuilt ToolSet so callers
+ * Returns the deferred entries alongside the rebuilt map so callers
  * (system-prompt assembly, observability) can introspect what's hidden
  * behind the meta-tools without re-running `shouldDefer`.
  */
 
-import type { ToolSet } from 'ai'
-
+import { TOOL_INVOKE_TOOL_NAME } from '../../../metaToolNames'
+import type { NeutralTool } from '../../../neutralTool'
 import { createToolInspectTool, TOOL_INSPECT_TOOL_NAME } from '../meta/toolInspect'
-import { createToolInvokeTool, TOOL_INVOKE_TOOL_NAME } from '../meta/toolInvoke'
+import { createToolInvokeTool } from '../meta/toolInvoke'
 import { createToolSearchTool, TOOL_SEARCH_TOOL_NAME } from '../meta/toolSearch'
 import type { ToolRegistry } from '../registry'
 import type { ToolEntry } from '../types'
 import { shouldDefer } from './shouldDefer'
 
 export interface ApplyDeferExpositionResult {
-  tools: ToolSet | undefined
+  tools: Record<string, NeutralTool> | undefined
   deferredEntries: ToolEntry[]
 }
 
 export async function applyDeferExposition(
-  tools: ToolSet | undefined,
+  tools: Record<string, NeutralTool> | undefined,
   registry: ToolRegistry,
-  contextWindow: number | undefined
+  contextWindow: number | undefined,
+  /**
+   * Names the request exposed outside this map (legacy client tools, already SDK-shaped and
+   * merged after this pass) — they count toward the meta-tools' allowed set exactly as when
+   * they merged before it.
+   */
+  extraAllowedNames: ReadonlySet<string> = new Set()
 ): Promise<ApplyDeferExpositionResult> {
   if (!tools || Object.keys(tools).length === 0) return { tools, deferredEntries: [] }
 
@@ -49,7 +55,7 @@ export async function applyDeferExposition(
   // `tool_invoke` / `tool_inspect` reach the process-wide registry, so without this they could
   // resolve user-owned tools `applies()` excluded for this request. Captured before the meta-tools
   // are added below — they don't address themselves.
-  const allowedNames = new Set(Object.keys(tools))
+  const allowedNames = new Set([...Object.keys(tools), ...extraAllowedNames])
 
   // Shared per-request inspect-before-invoke ledger: `tool_inspect` (and a verbose `tool_search`)
   // record the tools whose signature the model has seen; `tool_invoke` requires membership before
@@ -57,7 +63,7 @@ export async function applyDeferExposition(
   // request — the model confirms a tool's schema once per request, not once per turn.
   const inspectedNames = new Set<string>()
 
-  const inlineTools: ToolSet = {}
+  const inlineTools: Record<string, NeutralTool> = {}
   for (const [name, entry] of Object.entries(tools)) {
     if (!deferredNames.has(name)) inlineTools[name] = entry
   }

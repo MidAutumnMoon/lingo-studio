@@ -12,8 +12,8 @@ import { type AiPlugin, generateText as aiCoreGenerateText } from '@cherrystudio
 import type { StringKeys } from '@cherrystudio/ai-core/provider'
 import { loggerService } from '@logger'
 
+import { createMcpJsonSchemaValidator } from '../../../tools/adapters/aiSdk/mcpSchema'
 import type { AppProviderSettingsMap } from '../../../types'
-import { createMcpJsonSchemaValidator } from './mcpSchema'
 
 const logger = loggerService.withContext('repairToolCall')
 

@@ -1,7 +1,8 @@
-import type { ToolExecutionOptions } from '@ai-sdk/provider-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Assistant } from '@shared/data/types/assistant'
+
+import type { ToolExecuteOptions } from '../../../../neutralTool'
 
 const knowledgeServiceSearch = vi.fn()
 // Hoisted: the SUT calls `loggerService.withContext()` at module load (before the plain consts run),
@@ -41,7 +42,7 @@ function callExecute(
 ): Promise<unknown> {
   const execute = entry.tool.execute as (
     args: { query: string; baseIds: string[] },
-    options: ToolExecutionOptions
+    options: ToolExecuteOptions
   ) => Promise<unknown>
   return execute(args, {
     toolCallId: 'tc-1',
