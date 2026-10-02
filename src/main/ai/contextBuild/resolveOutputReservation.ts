@@ -3,7 +3,7 @@
  *
  * Providers bill `input + max_tokens` against the window, so a request that
  * declares `max_tokens` has that much less room for its prompt. A request that
- * declares none reserves nothing: `buildAgentParams` deletes the field rather
+ * declares none reserves nothing: the caller deletes the field rather
  * than substituting a default, and the model simply generates into whatever the
  * prompt leaves behind. `undefined` therefore means "nothing is billed", not
  * "unknown" — see {@link resolveInputRoom}, which relies on that distinction.

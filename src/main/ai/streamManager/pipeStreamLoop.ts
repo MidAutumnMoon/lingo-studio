@@ -7,8 +7,8 @@
  *  - Never throws. Setup / broadcast errors return as `threw`; in-stream
  *    `chunk.type === 'error'` is captured in `streamErrorText`.
  *  - `signal` cancels the broadcast reader only — the accumulator drains
- *    naturally via `Agent.stream` honouring the same signal upstream.
- *    Cancelling the accumulator reader directly races AI SDK's
+ *    naturally via the engine stream honouring the same signal upstream.
+ *    Cancelling the accumulator reader directly races the accumulator's
  *    `controller.close()` → `ERR_INVALID_STATE`.
  *  - Accumulator errors are swallowed; the broadcast path owns terminal
  *    status.

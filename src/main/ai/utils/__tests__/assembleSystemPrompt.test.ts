@@ -1,6 +1,8 @@
-import type { ToolSet } from 'ai'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { ToolEntry } from '@main/ai/tools/adapters/aiSdk/types'
+import type { NeutralTool } from '@main/ai/tools/neutralTool'
+import type { ToolSet } from '@shared/ai/uiDialect'
 import type { Assistant } from '@shared/data/types/assistant'
 import type { Model, UniqueModelId } from '@shared/data/types/model'
 
@@ -8,7 +10,7 @@ vi.mock('@main/utils/prompt', () => ({
   replacePromptVariables: vi.fn(async (input: string) => input.replace('{{date}}', '2026-04-20'))
 }))
 
-import { assembleSystemPrompt } from '../assembleSystemPrompt'
+import { assembleSystemPrompt, getDeferredToolsSystemPrompt } from '../assembleSystemPrompt'
 
 function makeAssistant(overrides: Partial<Assistant> = {}): Assistant {
   return {
@@ -189,5 +191,29 @@ describe('assembleSystemPrompt', () => {
     })
 
     expect(out).toBe('base')
+  })
+})
+
+describe('getDeferredToolsSystemPrompt', () => {
+  const entry = (overrides: Partial<ToolEntry>): ToolEntry => ({
+    name: 'mcp__gmail__send_0123456789abcdef0123',
+    namespace: 'mcp:11111111-2222-3333-4444-555555555555',
+    description: 'send mail',
+    defer: 'auto',
+    tool: {} as NeutralTool,
+    ...overrides
+  })
+
+  it('lists the namespace label instead of the opaque ownership key', () => {
+    const prompt = getDeferredToolsSystemPrompt([entry({ namespaceLabel: 'mcp:Gmail' })])
+
+    expect(prompt).toContain('<namespace name="mcp:Gmail" count="1"/>')
+    expect(prompt).not.toContain('11111111-2222-3333-4444-555555555555')
+  })
+
+  it('falls back to the namespace when no label is set', () => {
+    const prompt = getDeferredToolsSystemPrompt([entry({ name: 'web_search', namespace: 'web' })])
+
+    expect(prompt).toContain('<namespace name="web" count="1"/>')
   })
 })

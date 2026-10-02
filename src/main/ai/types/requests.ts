@@ -35,7 +35,7 @@ export type ContextOwner = 'cherry' | 'caller'
 /**
  * First-class per-request overrides for callers that have no assistant to derive
  * settings from (the API gateway). Merged at highest precedence inside
- * `buildAgentParams` — NOT applied as a post-hoc plugin mutation.
+ * the chat-turn plan — NOT applied as a post-hoc plugin mutation.
  *
  * IN-PROCESS ONLY: `tools` carries an AI SDK `ToolSet` (functions / zod schemas)
  * which is not structured-clone-safe, so `callOverrides` must never be set on the

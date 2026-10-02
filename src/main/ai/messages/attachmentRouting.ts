@@ -30,7 +30,6 @@ import type { UIMessage } from 'ai'
 import { application } from '@application'
 import { loggerService } from '@logger'
 import type { FileAttachmentRef } from '@main/ai/messages/attachmentTypes'
-import type { NativeFileSupport } from '@main/ai/runtime/aiSdk'
 import { surrogateSafeEnd } from '@main/ai/utils/textPaging'
 import { READ_FILE_PAGE_SIZE } from '@shared/ai/builtinTools'
 import type { FileUIPart } from '@shared/data/types/message'
@@ -87,6 +86,14 @@ export function collectFileAttachments(messages: UIMessage[] | undefined): FileA
     }
   }
   return refs
+}
+
+/** What a (provider, model) accepts as a native user-message file part. */
+export interface NativeFileSupport {
+  readonly image: boolean
+  readonly pdf: boolean
+  readonly audio: boolean
+  readonly video: boolean
 }
 
 export interface PrepareChatContext {

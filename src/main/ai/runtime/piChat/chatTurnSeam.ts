@@ -3,14 +3,15 @@
  * preparation that routes a `streamText` request onto the pi chat engine
  * (plan: docs/plans/2026-09-pi-unification.md, W6).
  *
- * The gate resolves PER EXECUTION: while the rollout flag is on, an execution
- * runs pi unless a matrix row excludes it, in which case this returns `null`
- * and the caller silently falls back to the legacy engine (logged). Flag off —
- * the shipped default — returns `null` before touching anything.
+ * pi is the ONLY chat engine: this either returns a stream or fails the turn —
+ * matrix rows that once fell back to the legacy engine (approval-resume
+ * dispatches, credentials, unsupported families) are explicit error turns now.
+ * The `chat.pi_engine.enabled` preference is inert (pi runs either way, logged)
+ * until its removal lands.
  *
  * Everything engine-agnostic is resolved by the shared `resolveChatTurnPlan`
- * (`src/main/ai/chatTurnPlan.ts`), so the pi path and the legacy path consume
- * one set of decisions (selection, system prompt inputs, knobs, reasoning).
+ * (`src/main/ai/chatTurnPlan.ts`), so preparation decisions (selection, system
+ * prompt inputs, knobs, reasoning) stay in one place.
  */
 import { randomUUID } from 'node:crypto'
 
@@ -24,7 +25,8 @@ import { loggerService } from '@logger'
 import { resolveChatTurnPlan, type ChatTurnPlan, type ChatTurnPlanRequest } from '@main/ai/chatTurnPlan'
 import { resolveTurnInFlightTruncateThreshold } from '@main/ai/contextBuild/inFlightTruncate'
 import type { NeutralTool } from '@main/ai/tools/neutralTool'
-import type { ToolSet, UIMessageChunk } from '@shared/ai/uiDialect'
+import { assembleSystemPrompt } from '@main/ai/utils/assembleSystemPrompt'
+import type { UIMessageChunk } from '@shared/ai/uiDialect'
 import type { Assistant } from '@shared/data/types/assistant'
 import type { CherryUIMessage } from '@shared/data/types/message'
 import type { Model } from '@shared/data/types/model'
@@ -40,7 +42,6 @@ import type { MainDispatchRequest } from '../../streamManager'
 import { getTemperature, getTopP } from '../../utils/modelParameters'
 import type { ResolvedReasoningInvocation } from '../../utils/reasoningSerializers'
 import { createRequestCaptureContext, resolveUsageAttribution } from '../../utils/usageCapture'
-import { assembleSystemPrompt, toSdkToolSet } from '../aiSdk'
 import {
   materializePiProviderStream,
   PiMissingApiKeyError,
@@ -76,27 +77,41 @@ export interface PiChatSeamInput {
   assistant: Assistant | undefined
 }
 
-/**
- * Whether the pi chat engine may serve requests at all — the cheap first check
- * the caller runs BEFORE resolving provider/model, so a flag-off process pays
- * nothing and the legacy path stays byte-identical.
- */
-export function piChatEngineEnabled(): boolean {
+/** Reads the (now inert) engine preference — kept only to log its state until the pref is removed. */
+function piChatEngineEnabled(): boolean {
   return application.get('PreferenceService').get('chat.pi_engine.enabled') === true
 }
 
 /**
- * Attempt this chat turn on the pi engine. `null` means the gate excluded it —
- * the caller proceeds on the legacy engine unchanged.
+ * Pre-flight missing-credential failure. Carries the `i18nKey` + `providerId` the
+ * renderer's ErrorBlock renders as the localized, provider-linked missing-key error
+ * (the same `error.chat.no_api_key` surface auth failures document in types/error.ts).
  */
-export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<ReadableStream<UIMessageChunk> | null> {
+class PiMissingApiKeyTurnError extends Error {
+  readonly i18nKey = 'chat.no_api_key'
+  readonly providerId: string
+
+  constructor(providerId: string) {
+    super(`No API key is configured for provider "${providerId}"`)
+    this.name = 'PiMissingApiKeyTurnError'
+    this.providerId = providerId
+  }
+}
+
+/**
+ * Run this chat turn on the pi engine — the only chat engine. Returns a stream
+ * (a one-chunk error stream for seam-rejected requests) or throws (pre-stream
+ * failures the trunk renders through its serialized-error path).
+ */
+export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<ReadableStream<UIMessageChunk>> {
   const { request, signal, provider, model, assistant } = input
 
-  if (!piChatEngineEnabled()) return null
+  if (!piChatEngineEnabled()) {
+    logger.debug('pi chat engine preference is off; running pi anyway (the legacy engine no longer exists)')
+  }
 
   // Owner decision: the gateway serves tool-less clients only. A tool-carrying
-  // request has no pi lane and no long-term legacy home — fail loud at the seam
-  // instead of degrading to a legacy run that dies with the engine.
+  // request has no pi lane and no legacy fallback — fail loud at the seam.
   if (Object.keys(request.callOverrides?.tools ?? {}).length > 0) {
     logger.warn('pi chat engine: rejecting a tool-carrying gateway request', {
       topicId: request.conversation.topicId
@@ -106,43 +121,47 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
     )
   }
 
-  const exclusion = resolvePiExclusion(input)
-  if (exclusion) {
-    logger.info('pi chat engine excluded, falling back to legacy', {
+  const exclusionError = resolvePiExclusionError(input)
+  if (exclusionError) {
+    logger.warn('pi chat engine rejected the dispatch; serving an error turn', {
       topicId: request.conversation.topicId,
       modelId: model.id,
-      reason: exclusion
+      reason: exclusionError.reason
     })
-    return null
+    return errorTextStream(exclusionError.errorText)
   }
 
-  // The provider injection doubles as the last matrix row: an endpoint pi cannot
-  // serve, or a provider with no credential, falls back to legacy (which renders
-  // its own well-known error UX for missing keys).
+  // The provider injection doubles as the last matrix row. An endpoint pi cannot
+  // serve fails the turn explicitly; a provider with no credential throws the
+  // i18n-keyed error so the renderer renders the localized missing-key UX.
   const injection = (() => {
     try {
       return resolvePiProviderInjectionFromSnapshot(provider, model, undefined, request.apiKeyOverride)
     } catch (error) {
       if (error instanceof PiUnsupportedProviderError) {
-        logger.info('pi chat engine excluded, falling back to legacy', {
+        logger.warn('pi chat engine: provider family has no pi api mapping; serving an error turn', {
           topicId: request.conversation.topicId,
           modelId: model.id,
-          reason: `no pi api family (${error.providerId})`
+          providerId: error.providerId
         })
-        return null
+        return {
+          errorStream: errorTextStream(
+            `Provider "${error.providerId}" uses an endpoint protocol the chat engine does not speak. Switch to a provider with an OpenAI-compatible, Anthropic, or Google endpoint, or ask the app maintainer to add support.`
+          )
+        }
       }
       if (error instanceof PiMissingApiKeyError) {
-        logger.info('pi chat engine excluded, falling back to legacy', {
+        logger.warn('pi chat engine: no API key configured; failing the turn', {
           topicId: request.conversation.topicId,
           modelId: model.id,
-          reason: `no api key (${error.providerId})`
+          providerId: error.providerId
         })
-        return null
+        throw new PiMissingApiKeyTurnError(error.providerId)
       }
       throw error
     }
   })()
-  if (!injection) return null
+  if ('errorStream' in injection) return injection.errorStream
 
   // The plan must describe the endpoint pi will actually SERVE: pi prefers
   // anthropic-messages for dual-protocol models, and the plan's reasoning profile and
@@ -326,23 +345,43 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
   return stream
 }
 
-/** The per-execution matrix exclusions (register rows); `undefined` means "gate passes".
- *  Pure checks only — the provider-injection try/catch lives in the main flow so the
- *  credential rotation is consumed at most once. Client tools were moved out: they are
- *  an explicit seam error (tool-less gateway policy), not a legacy fallback. */
-function resolvePiExclusion(input: PiChatSeamInput): string | undefined {
+/** A seam rejection: a machine reason for the log plus the user-facing turn error text. */
+interface SeamExclusionError {
+  reason: string
+  errorText: string
+}
+
+/**
+ * The per-execution matrix rows that once fell back to the legacy engine — now
+ * explicit error turns (owner decision: the legacy engine is deleted; a pending
+ * approval whose turn is gone cannot be resumed, so the user resends). Pure checks
+ * only — the provider-injection try/catch lives in the main flow so the credential
+ * rotation is consumed at most once. Client tools were moved out: they are a
+ * separate seam error (tool-less gateway policy).
+ */
+function resolvePiExclusionError(input: PiChatSeamInput): SeamExclusionError | undefined {
   const { request } = input
 
   // Approval-resume dispatches serve a list that ENDS with the assistant anchor —
   // there is no trailing user message to slice into the prompt, and pi holds its
-  // approvals in-process, so every continue-conversation is a legacy pause by
-  // construction.
-  if (request.trigger === 'continue-conversation') return 'continue-conversation dispatch'
+  // approvals in-process, so a continue-conversation only arrives when the original
+  // turn is gone (crash/restart resume).
+  if (request.trigger === 'continue-conversation') {
+    return {
+      reason: 'continue-conversation dispatch',
+      errorText:
+        'This pending tool approval can no longer be resumed because its conversation turn is not active. Please resend your last message — rephrasing it if needed — to continue.'
+    }
+  }
 
   const messages = request.messages ?? []
   const trailing = messages[messages.length - 1]
   if (!trailing || trailing.role !== 'user') {
-    return 'served list does not end with a user message (legacy pause / degenerate regenerate)'
+    return {
+      reason: 'served list does not end with a user message',
+      errorText:
+        'The conversation for this request has no pending user message to send. Please resend your last message — rephrasing it if needed — to continue.'
+    }
   }
 
   return undefined
@@ -417,12 +456,12 @@ function piOffExpressible(model: Model): boolean {
   return !hasConcreteTier || declared.includes('none')
 }
 
-/** `ToolSet` view of the plan's selection for the attachment budget (wrapped at the legacy boundary). */
-function toolSetOf(plan: ChatTurnPlan): ToolSet | undefined {
+/** The plan's selection as the neutral tool map the attachment budget prices. */
+function toolSetOf(plan: ChatTurnPlan): Record<string, NeutralTool> | undefined {
   if (plan.selectedEntries.length === 0) return undefined
   const tools: Record<string, NeutralTool> = {}
   for (const entry of plan.selectedEntries) tools[entry.name] = entry.tool
-  return toSdkToolSet(tools)
+  return tools
 }
 
 /**

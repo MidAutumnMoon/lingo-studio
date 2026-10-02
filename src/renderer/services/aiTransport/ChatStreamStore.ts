@@ -29,13 +29,15 @@ export interface ChatRequestOptions {
 
 /** Minimal transport surface the store drives — satisfied by `IpcChatTransport`. */
 export interface ChatStreamTransport {
-  sendMessages(options: {
-    trigger: 'submit-message' | 'regenerate-message'
-    chatId: string
-    messageId: string | undefined
-    messages: CherryUIMessage[]
-    abortSignal: AbortSignal | undefined
-  } & ChatRequestOptions): Promise<ReadableStream<UIMessageChunk>>
+  sendMessages(
+    options: {
+      trigger: 'submit-message' | 'regenerate-message'
+      chatId: string
+      messageId: string | undefined
+      messages: CherryUIMessage[]
+      abortSignal: AbortSignal | undefined
+    } & ChatRequestOptions
+  ): Promise<ReadableStream<UIMessageChunk>>
   reconnectToStream(options: { chatId: string } & ChatRequestOptions): Promise<ReadableStream<UIMessageChunk> | null>
 }
 
@@ -175,9 +177,13 @@ export class ChatStreamStore {
     let isAbort = false
     try {
       const abortController = new AbortController()
-      abortController.signal.addEventListener('abort', () => {
-        isAbort = true
-      }, { once: true })
+      abortController.signal.addEventListener(
+        'abort',
+        () => {
+          isAbort = true
+        },
+        { once: true }
+      )
       this.#activeAbort = abortController
       const stream =
         trigger === 'resume-stream'

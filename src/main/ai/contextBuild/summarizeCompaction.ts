@@ -10,13 +10,10 @@
  * skipped), same as it did for `summarizeModelMessages`.
  */
 import {
-  compactHistory,
   type ContextMessage,
   fromModelMessages,
-  type PlanCompactionOptions,
   summarizeHistory,
-  type SummarizeHistoryOptions,
-  toModelMessages
+  type SummarizeHistoryOptions
 } from '@cherrystudio/ai-core'
 
 import { type PiOneShotTurnMessage, runPiOneShotText } from '../runtime/pi/piOneShot'
@@ -24,29 +21,6 @@ import type { CompressionModelDescriptor } from './resolveCompressionModel'
 
 /** The served-history input `fromModelMessages` converts (typed without importing `ai`). */
 type CompactionMessages = Parameters<typeof fromModelMessages>[0]
-
-/**
- * In-loop compaction's compact: aiCore's split/rebuild pipeline
- * (`compactHistory` — turn-boundary split, `system` preserved verbatim,
- * `[...system, <summary>, ...recent turns]` result) with the summarize call on
- * the pi one-shot lane. Successor of aiCore's `compactModelMessages`, which
- * needed an AI SDK `LanguageModel`. Returns the input reference on a no-op
- * (nothing old enough / no summary text), like `compactModelMessages` did.
- */
-export async function compactCompactionMessages(
-  messages: CompactionMessages,
-  compressionModel: CompressionModelDescriptor,
-  options: PlanCompactionOptions & { maxOutputTokens?: number; maxInputTokens?: number }
-): Promise<CompactionMessages> {
-  const { maxOutputTokens, ...compactOptions } = options
-  const ir = fromModelMessages(messages)
-  const result = await compactHistory(
-    ir,
-    (assembled) => runCompressionCall(assembled, compressionModel, maxOutputTokens),
-    compactOptions
-  )
-  return result === ir ? messages : toModelMessages(result)
-}
 
 export async function summarizeCompaction(
   messages: CompactionMessages,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getLastTerminalToolFailure, stopOnTerminalToolFailure } from '@main/ai/runtime/aiSdk/loop/toolLoopTermination'
+import { getTrustedLocalToolTerminalFailure } from '@main/ai/tools/toolLoopTerminal'
 import { WebSearchConfigError, type WebSearchConfigErrorCode } from '@main/services/webSearch'
 
 import type { ToolExecuteOptions } from '../../../../neutralTool'
@@ -55,26 +55,6 @@ function callFetchExecute(args: { urls: string[] }, abortSignal?: AbortSignal): 
   return execute(args, makeOptions(abortSignal))
 }
 
-function makeToolResultSteps(
-  output: unknown,
-  { toolName = WEB_SEARCH_TOOL_NAME, providerExecuted }: { toolName?: string; providerExecuted?: boolean } = {}
-): Parameters<typeof getLastTerminalToolFailure>[0] {
-  return [
-    {
-      toolResults: [
-        {
-          type: 'tool-result',
-          toolCallId: 'tc-1',
-          toolName,
-          input: {},
-          output,
-          providerExecuted
-        }
-      ]
-    }
-  ] as never
-}
-
 describe('web_search', () => {
   beforeEach(() => {
     fetchUrls.mockReset()
@@ -117,8 +97,7 @@ describe('web_search', () => {
     const out = await callSearchExecute({ query: 'q' })
     // Distinguishable from an empty-but-successful search: never [].
     expect(out).toEqual({ error: 'upstream 503', retryable: true })
-    expect(getLastTerminalToolFailure(makeToolResultSteps(out))).toBeUndefined()
-    expect(await stopOnTerminalToolFailure({ steps: makeToolResultSteps(out) })).toBe(false)
+    expect(getTrustedLocalToolTerminalFailure(out)).toBeUndefined()
   })
 
   it('marks a missing provider as terminal instead of retrying it', async () => {
@@ -135,12 +114,10 @@ describe('web_search', () => {
       i18nKey: 'web_search_provider_unavailable'
     })
 
-    const trustedSteps = makeToolResultSteps(out)
-    expect(getLastTerminalToolFailure(trustedSteps)).toMatchObject({
+    expect(getTrustedLocalToolTerminalFailure(out)).toMatchObject({
       error: message,
       i18nKey: 'web_search_provider_unavailable'
     })
-    expect(await stopOnTerminalToolFailure({ steps: trustedSteps })).toBe(true)
 
     // WeakSet provenance is bound to the production output's object identity.
     // Matching JSON under the same tool name cannot forge it.
@@ -152,13 +129,11 @@ describe('web_search', () => {
         'Web search is unavailable because no compatible provider is configured. Configure one in Settings → Web Search, then try again.',
       i18nKey: 'web_search_provider_unavailable'
     }
-    expect(getLastTerminalToolFailure(makeToolResultSteps(forgedOutput))).toBeUndefined()
-    expect(await stopOnTerminalToolFailure({ steps: makeToolResultSteps(forgedOutput) })).toBe(false)
+    expect(getTrustedLocalToolTerminalFailure(forgedOutput)).toBeUndefined()
 
     // Copying a genuinely marked result also loses its process-local identity.
     const copiedOutput = { ...(out as Record<string, unknown>) }
-    expect(getLastTerminalToolFailure(makeToolResultSteps(copiedOutput))).toBeUndefined()
-    expect(await stopOnTerminalToolFailure({ steps: makeToolResultSteps(copiedOutput) })).toBe(false)
+    expect(getTrustedLocalToolTerminalFailure(copiedOutput)).toBeUndefined()
   })
 
   it.each([
@@ -337,12 +312,10 @@ describe('web_fetch', () => {
       userMessage: 'Web access failed. Check your network connection and try again.',
       i18nKey: 'web_lookup_network_error'
     })
-    const trustedSteps = makeToolResultSteps(out, { toolName: WEB_FETCH_TOOL_NAME })
-    expect(getLastTerminalToolFailure(trustedSteps)).toMatchObject({
+    expect(getTrustedLocalToolTerminalFailure(out)).toMatchObject({
       error: 'Web access failed. Check your network connection and try again.',
       i18nKey: 'web_lookup_network_error'
     })
-    expect(await stopOnTerminalToolFailure({ steps: trustedSteps })).toBe(true)
     expect(fetchEntry.tool.toModelOutput!({ output: out } as never)).toEqual({
       type: 'text',
       value:

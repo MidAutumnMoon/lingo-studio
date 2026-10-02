@@ -1,6 +1,4 @@
-import type { LanguageModelV3StreamPart } from '@ai-sdk/provider'
 import { setupTestDatabase, withRoot } from '@test-helpers/db'
-import type { LanguageModelMiddleware } from 'ai'
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -15,8 +13,6 @@ import {
   type RecordAiInvocationInput
 } from '@data/services/AiUsageRecordService'
 import { generateOrderKeyBetween } from '@data/services/utils/orderKey'
-import { createLanguageUsageMiddleware } from '@main/ai/hooks/billingHook'
-import { gatewayUsageNormalizeFeature } from '@main/ai/runtime/aiSdk/params/features/gatewayUsageNormalize'
 import { createAiUsageCaptureContext, createAiUsagePricingSnapshot } from '@main/ai/utils/usageCapture'
 import { DEFAULT_ASSISTANT_SETTINGS } from '@shared/data/types/assistant'
 
@@ -66,16 +62,6 @@ function invocation(overrides: Partial<RecordAiInvocationInput> = {}): RecordAiI
     completedAt: 1_000,
     ...overrides
   }
-}
-
-async function getGatewayUsageNormalizeMiddleware(): Promise<LanguageModelMiddleware> {
-  const [plugin] = gatewayUsageNormalizeFeature.contributeModelAdapters!({} as never)
-  if (!plugin) throw new Error('gateway usage plugin was not contributed')
-  const requestContext = { middlewares: [] as LanguageModelMiddleware[] }
-  await plugin.configureContext!(requestContext as never)
-  const middleware = requestContext.middlewares[0]
-  if (!middleware) throw new Error('gateway usage middleware was not registered')
-  return middleware
 }
 
 describe('AiUsageRecordService', () => {
@@ -206,79 +192,6 @@ describe('AiUsageRecordService', () => {
         })
       ])
     )
-  })
-
-  it('persists flat provider tokens without the gateway normalize middleware', async () => {
-    const capture = createLanguageUsageMiddleware(context())
-    const flatFinish = {
-      type: 'finish',
-      finishReason: { unified: 'stop', raw: 'stop' },
-      usage: {
-        inputTokens: 1_000_000,
-        outputTokens: 500_000,
-        totalTokens: 1_500_000,
-        cachedInputTokens: 0
-      }
-    } as unknown as LanguageModelV3StreamPart
-    const stream = new ReadableStream<LanguageModelV3StreamPart>({
-      start(controller) {
-        controller.enqueue(flatFinish)
-        controller.close()
-      }
-    })
-    const wrapped = await capture.wrapStream!({ doStream: async () => ({ stream }) } as never)
-
-    await wrapped.stream.pipeTo(new WritableStream())
-
-    expect(dbh.db.select().from(aiUsageRecordTable).get()).toMatchObject({
-      inputTokens: 1_000_000,
-      outputTokens: 500_000,
-      totalTokens: 1_500_000,
-      noCacheTokens: 1_000_000,
-      cacheReadTokens: 0,
-      cost: 2,
-      costCurrency: 'USD',
-      costSource: 'computed'
-    })
-  })
-
-  it('persists normalized gateway tokens and computed cost from a flat finish chunk', async () => {
-    const capture = createLanguageUsageMiddleware(context())
-    const gateway = await getGatewayUsageNormalizeMiddleware()
-    const flatFinish = {
-      type: 'finish',
-      finishReason: { unified: 'stop', raw: 'stop' },
-      usage: {
-        inputTokens: 1_000_000,
-        outputTokens: 500_000,
-        totalTokens: 1_500_000,
-        cachedInputTokens: 0
-      }
-    } as unknown as LanguageModelV3StreamPart
-    const stream = new ReadableStream<LanguageModelV3StreamPart>({
-      start(controller) {
-        controller.enqueue(flatFinish)
-        controller.close()
-      }
-    })
-    const wrapped = await capture.wrapStream!({
-      doStream: () => gateway.wrapStream!({ doStream: async () => ({ stream }) } as never)
-    } as never)
-
-    const parts: LanguageModelV3StreamPart[] = []
-    for await (const part of wrapped.stream) parts.push(part)
-
-    expect(parts).toHaveLength(1)
-    expect(dbh.db.select().from(aiUsageRecordTable).get()).toMatchObject({
-      inputTokens: 1_000_000,
-      outputTokens: 500_000,
-      totalTokens: 1_500_000,
-      noCacheTokens: 1_000_000,
-      cacheReadTokens: 0,
-      cost: 2,
-      costCurrency: 'USD',
-      costSource: 'computed'
-    })
   })
 
   it('keeps the first payload when a duplicate request id is delivered with different usage', () => {

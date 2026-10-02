@@ -8,16 +8,11 @@
  */
 
 import { MockMainPreferenceServiceUtils } from '@test-mocks/main/PreferenceService'
-import { estimateTokenCount } from 'tokenx'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { DEFAULT_CONTEXT_SETTINGS } from '@shared/data/types/contextSettings'
 import { createUniqueModelId, type UniqueModelId } from '@shared/data/types/model'
 
-import { makeProvider } from '../../../__tests__/fixtures'
 import type * as RequestContextSettingsModule from '../../../contextBuild/resolveRequestContextSettings'
-import type { RequestScope } from '../../../runtime/aiSdk/params/scope'
-import { ToolRegistry } from '../../../tools/adapters/aiSdk/registry'
 
 // vi.hoisted() ensures these vi.fn() instances are available when vi.mock factories run
 // (vi.mock calls are hoisted to the top of the file by Vitest's transform).
@@ -28,7 +23,6 @@ const {
   mockSetCompactionSummary,
   mockResolveRequestContextSettings,
   mockSummarizeCompaction,
-  mockCompactCompactionMessages,
   mockGetAssistantById,
   mockFindFileEntryById
 } = vi.hoisted(() => ({
@@ -38,7 +32,6 @@ const {
   mockSetCompactionSummary: vi.fn(),
   mockResolveRequestContextSettings: vi.fn(),
   mockSummarizeCompaction: vi.fn(),
-  mockCompactCompactionMessages: vi.fn(),
   mockGetAssistantById: vi.fn(),
   mockFindFileEntryById: vi.fn()
 }))
@@ -89,13 +82,10 @@ vi.mock('../../../contextBuild/resolveRequestContextSettings', () => ({
   resolveRequestContextSettings: mockResolveRequestContextSettings
 }))
 
-// Mock the compaction module (both lanes): summarizeCompaction is the
-// turn-start fold's LLM call (returns 'SUMMARY_TEXT' by default);
-// compactCompactionMessages is the in-loop hook's compact — wired so the
-// interaction test can assert it is NOT called at step 0 and IS called on growth.
+// Mock the compaction module: summarizeCompaction is the turn-start fold's LLM
+// call (returns 'SUMMARY_TEXT' by default).
 vi.mock('../../../contextBuild/summarizeCompaction', () => ({
-  summarizeCompaction: mockSummarizeCompaction,
-  compactCompactionMessages: mockCompactCompactionMessages
+  summarizeCompaction: mockSummarizeCompaction
 }))
 
 // Override the global @application mock to also handle AiStreamManager lookups
@@ -168,13 +158,6 @@ vi.mock('@main/services/TopicNamingService', () => ({
 
 // Import provider after all mocks are in place.
 const { PersistentChatContextProvider } = await import('../PersistentChatContextProvider')
-
-// The in-loop hook (real implementation) and the served-history → ModelMessage[]
-// bridge. convertToModelMessages is the real `ai` helper (not mocked here); it is
-// the same conversion the Agent applies downstream to the served history, so it
-// faithfully reproduces the prompt the in-loop hook would actually measure.
-const { inLoopCompactionFeature } = await import('../../../runtime/aiSdk/params/features/inLoopCompaction')
-const { convertToModelMessages } = await import('ai')
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1083,163 +1066,5 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
     expect(ids).toContain('u1')
     expect(ids).toContain('a1')
     expect(ids).toContain('u2')
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Cross-layer interaction: turn-start (durable) vs in-loop compaction.
-//
-// Two compaction mechanisms run at different altitudes:
-//   • turn-start  — resolveCompactedHistory, on cherry ROWS, runs FIRST and
-//     serves a history that is ≤ 0.8×window BY CONSTRUCTION.
-//   • in-loop     — inLoopCompactionFeature.prepareStep, on ModelMessage[], the
-//     SDK's about-to-send prompt; fires only when estimate ≥ 0.8×window.
-//
-// The invariant: they do NOT summarize the same slice twice. Because turn-start
-// already pulled the served history under 0.8×window, the in-loop hook is a
-// NO-OP at step 0 (Assertion A) and fires ONLY once the agent loop GROWS the
-// prompt past the trigger mid-turn (Assertion B). When it fires mid-loop, the
-// turn-start summary sits in the prefix it folds while the freshly-grown turns
-// are its kept tail — disjoint ranges, not a redundant re-summary.
-//
-// Altitude: TRUE integration. The served history is the real output of
-// resolveCompactedHistory (driven via prepareDispatch / makeHistory), bridged to
-// ModelMessage[] with the real `ai` convertToModelMessages — the same conversion
-// the Agent applies downstream — then fed to the real in-loop hook.
-// ---------------------------------------------------------------------------
-
-/** tokenx estimate of a ModelMessage, mirroring inLoopCompaction's own estimator. */
-function estimateMessageTokens(message: { content: unknown }): number {
-  const { content } = message
-  if (typeof content === 'string') return estimateTokenCount(content)
-  const text = (content as Array<Record<string, unknown>>)
-    .map((part) => ('text' in part && typeof part.text === 'string' ? part.text : JSON.stringify(part)))
-    .join('\n')
-  return estimateTokenCount(text)
-}
-const estimateModelMessages = (messages: Array<{ content: unknown }>) =>
-  messages.reduce((sum, m) => sum + estimateMessageTokens(m), 0)
-
-/** A scope shaped like the real RequestScope, sized to the turn-start window. */
-function inLoopScope(contextWindow: number): RequestScope {
-  return {
-    request: { conversation: { id: 'topic-1', topicId: 'topic-1' } },
-    model: makeModel(DEFAULT_MODEL_ID, contextWindow),
-    provider: makeProvider({ id: 'openai', defaultChatEndpoint: 'openai-chat-completions', endpointConfigs: {} }),
-    contextSettings: DEFAULT_CONTEXT_SETTINGS,
-    compressionModel: {
-      provider: makeProvider({ id: 'openai' }),
-      model: makeModel(DEFAULT_MODEL_ID, contextWindow),
-      contextWindow,
-      conversationId: 'topic-1'
-    },
-    signal: undefined,
-    registry: new ToolRegistry(),
-    mcpToolIds: new Set(),
-    capabilities: undefined,
-    sdkConfig: { providerId: 'openai', providerOptionsKey: 'openai', providerSettings: {}, modelId: 'gpt-4o' },
-    endpointType: 'openai-chat-completions',
-    aiSdkProviderId: 'openai',
-    reasoningProfile: { format: 'none', wire: { disabled: true } },
-    reasoning: { kind: 'omit', selection: 'default', emissions: [] },
-    requestContext: { requestId: 'request-1' }
-  }
-}
-
-describe('in-loop vs turn-start compaction — no double-compact', () => {
-  const WINDOW = 4000 // makeModel default; trigger = floor(4000 * 0.8) = 3200
-  // 700-token blocks: 5 rows = 3500 > 3200 → turn-start compaction triggers.
-  const BIG = 'token '.repeat(700)
-
-  beforeEach(() => {
-    vi.clearAllMocks()
-    capturedChunks = []
-    mockSummarizeCompaction.mockResolvedValue('SUMMARY_TEXT')
-    // Default: the compactor returns a DISTINCT compacted array (so the hook would emit an
-    // override IF it fired). Assertion A asserts it is never called regardless.
-    mockCompactCompactionMessages.mockImplementation(async () => [{ role: 'user' as const, content: 'COMPACTED' }])
-  })
-
-  /** Drive turn-start compaction once and return the served history as ModelMessage[]. */
-  async function servedTurnStartHistory() {
-    const path = [
-      fakeMsg('u1', 'user', BIG),
-      fakeMsg('a1', 'assistant', BIG),
-      fakeMsg('u2', 'user', BIG),
-      fakeMsg('a2', 'assistant', BIG),
-      fakeMsg('u3', 'user', BIG)
-    ]
-    mockGetPathToNode.mockReturnValue(path)
-    compressionOn({})
-
-    const { messages: servedRows } = await makeHistory('u3')
-
-    // Turn-start fired exactly once and served the compacted view: [summary(a2), u3].
-    expect(mockSummarizeCompaction).toHaveBeenCalledTimes(1)
-    expect(servedRows[0].id).toBe('compaction:a2')
-    expect(servedRows[1].role).toBe('user')
-
-    // Bridge: served CherryUIMessage[] → ModelMessage[] (real conversion).
-    const modelMessages = await convertToModelMessages(servedRows as any)
-    return { servedRows, modelMessages }
-  }
-
-  it('A: turn-start output is a no-op for the in-loop hook at step 0 (no double-compact)', async () => {
-    const { modelMessages } = await servedTurnStartHistory()
-
-    // The served history is under 0.8×window by construction.
-    expect(estimateModelMessages(modelMessages)).toBeLessThan(Math.floor(WINDOW * 0.8))
-
-    expect(inLoopCompactionFeature.applies!(inLoopScope(WINDOW))).toBe(true)
-    const prepareStep = inLoopCompactionFeature.contributeHooks!(inLoopScope(WINDOW)).prepareStep!
-    const result = await prepareStep({ messages: modelMessages } as any)
-
-    // Hook is a no-op: no override, and the compactor was NOT invoked.
-    expect(result).toBeUndefined()
-    expect(mockCompactCompactionMessages).not.toHaveBeenCalled()
-    // Net across both layers: turn-start summarized once, in-loop compacted zero.
-    expect(mockSummarizeCompaction).toHaveBeenCalledTimes(1)
-  })
-
-  it('B: in-loop fires only after mid-loop growth crosses 0.8×window', async () => {
-    const { modelMessages } = await servedTurnStartHistory()
-
-    // Simulate the agent loop accumulating output: append an assistant turn plus a
-    // tool result, large enough to tip the prompt over the 3200-token trigger.
-    const grownPrompt = [
-      ...modelMessages,
-      { role: 'assistant' as const, content: [{ type: 'text', text: 'word '.repeat(1500) }] },
-      {
-        role: 'tool' as const,
-        content: [
-          {
-            type: 'tool-result',
-            toolCallId: 'c1',
-            toolName: 'search',
-            output: { type: 'text', value: 'word '.repeat(1500) }
-          }
-        ]
-      }
-    ] as any[]
-    expect(estimateModelMessages(grownPrompt)).toBeGreaterThanOrEqual(Math.floor(WINDOW * 0.8))
-
-    expect(inLoopCompactionFeature.applies!(inLoopScope(WINDOW))).toBe(true)
-    const prepareStep = inLoopCompactionFeature.contributeHooks!(inLoopScope(WINDOW)).prepareStep!
-    const result = await prepareStep({ messages: grownPrompt } as any)
-
-    // Now it fires: the compactor called exactly once with keepRecentTurns ≥ 1,
-    // and the hook returns the override with the mocked compacted messages.
-    expect(mockCompactCompactionMessages).toHaveBeenCalledTimes(1)
-    const [passedMessages, , options] = mockCompactCompactionMessages.mock.calls[0]
-    expect(options.keepRecentTurns).toBeGreaterThanOrEqual(1)
-    expect(result).toEqual({ messages: [{ role: 'user', content: 'COMPACTED' }] })
-
-    // Disjointness: the prompt handed to the compactor carries the turn-start summary in its
-    // OLD prefix (position 0, to be folded), while the appended turns — what
-    // keepRecentTurns retains — are the grown tail. Different ranges, not a
-    // re-summary of the identical turn-start slice.
-    expect(passedMessages[0]).toEqual(modelMessages[0]) // turn-start summary, folded into prefix
-    expect(passedMessages.at(-1).role).toBe('tool') // grown tail, kept verbatim
-    expect(passedMessages.length).toBe(grownPrompt.length)
   })
 })

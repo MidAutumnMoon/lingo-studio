@@ -1,15 +1,12 @@
 /**
- * The engine-agnostic chat-turn plan (pi unification W6): everything BOTH chat
- * engines resolve identically before their shapes diverge — retained context,
+ * The engine-agnostic chat-turn plan (pi unification W6): everything a chat
+ * turn resolves before the engine's shape diverges — retained context,
  * context settings, tool selection, web-tool routing, reasoning selection, the
  * tool-call limit, and the offload-eligibility inputs.
  *
- * Extracted from `runtime/aiSdk/params/buildAgentParams.ts`, which now consumes
- * it and keeps only the AI-SDK-shaped tail (sdk config, capabilities, feature
- * plugins, agent options). The pi chat seam (`runtime/piChat/chatTurnSeam.ts`)
- * consumes the same plan, so the two engines cannot drift on any of these
- * resolutions. Lives at the `ai/` root next to its caller `AiService` because
- * it belongs to neither engine's directory.
+ * The pi chat seam (`runtime/piChat/chatTurnSeam.ts`) consumes this plan, so
+ * preparation decisions live in one place. Lives at the `ai/` root next to its
+ * caller `AiService` because it belongs to no engine's directory.
  */
 import type { UIMessage } from 'ai'
 
@@ -37,7 +34,7 @@ import { ENDPOINT_TYPE, type EndpointType, type Model } from '@shared/data/types
 import type { Provider } from '@shared/data/types/provider'
 import type { ReasoningEffortOption } from '@shared/types/aiSdk'
 import { isFunctionCallingModel } from '@shared/utils/model'
-import { finalizeWebToolRoutes, resolveWebToolRoutes, type WebToolRoutes } from '@shared/utils/provider'
+import { resolveWebToolRoutes, type WebToolRoutes } from '@shared/utils/provider'
 import { getWebSearchFallbackProviderIds, resolveReadyWebSearchProvider } from '@shared/utils/webSearch'
 
 import type { FileAttachmentRef } from './messages/attachmentTypes'
@@ -117,7 +114,7 @@ export interface ChatTurnPlan {
   canConsumeTools: boolean
   mcpToolIds: ReadonlySet<string>
   mcpResourceServerIds: ReadonlySet<string>
-  /** Finalized routing — the `webSearch !== 'none'` flag feeds the system prompt's date anchor. */
+  /** Routing — the `webSearch !== 'none'` flag feeds the system prompt's date anchor. */
   webToolRoutes: WebToolRoutes
   /** Registry selection AFTER the lone-fs_read drop; registry entries only (client tools are engine business). */
   selectedEntries: readonly ToolEntry[]
@@ -202,12 +199,6 @@ export async function resolveChatTurnPlan(input: ChatTurnPlanInput): Promise<Cha
         webToolRoutes
       })
     : []
-  const finalWebToolRoutes = finalizeWebToolRoutes(
-    webToolRoutes,
-    model,
-    provider,
-    selectedEntries.length > 0 || hasClientTools
-  )
   const hasCitableTools = hasCitableSelection(selectedEntries, new Set())
 
   const customParameters = extractAiSdkStandardParams(assistant ? getCustomParameters(assistant) : {})
@@ -251,7 +242,7 @@ export async function resolveChatTurnPlan(input: ChatTurnPlanInput): Promise<Cha
     canConsumeTools,
     mcpToolIds,
     mcpResourceServerIds,
-    webToolRoutes: finalWebToolRoutes,
+    webToolRoutes,
     selectedEntries,
     hasCitableTools,
     requestedSelection: selection,
@@ -281,7 +272,7 @@ interface SelectTurnToolsInput {
   webToolRoutes: WebToolRoutes
 }
 
-/** Registry selection via `applies` predicates (the legacy `resolveTools` core, engine-shared). */
+/** Registry selection via `applies` predicates. */
 export async function selectRegistryTools(input: SelectTurnToolsInput): Promise<readonly ToolEntry[]> {
   const { assistant, signals, mcpToolIds, webToolRoutes } = input
   if (mcpToolIds.size) {

@@ -1,8 +1,9 @@
 import type { UIMessage } from 'ai'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { NativeFileSupport } from '@main/ai/runtime/aiSdk/params/nativeFileSupport'
 import type { CherryMessagePart, CherryUIMessage } from '@shared/data/types/message'
+
+import type { NativeFileSupport } from '../attachmentRouting'
 
 vi.mock('@logger', () => ({
   loggerService: { withContext: () => ({ debug: vi.fn(), warn: vi.fn(), info: vi.fn(), error: vi.fn() }) }

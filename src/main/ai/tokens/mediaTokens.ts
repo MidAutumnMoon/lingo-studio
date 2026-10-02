@@ -56,7 +56,8 @@ export const geminiMediaTokens: MediaTokensFn = ratesToFn({ audio: 32, video: 25
  *
  * The audio rate is NOT verified against public documentation — it reuses Gemini's 32/s as
  * a same-order approximation, which is far closer than ignoring a known duration. Audio to
- * an openai-dialect model is also rare in practice (see `resolveNativeFileSupport`), and
+ * an openai-dialect model is also rare in practice (native audio routing is pinned off
+ * on the chat engine), and
  * any real request corrects this from the provider's own `usage`.
  * TODO: replace with the documented rate once confirmed.
  */

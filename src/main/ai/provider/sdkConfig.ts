@@ -22,7 +22,7 @@ export interface SdkConfig<T extends AppProviderKey = AppProviderKey> {
 /**
  * Resolve everything the AI SDK needs to address one (provider, model) pair.
  * Modality-agnostic: chat, embedding, rerank and image calls all start here;
- * the chat pipeline (`buildAgentParams`) layers tools, prompt and context on top.
+ * the chat pipeline (`chatTurnPlan` + the pi seam) layers tools, prompt and context on top.
  */
 export async function resolveSdkConfig(
   provider: Provider,

@@ -51,7 +51,7 @@ const {
 
 vi.mock('./chatEngine', () => ({ streamPiChatTurn: mockStreamPiChatTurn }))
 vi.mock('./chatToolSurface', () => ({ toPiChatToolSurface: mockToolSurface }))
-vi.mock('../aiSdk/params/assembleSystemPrompt', () => ({ assembleSystemPrompt: mockAssembleSystemPrompt }))
+vi.mock('@main/ai/utils/assembleSystemPrompt', () => ({ assembleSystemPrompt: mockAssembleSystemPrompt }))
 vi.mock('@main/ai/chatTurnPlan', () => ({ resolveChatTurnPlan: mockResolvePlan }))
 vi.mock('../../messages/attachmentRouting', () => ({ prepareChatMessages: mockPrepareChatMessages }))
 vi.mock('../pi/modelInjection', async (importOriginal) => {
@@ -152,39 +152,53 @@ beforeEach(() => {
 })
 
 describe('pi chat seam gate', () => {
-  it('returns null without resolving anything while the flag is off', async () => {
-    expect(await tryStreamPiChatTurn(seamInput())).toBeNull()
-    expect(mockResolveInjection).not.toHaveBeenCalled()
-    expect(mockStreamPiChatTurn).not.toHaveBeenCalled()
+  it('runs pi anyway while the flag is off (inert preference, no legacy engine)', async () => {
+    const stream = await tryStreamPiChatTurn(seamInput())
+    expect(stream).toBeDefined()
+    expect(mockResolveInjection).toHaveBeenCalled()
+    expect(mockStreamPiChatTurn).toHaveBeenCalled()
   })
 
-  it('falls back to legacy on an unsupported provider', async () => {
+  it('serves an error turn on an unsupported provider family', async () => {
     mockPreferenceGet.mockReturnValue(true)
     mockResolveInjection.mockImplementation(() => {
       throw new PiUnsupportedProviderError('vertexai')
     })
-    expect(await tryStreamPiChatTurn(seamInput())).toBeNull()
+    const stream = await tryStreamPiChatTurn(seamInput())
+    const reader = stream.getReader()
+    const { value } = await reader.read()
+    expect(value).toEqual({ type: 'error', errorText: expect.stringContaining('does not speak') })
     expect(mockStreamPiChatTurn).not.toHaveBeenCalled()
   })
 
-  it('falls back to legacy on a missing API key', async () => {
+  it('fails the turn with the localized missing-key error payload on a missing API key', async () => {
     mockPreferenceGet.mockReturnValue(true)
     mockResolveInjection.mockImplementation(() => {
       throw new PiMissingApiKeyError('test-provider')
     })
-    expect(await tryStreamPiChatTurn(seamInput())).toBeNull()
+    // The thrown error carries the i18nKey + providerId serializeError forwards, so the
+    // renderer renders `error.chat.no_api_key` with the provider settings link.
+    const error = await tryStreamPiChatTurn(seamInput()).then(
+      () => undefined,
+      (e) => e
+    )
+    expect(error).toMatchObject({ i18nKey: 'chat.no_api_key', providerId: 'test-provider' })
+    expect(mockStreamPiChatTurn).not.toHaveBeenCalled()
   })
 
-  it('falls back to legacy for approval-resume dispatches (assistant-terminated history)', async () => {
+  it('serves an error turn for approval-resume dispatches (assistant-terminated history)', async () => {
     mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({
       trigger: 'continue-conversation',
       messages: [{ id: 'a1', role: 'assistant', parts: [{ type: 'text', text: 'partial' }] }]
     })
-    expect(await tryStreamPiChatTurn(input)).toBeNull()
+    const stream = await tryStreamPiChatTurn(input)
+    const reader = stream.getReader()
+    const { value } = await reader.read()
+    expect(value).toEqual({ type: 'error', errorText: expect.stringContaining('resend your last message') })
   })
 
-  it('falls back to legacy when the served list does not end with a user message', async () => {
+  it('serves an error turn when the served list does not end with a user message', async () => {
     mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({
       messages: [
@@ -192,15 +206,17 @@ describe('pi chat seam gate', () => {
         { id: 'a1', role: 'assistant', parts: [] }
       ]
     })
-    expect(await tryStreamPiChatTurn(input)).toBeNull()
+    const stream = await tryStreamPiChatTurn(input)
+    const reader = stream.getReader()
+    const { value } = await reader.read()
+    expect(value).toEqual({ type: 'error', errorText: expect.stringContaining('resend your last message') })
   })
 
-  it('errors explicitly (no legacy fallback) for gateway client-tool requests', async () => {
+  it('errors explicitly for gateway client-tool requests', async () => {
     mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({ callOverrides: { tools: { external: {} } } })
     const stream = await tryStreamPiChatTurn(input)
-    expect(stream).not.toBeNull()
-    const reader = stream!.getReader()
+    const reader = stream.getReader()
     const { value, done } = await reader.read()
     expect(done).toBe(false)
     expect(value).toEqual({ type: 'error', errorText: expect.stringContaining('tool-less clients only') })
@@ -212,14 +228,14 @@ describe('pi chat seam gate', () => {
     mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({ apiKeyOverride: 'sk-override' })
     const stream = await tryStreamPiChatTurn(input)
-    expect(stream).not.toBeNull()
+    expect(stream).toBeDefined()
     expect(mockResolveInjection).toHaveBeenCalledWith(expect.anything(), expect.anything(), undefined, 'sk-override')
   })
 
   it('fails the turn (no fallback) when the shared plan rejects', async () => {
     // Recorded boundary: everything before the engine call is pre-provider-request, and
-    // silent fallback there would mask engine bugs during dogfood. Nothing pins this —
-    // a broadened catch would silently convert engine bugs into legacy fallbacks.
+    // swallowing there would mask engine bugs. Nothing pins this — a broadened catch
+    // would silently convert engine bugs into swallowed turns.
     mockPreferenceGet.mockReturnValue(true)
     mockResolvePlan.mockRejectedValue(new Error('plan boom'))
     await expect(tryStreamPiChatTurn(seamInput())).rejects.toThrow('plan boom')

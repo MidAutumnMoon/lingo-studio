@@ -989,9 +989,7 @@ export class PersistentChatContextProvider implements ChatContextProvider {
     const keepIdx = planKeepBoundary(recent, Math.floor(trigger * CONTEXT_COMPACT_KEEP_BUDGET_OF_TRIGGER), dialect)
     // Over-budget-without-compacting edge: when everything in `recent` fits the keep
     // budget yet `effective` still exceeds the trigger (a large prior `oldSummary`),
-    // there is no boundary to snap, so we serve the marker-applied history as-is. Not a
-    // missed compaction — the in-loop `prepareStep` hook owns this case as the second
-    // safety net (see inLoopCompaction; the no-double-compact test pins the interaction).
+    // there is no boundary to snap, so we serve the marker-applied history as-is.
     if (keepIdx === null) return serve(effective)
 
     const boundary = recent[keepIdx - 1] // real row before the kept user row

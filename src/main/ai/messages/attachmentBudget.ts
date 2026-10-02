@@ -1,5 +1,3 @@
-import type { ToolSet, UIMessage } from 'ai'
-
 /**
  * Request-level token budget for attachment text inlined into the prompt.
  *
@@ -20,7 +18,9 @@ import { countToolTokens, estimateModelMessagesSync } from '@main/ai/tokens/foot
 import { getTextTokenizer } from '@main/ai/tokens/profiles'
 import type { TextTokenizer } from '@main/ai/tokens/textTokenizer'
 import { serializeToolSchema } from '@main/ai/tools/adapters/aiSdk/meta/schemaStub'
+import type { NeutralTool } from '@main/ai/tools/neutralTool'
 import { surrogateSafeEnd } from '@main/ai/utils/textPaging'
+import type { UIMessage } from '@shared/ai/uiDialect'
 import type { Model } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
 
@@ -37,7 +37,7 @@ export interface AttachmentBudgetInput {
   provider: Provider
   model: Model
   system: string | undefined
-  tools: ToolSet | undefined
+  tools: Record<string, NeutralTool> | undefined
   /** What this request declares as `max_tokens`; undefined = it declares none. */
   maxOutputTokens: number | undefined
   /** History as it stands BEFORE inlining, so attachment text is not counted twice. */
@@ -131,14 +131,17 @@ function charCapFor(body: string, tokens: number, tokenCap: number, tokenizer: T
 
 /**
  * The definitions actually sent this request. `serializeToolSchema` normalizes
- * Zod / `jsonSchema()` wrappers to the schema the model receives.
+ * the neutral `ToolSchema` / Zod / `jsonSchema()` wrappers to the schema the model receives.
  */
-async function countToolSetTokens(tools: ToolSet | undefined, tokenizer: TextTokenizer): Promise<number> {
+async function countToolSetTokens(
+  tools: Record<string, NeutralTool> | undefined,
+  tokenizer: TextTokenizer
+): Promise<number> {
   if (!tools) return 0
   const perTool = await Promise.all(
     Object.entries(tools).map(async ([name, tool]) => {
-      const schema = await serializeToolSchema((tool as { inputSchema?: unknown }).inputSchema)
-      return countToolTokens({ name, description: (tool as { description?: string }).description, schema }, tokenizer)
+      const schema = await serializeToolSchema(tool.inputSchema)
+      return countToolTokens({ name, description: tool.description, schema }, tokenizer)
     })
   )
   return perTool.reduce((sum, tokens) => sum + tokens, 0)

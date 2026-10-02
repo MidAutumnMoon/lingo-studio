@@ -3,7 +3,6 @@ import { isDeepStrictEqual } from 'node:util'
 
 import { application } from '@application'
 import {
-  type AiPlugin,
   embedMany as aiCoreEmbedMany,
   generateImage as aiCoreGenerateImage,
   rerank as aiCoreRerank,
@@ -28,7 +27,6 @@ import { modelService } from '@main/data/services/ModelService'
 import { providerService } from '@main/data/services/ProviderService'
 import { installBuiltinSkills } from '@main/utils/builtinSkills'
 import { downloadImageAsBase64 } from '@main/utils/downloadAsBase64'
-import type { CompactionSink } from '@shared/ai/compaction'
 import type { AiToolApprovalRespondRequest, AiToolApprovalRespondResponse } from '@shared/ai/transport'
 import {
   type EmbeddingModelUsage,
@@ -45,21 +43,10 @@ import type { ImageGenerationMode } from '@shared/data/types/model'
 import { type Model, type UniqueModelId, parseUniqueModelId } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
 import type { Base64String, CreateInternalEntryIpcParams, UrlString } from '@shared/types/file'
-import {
-  isEmbeddingModel,
-  isFunctionCallingModel,
-  isGenerateImageModel,
-  isNonChatModel,
-  isRerankModel
-} from '@shared/utils/model'
+import { isEmbeddingModel, isGenerateImageModel, isNonChatModel, isRerankModel } from '@shared/utils/model'
 import { isExternalCliProvider } from '@shared/utils/provider'
 
 import { isAgentSessionTopic } from './agentSession/topic'
-import { createAnalyticsHook } from './hooks/analyticsHook'
-import { createAiUsagePlugin } from './hooks/billingHook'
-import { resolveAttachmentBudget } from './messages/attachmentBudget'
-import { prepareChatMessages } from './messages/attachmentRouting'
-import { resolveMediaCapabilities, resolveToolResultMediaCapabilities } from './messages/messageCapabilities'
 import { applyHttpTrace } from './observability'
 import { resolveProviderAiSdkConfig } from './provider/config'
 import { hasImageTransport, resolveImageTransport } from './provider/custom/imageTransportRegistry'
@@ -70,13 +57,10 @@ import { DEFAULT_DIFFUSION_REGISTRATION, WIRE_REGISTRY } from './provider/custom
 import { resolveEffectiveEndpoint, resolveWireModelId } from './provider/endpoint'
 import { listModels as listModelsFromProvider } from './provider/listModels'
 import { resolveSdkConfig } from './provider/sdkConfig'
-import type { AgentLoopHooks, NativeFileSupport, RequestFeature } from './runtime/aiSdk'
-import { Agent, assembleSystemPrompt, buildAgentParams } from './runtime/aiSdk'
 import { type PiOneShotUsage, runPiOneShotText } from './runtime/pi/piOneShot'
-import { piChatEngineEnabled, tryStreamPiChatTurn } from './runtime/piChat/chatTurnSeam'
+import { tryStreamPiChatTurn } from './runtime/piChat/chatTurnSeam'
 import { skillService } from './skills/SkillService'
 import { type MessageRuntimeTimingSink, WebContentsListener } from './streamManager'
-import { resolveModelTokenDialect } from './tokens/dialect'
 import { registerBuiltinTools } from './tools/adapters/aiSdk/builtin/registerBuiltinTools'
 import type {
   AiChatRequest,
@@ -87,15 +71,14 @@ import type {
   InProcessUsageContext,
   ListModelsRequest
 } from './types'
+import { assembleSystemPrompt } from './utils/assembleSystemPrompt'
 import { installProviderUserAgentInterceptor } from './utils/customFetch'
 import { type SplitImageParams, splitParamValues } from './utils/imageOptions'
 import { normalizeImageEditInputs } from './utils/normalizeImageEditInputs'
 import { routeToEndpoint } from './utils/provider'
-import { createRequestCaptureContext, resolveUsageAttribution, sourceSnapshotForAssistant } from './utils/usageCapture'
+import { createRequestCaptureContext, sourceSnapshotForAssistant } from './utils/usageCapture'
 
 const logger = loggerService.withContext('AiService')
-
-const NO_NATIVE_FILE_REQUIREMENTS: NativeFileSupport = { image: false, pdf: false, audio: false, video: false }
 
 /** 64x64 white PNG — edit-mode health-check input so the probe needs no user image. */
 const PROBE_INPUT_IMAGE_DATA_URL =
@@ -104,30 +87,6 @@ const PROBE_INPUT_IMAGE_BASE64 = PROBE_INPUT_IMAGE_DATA_URL.slice('data:image/pn
 
 /** Edit-only probes pick the first mode the model declares, in painting-tab preference order. */
 const EDIT_ONLY_PROBE_FALLBACK_MODES: readonly ImageGenerationMode[] = ['edit', 'remix', 'upscale', 'merge']
-type MutableNativeFileSupport = { -readonly [K in keyof NativeFileSupport]: NativeFileSupport[K] }
-
-/** Native attachment shapes preserved for the primary and therefore replayed unchanged to a fallback. */
-export function resolveRequiredNativeFileSupport(
-  messages: ReadonlyArray<unknown> | undefined,
-  primarySupport: NativeFileSupport
-): NativeFileSupport {
-  if (!messages) return NO_NATIVE_FILE_REQUIREMENTS
-  const required: MutableNativeFileSupport = { ...NO_NATIVE_FILE_REQUIREMENTS }
-  for (const message of messages) {
-    const m = message as { parts?: unknown[]; content?: unknown }
-    const parts = Array.isArray(m.parts) ? m.parts : Array.isArray(m.content) ? m.content : []
-    for (const part of parts) {
-      const p = part as { type?: string; mediaType?: string }
-      if (p.type === 'image' && primarySupport.image) required.image = true
-      if (p.type !== 'file' || typeof p.mediaType !== 'string') continue
-      if (p.mediaType.startsWith('image/') && primarySupport.image) required.image = true
-      else if (p.mediaType.startsWith('video/') && primarySupport.video) required.video = true
-      else if (p.mediaType.startsWith('audio/') && primarySupport.audio) required.audio = true
-      else if (p.mediaType === 'application/pdf' && primarySupport.pdf) required.pdf = true
-    }
-  }
-  return required
-}
 
 // ── Model listing ──────────────────────────────────────────────────
 
@@ -220,12 +179,6 @@ export type AsInProcess<T extends AiRequest> = Omit<T, 'requestOptions'> & {
 export type AsInProcessChat<T extends AiChatRequest> = AsInProcess<T> & {
   usageContext?: InProcessUsageContext
   runtimeTimingSink?: MessageRuntimeTimingSink
-  /**
-   * Emits compaction lifecycle events as `data-compaction-anchor` chunks.
-   * In-process only (a closure), same as `runtimeTimingSink` — the stream
-   * manager supplies it because only it can reach the turn's chunk sink.
-   */
-  compactionSink?: CompactionSink
 }
 
 /** Non-streaming text generation request — pure transport data. */
@@ -506,15 +459,12 @@ export class AiService extends BaseService {
   // ── Streaming chat (agent.stream) ──
 
   /**
-   * Raw `UIMessageChunk` stream from `Agent.stream`. Caller (usually
-   * `AiStreamManager`) owns read/multicast/accumulation/terminal dispatch.
-   * Pre-stream errors reject the Promise; mid-stream errors come through
-   * the stream itself.
+   * Raw `UIMessageChunk` stream on the pi chat engine (`runtime/piChat/`), the
+   * only chat engine. Caller (usually `AiStreamManager`) owns
+   * read/multicast/accumulation/terminal dispatch. Pre-stream errors reject the
+   * Promise; mid-stream errors come through the stream itself.
    */
-  async streamText(
-    request: AsInProcessChat<AiStreamRequest>,
-    extraFeatures: readonly RequestFeature[] = []
-  ): Promise<ReadableStream<UIMessageChunk>> {
+  async streamText(request: AsInProcessChat<AiStreamRequest>): Promise<ReadableStream<UIMessageChunk>> {
     logger.info('streamText started', { chatId: request.conversation.topicId })
     const signal = request.requestOptions?.signal
     if (!signal) {
@@ -533,100 +483,8 @@ export class AiService extends BaseService {
       throw new Error(`Agent session stream ${request.conversation.topicId} requires an agent-session runtime request`)
     }
 
-    // The pi chat engine branch (W6): a per-execution gate with silent legacy
-    // fallback. Checked before any param resolution so a flag-off process pays
-    // nothing and the legacy path below stays byte-identical.
-    if (piChatEngineEnabled()) {
-      const { provider, model, assistant } = this.getProviderAndModel(request)
-      const piStream = await tryStreamPiChatTurn({ request, signal, provider, model, assistant })
-      if (piStream) return piStream
-    }
-
-    const repairUsagePlugins: { current?: AiPlugin[] } = {}
-    const {
-      sdkConfig,
-      credentialReceipt,
-      tools,
-      plugins,
-      system,
-      options,
-      provider,
-      model,
-      assistant,
-      hookParts,
-      nativeFileSupport,
-      fileAttachments
-    } = await this.buildAgentParamsFor(request, signal, extraFeatures, () => repairUsagePlugins.current ?? [])
-    const usageContext = createRequestCaptureContext({
-      provider,
-      model,
-      sdkModelId: sdkConfig.modelId,
-      credentialReceipt,
-      ...resolveUsageAttribution(request, assistant)
-    })
-    const usagePlugin = createAiUsagePlugin(usageContext)
-    repairUsagePlugins.current = [usagePlugin]
-
-    const mediaCapabilities = resolveMediaCapabilities(model)
-
-    // Route attachments: native files stay inline, non-native become capped text
-    // (always visible — never gated on the model calling read_file). The cap is
-    // one shared pool, priced against what the rest of the request already spends.
-    const preparedMessages = await prepareChatMessages(request.messages ?? [], {
-      attachments: fileAttachments,
-      nativeSupport: nativeFileSupport,
-      isToolCapable: isFunctionCallingModel(model),
-      // A caller that owns its context (the gateway) manages its own window;
-      // reshaping its attachments against ours would be guesswork.
-      budget:
-        fileAttachments.length && request.contextOwner !== 'caller'
-          ? ((await resolveAttachmentBudget({
-              provider,
-              model,
-              system,
-              tools,
-              maxOutputTokens: options.maxOutputTokens,
-              messages: request.messages ?? [],
-              mediaCapabilities
-            })) ?? undefined)
-          : undefined,
-      signal
-    })
-
-    const agent = new Agent({
-      providerId: sdkConfig.providerId,
-      providerSettings: sdkConfig.providerSettings,
-      modelId: sdkConfig.modelId,
-      errorContext: { providerId: provider.id, modelId: model.apiModelId ?? model.id },
-      messageId: request.messageId,
-      plugins: [...plugins, usagePlugin],
-      tools,
-      system,
-      options,
-      hookParts: [
-        this.analyticsHookPart(model, request.tokenUsageSource ?? 'chat'),
-        ...(request.runtimeTimingSink
-          ? [
-              {
-                onToolExecutionStart: (event) => request.runtimeTimingSink?.onToolExecutionStart(event),
-                onToolExecutionEnd: (event) => request.runtimeTimingSink?.onToolExecutionEnd(event)
-              } satisfies Partial<AgentLoopHooks>
-            ]
-          : []),
-        ...hookParts
-      ],
-      mediaCapabilities,
-      toolResultMediaCapabilities: resolveToolResultMediaCapabilities(
-        mediaCapabilities,
-        resolveModelTokenDialect(provider, model)
-      )
-    })
-
-    return agent.stream(preparedMessages, signal)
-  }
-
-  private analyticsHookPart(model: Model, source: TokenUsageSource = 'chat'): Partial<AgentLoopHooks> {
-    return createAnalyticsHook(model, (trackedModel, usage) => this.trackUsage(trackedModel, usage, source))
+    const { provider, model, assistant } = this.getProviderAndModel(request)
+    return tryStreamPiChatTurn({ request, signal, provider, model, assistant })
   }
 
   // ── Request-scoped cancellation ──
@@ -1264,26 +1122,6 @@ export class AiService extends BaseService {
     )
     applyHttpTrace(sdkConfig.providerSettings, { modelName: model.name ?? model.id })
     return { provider, model, assistant, sdkConfig, credentialReceipt }
-  }
-
-  private async buildAgentParamsFor(
-    request: AsInProcessChat<AiChatRequest> & { messageId?: string },
-    signal: AbortSignal | undefined,
-    extraFeatures: readonly RequestFeature[] = [],
-    getRepairUsagePlugins?: () => AiPlugin[]
-  ) {
-    const { provider, model, assistant } = this.getProviderAndModel(request)
-    const built = await buildAgentParams({
-      request,
-      signal,
-      provider,
-      model,
-      assistant,
-      extraFeatures,
-      getRepairUsagePlugins,
-      compactionSink: request.compactionSink
-    })
-    return { ...built, provider, model, assistant }
   }
 
   // ── Token usage tracking ──

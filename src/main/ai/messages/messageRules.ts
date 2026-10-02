@@ -18,6 +18,15 @@ import {
   type UIMessage
 } from '@shared/ai/uiDialect'
 
+import type { NeutralTool } from '../tools/neutralTool'
+
+/**
+ * The tool maps conversion accepts: the AI SDK `ToolSet` (the gateway's client
+ * tools) or the neutral registry record (both engines). The vendored converter
+ * reads only `toModelOutput` (plus membership checks here), which both carry.
+ */
+export type ConversionToolSet = ToolSet | Record<string, NeutralTool>
+
 import { ALL_MEDIA, type MediaCapabilities, routeToolResultMedia, stripUnsupportedMedia } from './messageCapabilities'
 import { renderPersistedToolOutputs } from './persistedOutputRendering'
 
@@ -149,7 +158,7 @@ export function resolveReplayToolName(name: string, isDeclared?: (name: string) 
  * `ToolSet` by the client's own function name (which Gemini allows to hold `.` / `:`), so
  * rewriting it would desync history from the declaration and skip the tool's `toModelOutput`.
  */
-export function sanitizeDynamicToolNames<T extends UIMessage>(messages: T[], tools?: ToolSet): T[] {
+export function sanitizeDynamicToolNames<T extends UIMessage>(messages: T[], tools?: ConversionToolSet): T[] {
   const isDeclared = tools ? (name: string) => Boolean(tools[name]) : undefined
   let out: T[] | undefined
   messages.forEach((message, messageIndex) => {
@@ -229,14 +238,18 @@ export function dropUndecidedProviderExecutedDenials<T extends UIMessage>(messag
 export async function toModelMessages(
   messages: UIMessage[],
   caps?: MediaCapabilities,
-  tools?: ToolSet,
+  tools?: ConversionToolSet,
   toolResultCaps?: MediaCapabilities
 ): Promise<ModelMessage[]> {
   const rendered = sanitizeDynamicToolNames(renderPersistedToolOutputs(messages), tools)
   const shaped = restoreLegacyToolStepBoundaries(
     dropUnansweredApprovals(dropUndecidedProviderExecutedDenials(stripUnsupportedMedia(rendered, caps ?? ALL_MEDIA)))
   )
-  const model = await convertToModelMessages(shaped, { ignoreIncompleteToolCalls: true, tools })
+  // Neutral tools carry the same `toModelOutput` surface the converter reads.
+  const model = await convertToModelMessages(shaped, {
+    ignoreIncompleteToolCalls: true,
+    tools: tools as ToolSet | undefined
+  })
   const gated = routeToolResultMedia(model, caps ?? ALL_MEDIA, toolResultCaps ?? caps ?? ALL_MEDIA)
   return ensureNonEmptyAssistantContent(coalesceConsecutiveSameRole(gated))
 }

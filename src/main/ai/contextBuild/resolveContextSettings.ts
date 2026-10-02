@@ -5,7 +5,7 @@
  *
  * The compression model gets only its EXPLICIT pick here (`assistant ??
  * globals`, else null). The "fall back to the current request model" step is
- * the CALLER's job (buildAgentParams) — keeping this helper pure and free of
+ * the CALLER's job (the chat-turn plan) — keeping this helper pure and free of
  * request/model context so it stays trivially testable.
  *
  * `maxMessages` is three-state and therefore merged by PROPERTY PRESENCE, not

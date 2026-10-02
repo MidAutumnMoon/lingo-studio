@@ -228,7 +228,6 @@ patchedDependencies:
   '@ai-sdk/open-responses@1.0.34': 7a7a5a05a06775293425dfb63c279d62fded2d6ac0667ba64664cc43bfef0648
   '@ai-sdk/openai-compatible@2.0.72': e1c53c511799253d3cc69a6a2bdcba7cb2ea5792b27b243fd82cb8f086d50480
   '@ai-sdk/openai@3.0.109': 2423513a443860e240fb1c10554f616ce6dcaf553eebfb044ba266aab075cc4d
-  '@ai-sdk/react@3.0.187': 8182f09c37c2d080e4794d30401712c0605e986e985380ea76699758f2ed7230
   '@deepseek-ai/dsh-llm-pi-ai@0.2.0-rc.2': 22e1bba3e6b5d2567a6c64821bc2310147b41f8f6d993774d1c65b249f7d6d78
   '@deepseek-ai/dsh-sandbox-local@0.2.0-rc.2': 8a2acc0e4ca1a7015dd7dedf825038230b7770b4f260fc93ae205247b3b3e9ec
   '@deepseek-ai/dsh-sdk-client@0.2.0-rc.2': 8fb5e7319c89da505a9584fcbb09a5bc8cf200ec92f2998de4142034596eb918
@@ -366,21 +365,12 @@ importers:
       '@ai-sdk/anthropic':
         specifier: 3.0.125
         version: 3.0.125(patch_hash=b463d924d4601388f4617f16ba1bf8c69c5ea486fcb572bb3bc2fb7442c8e575)(zod@4.4.3)
-      '@ai-sdk/azure':
-        specifier: ^3.0.116
-        version: 3.0.116(zod@4.4.3)
       '@ai-sdk/bytedance':
         specifier: 1.0.29
         version: 1.0.29(zod@4.4.3)
       '@ai-sdk/cerebras':
         specifier: ^2.0.78
         version: 2.0.78(zod@4.4.3)
-      '@ai-sdk/cohere':
-        specifier: ^3.0.30
-        version: 3.0.30(zod@4.4.3)
-      '@ai-sdk/devtools':
-        specifier: ^0.0.17
-        version: 0.0.17
       '@ai-sdk/gateway':
         specifier: ^3.0.104
         version: 3.0.116(zod@4.4.3)
@@ -414,18 +404,9 @@ importers:
       '@ai-sdk/provider-utils':
         specifier: 4.0.56
         version: 4.0.56(zod@4.4.3)
-      '@ai-sdk/react':
-        specifier: ^3.0.147
-        version: 3.0.187(patch_hash=8182f09c37c2d080e4794d30401712c0605e986e985380ea76699758f2ed7230)(react@19.2.7)(zod@4.4.3)
-      '@ai-sdk/test-server':
-        specifier: ^1.0.3
-        version: 1.0.3(@types/node@24.10.4)(typescript@5.9.3)
       '@ai-sdk/togetherai':
         specifier: ^2.0.78
         version: 2.0.78(zod@4.4.3)
-      '@ai-sdk/xai':
-        specifier: ^3.0.126
-        version: 3.0.126(zod@4.4.3)
       '@aiden0z/pptx-renderer':
         specifier: 1.2.2
         version: 1.2.2(pdfjs-dist@5.4.296)
@@ -591,9 +572,6 @@ importers:
       '@notionhq/client':
         specifier: ^2.2.15
         version: 2.3.0(encoding@0.1.13)
-      '@openrouter/ai-sdk-provider':
-        specifier: ^2.10.0
-        version: 2.10.0(patch_hash=fe61d9ff590828fc0fd3f8b3b8b88a4a1b736a99b595a276c8df9e12c9498009)(ai@6.0.185(patch_hash=61fc175c652267f39ec01df738fc61d1639faa19b980441005f7e9cd645d1711)(zod@4.4.3))(zod@4.4.3)
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.1
@@ -2229,22 +2207,11 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/cohere@3.0.30':
-    resolution: {integrity: sha512-j3fe/6lUUkHPD/51OgMXN9UD7p1QSQEAlroIinmb3MhJ1s+O0MnqdRa30IM7dRHafNp0FQ9X4YpobY85iMknUQ==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
   '@ai-sdk/deepseek@2.0.62':
     resolution: {integrity: sha512-9gtHuDMxd/OIwb0x2M5vLQfhRTIKc3kfOq+QCXZBZSb4P0XR9cJanu3FTkH2zbgJvyUWpOwDq2rDGogQ5/Pn1w==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/devtools@0.0.17':
-    resolution: {integrity: sha512-CJgo+3DMHOJbxxq1qTgnW4vpFXgBW1pHePMimBW4Go5FPU7iLqppoGX/UC798IXqlD3hncQRPfyBLZjbsJC91w==}
-    engines: {node: '>=18'}
-    hasBin: true
 
   '@ai-sdk/gateway@3.0.116':
     resolution: {integrity: sha512-k8P17w7Eho5Y4l3tZrYxqQdffkI4xwtl8GCxkZs+JdMWZhyrLLlozqWkKLaWrCSlEYQOeIhEnQLhqQgYYU86Rw==}
@@ -2308,16 +2275,6 @@ packages:
 
   '@ai-sdk/provider@3.0.18':
     resolution: {integrity: sha512-IpefF5ssZVOZCD4Wu7zxt6PwZoGT2HLVjxpJ10Bjx6EAmRfLYJPjyrfxb0RYDlwvXnDb9nkQ7Do/oJVDuRFzew==}
-    engines: {node: '>=18'}
-
-  '@ai-sdk/react@3.0.187':
-    resolution: {integrity: sha512-TJBhR18F7BOLj/mBLYoZNZVkQgDc7DBVz2ZyQEecpKnO+EAhdx3QA2q8BnEVqwNlDfOKOa6dr7ka4hU0wy/wDw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      react: ^18 || ~19.0.1 || ~19.1.2 || ^19.2.1
-
-  '@ai-sdk/test-server@1.0.3':
-    resolution: {integrity: sha512-Qw/phEW2IBKzfHIVdySuYijoqAvVJKuwupCrDbl1ofPJ4jsaH/+f+6EysRwui8LNlo/tbFgH0P39gvRFLKHleQ==}
     engines: {node: '>=18'}
 
   '@ai-sdk/togetherai@2.0.78':
@@ -15497,10 +15454,6 @@ packages:
   text-hex@1.0.0:
     resolution: {integrity: sha512-uuVGNWzgJ4yhRaNSiubPY7OjISw4sw4E5Uv0wbjp+OzcbmVU/rsT8ujgcXJhn9ypzsgr5vlzpPqP+MBBKcGvbg==}
 
-  throttleit@2.1.0:
-    resolution: {integrity: sha512-nt6AMGKW1p/70DF/hGBdJB57B8Tspmbp5gfJ8ilhLnt7kkr2ye7hzD6NVG8GGErk2HWF34igrL2CXmNIkzKqKw==}
-    engines: {node: '>=18'}
-
   through@2.3.8:
     resolution: {integrity: sha512-w89qg7PI8wAdvX60bMDP+bFoD5Dvhm9oLheFp5O4a2QF0cSBGsBX4qZmadPMvVqlLJBBci+WqGGOAPvcDeNSVg==}
 
@@ -16561,23 +16514,11 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.56(zod@4.4.3)
       zod: 4.4.3
 
-  '@ai-sdk/cohere@3.0.30(zod@4.4.3)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.18
-      '@ai-sdk/provider-utils': 4.0.56(zod@4.4.3)
-      zod: 4.4.3
-
   '@ai-sdk/deepseek@2.0.62(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 3.0.18
       '@ai-sdk/provider-utils': 4.0.56(zod@4.4.3)
       zod: 4.4.3
-
-  '@ai-sdk/devtools@0.0.17':
-    dependencies:
-      '@ai-sdk/provider': 3.0.18
-      '@hono/node-server': 1.19.10(hono@4.12.25)
-      hono: 4.12.25
 
   '@ai-sdk/gateway@3.0.116(zod@4.4.3)':
     dependencies:
@@ -16651,23 +16592,6 @@ snapshots:
   '@ai-sdk/provider@3.0.18':
     dependencies:
       json-schema: 0.4.0
-
-  '@ai-sdk/react@3.0.187(patch_hash=8182f09c37c2d080e4794d30401712c0605e986e985380ea76699758f2ed7230)(react@19.2.7)(zod@4.4.3)':
-    dependencies:
-      '@ai-sdk/provider-utils': 4.0.56(zod@4.4.3)
-      ai: 6.0.185(patch_hash=61fc175c652267f39ec01df738fc61d1639faa19b980441005f7e9cd645d1711)(zod@4.4.3)
-      react: 19.2.7
-      swr: 2.3.8(react@19.2.7)
-      throttleit: 2.1.0
-    transitivePeerDependencies:
-      - zod
-
-  '@ai-sdk/test-server@1.0.3(@types/node@24.10.4)(typescript@5.9.3)':
-    dependencies:
-      msw: 2.12.7(@types/node@24.10.4)(typescript@5.9.3)
-    transitivePeerDependencies:
-      - '@types/node'
-      - typescript
 
   '@ai-sdk/togetherai@2.0.78(zod@4.4.3)':
     dependencies:
@@ -19804,7 +19728,8 @@ snapshots:
   '@img/sharp-win32-x64@0.35.3':
     optional: true
 
-  '@inquirer/ansi@1.0.2': {}
+  '@inquirer/ansi@1.0.2':
+    optional: true
 
   '@inquirer/ansi@2.0.7': {}
 
@@ -19823,6 +19748,7 @@ snapshots:
       '@inquirer/type': 3.0.10(@types/node@24.10.4)
     optionalDependencies:
       '@types/node': 24.10.4
+    optional: true
 
   '@inquirer/confirm@6.1.1(@types/node@24.10.4)':
     dependencies:
@@ -19843,6 +19769,7 @@ snapshots:
       yoctocolors-cjs: 2.1.3
     optionalDependencies:
       '@types/node': 24.10.4
+    optional: true
 
   '@inquirer/core@11.2.1(@types/node@24.10.4)':
     dependencies:
@@ -19885,7 +19812,8 @@ snapshots:
     optionalDependencies:
       '@types/node': 24.10.4
 
-  '@inquirer/figures@1.0.15': {}
+  '@inquirer/figures@1.0.15':
+    optional: true
 
   '@inquirer/figures@2.0.7': {}
 
@@ -19953,6 +19881,7 @@ snapshots:
   '@inquirer/type@3.0.10(@types/node@24.10.4)':
     optionalDependencies:
       '@types/node': 24.10.4
+    optional: true
 
   '@inquirer/type@4.0.7(@types/node@24.10.4)':
     optionalDependencies:
@@ -20295,6 +20224,7 @@ snapshots:
       is-node-process: 1.2.0
       outvariant: 1.4.3
       strict-event-emitter: 0.5.1
+    optional: true
 
   '@mux/mux-data-google-ima@0.2.8':
     dependencies:
@@ -20592,14 +20522,17 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@open-draft/deferred-promise@2.2.0': {}
+  '@open-draft/deferred-promise@2.2.0':
+    optional: true
 
   '@open-draft/logger@0.3.0':
     dependencies:
       is-node-process: 1.2.0
       outvariant: 1.4.3
+    optional: true
 
-  '@open-draft/until@2.1.0': {}
+  '@open-draft/until@2.1.0':
+    optional: true
 
   '@openrouter/ai-sdk-provider@2.10.0(patch_hash=fe61d9ff590828fc0fd3f8b3b8b88a4a1b736a99b595a276c8df9e12c9498009)(ai@6.0.185(patch_hash=61fc175c652267f39ec01df738fc61d1639faa19b980441005f7e9cd645d1711)(zod@4.4.3))(zod@4.4.3)':
     dependencies:
@@ -23736,7 +23669,8 @@ snapshots:
 
   '@types/semver@7.7.1': {}
 
-  '@types/statuses@2.0.6': {}
+  '@types/statuses@2.0.6':
+    optional: true
 
   '@types/stream-chain@2.1.0':
     dependencies:
@@ -27368,7 +27302,8 @@ snapshots:
       - encoding
       - supports-color
 
-  graphql@16.14.2: {}
+  graphql@16.14.2:
+    optional: true
 
   gray-matter@4.0.3:
     dependencies:
@@ -27599,7 +27534,8 @@ snapshots:
       property-information: 7.1.0
       space-separated-tokens: 2.0.2
 
-  headers-polyfill@4.0.3: {}
+  headers-polyfill@4.0.3:
+    optional: true
 
   highlight.js@10.7.3: {}
 
@@ -27928,7 +27864,8 @@ snapshots:
 
   is-natural-number@4.0.1: {}
 
-  is-node-process@1.2.0: {}
+  is-node-process@1.2.0:
+    optional: true
 
   is-number@7.0.0: {}
 
@@ -29335,6 +29272,7 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - '@types/node'
+    optional: true
 
   msw@2.12.7(@types/node@24.10.4)(typescript@7.0.2):
     dependencies:
@@ -29367,7 +29305,8 @@ snapshots:
       dns-packet: 5.6.1
       thunky: 1.1.0
 
-  mute-stream@2.0.0: {}
+  mute-stream@2.0.0:
+    optional: true
 
   mute-stream@3.0.0: {}
 
@@ -29656,7 +29595,8 @@ snapshots:
 
   outdent@0.5.0: {}
 
-  outvariant@1.4.3: {}
+  outvariant@1.4.3:
+    optional: true
 
   oxc-parser@0.127.0:
     dependencies:
@@ -29944,7 +29884,8 @@ snapshots:
       lru-cache: 11.2.4
       minipass: 7.1.3
 
-  path-to-regexp@6.3.0: {}
+  path-to-regexp@6.3.0:
+    optional: true
 
   path-to-regexp@8.4.0: {}
 
@@ -30838,7 +30779,8 @@ snapshots:
 
   retry@0.13.1: {}
 
-  rettime@0.7.0: {}
+  rettime@0.7.0:
+    optional: true
 
   reusify@1.1.0: {}
 
@@ -31378,7 +31320,8 @@ snapshots:
       - bare-abort-controller
       - react-native-b4a
 
-  strict-event-emitter@0.5.1: {}
+  strict-event-emitter@0.5.1:
+    optional: true
 
   strict-url-sanitise@0.0.1: {}
 
@@ -31523,7 +31466,8 @@ snapshots:
 
   systeminformation@5.33.8: {}
 
-  tagged-tag@1.0.0: {}
+  tagged-tag@1.0.0:
+    optional: true
 
   tailwind-merge@2.6.1: {}
 
@@ -31639,8 +31583,6 @@ snapshots:
 
   text-hex@1.0.0: {}
 
-  throttleit@2.1.0: {}
-
   through@2.3.8: {}
 
   thunky@1.1.0: {}
@@ -31679,7 +31621,8 @@ snapshots:
 
   tldts-core@6.1.86: {}
 
-  tldts-core@7.4.9: {}
+  tldts-core@7.4.9:
+    optional: true
 
   tldts@6.1.86:
     dependencies:
@@ -31688,6 +31631,7 @@ snapshots:
   tldts@7.4.9:
     dependencies:
       tldts-core: 7.4.9
+    optional: true
 
   tmp-promise@3.0.3:
     dependencies:
@@ -31729,6 +31673,7 @@ snapshots:
   tough-cookie@6.0.2:
     dependencies:
       tldts: 7.4.9
+    optional: true
 
   tr46@0.0.3: {}
 
@@ -31938,6 +31883,7 @@ snapshots:
   type-fest@5.8.0:
     dependencies:
       tagged-tag: 1.0.0
+    optional: true
 
   type-is@2.0.1:
     dependencies:
@@ -32181,7 +32127,8 @@ snapshots:
       - '@emnapi/runtime'
     optional: true
 
-  until-async@3.0.2: {}
+  until-async@3.0.2:
+    optional: true
 
   unzip-crx-3@0.2.0:
     dependencies:
@@ -32733,6 +32680,7 @@ snapshots:
       string-width: 4.2.3
       y18n: 5.0.8
       yargs-parser: 21.1.1
+    optional: true
 
   yauzl@2.10.0:
     dependencies:
@@ -32745,7 +32693,8 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  yoctocolors-cjs@2.1.3: {}
+  yoctocolors-cjs@2.1.3:
+    optional: true
 
   yoctocolors@2.1.2: {}
 

@@ -37,7 +37,6 @@ import { resolveAiSdkProviderId, type ResolvedEndpoint, resolveEffectiveEndpoint
 import { buildGrokCliRequestHeaders, rewriteGrokCliResponsesBody } from './grokCli'
 import { transformLmStudioRequestBody } from './lmstudio'
 import { isVertexMaasModelId, normalizeVertexCredentials } from './vertex'
-import { transformZhipuRequestBody } from './zhipuWebSearch'
 
 interface BaseConfig {
   baseURL: string
@@ -197,17 +196,6 @@ export async function resolveProviderAiSdkConfig(
     {
       match: (p, id) => matchesPreset(p, SystemProviderIds.dashscope) && id === 'openai-compatible',
       build: withSelectedApiKey(buildDashScopeConfig)
-    },
-    // Zhipu chat is OpenAI-compatible, but BigModel's built-in web search rides the
-    // tools array, which providerOptions cannot reach — the body transform moves the
-    // web_search marker into `tools` (see zhipuWebSearch.ts).
-    {
-      match: (p, id) => id === 'openai-compatible' && matchesPreset(p, 'zhipu'),
-      build: withSelectedApiKey((ctx) => {
-        const config = buildOpenAICompatibleConfig(ctx)
-        config.providerSettings.transformRequestBody = transformZhipuRequestBody
-        return config
-      })
     },
     // LM Studio's OpenAI-compatible endpoint expects bare base64 for images when
     // a message contains multiple image blocks. Keep single-image requests on

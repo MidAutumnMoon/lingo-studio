@@ -4,13 +4,12 @@ import {
   SERVER_TOOL,
   SERVER_TOOL_MODEL_SCOPE,
   type ServerTool,
-  type ServerToolConfig,
-  supportsServerToolFunctionMixing
+  type ServerToolConfig
 } from '@cherrystudio/provider-registry'
 import { ENDPOINT_TYPE, type EndpointType, type Model } from '@shared/data/types/model'
 import type { EndpointDialect, Provider } from '@shared/data/types/provider'
 
-import { getLowerBaseModelName, getRawModelId, isFunctionCallingModel, isGeminiModel, isNonChatModel } from './model'
+import { getLowerBaseModelName, getRawModelId, isFunctionCallingModel, isNonChatModel } from './model'
 import { getProviderHostTopology } from './providerTopology'
 
 // Azure/Vertex/Bedrock reuse other vendors' endpoint protocols, so authType
@@ -79,25 +78,6 @@ export function isNewApiProvider(provider: Provider): boolean {
 
 export function isAIGatewayProvider(provider: Provider): boolean {
   return provider.presetProviderId === 'gateway' || provider.id === 'gateway'
-}
-
-export function isGeminiWebSearchProvider(provider: Provider): boolean {
-  return isGeminiProvider(provider) || isVertexProvider(provider)
-}
-
-/**
- * Whether this host injects Google's NATIVE web tools for a Gemini model — the thing pre-3 Gemini
- * refuses to mix with function declarations. Direct Gemini/Vertex do; so do the gateways whose models
- * carry a `<host>.google` provider segment (cherryin, aihubmix, new-api), because
- * `resolveToolCapability`'s aggregator fallback lands on the same google factory. Their declarations
- * are exactly the ones narrowed to the `gemini` vendor, so read that instead of the host id — keying
- * the guard to the host let those gateways ship native tools alongside function tools.
- * Hosts that serve Gemini through their own search (OpenRouter's `plugins`) declare no gemini vendor
- * and stay out: nothing native is injected, so there is no conflict to avoid.
- */
-function servesGeminiNativeWebTools(provider: Provider): boolean {
-  if (isGeminiWebSearchProvider(provider)) return true
-  return (provider.serverTools ?? []).some((tool) => tool.vendors?.includes('gemini'))
 }
 
 export function isSystemProvider(provider: Provider): boolean {
@@ -253,6 +233,11 @@ export function isBuiltinWebSearchAvailable(
   return isServerToolModelEligible(model, provider, SERVER_TOOL.WEB_SEARCH)
 }
 
+/**
+ * Web-tool routing decision. `'server'` (provider-native search/fetch) died with
+ * the legacy engine — no resolver produces it anymore; the member stays so tool
+ * `applies` predicates and persisted fixtures that name it keep type-checking.
+ */
 export type WebToolRoute = 'client' | 'server' | 'none'
 
 /** Why an enabled web capability resolved to 'none' — codes only, UI maps them to copy. */
@@ -322,37 +307,6 @@ export function resolveWebToolRoutes(
     webFetch: clientFetchAvailable ? 'client' : 'none',
     ...(Object.keys(reasons).length > 0 ? { reasons } : {})
   }
-}
-
-/**
- * Final request-time amendment to the routes, once the resolved ToolSet is
- * known: pre-3 Gemini rejects requests mixing its native tools with function
- * tools, so surviving server routes are withdrawn. Normally the conflict is
- * already predicted by `resolveWebToolRoutes` (which prefers falling back to
- * the client side); this is the exact safety net for under-predicted signals.
- * The amended routes are the single source of truth on the request scope.
- */
-export function finalizeWebToolRoutes(
-  routes: WebToolRoutes,
-  model: Model,
-  provider: Provider,
-  hasFunctionTools: boolean
-): WebToolRoutes {
-  if (!hasFunctionTools || !isGeminiModel(model) || supportsServerToolFunctionMixing(getRawModelId(model))) {
-    return routes
-  }
-
-  let next = routes
-  if (next.webFetch === 'server') {
-    next = { ...next, webFetch: 'none', reasons: { ...next.reasons, webFetch: 'gemini-function-tool-conflict' } }
-  }
-  // Search only conflicts when the injected tool is Google's own — gemini/vertex directly, plus the
-  // gateways that resolve the same google factory. OpenRouter serves gemini models with its own
-  // search, which tolerates function tools.
-  if (next.webSearch === 'server' && servesGeminiNativeWebTools(provider)) {
-    next = { ...next, webSearch: 'none', reasons: { ...next.reasons, webSearch: 'gemini-function-tool-conflict' } }
-  }
-  return next
 }
 
 const NOT_SUPPORT_QWEN3_ENABLE_THINKING_PROVIDERS = ['lmstudio', 'nvidia', 'gpustack'] as const

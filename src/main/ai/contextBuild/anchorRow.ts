@@ -9,9 +9,9 @@ import { ErrorCode, isDataApiError } from '@shared/data/api/errors'
  * random one; for those the truncator falls back to plain inline head/tail
  * truncation, so no `<persisted-output>` marker can ever be produced.
  *
- * Shared by the ai-sdk in-flight middleware and the pi chat seam (W6); it was
- * re-homed from `runtime/aiSdk/params/features/contextBuild.ts` when the seam
- * needed it without that module's ai-core middleware graph.
+ * Shared by the in-flight truncator and the pi chat seam (W6); it was re-homed
+ * from the legacy engine's context-build middleware when the seam needed it
+ * without that module's ai-core graph.
  */
 export function hasAnchorRow(messageId: string | undefined): boolean {
   if (messageId === undefined) return false

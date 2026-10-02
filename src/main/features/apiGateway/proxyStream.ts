@@ -9,7 +9,7 @@
  *
  * The gateway is assistant-agnostic: per-request sampling, client tools, and
  * provider options are passed as first-class `callOverrides` on the stream
- * request (merged at highest precedence inside `buildAgentParams`).
+ * request (merged at highest precedence inside the chat-turn plan).
  *
  * Output is a Web-standard `Response`: streaming requests return a
  * `text/event-stream` `ReadableStream`; non-streaming requests return a JSON

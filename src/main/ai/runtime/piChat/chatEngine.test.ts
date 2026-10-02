@@ -671,7 +671,11 @@ describe('streamPiChatTurn', () => {
     const settled = state.capturedContexts[1].messages.find((m) => m.role === 'assistant')
     const content = settled?.content ?? []
     expect(JSON.stringify(content)).not.toContain('<think')
-    expect(content).toContainEqual({ type: 'thinking', thinking: 'plan the call', thinkingSignature: 'reasoning_content' })
+    expect(content).toContainEqual({
+      type: 'thinking',
+      thinking: 'plan the call',
+      thinkingSignature: 'reasoning_content'
+    })
     expect(content).toContainEqual({ type: 'text', text: 'Let me check.' })
     expect(content.some((block) => block.type === 'toolCall')).toBe(true)
   })
@@ -682,7 +686,10 @@ describe('streamPiChatTurn', () => {
     // becomes one thinking block and no empty text block is left behind.
     const { faux, provider, state } = await openaiCompletionsFaux('exec-think-unclosed')
     state.core.setResponses([
-      faux.fauxAssistantMessage([faux.fauxText('<think>reasoning without a close'), faux.fauxToolCall('echo', { q: 'y' })]),
+      faux.fauxAssistantMessage([
+        faux.fauxText('<think>reasoning without a close'),
+        faux.fauxToolCall('echo', { q: 'y' })
+      ]),
       faux.fauxAssistantMessage('done')
     ])
     const execute = vi.fn(async () => ({ content: [{ type: 'text' as const, text: 'ok' }], details: { ok: 1 } }))

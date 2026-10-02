@@ -24,7 +24,7 @@
  * 3. making sure a read-back tool covers it — without one it does not survive,
  *    and that should be a decision, not an accident.
  * Consumers must clone any mutable projection per model run (see
- * `buildAgentParams`' Set clone) — one RetainedContext instance serves every
+ * the chat-turn seam's Set clone) — one RetainedContext instance serves every
  * model of a multi-model send.
  */
 

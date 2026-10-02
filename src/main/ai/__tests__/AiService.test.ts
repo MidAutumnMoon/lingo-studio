@@ -16,14 +16,11 @@ import type * as CustomFetchModule from '../utils/customFetch'
 import { makeProvider } from './fixtures/provider'
 
 type AiServicePrivate = {
-  buildAgentParamsFor: (...args: never[]) => Promise<unknown>
   resolveTransportFor: (...args: never[]) => Promise<unknown>
   trackUsage: (...args: never[]) => void
 }
 
 const mockGenerateImage = vi.fn()
-const mockAgentGenerate = vi.fn()
-const mockCreateAgent = vi.fn()
 const mockRerank = vi.fn()
 const mockEmbedMany = vi.fn()
 const mockDownloadImageAsBase64 = vi.fn()
@@ -144,7 +141,6 @@ vi.mock('@main/data/services/MessageService', () => ({
 }))
 
 vi.mock('@cherrystudio/ai-core', () => ({
-  createAgent: (...args: unknown[]) => mockCreateAgent(...args),
   definePlugin: (plugin: unknown) => plugin,
   embedMany: async (...args: unknown[]) => {
     const result = await mockEmbedMany(...args)
@@ -207,7 +203,7 @@ vi.mock('../runtime/pi/piOneShot', () => ({
 
 const { listModels: listModelsFromProviderActual } =
   await vi.importActual<typeof ListModelsModule>('../provider/listModels')
-const { AiService, imageInputEntryParams, resolveRequiredNativeFileSupport } = await import('../AiService')
+const { AiService, imageInputEntryParams } = await import('../AiService')
 const { messageService } = await import('@main/data/services/MessageService')
 
 /**
@@ -227,14 +223,7 @@ describe('AiService', () => {
     mockApplicationGet.mockImplementation((name: string) =>
       name === 'PreferenceService' ? defaultServiceInstances.PreferenceService : undefined
     )
-    mockCreateAgent.mockReset()
     mockAssistantGetById.mockReturnValue(undefined)
-    mockAgentGenerate.mockResolvedValue({
-      text: 'ok',
-      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, inputTokenDetails: {}, outputTokenDetails: {} },
-      steps: []
-    })
-    mockCreateAgent.mockResolvedValue({ generate: mockAgentGenerate })
     mockProviderGetRotatedApiKey.mockReturnValue('test-key')
     mockIsRegistryProvider.mockReturnValue(false)
     mockProviderResolveApiKey.mockImplementation((_id: string, override?: string) => ({
@@ -342,7 +331,6 @@ describe('AiService', () => {
 
   it('rejects agent-session streams that do not carry a runtime request', async () => {
     const service = createService()
-    const buildAgentParamsFor = vi.spyOn(service as any, 'buildAgentParamsFor')
 
     await expect(
       service.streamText({
@@ -352,129 +340,7 @@ describe('AiService', () => {
       })
     ).rejects.toThrow('requires an agent-session runtime request')
 
-    expect(buildAgentParamsFor).not.toHaveBeenCalled()
     expect(mockApplicationGet).not.toHaveBeenCalled()
-  })
-
-  it('detects only native attachment shapes that the primary model preserves', () => {
-    const primarySupport = { image: true, pdf: true, audio: false, video: true }
-    const messages = [
-      {
-        parts: [
-          { type: 'file', mediaType: 'image/png' },
-          { type: 'file', mediaType: 'application/pdf' },
-          { type: 'file', mediaType: 'audio/mpeg' },
-          { type: 'file', mediaType: 'video/mp4' }
-        ]
-      },
-      { content: [{ type: 'image' }] }
-    ]
-
-    expect(resolveRequiredNativeFileSupport(messages, primarySupport)).toEqual({
-      image: true,
-      pdf: true,
-      audio: false,
-      video: true
-    })
-  })
-
-  it('flushes accumulated token analytics once when an agent run errors', async () => {
-    const service = createService()
-    const trackTokenUsage = vi.fn()
-    mockApplicationGet.mockReturnValue({ trackTokenUsage })
-    const hooks = (service as any).analyticsHookPart({
-      id: 'test-model',
-      providerId: 'test-provider',
-      apiModelId: 'test-api-model'
-    })
-
-    await hooks.onStepFinish({
-      usage: {
-        inputTokens: 3,
-        outputTokens: 5,
-        totalTokens: 8,
-        inputTokenDetails: {},
-        outputTokenDetails: {}
-      }
-    })
-    await hooks.onError({ error: new Error('terminal tool failure') })
-    await hooks.onFinish()
-
-    expect(mockApplicationGet).toHaveBeenCalledWith('AnalyticsService')
-    expect(trackTokenUsage).toHaveBeenCalledOnce()
-    expect(trackTokenUsage).toHaveBeenCalledWith({
-      provider: 'test-provider',
-      model: 'test-api-model',
-      input_tokens: 3,
-      output_tokens: 5,
-      source: 'chat'
-    })
-  })
-
-  it('flushes accumulated token analytics when a completed step is followed by cancellation', async () => {
-    const service = createService()
-    const trackTokenUsage = vi.fn()
-    mockApplicationGet.mockReturnValue({ trackTokenUsage })
-    const hooks = (service as any).analyticsHookPart({
-      id: 'test-model',
-      providerId: 'test-provider',
-      apiModelId: 'test-api-model'
-    })
-
-    await hooks.onStepFinish({
-      usage: {
-        inputTokens: 3,
-        outputTokens: 5,
-        totalTokens: 8,
-        inputTokenDetails: {},
-        outputTokenDetails: {}
-      }
-    })
-    await hooks.onAbort()
-    await hooks.onFinish()
-
-    expect(mockApplicationGet).toHaveBeenCalledWith('AnalyticsService')
-    expect(trackTokenUsage).toHaveBeenCalledOnce()
-    expect(trackTokenUsage).toHaveBeenCalledWith({
-      provider: 'test-provider',
-      model: 'test-api-model',
-      input_tokens: 3,
-      output_tokens: 5,
-      source: 'chat'
-    })
-  })
-
-  it('reports explicitly classified token analytics as agent usage', async () => {
-    const service = createService()
-    const trackTokenUsage = vi.fn()
-    mockApplicationGet.mockReturnValue({ trackTokenUsage })
-    const hooks = (service as any).analyticsHookPart(
-      {
-        id: 'test-model',
-        providerId: 'test-provider',
-        apiModelId: 'test-api-model'
-      },
-      'agent'
-    )
-
-    await hooks.onStepFinish({
-      usage: {
-        inputTokens: 3,
-        outputTokens: 5,
-        totalTokens: 8,
-        inputTokenDetails: {},
-        outputTokenDetails: {}
-      }
-    })
-    await hooks.onFinish()
-
-    expect(trackTokenUsage).toHaveBeenCalledWith({
-      provider: 'test-provider',
-      model: 'test-api-model',
-      input_tokens: 3,
-      output_tokens: 5,
-      source: 'agent'
-    })
   })
 
   it('normalizes base64 and url images from ai-core generateImage', async () => {
@@ -1856,7 +1722,8 @@ describe('AiService.generateImage — custom async transport (job path)', () => 
 
   // Force the job branch by resolving to a custom-transport provider id; real
   // hasImageTransport('ppio', …) routes through generateImageViaJob before
-  // buildAgentParamsFor can select and rotate a serving key.
+  // The job path must not resolve a serving key before execution — resolveTransportFor
+  // is the transport resolution step that would select and rotate one.
   function stubResolution(service: InstanceType<typeof AiService>) {
     mockProviderGetByProviderId.mockReturnValue({ id: 'ppio' })
     mockModelGetByKey.mockReturnValue({
@@ -1870,7 +1737,7 @@ describe('AiService.generateImage — custom async transport (job path)', () => 
       emoji: '🎨'
     })
     return vi
-      .spyOn(service as unknown as AiServicePrivate, 'buildAgentParamsFor')
+      .spyOn(service as unknown as AiServicePrivate, 'resolveTransportFor')
       .mockRejectedValue(new Error('job path must not select a serving key before execution'))
   }
 
