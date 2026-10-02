@@ -212,7 +212,7 @@ const WebviewSearch: FC<WebviewSearchProps> = ({
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
-      // A key replayed from a MiniApp guest carries its `<webview>` as target, which
+      // A key replayed from a guest page carries its `<webview>` as target, which
       // names the pane it belongs to. Host keys have no such owner and fall through
       // to the ownership rules below.
       const guestTarget = event.target instanceof Element && event.target.tagName === 'WEBVIEW' ? event.target : null

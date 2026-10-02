@@ -4,12 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cacheService } from '@data/CacheService'
 import { CodeCli } from '@shared/types/codeCli'
 
-const mocks = vi.hoisted(() => ({ openSmartMiniApp: vi.fn(), request: vi.fn() }))
+const mocks = vi.hoisted(() => ({ request: vi.fn() }))
 
 vi.mock('@data/hooks/useCache', async (importOriginal) => importOriginal())
-vi.mock('@renderer/hooks/useMiniAppPopup', () => ({
-  useMiniAppPopup: () => ({ openSmartMiniApp: mocks.openSmartMiniApp })
-}))
 vi.mock('@renderer/ipc', () => ({ ipcApi: { request: mocks.request } }))
 vi.mock('@renderer/services/LoggerService', () => ({
   loggerService: { withContext: () => ({ error: vi.fn() }) }
@@ -26,6 +23,7 @@ describe('useHermesDashboardController', () => {
     mocks.request.mockImplementation((route: string) => {
       if (route === 'hermes_dashboard.start') return Promise.resolve({ success: true, url: 'http://127.0.0.1:49152' })
       if (route === 'hermes_dashboard.stop') return Promise.resolve({ success: true })
+      if (route === 'system.shell.open_external_website') return Promise.resolve(undefined)
       throw new Error(`Unexpected IPC route: ${route}`)
     })
     vi.spyOn(Date, 'now').mockReturnValue(1_774_560_000_000)
@@ -33,18 +31,13 @@ describe('useHermesDashboardController', () => {
 
   afterEach(() => vi.restoreAllMocks())
 
-  it('starts and opens the Dashboard through command IPC', async () => {
+  it('starts and opens the Dashboard externally', async () => {
     const { result } = renderHook(() => useHermesDashboardController(CodeCli.HERMES))
 
     await act(async () => result.current.onLaunch())
 
     expect(mocks.request).toHaveBeenCalledWith('hermes_dashboard.start')
-    expect(mocks.openSmartMiniApp).toHaveBeenCalledWith({
-      appId: 'hermes-dashboard',
-      name: 'code.cli_tools.hermes',
-      url: 'http://127.0.0.1:49152/?cherry_navigation_revision=1774560000000',
-      logo: 'nousresearch'
-    })
+    expect(mocks.request).toHaveBeenCalledWith('system.shell.open_external_website', 'http://127.0.0.1:49152')
   })
 
   it('does not open a launch result superseded by stop', async () => {
@@ -65,7 +58,7 @@ describe('useHermesDashboardController', () => {
     resolveStart({ success: true, url: 'http://127.0.0.1:49152' })
     await act(async () => start)
 
-    expect(mocks.openSmartMiniApp).not.toHaveBeenCalled()
+    expect(mocks.request).not.toHaveBeenCalledWith('system.shell.open_external_website', expect.anything())
     expect(result.current.launching).toBe(false)
   })
 
@@ -78,10 +71,8 @@ describe('useHermesDashboardController', () => {
 
     await act(async () => result.current.onOpenDashboard())
 
-    expect(mocks.openSmartMiniApp).toHaveBeenCalledWith(
-      expect.objectContaining({ url: 'http://127.0.0.1:49153/?cherry_navigation_revision=1774560000000' })
-    )
-    expect(mocks.request).not.toHaveBeenCalled()
+    expect(mocks.request).toHaveBeenCalledWith('system.shell.open_external_website', 'http://127.0.0.1:49153')
+    expect(mocks.request).not.toHaveBeenCalledWith('hermes_dashboard.start')
   })
 
   it('reflects shared status and reloads config when a run ends', () => {

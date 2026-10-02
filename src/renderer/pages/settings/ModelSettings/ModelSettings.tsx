@@ -237,7 +237,7 @@ const ModelSettings: FC<ModelSettingsProps> = ({
             />
             {showSettingsButton && (
               <Button
-                aria-label={t('settings.models.quick_model.setting_title')}
+                aria-label={t('settings.models.topic_naming.setting_title')}
                 className="shrink-0"
                 onClick={() => setActivePanel('topic-naming')}
                 size="icon-sm"
@@ -311,7 +311,7 @@ const ModelSettings: FC<ModelSettingsProps> = ({
             open={activePanel === 'topic-naming'}
             onClose={closePanel}
             closeLabel={t('common.close')}
-            header={<h2 className={drawerTitleClassName}>{t('settings.models.quick_model.setting_title')}</h2>}
+            header={<h2 className={drawerTitleClassName}>{t('settings.models.topic_naming.setting_title')}</h2>}
             contentClassName={MODEL_SETTINGS_DRAWER_WIDTH_CLASS}
             bodyClassName={SETTINGS_DRAWER_BODY_CLASS}>
             <TopicNamingSettings />

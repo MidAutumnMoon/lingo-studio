@@ -140,7 +140,7 @@ export interface UseReorderResult {
  *
  * - **Flat array** `T[]` — e.g. `GET /pins`, `GET /groups`, `GET /tags`
  * - **Wrapped pagination** `{ items, total, page }` or `{ items, nextCursor }`
- *   — e.g. `GET /mini-apps`, `GET /mcp-servers`, `GET /assistants`
+ *   — e.g. `GET /mcp-servers`, `GET /assistants`
  * - **Naked items wrapper** `{ items: T[] }` — e.g. `GET /knowledges/:id/items`
  *
  * For nested or otherwise custom shapes (grouped views, GraphQL connections,
@@ -178,8 +178,8 @@ export interface UseReorderResult {
  * <DraggableList items={data ?? []} onReorder={applyReorderedList} />
  *
  * @example Paginated collection (items live under `.items`)
- * const { data } = useQuery('/mini-apps')
- * const { applyReorderedList } = useReorder('/mini-apps', { idKey: 'appId' })
+ * const { data } = useQuery('/mcp-servers')
+ * const { applyReorderedList } = useReorder('/mcp-servers')
  * <DraggableList items={data?.items ?? []} onReorder={applyReorderedList} />
  *
  * @example Nested group view via accessors

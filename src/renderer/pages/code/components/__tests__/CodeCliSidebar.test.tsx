@@ -100,8 +100,8 @@ describe('CodeCliSidebar', () => {
     const { onToggleSidebar } = renderSidebar()
 
     expect(screen.getByRole('button', { name: 'common.more' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'popup:miniApp.add_to_sidebar' }))
-    fireEvent.click(screen.getByRole('button', { name: 'context:miniApp.add_to_sidebar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'popup:sidebar.shortcut.add_to_sidebar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'context:sidebar.shortcut.add_to_sidebar' }))
 
     expect(onToggleSidebar).toHaveBeenNthCalledWith(1, tools[1])
     expect(onToggleSidebar).toHaveBeenNthCalledWith(2, tools[1])
@@ -121,7 +121,7 @@ describe('CodeCliSidebar', () => {
   it('lets an uninstalled pinned CLI be removed without selecting its row', () => {
     const { onSelectTool, onToggleSidebar } = renderSidebar({}, {}, new Set([CodeCli.CLAUDE_CODE]))
 
-    fireEvent.click(screen.getByRole('button', { name: 'popup:miniApp.remove_from_sidebar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'popup:sidebar.shortcut.remove_from_sidebar' }))
 
     expect(onToggleSidebar).toHaveBeenCalledWith(tools[0])
     expect(onSelectTool).not.toHaveBeenCalled()

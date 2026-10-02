@@ -262,22 +262,7 @@ describe('sidebar conversation navigation', () => {
     expect(state.tabs.find((tab) => tab.id === 'current')?.url).toBe('/app/chat?topicId=topic-1')
   })
 
-  it('opens a new tab for an app shortcut while a mini app tab stays alive instead of focusing a sibling', async () => {
-    const { context, state } = statefulTabContext([
-      { id: 'mini-app', type: 'route', url: '/app/mini-app/foo', title: 'Mini App' },
-      { id: 'sibling', type: 'route', url: '/app/translate', title: 'Translate' }
-    ])
-
-    await activateShortcut(context, 'core.app', 'translate')
-
-    expect(state.activeTabId).not.toBe('sibling')
-    expect(state.tabs.find((tab) => tab.id === state.activeTabId)?.url).toBe('/app/translate')
-    expect(state.tabs.find((tab) => tab.id === 'mini-app')?.url).toBe('/app/mini-app/foo')
-    expect(state.tabs).toHaveLength(3)
-  })
-
   it.each([
-    ['core.mini-app', 'one', '/app/mini-app/one'],
     ['core.knowledge-base', 'one', '/app/knowledge?baseId=one'],
     [
       'core.file-entry',

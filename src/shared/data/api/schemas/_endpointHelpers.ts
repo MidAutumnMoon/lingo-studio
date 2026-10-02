@@ -5,7 +5,7 @@
  * runtime Zod schemas that handlers validate against and the type-level
  * helpers that inject whole endpoint definitions (path + method + params +
  * body + response) into a resource's schema map. Consumed by resource schema
- * files (e.g. `topics.ts`, `miniApps.ts`), main-side handlers, and renderer
+ * files (e.g. `topics.ts`, `paintings.ts`), main-side handlers, and renderer
  * hooks.
  *
  * The leading underscore mirrors `src/main/data/db/schemas/_columnHelpers.ts`
@@ -71,14 +71,14 @@ export type OrderBatchRequest = z.infer<typeof OrderBatchRequestSchema>
  *
  * Usage in a resource schema file:
  *
- *   export type MiniappSchemas = {
- *     '/mini-apps': { GET: {...}, POST: {...} }
- *     '/mini-apps/:id': { ... }
- *   } & OrderEndpoints<'/mini-apps'>
+ *   export type PaintingSchemas = {
+ *     '/paintings': { GET: {...}, POST: {...} }
+ *     '/paintings/:id': { ... }
+ *   } & OrderEndpoints<'/paintings'>
  *
  * Why a type-only helper (no runtime factory):
  * - ApiSchemas is a pure compile-time map whose literal keys (e.g.
- *   `/mini-apps/:id/order`) drive `TemplateApiPaths` / `ConcreteApiPaths`.
+ *   `/paintings/:id/order`) drive `TemplateApiPaths` / `ConcreteApiPaths`.
  *   A runtime factory would not change what TypeScript sees, but a mapped type
  *   does — one import, one intersection, and the two endpoints become callable
  *   with full type safety via `useQuery` / `useMutation` / `useReorder`.

@@ -11,7 +11,6 @@ import { FileMigrator } from './FileMigrator'
 import { KnowledgeMigrator } from './KnowledgeMigrator'
 import { KnowledgeVectorMigrator } from './KnowledgeVectorMigrator'
 import { McpServerMigrator } from './McpServerMigrator'
-import { MiniAppMigrator } from './MiniAppMigrator'
 import { NoteMigrator } from './NoteMigrator'
 import { PaintingMigrator } from './PaintingMigrator'
 import { PreferencesMigrator } from './PreferencesMigrator'
@@ -26,7 +25,6 @@ export function getAllMigrators() {
     new BootConfigMigrator(),
     new PreferencesMigrator(),
     new NoteMigrator(),
-    new MiniAppMigrator(),
     new McpServerMigrator(),
     new ProviderModelMigrator(),
     new AssistantMigrator(),

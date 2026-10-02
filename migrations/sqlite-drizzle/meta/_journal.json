@@ -203,6 +203,20 @@
       "when": 1790577580529,
       "tag": "0028_remove_prompt_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1790929121597,
+      "tag": "0029_remove_mini_app_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1790930578515,
+      "tag": "0030_remove_mini_app_usage_source",
+      "breakpoints": true
     }
   ],
   "version": "7"

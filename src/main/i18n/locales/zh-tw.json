@@ -89,7 +89,6 @@
   "dialog.migration_database_unavailable.quit": "結束",
   "dialog.migration_database_unavailable.retry": "重試",
   "dialog.migration_database_unavailable.title": "資料庫無法使用",
-  "dialog.mini_app_export": "從 {{name}} 匯出",
   "dialog.open_file": "開啟檔案",
   "dialog.pdf_files": "PDF 檔案",
   "dialog.png_image": "PNG 影像",

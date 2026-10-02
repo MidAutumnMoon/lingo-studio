@@ -80,7 +80,7 @@ Convert an optional DB timestamp to an ISO string, preserving absence as `undefi
 The canonical use case is a merge between a builtin/preset definition and an optional DB preference row:
 
 ```ts
-function builtinToMiniApp(def: BuiltinMiniAppDefinition, dbRow?: MiniAppSelect): MiniApp {
+function builtinToAgent(def: BuiltinAgentDefinition, dbRow?: AgentSelect): Agent {
   return {
     /* ... builtin fields ... */
     createdAt: timestampToISOOrUndefined(dbRow?.createdAt), // undefined when builtin has no preference row yet
@@ -128,7 +128,7 @@ Backs every Service's reorder write path and POST-create. Encapsulates the `frac
 - **Only operates on `order_key`**: business validation (does `:id` exist in the resource sense) lives in the service/handler layer, not here.
 - **Must run inside an outer transaction**: helpers take `tx` and never open their own transaction.
 - **`scope?` (SQL)**: constrains neighbor queries to a subset for partial ordering (e.g. `userModel.providerId`, `group.entityType`). Scope applies to BOTH the target lookup and the anchor lookup — anchoring across scopes throws.
-- **`pkColumn` is required**: tables have heterogeneous primary-key column names (`miniapp.appId`, `mcpServer.id`, `topic.id`, `group.id`). Helpers make zero assumptions.
+- **`pkColumn` is required**: tables have heterogeneous primary-key column names (`mcpServer.id`, `topic.id`, `group.id`). Helpers make zero assumptions.
 - **External imports of `fractional-indexing` are forbidden**: always go through the three generator wrappers above.
 - **Character set is locked to base62** (library default); no `digits` parameter is exposed. Changing the alphabet requires a whole-database migration, and the source-of-truth constant lives at the top of `orderKey.ts`.
 
@@ -203,7 +203,7 @@ regex revalidation, bounded offset scanning, and next-cursor assembly.
 
 ### `singleFileRef.ts` — single-file (logo) slot mechanics
 
-Backs the provider / mini-app logo slots. A *single-file slot* is an association table where one owner row holds at most one file: the ref row is the single source of truth for that owner's uploaded file, and the owner row keeps only a preset key.
+Backs the provider logo slot. A *single-file slot* is an association table where one owner row holds at most one file: the ref row is the single source of truth for that owner's uploaded file, and the owner row keeps only a preset key.
 
 **Exports:**
 
@@ -251,7 +251,7 @@ const loader = new RegistryLoader(resolveRegistryPaths())
 Before adding a new utility to this directory, confirm:
 
 1. **Is domain-neutral** — the file must not name a specific business table, entity, or source type. The test: *when a new consumer adopts it, does this file have to change?* A generic mechanism is closed to that change (`orderKey.ts` and `singleFileRef.ts` take the table as a parameter); logic that grows a branch per consumer is shared **domain** logic and belongs with its owners, not here. Consumer count alone does not qualify a utility — two consumers of the same domain logic is still domain logic.
-2. **Has at least two real consumers** (history: `stripNulls` qualified because `MiniAppService` had made a copy-paste duplicate)
+2. **Has at least two real consumers**
 3. **Do not extract simple single-field operations**: operations like `value ?? undefined` are already well-covered by TypeScript itself — do not wrap them
 4. **Does not duplicate an existing third-party library** (e.g. lodash) — unless we have specific boundary constraints
 5. **Add a new entry to the "File Index" above** documenting responsibility, signature, boundaries, and an example

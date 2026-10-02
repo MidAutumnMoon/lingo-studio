@@ -64,7 +64,7 @@ vi.mock('@cherrystudio/ui', async () => {
 import { WebviewAnnotationControls } from '../WebviewAnnotationControls'
 
 const sessionId = '00000000-0000-4000-8000-000000000001'
-const target = { id: 'mini-app:demo', label: 'Demo' }
+const target = { id: 'browser:demo', label: 'Demo' }
 const annotation = {
   id: '123e4567-e89b-42d3-a456-426614174000',
   comment: 'Fix this button',
@@ -439,7 +439,7 @@ describe('WebviewAnnotationControls', () => {
         webviewRevision={0}
         isWebviewReady
         isHostActive
-        target={{ id: 'mini-app:other', label: 'Other' }}
+        target={{ id: 'browser:other', label: 'Other' }}
       />
     )
 

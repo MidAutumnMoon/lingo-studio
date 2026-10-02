@@ -22,7 +22,6 @@ import { fileProcessingHandlers } from './fileProcessing'
 import { hermesDashboardHandlers } from './hermesDashboard'
 import { knowledgeHandlers } from './knowledge'
 import { mcpHandlers } from './mcp'
-import { miniAppHandlers } from './miniApp'
 import { navigationHandlers } from './navigation'
 import { notificationHandlers } from './notification'
 import { oauthHandlers } from './oauth'
@@ -72,7 +71,6 @@ export const ipcHandlers: IpcHandlersFor<IpcRequestSchemas> = {
   ...hermesDashboardHandlers,
   ...knowledgeHandlers,
   ...mcpHandlers,
-  ...miniAppHandlers,
   ...navigationHandlers,
   ...notificationHandlers,
   ...oauthHandlers,

@@ -216,7 +216,7 @@ describe('useProviderModelPullReconcile', () => {
     })
   })
 
-  it('excludes chat, quick-assistant, and translate default models from removable models', async () => {
+  it('excludes chat and translate default models from removable models', async () => {
     const regularModel = {
       ...localModel,
       id: 'openai::regular-model',
@@ -233,7 +233,6 @@ describe('useProviderModelPullReconcile', () => {
     })
     MockUsePreferenceUtils.setMultiplePreferenceValues({
       'chat.default_model_id': localModel.id,
-      'feature.quick_assistant.model_id': fetchedModel.id,
       'feature.translate.model_id': catalogModel.id
     })
 
@@ -244,7 +243,7 @@ describe('useProviderModelPullReconcile', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.removableModelIds).toEqual([regularModel.id])
+      expect(result.current.removableModelIds).toEqual(['openai::fetched-model', regularModel.id])
     })
   })
 

@@ -16,7 +16,6 @@ on:
         options:
           - all
           - startup-smoke
-          - mini-app
           - notes
           - custom-provider-chat
           - provider-model-scroll

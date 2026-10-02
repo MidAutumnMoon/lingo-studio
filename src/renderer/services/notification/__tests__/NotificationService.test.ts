@@ -22,8 +22,7 @@ import { notificationService } from '../NotificationService'
 const PREF_BY_SOURCE: Record<NotificationSource, UnifiedPreferenceKeyType> = {
   assistant: 'app.notification.assistant.enabled',
   backup: 'app.notification.backup.enabled',
-  knowledge: 'app.notification.knowledge.enabled',
-  'mini-app': 'app.notification.mini_app.enabled'
+  knowledge: 'app.notification.knowledge.enabled'
 }
 
 const buildNotification = (source: NotificationSource): Notification => ({

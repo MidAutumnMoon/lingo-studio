@@ -90,9 +90,6 @@ async function renderSubWindowAppShell({
   vi.doMock('@renderer/components/layout/TabRouter', () => ({
     TabRouter: () => <section data-testid="tab-router" />
   }))
-  vi.doMock('@renderer/components/MiniApp/MiniAppTabsPool', () => ({
-    default: () => <div data-testid="mini-app-pool" />
-  }))
   vi.doMock('@renderer/components/ResourceViewSourceProvider', () => ({
     ResourceViewSourceProvider: ({ children }: { children: ReactNode }) => (
       <div data-testid="resource-view-source-provider">{children}</div>
@@ -122,7 +119,6 @@ describe('SubWindowAppShell', () => {
     expect(screen.getByTestId('sub-window-title-bar')).toBeInTheDocument()
     expect(provider).toContainElement(screen.getByTestId('tab-router'))
     expect(provider).not.toContainElement(screen.getByTestId('sub-window-title-bar'))
-    expect(provider).not.toContainElement(screen.getByTestId('mini-app-pool'))
   })
 
   it('opens the detached tab from WindowManager init data', async () => {

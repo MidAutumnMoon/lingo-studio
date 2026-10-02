@@ -11,7 +11,6 @@ vi.mock('@renderer/i18n/resolver', () => ({
         'title.work': '工作',
         'title.paintings': '绘画',
         'title.translate': '翻译',
-        'title.apps': '小程序',
         'title.knowledge': '知识库',
         'title.files': '文件',
         'title.code': 'Code',
@@ -44,7 +43,6 @@ describe('routeTitle', () => {
         ['/app/agents', '工作'],
         ['/app/paintings', '绘画'],
         ['/app/translate', '翻译'],
-        ['/app/mini-app', '小程序'],
         ['/app/knowledge', '知识库'],
         ['/app/files', '文件'],
         ['/app/code', 'Code'],
@@ -179,8 +177,7 @@ describe('routeTitle', () => {
       ['/app/paintings/zhipu', true],
       // Any /settings sub-route re-localizes.
       ['/settings/provider/openai', true],
-      // mini-app and chat sub-routes preserve caller-supplied per-entity titles.
-      ['/app/mini-app/weather', false],
+      // Chat sub-routes preserve caller-supplied per-entity titles.
       ['/app/chat/123', false],
       // Unknown routes are not auto-localized.
       ['/unknown', false]

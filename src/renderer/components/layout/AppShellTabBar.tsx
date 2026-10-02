@@ -16,7 +16,6 @@ import { CommandContextMenu, type CommandContextMenuExtraItem } from '@renderer/
 import { OpenInNewWindowIcon } from '@renderer/components/icons/WindowIcons'
 import type { OpenTabOptions, Tab } from '@renderer/hooks/tab'
 import useMacTransparentWindow from '@renderer/hooks/useMacTransparentWindow'
-import { MINI_APP_ROUTE_PREFIX } from '@renderer/utils/miniAppKeepAlive'
 import { isMac } from '@renderer/utils/platform'
 import { cn } from '@renderer/utils/style'
 
@@ -71,11 +70,6 @@ interface TabToneProps {
  */
 const TAB_DIVIDER_CLASS = 'h-4 w-[1.5px] bg-border/80'
 const DEFAULT_TAB_ICON_SIZE = 14
-const MINI_APP_TAB_ICON_SIZE = 18
-
-function getTabIconSize(tab: Pick<Tab, 'url'>): number {
-  return tab.url.startsWith(MINI_APP_ROUTE_PREFIX) ? MINI_APP_TAB_ICON_SIZE : DEFAULT_TAB_ICON_SIZE
-}
 
 // Pinned/normal zone split — same hairline as the per-tab divider, and it
 // disappears on the same rule, so the two never behave differently side by side.
@@ -433,18 +427,16 @@ interface TabCapabilities {
 
 /**
  * Single source of truth for what a tab can do, derived from its zone and the
- * tab counts. Normal tabs can always be closed/detached; restorable tabs can also
- * be pinned. Transient mini-app tabs cannot be restored from the persistent pinned
- * store, so pinning is deliberately unavailable for them. If the last tab closes,
- * TabsProvider opens Launchpad as the empty-state fallback. Pinned tabs can be
- * closed via the context menu (no inline X), and the batch close actions only ever
- * clear the normal zone — pinned tabs are exempt as close *targets*, matching
- * browser convention. Reordering is per-zone. `normalIndex` is the tab's position
- * within the normal zone — required to offer "close tabs to the right"; for a
- * pinned tab every normal tab counts as being to its right.
+ * tab counts. Normal tabs can always be closed/detached and pinned. If the last
+ * tab closes, TabsProvider opens Launchpad as the empty-state fallback. Pinned
+ * tabs can be closed via the context menu (no inline X), and the batch close
+ * actions only ever clear the normal zone — pinned tabs are exempt as close
+ * *targets*, matching browser convention. Reordering is per-zone. `normalIndex`
+ * is the tab's position within the normal zone — required to offer "close tabs
+ * to the right"; for a pinned tab every normal tab counts as being to its right.
  */
 export function getTabCapabilities(
-  tab: Pick<Tab, 'id' | 'isPinned' | 'metadata'>,
+  tab: Pick<Tab, 'id' | 'isPinned'>,
   ctx: { pinnedCount: number; normalCount: number; canDetach: boolean; normalIndex?: number }
 ): TabCapabilities {
   const detach = ctx.canDetach
@@ -464,7 +456,7 @@ export function getTabCapabilities(
   return {
     menu: true,
     reorder: hasSiblings,
-    togglePin: tab.metadata?.transientMiniApp !== true,
+    togglePin: true,
     detach,
     close: true,
     closeOthers: hasSiblings,
@@ -960,7 +952,7 @@ export const AppShellTabBar = ({
                     }>
                     <PinnedTabButton
                       tab={tab}
-                      iconSize={getTabIconSize(tab)}
+                      iconSize={DEFAULT_TAB_ICON_SIZE}
                       isActive={tab.id === activeTabId}
                       onSelect={() => handleSelectTab(tab)}
                       tone={tabTone}
@@ -1059,7 +1051,7 @@ export const AppShellTabBar = ({
                 }>
                 <NormalTabButton
                   tab={tab}
-                  iconSize={getTabIconSize(tab)}
+                  iconSize={DEFAULT_TAB_ICON_SIZE}
                   isActive={tab.id === activeTabId}
                   onSelect={() => handleSelectTab(tab)}
                   onClose={(freezeWidth) => {

@@ -61,7 +61,7 @@ export const ProviderAvatarPrimitive: React.FC<ProviderAvatarPrimitiveProps> = (
   const resolvedSize = size ?? 32
   let displayConfig: IconDisplayConfig | undefined
   if (displayContext === 'provider-list') {
-    displayConfig = getIconDisplayConfig('provider-list', builtinIconRef?.meta.id ?? providerId)
+    displayConfig = getIconDisplayConfig(builtinIconRef?.meta.id ?? providerId)
   } else if (isCompactDisplay && builtinIconRef) {
     const metrics = getProviderIconAssetMetrics({
       kind: builtinIconRef.kind,

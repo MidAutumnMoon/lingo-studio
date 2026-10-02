@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync } from 'fs'
-import { join, resolve } from 'path'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import tailwindcss from '@tailwindcss/vite'
@@ -8,13 +8,11 @@ import react from '@vitejs/plugin-react'
 import { CodeInspectorPlugin } from 'code-inspector-plugin'
 import { defineConfig } from 'electron-vite'
 import { visualizer } from 'rollup-plugin-visualizer'
-import type { Plugin } from 'vite'
 import { parse } from 'yaml'
 
 // Import attributes are not supported by the current Electron config loader.
 // import pkg from './package.json' assert { type: 'json' }
 import pkg from './package.json'
-import { buildFlatContractCss } from './packages/ui/scripts/build-theme-css'
 import { chunkExportGuardPlugin } from './scripts/checkChunkExports'
 import { uiContractPlugin } from './scripts/uiContract/vitePlugin'
 import { APP_EDITIONS, type AppEdition } from './src/shared/types/appEdition'
@@ -109,30 +107,6 @@ export const isMainExternalModule = (id: string) => {
   return mainExternalModules.some((moduleId) => id === moduleId || id.startsWith(`${moduleId}/`))
 }
 
-// Ships the flat theme contract next to the main bundle so mini apps can be served
-// `assets/miniAppTheme.css`. Built in-process: nothing in the app pipeline runs the ui package build.
-const miniAppThemeAssetPlugin = (): Plugin => ({
-  name: 'cherry-mini-app-theme-asset',
-  // The sources live outside the main bundle's module graph, so `electron-vite dev` would
-  // serve a stale `miniAppTheme.css` after a token edit. Registered in `buildStart` because
-  // `addWatchFile` is a build-phase call — it is not available from `generateBundle`.
-  buildStart() {
-    const stylesDir = resolve('packages/ui/src/styles')
-    for (const name of readdirSync(stylesDir, { recursive: true, encoding: 'utf8' })) {
-      if (name.endsWith('.css')) this.addWatchFile(join(stylesDir, name))
-    }
-  },
-  async generateBundle() {
-    let source: string
-    try {
-      source = await buildFlatContractCss()
-    } catch (error) {
-      return this.error(`failed to build assets/miniAppTheme.css: ${error instanceof Error ? error.message : error}`)
-    }
-    this.emitFile({ type: 'asset', fileName: 'assets/miniAppTheme.css', source })
-  }
-})
-
 export const mainResolveAlias = {
   '@main': resolve('src/main'),
   '@application': resolve('src/main/core/application/Application'),
@@ -152,12 +126,7 @@ export const mainResolveAlias = {
 export default defineConfig({
   main: {
     define: { __APP_EDITION__: JSON.stringify(rendererEdition) },
-    plugins: [
-      chunkExportGuardPlugin(),
-      miniAppThemeAssetPlugin(),
-      ...visualizerPlugin('main'),
-      ...sentrySourceMapPlugins('main')
-    ],
+    plugins: [chunkExportGuardPlugin(), ...visualizerPlugin('main'), ...sentrySourceMapPlugins('main')],
     resolve: { alias: mainResolveAlias },
     build: {
       externalizeDeps: {
@@ -202,8 +171,7 @@ export default defineConfig({
         input: {
           preload: resolve(__dirname, 'src/preload/preload.ts'),
           simplest: resolve(__dirname, 'src/preload/simplest.ts'), // Minimal preload
-          webview: resolve(__dirname, 'src/preload/webview.ts'), // Site `<webview>` guests
-          miniAppBridge: resolve(__dirname, 'src/preload/miniAppBridge.ts') // Local mini app guests (`window.cherry`)
+          webview: resolve(__dirname, 'src/preload/webview.ts') // Site `<webview>` guests
         },
         external: ['electron'],
         output: {

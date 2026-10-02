@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 
-import { useCache } from '@data/hooks/useCache'
 import { useCommandHandler } from '@renderer/hooks/command'
 import { useTabs } from '@renderer/hooks/tab'
 import useMacTransparentWindow from '@renderer/hooks/useMacTransparentWindow'
 import { useNativeFullscreen } from '@renderer/hooks/useNativeFullscreen'
 import { ipcApi } from '@renderer/ipc'
-import { miniAppIdFromTabUrl } from '@renderer/utils/miniAppKeepAlive'
 import { isMac } from '@renderer/utils/platform'
 import { getDefaultRouteTitle, isPageTitledRoute } from '@renderer/utils/routeTitle'
 import { cn } from '@renderer/utils/style'
@@ -16,7 +14,6 @@ import { MIN_WINDOW_HEIGHT, SECOND_MIN_WINDOW_WIDTH } from '@shared/utils/window
 import Sidebar from '../app/Sidebar'
 import { createRecentRouteEntryFromTab, recordGlobalSearchRecentEntry } from '../GlobalSearch/globalSearchGroups'
 import GlobalSearchPopup from '../GlobalSearch/GlobalSearchPopup'
-import MiniAppTabsPool from '../MiniApp/MiniAppTabsPool'
 import { ResourceViewSourceProvider } from '../ResourceViewSourceProvider'
 import { AppShellTabBar } from './AppShellTabBar'
 import { TabRouter } from './TabRouter'
@@ -63,23 +60,6 @@ export const AppShell = () => {
     [activeTab, isSettingsTabActive, tabs]
   )
   const isFullscreen = useNativeFullscreen()
-  const [splitOpen, setSplitOpen] = useCache('mini_app.split_open')
-  const [, setSplitMiniAppId] = useCache('mini_app.split_id')
-
-  // Split state is window-wide and does not follow the last mini-app tab out, so
-  // the next mini app would open into a stale split with its app still pooled.
-  const clearSplitWithLastMiniAppTab = useCallback(
-    (id: string, url: string | undefined) => {
-      if (!splitOpen || !miniAppIdFromTabUrl(url)) return
-      const hasOtherMiniAppTab = tabs.some(
-        (candidate) => candidate.id !== id && miniAppIdFromTabUrl(candidate.url) !== null
-      )
-      if (hasOtherMiniAppTab) return
-      setSplitOpen(false)
-      setSplitMiniAppId('')
-    },
-    [setSplitMiniAppId, setSplitOpen, splitOpen, tabs]
-  )
 
   const handleCloseTab = useCallback(
     (id: string) => {
@@ -88,22 +68,20 @@ export const AppShell = () => {
         closeTabs([id], previousWorkspaceTabIdRef.current)
         return
       }
-      clearSplitWithLastMiniAppTab(id, tab?.url)
       closeTab(id)
     },
-    [clearSplitWithLastMiniAppTab, closeTab, closeTabs, tabs]
+    [closeTab, closeTabs, tabs]
   )
 
   const handleDetachTab = useCallback(
     (id: string) => {
       const tab = tabs.find((candidate) => candidate.id === id)
-      clearSplitWithLastMiniAppTab(id, tab?.url)
       detachTab(id)
       if (isSettingsPath(tab?.url) && previousWorkspaceTabIdRef.current) {
         setActiveTab(previousWorkspaceTabIdRef.current)
       }
     },
-    [clearSplitWithLastMiniAppTab, detachTab, setActiveTab, tabs]
+    [detachTab, setActiveTab, tabs]
   )
 
   const handleOpenGlobalSearch = useCallback(() => {
@@ -175,8 +153,8 @@ export const AppShell = () => {
 
   // Sync internal navigation back to tab state. For route-titled tabs we also
   // refresh the title and clear the per-entity icon (it was supplied for a
-  // specific URL, e.g. a mini-app logo on /app/mini-app/<id>, and no longer
-  // applies once the user navigates elsewhere inside the tab). Chat / agent
+  // specific URL and no longer applies once the user navigates elsewhere
+  // inside the tab). Chat / agent
   // tabs are page-titled — their HomePage/AgentPage owns title + icon (topic /
   // session name + assistant / agent emoji), so we only sync the url and leave
   // title/icon alone, or navigating between topics would wipe them.
@@ -232,9 +210,6 @@ export const AppShell = () => {
               <TabRouter key={tab.id} tab={tab} isActive={tab.id === activeTabId} onUrlChange={handleUrlChange} />
             ))}
         </ResourceViewSourceProvider>
-
-        {/* MiniApp keep-alive WebView pool — global, shared across modes */}
-        <MiniAppTabsPool />
       </main>
     </div>
   )

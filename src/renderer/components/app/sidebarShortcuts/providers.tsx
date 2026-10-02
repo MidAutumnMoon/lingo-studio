@@ -1,14 +1,12 @@
-import { BotMessageSquare, Database, FileText, MessagesSquare, Package } from 'lucide-react'
+import { BotMessageSquare, Database, FileText, MessagesSquare } from 'lucide-react'
 
 import { renderAgentEntityIcon } from '@renderer/components/chat/resourceList/base'
 import { CLI_TOOLS, CliIcon } from '@renderer/components/icons/CliIcon'
-import MiniAppIcon from '@renderer/components/icons/MiniAppIcon'
 import { dataApiService } from '@renderer/data/DataApiService'
 import { preferenceService } from '@renderer/data/PreferenceService'
 import { getSidebarIconLabelKey } from '@renderer/i18n/label'
 import i18n from '@renderer/i18n/resolver'
 import { resolveAgentEntrySessionIdForAgent } from '@renderer/utils/conversationEntry'
-import { miniAppIdFromTabUrl } from '@renderer/utils/miniAppKeepAlive'
 import {
   getSidebarApp,
   getSidebarMenuPath,
@@ -147,37 +145,6 @@ const appProvider: SidebarShortcutProvider = {
     const app = isSidebarAppId(target.locator.resourceId) ? getSidebarApp(target.locator.resourceId) : undefined
     return !!app && (app.exactRouteFocus ? navigation.url === app.routePrefix : tabBelongsToApp(app, navigation.url))
   }
-}
-
-const miniAppProvider: SidebarShortcutProvider = {
-  id: SIDEBAR_SHORTCUT_PROVIDER_IDS.MINI_APP,
-  validate: (target) => validates(SIDEBAR_SHORTCUT_PROVIDER_IDS.MINI_APP, target),
-  async resolveMany(targets) {
-    const miniApps = await dataApiService.get('/mini-apps')
-    return mapRequested(
-      targets,
-      miniApps,
-      (app) => app.appId,
-      (app) => ({
-        label: app.nameKey ? i18n.t(app.nameKey) : app.name,
-        renderIcon: ({ slotSize, glyphSize }) =>
-          app.logo || app.logoSrc ? (
-            <MiniAppIcon app={app} appearance="sidebar" size={slotSize} />
-          ) : (
-            <Package size={glyphSize} strokeWidth={1.6} />
-          ),
-        tabIcon: app.logoSrc ?? app.logo,
-        supportsNewTab: true
-      })
-    )
-  },
-  subscribe: localizedCollectionSubscription('/mini-apps'),
-  activate(target, gateway) {
-    if (!this.validate(target)) return
-    const id = target.locator.resourceId
-    gateway.openWorkspace({ url: `/app/mini-app/${encodeURIComponent(id)}`, title: id })
-  },
-  isActive: (target, navigation) => miniAppIdFromTabUrl(navigation.url) === target.locator.resourceId
 }
 
 const agentProvider: SidebarShortcutProvider = {
@@ -366,7 +333,6 @@ const codeCliProvider: SidebarShortcutProvider = {
 
 export const CORE_SIDEBAR_SHORTCUT_PROVIDERS: readonly SidebarShortcutProvider[] = [
   appProvider,
-  miniAppProvider,
   agentProvider,
   knowledgeBaseProvider,
   topicProvider,

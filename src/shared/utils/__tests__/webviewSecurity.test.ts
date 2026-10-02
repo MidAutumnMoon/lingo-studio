@@ -10,8 +10,8 @@ describe('webview security profiles', () => {
     )
   })
 
-  it('keeps only MiniApps in the existing persistent WebView session', () => {
-    expect(getWebviewPartition(WebviewSecurityProfile.MiniApp)).toBe('persist:webview')
+  it('keeps only the shared webview in the existing persistent session', () => {
+    expect(getWebviewPartition(WebviewSecurityProfile.SharedWebview)).toBe('persist:webview')
     expect(getWebviewPartition(WebviewSecurityProfile.AgentDevPreview)).not.toMatch(/^persist:/)
     expect(getWebviewPartition(WebviewSecurityProfile.AgentHtmlArtifact)).not.toMatch(/^persist:/)
     expect(getWebviewPartition(WebviewSecurityProfile.HtmlArtifactPreview)).not.toMatch(/^persist:/)

@@ -26,7 +26,7 @@ import { useWebviewAnnotationSession } from '../useWebviewAnnotationSession'
 
 const sessionOne = '00000000-0000-4000-8000-000000000001'
 const sessionTwo = '00000000-0000-4000-8000-000000000002'
-const target: WebviewAnnotationTarget = { id: 'mini-app:demo', label: 'Demo' }
+const target: WebviewAnnotationTarget = { id: 'browser:demo', label: 'Demo' }
 const locale: WebviewAnnotationLocale = {
   edit: 'Edit'
 }
@@ -566,7 +566,7 @@ describe('useWebviewAnnotationSession', () => {
     await waitFor(() => expect(request).toHaveBeenCalledOnce())
 
     vi.mocked(webview.send).mockClear()
-    rerender(initialProps(webviewRef, { target: { id: 'mini-app:other', label: 'Other' }, theme: 'light' }))
+    rerender(initialProps(webviewRef, { target: { id: 'browser:other', label: 'Other' }, theme: 'light' }))
     expect(sentCommands(webview)).toContainEqual({ type: 'clear', sessionId: sessionOne })
     expect(result.current).toMatchObject({ enabled: false, count: 0 })
 

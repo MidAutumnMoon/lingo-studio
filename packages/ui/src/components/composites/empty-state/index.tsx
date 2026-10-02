@@ -16,7 +16,7 @@ export type EmptyStatePreset =
   | 'no-knowledge'
   | 'no-file'
   | 'no-note'
-  | 'no-miniapp'
+  | 'no-painting'
   | 'no-code-tool'
   | 'no-resource'
   | 'no-translate'

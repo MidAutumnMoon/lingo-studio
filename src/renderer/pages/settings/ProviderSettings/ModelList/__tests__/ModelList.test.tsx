@@ -80,7 +80,7 @@ describe('useProviderModelList', () => {
   it('does not delete a model used as a default', async () => {
     MockUsePreferenceUtils.setMultiplePreferenceValues({
       'chat.default_model_id': models[0].id,
-      'feature.quick_assistant.model_id': models[1].id
+      'feature.translate.model_id': models[1].id
     })
     const { result } = renderHook(() => useProviderModelList({ providerId: 'openai' }))
 

@@ -15,9 +15,9 @@ import { exportAnnotationDocument } from './annotationExport'
 import { AnnotationSession } from './AnnotationSession'
 
 const logger = loggerService.withContext('WebviewService')
-/** The one session site mini apps share; every other partition belongs to a policy this service must not touch. */
+/** The one shared site-browsing session; every other partition belongs to a policy this service must not touch. */
 const WEBVIEW_PARTITION = 'persist:webview'
-/** Sessions whose guests run the annotation preload: mini-app sites plus the agent browser panes. */
+/** Sessions whose guests run the annotation preload: shared site browsing plus the agent panes. */
 const ANNOTATION_PARTITIONS = [
   WEBVIEW_PARTITION,
   getWebviewPartition(WebviewSecurityProfile.AgentBrowser),
@@ -39,8 +39,7 @@ interface ExportAnnotationsInput {
  * WebviewService handles the behavior of links opened from webview elements
  * It controls whether links should be opened within the application or in an external browser.
  *
- * The caller checks that this is an owned site webview. A local mini app guest
- * (`persist:miniapp:*`) carries its own deny-all popup policy, and
+ * The caller checks that this is an owned site webview:
  * `setWindowOpenHandler` replaces whatever was installed before it.
  */
 function configureOpenLinkExternal(webview: Electron.WebContents, isExternal: boolean) {
@@ -137,8 +136,8 @@ export class WebviewService extends BaseService {
       webPreferences: Electron.WebPreferences,
       params: { partition?: string }
     ) => {
-      // Local mini apps own a separate capability bridge and sandbox policy. Electron has
-      // one preload slot, so writing here would silently replace that bridge.
+      // Only the shared site session runs the annotation preload; every other
+      // partition belongs to a policy that owns its own preload slot.
       if (params.partition !== WEBVIEW_PARTITION) return
       webPreferences.preload = preloadPath
       webPreferences.nodeIntegration = false

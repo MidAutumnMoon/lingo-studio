@@ -89,7 +89,6 @@
   "dialog.migration_database_unavailable.quit": "Sair",
   "dialog.migration_database_unavailable.retry": "Tentar novamente",
   "dialog.migration_database_unavailable.title": "Base de dados indisponível",
-  "dialog.mini_app_export": "Exportar de {{name}}",
   "dialog.open_file": "Abrir Ficheiro",
   "dialog.pdf_files": "Ficheiros PDF",
   "dialog.png_image": "Imagem PNG",

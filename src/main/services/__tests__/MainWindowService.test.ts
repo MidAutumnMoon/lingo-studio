@@ -1466,7 +1466,7 @@ describe('MainWindowService', () => {
     })
   })
 
-  it('leaves MiniApp site webviews to the WebviewService preload gate', () => {
+  it('leaves site webviews to the WebviewService preload gate', () => {
     ;(svc as any).setupWebviewSecurityProfiles(win)
     const listener = win.webContents.on.mock.calls.find(([event]) => event === 'will-attach-webview')?.[1]
     if (!listener) throw new Error('will-attach-webview listener was not registered')
@@ -1474,7 +1474,7 @@ describe('MainWindowService', () => {
     const preventDefault = vi.fn()
 
     listener({ preventDefault }, webPreferences, {
-      partition: getWebviewPartition(WebviewSecurityProfile.MiniApp),
+      partition: getWebviewPartition(WebviewSecurityProfile.SharedWebview),
       src: 'https://example.com'
     })
 
@@ -1483,7 +1483,7 @@ describe('MainWindowService', () => {
     expect(webPreferences).toEqual({})
   })
 
-  it('keeps OAuth popup BrowserWindows on the existing persistent MiniApp session', () => {
+  it('keeps OAuth popup BrowserWindows on the existing persistent shared webview session', () => {
     ;(svc as any).setupWebContentsHandlers(win)
     const handler = win.webContents.setWindowOpenHandler.mock.calls[0]?.[0]
     if (!handler) throw new Error('window open handler was not registered')
@@ -1492,7 +1492,7 @@ describe('MainWindowService', () => {
       action: 'allow',
       overrideBrowserWindowOptions: {
         webPreferences: {
-          partition: getWebviewPartition(WebviewSecurityProfile.MiniApp)
+          partition: getWebviewPartition(WebviewSecurityProfile.SharedWebview)
         }
       }
     })

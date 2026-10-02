@@ -28,7 +28,7 @@ describe('WebviewHost', () => {
     vi.spyOn(mockRendererLoggerService, 'debug').mockImplementation(() => {})
   })
 
-  it('owns the common guest lifecycle without MiniApp-specific state', async () => {
+  it('owns the common guest lifecycle', async () => {
     const onWebviewChange = vi.fn()
     const onNavigate = vi.fn()
     const view = render(

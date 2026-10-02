@@ -89,7 +89,6 @@
   "dialog.migration_database_unavailable.quit": "Έξοδος",
   "dialog.migration_database_unavailable.retry": "Επανάληψη",
   "dialog.migration_database_unavailable.title": "Η βάση δεδομένων δεν είναι διαθέσιμη",
-  "dialog.mini_app_export": "Εξαγωγή από {{name}}",
   "dialog.open_file": "Άνοιγμα Αρχείου",
   "dialog.pdf_files": "Αρχεία PDF",
   "dialog.png_image": "Εικόνα PNG",

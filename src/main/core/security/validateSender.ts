@@ -68,7 +68,7 @@ function resolveRendererPath(filePath: string): string | undefined {
  * `nodeIntegration` window can call `ipcRenderer.invoke` directly), so a
  * downloaded/exported HTML opened in such a window would otherwise be trusted, and
  * local HTML in a privileged context is a classic Electron RCE vector. Everything
- * else — remote https origins reachable via MiniApp / `<webview>` — is rejected.
+ * else — remote https origins reachable via `<webview>` — is rejected.
  *
  * The dev origin and app root default to the ambient ones but stay injectable, so
  * the decision is verifiable without Electron.
@@ -122,7 +122,7 @@ export function isAppRendererUrl(
  *
  * Each funnel validates the *caller* before the input: all web frames (including
  * iframes and `<webview>` guests) can send IPC, and this app runs with
- * `webviewTag: true` + `webSecurity: false` + MiniApps rendering arbitrary
+ * `webviewTag: true` + `webSecurity: false` while webviews render arbitrary
  * remote URLs. Per Electron's security checklist, verify `senderFrame`.
  *
  * `appRootDir` scopes the `file:` check to "the app's own renderer" rather than

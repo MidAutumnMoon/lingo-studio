@@ -116,8 +116,7 @@ see [Agent Session Runtime](./agent-session-runtime.md#live-follow-up).
   resources and analytics can finalize.
 - Thrown errors are caught and routed through `onError`. Returning
   `'retry'` is reserved for a future implementation — today the loop
-  logs and aborts. Call-level retry/fallback lives one layer below at the
-  model wrapper — see [Model Retry & Fallback](./model-retry.md).
+  logs and aborts.
 - Trusted local tools can return a structured terminal failure (`terminal:
   true`, `retryable: false`). A generic process-local provenance marker
   prevents matching JSON from MCP or provider-executed tools from controlling

@@ -2,7 +2,6 @@ import { and, eq } from 'drizzle-orm'
 
 import { agentTable } from '@data/db/schemas/agent'
 import { assistantTable } from '@data/db/schemas/assistant'
-import { miniAppTable } from '@data/db/schemas/miniApp'
 import { preferenceTable } from '@data/db/schemas/preference'
 import {
   createSidebarShortcutId,
@@ -16,7 +15,6 @@ const SIDEBAR_FAVORITES_KEY = 'ui.sidebar.favorites'
 const SIDEBAR_SHORTCUT_KEY = 'ui.sidebar_shortcut'
 const LEGACY_PROVIDER_BY_TYPE = {
   app: 'core.app',
-  mini_app: 'core.mini-app',
   agent: 'core.agent',
   assistant: 'core.assistant'
 } as const
@@ -74,11 +72,6 @@ export class SidebarShortcutMigrationSeeder implements ISeeder {
     )
 
     const names = new Map<string, string>()
-    if (legacyTypes.has('mini_app')) {
-      for (const item of db.select({ id: miniAppTable.appId, name: miniAppTable.name }).from(miniAppTable).all()) {
-        names.set(`mini_app:${item.id}`, item.name)
-      }
-    }
     if (legacyTypes.has('agent')) {
       for (const item of db.select({ id: agentTable.id, name: agentTable.name }).from(agentTable).all()) {
         names.set(`agent:${item.id}`, item.name)

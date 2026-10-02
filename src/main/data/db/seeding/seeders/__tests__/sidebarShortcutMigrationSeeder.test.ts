@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest'
 import { agentTable } from '@data/db/schemas/agent'
 import { appStateTable } from '@data/db/schemas/appState'
 import { assistantTable } from '@data/db/schemas/assistant'
-import { miniAppTable } from '@data/db/schemas/miniApp'
 import { preferenceTable } from '@data/db/schemas/preference'
 import { seeders } from '@data/db/seeding/seederRegistry'
 import { SidebarShortcutMigrationSeeder } from '@data/db/seeding/seeders/sidebarShortcutMigrationSeeder'
@@ -41,17 +40,12 @@ describe('SidebarShortcutMigrationSeeder', () => {
       .returning({ id: assistantTable.id })
       .get()
     dbh.db
-      .insert(miniAppTable)
-      .values({ appId: 'mini-1', name: 'Calendar', url: 'https://example.com', orderKey: 'a0' })
-      .run()
-    dbh.db
       .insert(preferenceTable)
       .values({
         scope: 'default',
         key: 'ui.sidebar.favorites',
         value: [
           { type: 'agent', id: agent.id },
-          { type: 'mini_app', id: 'mini-1' },
           { type: 'assistant', id: assistant.id },
           { type: 'app', id: 'translate' }
         ]
@@ -67,10 +61,6 @@ describe('SidebarShortcutMigrationSeeder', () => {
       expect.objectContaining({
         fallbackLabel: 'Researcher',
         target: expect.objectContaining({ locator: { providerId: 'core.agent', resourceId: agent.id } })
-      }),
-      expect.objectContaining({
-        fallbackLabel: 'Calendar',
-        target: expect.objectContaining({ locator: { providerId: 'core.mini-app', resourceId: 'mini-1' } })
       }),
       expect.objectContaining({
         fallbackLabel: 'Writer',

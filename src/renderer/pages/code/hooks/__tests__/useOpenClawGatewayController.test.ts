@@ -8,7 +8,6 @@ import { CodeCli } from '@shared/types/codeCli'
 const mocks = vi.hoisted(() => ({
   gatewayPort: undefined as number | undefined,
   requestMock: vi.fn(),
-  openSmartMiniApp: vi.fn(),
   toastError: vi.fn()
 }))
 
@@ -16,10 +15,6 @@ vi.mock('@data/hooks/usePreference', () => ({
   usePreference: () => [mocks.gatewayPort, vi.fn()]
 }))
 vi.mock('@data/hooks/useCache', async (importOriginal) => importOriginal())
-
-vi.mock('@renderer/hooks/useMiniAppPopup', () => ({
-  useMiniAppPopup: () => ({ openSmartMiniApp: mocks.openSmartMiniApp })
-}))
 
 vi.mock('@renderer/ipc', () => ({
   ipcApi: { request: mocks.requestMock }
@@ -62,7 +57,7 @@ describe('useOpenClawGatewayController', () => {
     vi.restoreAllMocks()
   })
 
-  it('adds a fresh navigation revision while preserving the dashboard token fragment', async () => {
+  it('opens the dashboard URL externally, unchanged', async () => {
     mocks.requestMock.mockImplementation((route: string) => {
       if (route === 'openclaw.get_status') return Promise.resolve({ status: 'running' })
       if (route === 'openclaw.get_dashboard_url')
@@ -84,10 +79,10 @@ describe('useOpenClawGatewayController', () => {
       await result.current.onOpenDashboard()
     })
 
-    const dashboardUrl = new URL(vi.mocked(mocks.openSmartMiniApp).mock.calls[0][0].url)
-    expect(dashboardUrl.searchParams.get('cherry_navigation_revision')).toBe('1774560000000')
-    expect(dashboardUrl.searchParams.get('theme')).toBe('dark')
-    expect(dashboardUrl.hash).toBe('#token=secret')
+    expect(mocks.requestMock).toHaveBeenCalledWith(
+      'system.shell.open_external_website',
+      'https://dashboard.local/?theme=dark#token=secret'
+    )
   })
 
   // Regression: the standalone OpenClaw page used to read `feature.openclaw.gateway_port`

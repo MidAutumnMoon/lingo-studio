@@ -18,9 +18,9 @@ function avatarStoredId(avatar: string | undefined): FileEntryId | undefined {
  * image, the emoji glyph verbatim, or the bundled default.
  *
  * An uploaded avatar is stored in the `app.user.avatar` preference as a
- * `file:<id>` ref. Unlike a provider / mini-app logo (resolved main-side onto
- * the DTO's `logoSrc`), the avatar is a preference with no DTO, so its id is
- * resolved here through the file IPC — never by reconstructing a disk path,
+ * `file:<id>` ref. Unlike a provider logo (resolved main-side onto the DTO's
+ * `logoSrc`), the avatar is a preference with no DTO, so its id is resolved
+ * here through the file IPC — never by reconstructing a disk path,
  * which would break in windows that don't mount `app.path.files`.
  */
 export default function useAvatar(): string {

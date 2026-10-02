@@ -1,9 +1,8 @@
 import type { SettingsSearchEntry } from '../settingsSearch/types'
 
 // Indexed rows = statically visible actionable rows (D8): conditional rows
-// (custom-proxy inputs, developer client id, context-management and retry
-// children behind their master switches) stay out — their anchors may not
-// exist on jump.
+// (custom-proxy inputs, developer client id, context-management children
+// behind their master switch) stay out — their anchors may not exist on jump.
 export const route = '/settings/general'
 
 export const entries: SettingsSearchEntry[] = [
@@ -72,12 +71,5 @@ export const entries: SettingsSearchEntry[] = [
     groupKey: 'settings.agent.language.title',
     descriptionKey: 'settings.agent.language.description',
     aliases: ['language', 'agent language', 'reply language']
-  },
-  {
-    anchorId: 'retry-enabled',
-    titleKey: 'settings.models.retry.label',
-    groupKey: 'settings.models.retry.label',
-    descriptionKey: 'settings.models.retry.description',
-    aliases: ['retry', '重试']
   }
 ]

@@ -5,7 +5,6 @@ import { fileEntryTable } from '@data/db/schemas/file'
 import {
   agentSessionMessageFileRefTable,
   chatMessageFileRefTable,
-  miniAppLogoFileRefTable,
   paintingFileRefTable,
   providerLogoFileRefTable
 } from '@data/db/schemas/fileRelations'
@@ -73,9 +72,6 @@ export class LegacyFileCleanupPolicySeeder implements ISeeder {
         WHERE created_at <= ${completedAt}
         UNION
         SELECT file_entry_id FROM ${providerLogoFileRefTable}
-        WHERE created_at <= ${completedAt}
-        UNION
-        SELECT file_entry_id FROM ${miniAppLogoFileRefTable}
         WHERE created_at <= ${completedAt}
       )
       UPDATE ${fileEntryTable}

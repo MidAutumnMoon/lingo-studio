@@ -194,35 +194,46 @@ describe('applyMigrations over a populated database', () => {
     expect(() => insert.run('88888888-8888-7888-8888-888888888888', 'bogus', 'whatever', now, now)).toThrow()
   })
 
-  it('carries mini_app rows through the kind rebuild and calls every pre-existing one a site', () => {
-    applyMigrations(db, baselineMigrationsFolder(join(tempDir, 'baseline'), '0019_colorful_gladiator'))
+  it('drops populated mini_app tables when the mini-apps feature is removed', () => {
+    applyMigrations(db, baselineMigrationsFolder(join(tempDir, 'baseline'), '0029_remove_mini_app_tables'))
     const now = Date.now()
-    const insert = sqlite.prepare(
-      `INSERT INTO mini_app (app_id, name, url, order_key, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    )
-    insert.run('com.example.alpha', 'Alpha', 'https://example.com/alpha', 'a0', now, now)
-    insert.run('com.example.beta', 'Beta', 'https://example.com/beta', 'a1', now, now)
+    sqlite
+      .prepare(
+        `INSERT INTO mini_app (app_id, kind, name, url, status, order_key, bordered, created_at, updated_at)
+         VALUES ('com.example.alpha', 'site', 'Alpha', 'https://example.com/alpha', 'enabled', 'a0', 0, ?, ?)`
+      )
+      .run(now, now)
+    sqlite
+      .prepare(
+        `INSERT INTO mini_app_installation (app_id, version, content_hash, source, manifest_json, consented_declared_json, created_at, updated_at)
+         VALUES ('com.example.alpha', '1.0.0', 'hash-1', 'builtin', '{}', '{}', ?, ?)`
+      )
+      .run(now, now)
+    sqlite
+      .prepare(
+        `INSERT INTO mini_app_grant (id, app_id, permission, granted_version, created_at, updated_at)
+         VALUES ('grant-1', 'com.example.alpha', 'notifications', '1.0.0', ?, ?)`
+      )
+      .run(now, now)
+    // The seeds must land, or the drop assertion below would pass vacuously.
+    expect(sqlite.prepare(`SELECT count(*) AS count FROM mini_app`).get()).toEqual({ count: 1 })
+    expect(sqlite.prepare(`SELECT count(*) AS count FROM mini_app_installation`).get()).toEqual({ count: 1 })
+    expect(sqlite.prepare(`SELECT count(*) AS count FROM mini_app_grant`).get()).toEqual({ count: 1 })
 
     applyMigrations(db, resolveMigrationsPath())
 
-    // The rebuild is `INSERT … SELECT` into a new table and a `DROP`: an unqualified
-    // column list, a wrong literal or a failed statement each lose every row silently.
-    expect(sqlite.prepare('SELECT app_id, name, url, kind FROM mini_app ORDER BY app_id').all()).toEqual([
-      { app_id: 'com.example.alpha', name: 'Alpha', url: 'https://example.com/alpha', kind: 'site' },
-      { app_id: 'com.example.beta', name: 'Beta', url: 'https://example.com/beta', kind: 'site' }
-    ])
-    // The value the migration exists to allow, and the check that bounds it — a local
-    // package is the only thing that may claim `app`.
-    const typed = sqlite.prepare(
-      `INSERT INTO mini_app (app_id, kind, name, url, order_key, created_at, updated_at)
-       VALUES (?, ?, 'Local', 'cherry-miniapp://com.example.local/index.html', 'a2', ?, ?)`
-    )
-    expect(() => typed.run('com.example.local', 'app', now, now)).not.toThrow()
-    expect(() => typed.run('com.example.bogus', 'webapp', now, now)).toThrow()
+    expect(
+      sqlite
+        .prepare(
+          `SELECT count(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN
+             ('mini_app', 'mini_app_installation', 'mini_app_grant', 'mini_app_file_ref', 'mini_app_logo_file_ref')`
+        )
+        .get()
+    ).toEqual({ count: 0 })
+    expect(sqlite.pragma('foreign_key_check')).toEqual([])
   })
 
-  it('widens the ai_usage_record source_type check to accept mini-app without dropping records', () => {
+  it('shrinks the ai_usage_record source_type check to drop mini-app and purges its rows', () => {
     applyMigrations(db, baselineMigrationsFolder(join(tempDir, 'baseline'), '0019_colorful_gladiator'))
     const now = Date.now()
     // A REALISTIC row, because the table carries four composite identity checks: an
@@ -236,6 +247,7 @@ describe('applyMigrations over a populated database', () => {
     )
     insert.run('99999999-9999-7999-8999-999999999999', 'req-assistant', 'assistant', 'asst-1', 'Chat', 120, now)
     insert.run('aaaaaaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa', 'req-agent', 'agent', 'agent-1', 'Agent', 340, now)
+    insert.run('bbbbbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb', 'req-mini', 'mini-app', 'com.example.alpha', 'Alpha', 90, now)
 
     applyMigrations(db, resolveMigrationsPath())
 
@@ -257,10 +269,23 @@ describe('applyMigrations over a populated database', () => {
         total_tokens: 120
       }
     ])
-    // `billingHook` writes exactly this value for every mini app call that reaches `finish`.
+    // The rebuild re-checks every copied row, so the purge must land first: a surviving
+    // mini-app row would abort the whole migration on a populated database.
+    expect(
+      sqlite.prepare(`SELECT count(*) AS count FROM ai_usage_record WHERE source_type = 'mini-app'`).get()
+    ).toEqual({ count: 0 })
+    // The value no writer produces, and the check that bounds it.
     expect(() =>
-      insert.run('bbbbbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb', 'req-mini', 'mini-app', 'com.example.alpha', 'Alpha', 90, now)
-    ).not.toThrow()
+      insert.run(
+        'bbbbbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb',
+        'req-mini-2',
+        'mini-app',
+        'com.example.alpha',
+        'Alpha',
+        90,
+        now
+      )
+    ).toThrow()
     expect(() =>
       insert.run('cccccccc-cccc-7ccc-8ccc-cccccccccccc', 'req-bogus', 'plugin', 'plugin-1', 'Plugin', 10, now)
     ).toThrow()
@@ -520,7 +545,7 @@ describe('applyMigrations over a populated database', () => {
     const recentReferenced = 'cccccccc-cccc-7ccc-8ccc-cccccccccccc'
     const legacyChat = 'dddddddd-dddd-7ddd-8ddd-dddddddddddd'
     const legacyPainting = 'eeeeeeee-eeee-7eee-8eee-eeeeeeeeeeee'
-    const legacyMiniApp = 'ffffffff-ffff-7fff-8fff-ffffffffffff'
+    const legacyProviderLogo = 'ffffffff-ffff-7fff-8fff-ffffffffffff'
     const legacyReferencedLater = 'abababab-abab-7aba-8aba-abababababab'
     const legacyUserRetained = 'acacacac-acac-7aca-8aca-acacacacacac'
     const insertEntry = sqlite.prepare(
@@ -533,7 +558,7 @@ describe('applyMigrations over a populated database', () => {
     insertEntry.run(recentReferenced, 'recent-referenced', migrationCompletedAt + 1, migrationCompletedAt + 1)
     insertEntry.run(legacyChat, 'legacy-chat', migrationCompletedAt - 1, migrationCompletedAt - 1)
     insertEntry.run(legacyPainting, 'legacy-painting', migrationCompletedAt - 1, migrationCompletedAt - 1)
-    insertEntry.run(legacyMiniApp, 'legacy-mini-app', migrationCompletedAt - 1, migrationCompletedAt - 1)
+    insertEntry.run(legacyProviderLogo, 'legacy-provider-logo', migrationCompletedAt - 1, migrationCompletedAt - 1)
     insertEntry.run(
       legacyReferencedLater,
       'legacy-referenced-later',
@@ -561,6 +586,7 @@ describe('applyMigrations over a populated database', () => {
     insertProvider.run('recent-provider', 'Recent', 'a1', migrationCompletedAt + 1, migrationCompletedAt + 1)
     insertProvider.run('later-provider', 'Later', 'a2', migrationCompletedAt + 1, migrationCompletedAt + 1)
     insertProvider.run('retained-provider', 'Retained', 'a3', migrationCompletedAt - 1, migrationCompletedAt - 1)
+    insertProvider.run('logo-provider', 'Logo Owner', 'a4', migrationCompletedAt - 1, migrationCompletedAt - 1)
     const insertRef = sqlite.prepare(
       `INSERT INTO provider_logo_file_ref (id, file_entry_id, source_id, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?)`
@@ -635,23 +661,17 @@ describe('applyMigrations over a populated database', () => {
 
     sqlite
       .prepare(
-        `INSERT INTO mini_app (app_id, name, url, status, order_key, created_at, updated_at)
-         VALUES ('legacy-mini-app', 'Legacy mini app', 'https://example.com', 'enabled', 'a0', ?, ?)`
+        `INSERT INTO provider_logo_file_ref (id, file_entry_id, source_id, created_at, updated_at)
+         VALUES ('99999999-9999-7999-8999-999999999999', ?, 'logo-provider', ?, ?)`
       )
-      .run(migrationCompletedAt - 1, migrationCompletedAt - 1)
-    sqlite
-      .prepare(
-        `INSERT INTO mini_app_logo_file_ref (id, file_entry_id, source_id, created_at, updated_at)
-         VALUES ('99999999-9999-7999-8999-999999999999', ?, 'legacy-mini-app', ?, ?)`
-      )
-      .run(legacyMiniApp, migrationCompletedAt - 1, migrationCompletedAt - 1)
+      .run(legacyProviderLogo, migrationCompletedAt - 1, migrationCompletedAt - 1)
 
     new LegacyFileCleanupPolicySeeder().run(db)
 
     expect(sqlite.prepare(`SELECT name, cleanup_policy FROM file_entry ORDER BY name`).all()).toEqual([
       { name: 'legacy-chat', cleanup_policy: 'delete_when_unreferenced' },
-      { name: 'legacy-mini-app', cleanup_policy: 'delete_when_unreferenced' },
       { name: 'legacy-painting', cleanup_policy: 'delete_when_unreferenced' },
+      { name: 'legacy-provider-logo', cleanup_policy: 'delete_when_unreferenced' },
       { name: 'legacy-referenced', cleanup_policy: 'delete_when_unreferenced' },
       { name: 'legacy-referenced-later', cleanup_policy: 'manual' },
       { name: 'legacy-unreferenced', cleanup_policy: 'manual' },

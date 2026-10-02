@@ -9,7 +9,7 @@ sources:
 
 # Ordering Guide
 
-Canonical spec for any sortable resource in the DataApi system. Uses a single fractional-indexing design ([fractional-indexing](https://www.npmjs.com/package/fractional-indexing), Rocicorp, ~2 KB gzip) — `PATCH /{resource}/:id/order` with an anchor body. Scales from tens to thousands of rows without background rebalancing; applies uniformly whether the view is paginated or not. Replaces the two incompatible predecessors (`PATCH /mini-apps` absolute `sortOrder` integers and `PATCH /mcp-servers` full `orderedIds` list).
+Canonical spec for any sortable resource in the DataApi system. Uses a single fractional-indexing design ([fractional-indexing](https://www.npmjs.com/package/fractional-indexing), Rocicorp, ~2 KB gzip) — `PATCH /{resource}/:id/order` with an anchor body. Scales from tens to thousands of rows without background rebalancing; applies uniformly whether the view is paginated or not. Replaces the incompatible predecessors (absolute `sortOrder` integers and full `orderedIds`-list updates).
 
 Enabling or disabling an existing provider via `PATCH /providers/:providerId` preserves its current order. Only `POST /providers` inserts at the first position. Explicit reorder requests continue to use the canonical order routes.
 
@@ -106,8 +106,8 @@ function PinList() {
   return <DraggableList items={data ?? []} onReorder={applyReorderedList} />
 }
 
-// Non-`id` primary key (e.g. miniapp.appId):
-useReorder('/mini-apps', { idKey: 'appId' })
+// Non-`id` primary key (e.g. a `widgetId` pk):
+useReorder('/widgets', { idKey: 'widgetId' })
 ```
 
 Optimistic writes / server revalidation / failure rollback are all handled internally through the DataApi cache hooks (`useReadCache` / `useWriteCache` / `useInvalidateCache`) — the component never tracks the list in local state and never calls SWR directly. `useReorder` reads the items list from the cache by auto-detecting flat arrays and `{ items }`-shaped objects; see §4.3 for nested shapes.
@@ -169,7 +169,7 @@ Moves apply **sequentially in one transaction**; each anchor resolves against th
 - **Column**: `order_key TEXT NOT NULL`. Always injected via `...orderKeyColumns`; the spread locks the TS field name to `orderKey`.
 - **Index**: required. Use `orderKeyIndex(tableName)(t)` for whole-table or `scopedOrderKeyIndex(tableName, scopeColumn)(t)` for partitioned tables.
 - **Known partition dimensions** in the codebase:
-  - Live (active consumers): `group.entityType`, `pin.entityType`, `user_model.providerId`, `miniapp.status`.
+  - Live (active consumers): `group.entityType`, `pin.entityType`, `user_model.providerId`.
 - **No secondary order axes**. Each sortable table exposes exactly one `order_key`. Orthogonal user intents — e.g. "in a group" vs "pinned" — are modelled as separate tables, not as overloaded scope values on a shared column. Resource-specific design (polymorphic shape, purge contracts, concurrency semantics) lives in each schema / service's JSDoc, not here — this guide scopes to the ordering mechanism only.
 
 ---
@@ -190,7 +190,7 @@ All runtime `order_key` reads and writes go through `src/main/data/services/util
 
 Binding semantics:
 
-- **`pkColumn` is required.** Primary-key column names vary (`miniapp.appId`, `mcpServer.id`, `topic.id`, ...); helpers make zero assumptions.
+- **`pkColumn` is required.** Primary-key column names vary (`mcpServer.id`, `topic.id`, ...); helpers make zero assumptions.
 - **Must run inside an outer transaction.** Helpers take `tx` and never open their own.
 - **`scope` applies symmetrically** to target, anchor, and neighbour lookups — anchoring across scopes throws.
 - **`insertManyWithOrderKey` preserves input order under `ORDER BY orderKey ASC`.** For `position: 'last'` the batch lands after existing rows; for `'first'` before; within the batch, relative order mirrors `valuesList`.
@@ -250,7 +250,7 @@ Three observable steps: **optimistic write → PATCH → revalidate** (or **inva
 ### 4.2 Non-`id` primary keys — the `idKey` option
 
 ```tsx
-useReorder('/mini-apps', { idKey: 'appId' })
+useReorder('/widgets', { idKey: 'widgetId' })
 ```
 
 Flows into both the optimistic reducer and the new-list diff. The server-facing contract is unchanged — `move(id, anchor)` still takes a plain string id, PATCH body shape is untouched. `idKey` only affects how the client **extracts** ids from cached items.
@@ -264,7 +264,7 @@ Single field only — composite keys like `${providerId}:${modelName}` are out o
 | Shape | Example endpoints | How items are extracted |
 |---|---|---|
 | **Flat array** `T[]` | `GET /pins`, `GET /groups`, `GET /tags`, `GET /providers` | The cache value *is* the array. |
-| **Wrapped pagination** `{ items, total, page }` / `{ items, nextCursor }` | `GET /mini-apps`, `GET /mcp-servers`, `GET /assistants`, `GET /knowledges` | Reads `cache.items`; preserves `total` / `page` / `nextCursor` on optimistic writes. |
+| **Wrapped pagination** `{ items, total, page }` / `{ items, nextCursor }` | `GET /mcp-servers`, `GET /assistants`, `GET /knowledges` | Reads `cache.items`; preserves `total` / `page` / `nextCursor` on optimistic writes. |
 | **Naked items wrapper** `{ items: T[] }` | `GET /knowledges/:id/items` | Reads `cache.items`. |
 
 No caller configuration is required for any of the three. Both pagination shapes (`OffsetPaginationResponse` and `CursorPaginationResponse`) fall under the same `{ items }` branch — metadata fields are passed through unchanged. For the pagination model itself, see the [Pagination Guide](./data-pagination-guide.md).
@@ -363,12 +363,11 @@ Complete in one PR:
    - `group`: `eq(groupTable.entityType, entityType)` — live (`GroupService.reorder` / `reorderBatch` via `applyScopedMoves`).
    - `pin`: `eq(pinTable.entityType, entityType)` — live (`PinService.reorder` / `reorderBatch` via `applyScopedMoves`).
    - `user_model`: `eq(userModelTable.providerId, providerId)`.
-   - `miniapp`: `eq(miniappTable.status, status)`.
    - `topic` / `user_provider` / `mcp_server`: whole-table (`scope: undefined`), except topic service may narrow to non-deleted rows.
 
    New scoped consumers should prefer `applyScopedMoves` (which handles scope lookup and rejects cross-scope batches) over composing `applyMoves` with a manually assembled `eq(...)` scope.
 4. **Migrator**: replace legacy `sortOrder = index` with `assignOrderKeysByScope` (or `assignOrderKeysInSequence` for whole-table). Drop `index` / `sortOrder` parameters from `transform*` functions.
-5. **Renderer**: `useReorder(collectionUrl)`, or `useReorder(collectionUrl, { idKey: 'appId' })` for non-`id` pk. If the `GET` response is neither a flat array nor `{ items }`-shaped (e.g. a grouped or connection-style envelope), also pass `selectItems` / `updateItems` — see §4.4.
+5. **Renderer**: `useReorder(collectionUrl)`, or `useReorder(collectionUrl, { idKey })` for a non-`id` pk. If the `GET` response is neither a flat array nor `{ items }`-shaped (e.g. a grouped or connection-style envelope), also pass `selectItems` / `updateItems` — see §4.4.
 6. **Drizzle custom migration** (runs when the consuming resource's PR lands, not part of the base-infrastructure PR): add `order_key` nullable → backfill bucket-by-bucket via `generateOrderKeySequence` imported from `@data/services/utils/orderKey` (never from `fractional-indexing` directly) → promote to `NOT NULL` → drop the old `sort_order` column → create the index. Until this step runs, the production schema keeps the legacy `sort_order INT` column — the base infrastructure never touches existing tables.
 
 ---

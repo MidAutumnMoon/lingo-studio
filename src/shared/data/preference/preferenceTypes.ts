@@ -84,7 +84,6 @@ export const SIDEBAR_FAVORITES = [
   'agents',
   'paintings',
   'translate',
-  'mini_app',
   'knowledge',
   'files',
   'code_tools',
@@ -104,7 +103,6 @@ export type SidebarFavorite = (typeof SIDEBAR_FAVORITES)[number]
  */
 export type SidebarFavoriteItem =
   | { type: 'app'; id: SidebarFavorite }
-  | { type: 'mini_app'; id: string }
   | { type: 'agent'; id: string }
   | { type: 'assistant'; id: string }
 
@@ -396,8 +394,3 @@ export type FileProcessorOverride = {
 }
 
 export type FileProcessorOverrides = Partial<Record<FileProcessorId, FileProcessorOverride>>
-
-/** Region types for miniApps visibility */
-export type MiniAppRegion = 'CN' | 'Global'
-
-export type MiniAppRegionFilter = 'auto' | MiniAppRegion

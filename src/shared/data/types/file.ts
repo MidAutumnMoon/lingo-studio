@@ -5,7 +5,7 @@
  * - **FileEntry** — the managed-file entity (this section).
  * - **FileHandle** — a call-site reference to a file, by entry-id or raw path.
  * - **FileRef** — the association linking a business entity (chat message,
- *   painting, job, translate history, provider logo, mini-app logo) to a
+ *   painting, job, translate history, provider logo) to a
  *   `FileEntry`.
  *
  * The legacy v1 `FileMetadata` shape lives separately in `./legacyFile.ts`.
@@ -593,7 +593,7 @@ export const translateHistoryRefFields = {
 
 export const translateHistoryFileRefSchema = createRefSchema(translateHistoryRefFields)
 
-// ─── Single-file entity-image variants (provider logo / mini-app logo) ───
+// ─── Single-file entity-image variants (provider logo) ───
 //
 // Unlike the collection refs above (`chat_message`, `painting`), these model a
 // single-file **slot**: one owner holds at most ONE file, set-replaces the
@@ -617,14 +617,6 @@ function defineSingleFileRef<const T extends string>(sourceType: T) {
 }
 
 export const providerLogoRef = defineSingleFileRef('provider_logo')
-export const miniAppLogoRef = defineSingleFileRef('mini_app_logo')
-
-/**
- * Mini-app sandbox files. Roleless like the logo slots, but a **collection**:
- * one app holds many files, keyed by the ref row's `logicalName`. It therefore
- * stays out of `singleFileRefTablesBySourceType` (the set-replace slot registry).
- */
-export const miniAppFileRef = defineSingleFileRef('mini_app_file')
 
 /**
  * Prefix tagging an uploaded avatar in the `app.user.avatar` preference, e.g.
@@ -633,7 +625,7 @@ export const miniAppFileRef = defineSingleFileRef('mini_app_file')
  * file IPC; every other form (emoji / default `''`) passes through. Distinct
  * from an already-resolved `file://…` URL.
  *
- * Provider / mini-app uploaded logos do NOT use this tag — their file id lives
+ * Provider uploaded logos do NOT use this tag — their file id lives
  * in the logo `file_ref` table and resolves main-side onto the DTO's `logoSrc`.
  */
 export const STORED_FILE_REF_PREFIX = 'file:'
@@ -664,9 +656,7 @@ export const allSourceTypes = [
   paintingSourceType,
   jobSourceType,
   translateHistorySourceType,
-  providerLogoRef.sourceType,
-  miniAppLogoRef.sourceType,
-  miniAppFileRef.sourceType
+  providerLogoRef.sourceType
 ] as const satisfies readonly string[]
 export type FileRefSourceType = (typeof allSourceTypes)[number]
 
@@ -692,8 +682,6 @@ export const FileRefSchema = z.discriminatedUnion('sourceType', [
   paintingFileRefSchema,
   jobFileRefSchema,
   translateHistoryFileRefSchema,
-  providerLogoRef.schema,
-  miniAppLogoRef.schema,
-  miniAppFileRef.schema
+  providerLogoRef.schema
 ])
 export type FileRef = z.infer<typeof FileRefSchema>

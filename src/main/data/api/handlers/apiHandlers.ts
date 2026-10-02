@@ -29,7 +29,6 @@ import { jobHandlers } from './jobs'
 import { knowledgeHandlers } from './knowledges'
 import { mcpServerHandlers } from './mcpServers'
 import { messageHandlers } from './messages'
-import { miniAppHandlers } from './miniApps'
 import { modelHandlers } from './models'
 import { noteHandlers } from './notes'
 import { paintingHandlers } from './paintings'
@@ -69,7 +68,6 @@ export const apiHandlers: ApiImplementation = {
   ...knowledgeHandlers,
   ...translateHandlers,
   ...mcpServerHandlers,
-  ...miniAppHandlers,
   ...noteHandlers,
   ...tagHandlers,
   ...groupHandlers,

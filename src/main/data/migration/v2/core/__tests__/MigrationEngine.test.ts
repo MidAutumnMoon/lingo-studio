@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { miniAppLogoFileRefTable, providerLogoFileRefTable } from '@data/db/schemas/fileRelations'
+import { providerLogoFileRefTable } from '@data/db/schemas/fileRelations'
 import { groupTable } from '@data/db/schemas/group'
 import { jobScheduleTable } from '@data/db/schemas/job'
 import { entityTagTable, tagTable } from '@data/db/schemas/tagging'
@@ -43,7 +43,6 @@ const mockPaths: MigrationPaths = {
   legacyAgentDbFile: '/tmp/test-userdata/Data/agents.db',
   agentsDataDir: '/tmp/test-userdata/Data/Agents',
   agentSystemWorkspacesDir: '/tmp/test-userdata/Data/Agents/system',
-  customMiniAppsFile: '/tmp/test-userdata/Data/Files/custom-minapps.json',
   migrationTempDir: '/tmp/test-userdata/migration_temp',
   migrationReduxExportDir: '/tmp/test-userdata/migration_temp/redux_export',
   migrationDexieExportDir: '/tmp/test-userdata/migration_temp/dexie_export',
@@ -363,7 +362,6 @@ describe('MigrationEngine', () => {
     await (engine as any).verifyAndClearNewTables()
 
     expect(deletedTables).toContain(providerLogoFileRefTable)
-    expect(deletedTables).toContain(miniAppLogoFileRefTable)
     expect(deletedTables).toContain(groupTable)
     expect(deletedTables).toContain(entityTagTable)
     expect(deletedTables).toContain(tagTable)

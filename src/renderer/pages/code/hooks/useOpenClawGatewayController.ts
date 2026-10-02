@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { usePreference } from '@data/hooks/usePreference'
-import { useMiniAppPopup } from '@renderer/hooks/useMiniAppPopup'
 import { ipcApi } from '@renderer/ipc'
 import { loggerService } from '@renderer/services/LoggerService'
 import { toast } from '@renderer/services/toast'
@@ -44,7 +43,6 @@ export function useOpenClawGatewayController({
   setCurrentProvider
 }: UseOpenClawGatewayControllerOptions): OpenClawGatewayController {
   const { t } = useTranslation()
-  const { openSmartMiniApp } = useMiniAppPopup()
   const [gatewayPort] = usePreference('feature.openclaw.gateway_port')
   const isOpenClawTool = selectedCliTool === CodeCli.OPENCLAW
   // Status comes from main-pushed events (single source of truth); only the local
@@ -55,17 +53,8 @@ export function useOpenClawGatewayController({
 
   const openDashboard = useCallback(async () => {
     const dashboardUrl = await ipcApi.request('openclaw.get_dashboard_url')
-    const url = new URL(dashboardUrl)
-    // A per-open revision makes equal dashboard URLs observable through the
-    // cross-window transient descriptor registry after a gateway restart.
-    url.searchParams.set('cherry_navigation_revision', String(Date.now()))
-    openSmartMiniApp({
-      appId: 'openclaw-dashboard',
-      name: 'OpenClaw',
-      url: url.toString(),
-      logo: 'openclaw'
-    })
-  }, [openSmartMiniApp])
+    await ipcApi.request('system.shell.open_external_website', dashboardUrl)
+  }, [])
 
   const handleLaunch = useCallback(async () => {
     const parsedModelId = await resolveLaunchModelId({

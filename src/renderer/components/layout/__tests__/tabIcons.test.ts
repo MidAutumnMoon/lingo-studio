@@ -2,7 +2,6 @@ import {
   FileSearch,
   Folder,
   Globe,
-  LayoutGrid,
   MessageCircle,
   MousePointerClick,
   NotepadText,
@@ -42,7 +41,6 @@ describe('getTabIcon', () => {
     ['/app/file-preview?path=%2Ftmp%2Freport.pdf', ScanSearch],
     ['/app/files', Folder],
     ['/app/notes', NotepadText],
-    ['/app/mini-app', LayoutGrid],
     ['/app/launchpad', Rocket],
     ['/app/release-notes', Sparkles]
   ])('returns the shared app icon for %s', (url, Icon) => {

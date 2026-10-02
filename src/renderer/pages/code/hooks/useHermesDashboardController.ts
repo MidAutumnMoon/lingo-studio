@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useSharedCacheValue } from '@data/hooks/useCache'
-import { useMiniAppPopup } from '@renderer/hooks/useMiniAppPopup'
 import { ipcApi } from '@renderer/ipc'
 import { loggerService } from '@renderer/services/LoggerService'
 import { toast } from '@renderer/services/toast'
@@ -43,7 +42,6 @@ export function useHermesDashboardController(
   { onConfigMayHaveChanged }: HermesDashboardControllerOptions = {}
 ): HermesDashboardController {
   const { t } = useTranslation()
-  const { openSmartMiniApp } = useMiniAppPopup()
   const snapshot = useSharedCacheValue('feature.hermes_dashboard.status') ?? { status: 'stopped' as const }
   const previousStatus = useRef(snapshot.status)
   const operationEpoch = useRef(0)
@@ -61,19 +59,9 @@ export function useHermesDashboardController(
     }
   }, [onConfigMayHaveChanged, snapshot.status])
 
-  const openDashboard = useCallback(
-    (dashboardUrl: string) => {
-      const target = new URL(dashboardUrl)
-      target.searchParams.set('cherry_navigation_revision', String(Date.now()))
-      openSmartMiniApp({
-        appId: 'hermes-dashboard',
-        name: t('code.cli_tools.hermes'),
-        url: target.toString(),
-        logo: 'nousresearch'
-      })
-    },
-    [openSmartMiniApp, t]
-  )
+  const openDashboard = useCallback((dashboardUrl: string) => {
+    void ipcApi.request('system.shell.open_external_website', dashboardUrl)
+  }, [])
 
   const onLaunch = useCallback(async () => {
     const epoch = ++operationEpoch.current

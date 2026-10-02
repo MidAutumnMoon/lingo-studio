@@ -1,6 +1,5 @@
 export const REGRESSION_CASES = [
   { id: 'S-01', capabilities: [], phase: '01-startup', title: 'Application startup smoke test', task: 'startup-smoke' },
-  { id: 'APP-01', capabilities: [], phase: '02-basic-features', title: 'Open a Mini App', task: 'mini-app' },
   { id: 'N-01', capabilities: [], phase: '02-basic-features', title: 'Create and save a note', task: 'notes' },
   {
     id: 'M-02',

@@ -19,7 +19,7 @@ import type { IpcHandlersFor } from '@shared/ipc/types'
  * write fails, so a failed set never leaks an orphan file.
  *
  * The create→bind→compensate is orchestrated inline here (not via `entityLogo`
- * like provider / mini-app logos) on purpose: the avatar's owner is a single
+ * like provider logos) on purpose: the avatar's owner is a single
  * Preference, not a DataApi row + `file_ref` slot, so there is no shared bind
  * shape to factor out — it just composes the `withCreatedImageEntry` primitive.
  */

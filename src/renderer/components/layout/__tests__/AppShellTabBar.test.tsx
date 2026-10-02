@@ -59,19 +59,6 @@ vi.mock('@renderer/utils/platform', () => ({
   platform: 'linux'
 }))
 
-vi.mock('@renderer/components/icons/miniAppsLogo', () => ({
-  getMiniAppsLogoRef: (logo?: string) => (logo === 'google' ? {} : undefined),
-  useMiniAppLogo: (logo?: string) => {
-    if (logo !== 'google') return undefined
-
-    return Object.assign(() => null, {
-      Avatar: ({ size, shape }: { size: number; shape: string }) => (
-        <span data-testid="preset-mini-app-avatar" data-shape={shape} style={{ width: size, height: size }} />
-      )
-    })
-  }
-}))
-
 vi.mock('@data/hooks/usePreference', () => ({
   usePreference: () => [false]
 }))
@@ -235,30 +222,6 @@ describe('AppShellTabBar', () => {
     await user.click(screen.getByRole('button', { name: 'Launchpad' }))
 
     expect(openTab).toHaveBeenCalledWith('/app/launchpad', { title: 'Launchpad', forceNew: true })
-  })
-
-  it('renders preset and installed mini app icons at the same circular size', () => {
-    const presetMiniAppTab = createTab('preset-mini-app', {
-      url: '/app/mini-app/google',
-      title: 'Preset Mini App',
-      icon: 'google'
-    })
-    const miniAppTab = createTab('installed-mini-app', {
-      url: '/app/mini-app/com.example.installed',
-      title: 'Installed Mini App',
-      icon: 'file:///files/installed.webp'
-    })
-
-    renderTabBar({ tabs: [presetMiniAppTab, miniAppTab], activeTabId: miniAppTab.id })
-
-    const presetIcon = screen.getByTestId('preset-mini-app-avatar')
-    const tab = screen.getByRole('button', { name: 'Installed Mini App' })
-    const image = tab.querySelector('img')
-    expect(presetIcon).toHaveAttribute('data-shape', 'circle')
-    expect(presetIcon).toHaveStyle({ width: '18px', height: '18px' })
-    expect(image).toHaveClass('rounded-full', 'object-cover')
-    expect(image).toHaveStyle({ width: '18px', height: '18px' })
-    expect(image?.style.backgroundColor).toBe('')
   })
 
   it('shows the focused tab as a Back control with a visible detach action', async () => {
@@ -574,19 +537,6 @@ describe('AppShellTabBar', () => {
     expect(screen.queryByTestId('menu-tab.move-to-first')).toBeNull()
     expect(screen.queryAllByTestId('menu-tab.pin')).toHaveLength(1)
     expect(screen.queryAllByTestId('menu-tab.close')).toHaveLength(1)
-  })
-
-  it('does not offer pinning for transient mini-app tabs', () => {
-    const transientMiniAppTab = createTab('mini-app', {
-      url: '/app/mini-app/deepseek-harness',
-      metadata: { transientMiniApp: true }
-    })
-
-    renderTabBar({ tabs: [transientMiniAppTab], activeTabId: transientMiniAppTab.id, detachTab: vi.fn() })
-
-    expect(screen.queryByTestId('menu-tab.pin')).not.toBeInTheDocument()
-    expect(screen.getByTestId('menu-tab.open-in-new-window')).toBeInTheDocument()
-    expect(screen.getByTestId('menu-tab.close')).toBeInTheDocument()
   })
 
   it('allows both the last normal tab and pinned tabs to close from the menu', () => {
@@ -1430,11 +1380,5 @@ describe('getTabCapabilities', () => {
     expect(getTabCapabilities({ id: 'a', isPinned: false }, ctx({ normalCount: 2, canDetach: false })).detach).toBe(
       false
     )
-  })
-
-  it('disables pinning for transient mini-app tabs', () => {
-    const transientMiniAppTab = createTab('mini-app', { metadata: { transientMiniApp: true } })
-
-    expect(getTabCapabilities(transientMiniAppTab, ctx({ normalIndex: 0 })).togglePin).toBe(false)
   })
 })

@@ -47,7 +47,6 @@ describe('MigrationDbService', () => {
       legacyAgentDbFile: path.join(dataDir, 'agents.db'),
       agentsDataDir: path.join(dataDir, 'Agents'),
       agentSystemWorkspacesDir: path.join(dataDir, 'Agents', 'system'),
-      customMiniAppsFile: path.join(dataDir, 'Files', 'custom-minapps.json'),
       migrationTempDir: path.join(root, 'migration_temp'),
       migrationReduxExportDir: path.join(root, 'migration_temp', 'redux_export'),
       migrationDexieExportDir: path.join(root, 'migration_temp', 'dexie_export'),

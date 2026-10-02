@@ -26,7 +26,7 @@ export function assertTrustedSender(event: IpcMainInvokeEvent, channel: string, 
 /**
  * `ipcMain.handle` wrapper that funnels every legacy (pre-IpcApi) channel through the
  * same source-trust gate as IpcApi/DataApi/Preference/Cache — all frames can send IPC
- * while MiniApps load remote URLs, so callers are verified before handlers run.
+ * while webviews load remote URLs, so callers are verified before handlers run.
  */
 export function handleGuarded(
   channel: string,

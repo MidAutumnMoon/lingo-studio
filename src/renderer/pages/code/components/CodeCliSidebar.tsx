@@ -66,7 +66,9 @@ export const CodeCliSidebar: FC<CodeCliSidebarProps> = ({
                     {
                       type: 'item',
                       id: `code-cli.toggle-sidebar.${tool.value}`,
-                      label: t(sidebarPinned ? 'miniApp.remove_from_sidebar' : 'miniApp.add_to_sidebar'),
+                      label: t(
+                        sidebarPinned ? 'sidebar.shortcut.remove_from_sidebar' : 'sidebar.shortcut.add_to_sidebar'
+                      ),
                       icon: <SidebarShortcutIcon size={14} pinned={sidebarPinned} />,
                       onSelect: () => onToggleSidebar(tool)
                     }

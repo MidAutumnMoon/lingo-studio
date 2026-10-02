@@ -11,7 +11,7 @@ const MODEL_IMAGE_MAX_EDGE = 2000
 
 /**
  * Normalize arbitrary image bytes to a 128×128 cover-cropped WebP buffer — the
- * canonical on-disk form for entity images (user avatar, provider / mini-app
+ * canonical on-disk form for entity images (user avatar, provider
  * logo). Shared by the live set-image IpcApi commands and the v1→v2 migration so
  * both paths produce an identical format. Throws on undecodable input (caller
  * decides how to react).

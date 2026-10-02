@@ -89,7 +89,6 @@
   "dialog.migration_database_unavailable.quit": "Çık",
   "dialog.migration_database_unavailable.retry": "Yeniden dene",
   "dialog.migration_database_unavailable.title": "Veritabanı kullanılamıyor",
-  "dialog.mini_app_export": "{{name}} üzerinden dışa aktar",
   "dialog.open_file": "Dosya Aç",
   "dialog.pdf_files": "PDF Dosyaları",
   "dialog.png_image": "PNG Görüntüsü",

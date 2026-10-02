@@ -4,7 +4,6 @@ sources:
   - src/shared/data/presets
   - src/renderer/hooks/useWebSearch.ts
   - src/main/services/webSearch/utils/config.ts
-  - src/main/data/services/MiniAppService.ts
   - src/main/data/services/ProviderRegistryService.ts
 ---
 
@@ -27,7 +26,7 @@ The repository has two current forms of the pattern.
 | Demand | Persistence | Current example |
 |---|---|---|
 | Small, fixed catalog whose customization is one settings value | Preference delta map | Web search providers |
-| Entity rows with identity, ordering, CRUD, or relationships | SQLite rows plus a registry/service merge | Mini apps, providers, models |
+| Entity rows with identity, ordering, CRUD, or relationships | SQLite rows plus a registry/service merge | Providers, models |
 
 The item count is only a hint. The decisive question is whether users are
 managing business entities. If they are, use SQLite/DataApi even when the first
@@ -67,10 +66,8 @@ SQLite-backed preset entities keep identity, user-owned fields, ordering, and
 relations in their table. The owning service returns the complete runtime entity
 by merging preset-only or defaulted fields before the DataApi boundary.
 
-Two current implementations illustrate different ownership shapes:
+The current implementation illustrates the shape:
 
-- `MiniAppService` merges `PRESETS_MINI_APPS` with a builtin row. A row linked by
-  `presetMiniAppId` inherits preset values; a custom row is self-contained.
 - `ProviderRegistryService` resolves provider/model registry metadata and applies
   registry overrides. `ProviderService` and `ModelService` own persisted rows;
   callers do not read registry internals and repeat the merge.
@@ -83,8 +80,8 @@ same entity and let merge semantics drift.
 
 Preset modules live under `src/shared/data/presets/` and follow the repository's
 camelCase TypeScript filename convention. Export names describe the actual
-contract (`PRESETS_MINI_APPS`, `PRESETS_WEB_SEARCH_PROVIDERS`,
-`CODE_CLI_TOOL_PRESETS`); there is no mandatory generic prefix beyond the names
+contract (`CODE_CLI_TOOL_PRESETS`, `PRESET_MCP_SERVERS`,
+`PRESETS_WEB_SEARCH_PROVIDERS`); there is no mandatory generic prefix beyond the names
 already used by each domain.
 
 Use TypeScript rather than JSON when the preset depends on shared types or

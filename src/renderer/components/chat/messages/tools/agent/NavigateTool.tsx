@@ -17,7 +17,6 @@ const ROUTE_LABELS: Record<string, { icon: string; labelKey: string }> = {
   '/app/files': { icon: '📁', labelKey: 'title.files' },
   '/app/notes': { icon: '📝', labelKey: 'title.notes' },
   '/app/knowledge': { icon: '📚', labelKey: 'title.knowledge' },
-  '/app/mini-app': { icon: '📦', labelKey: 'title.apps' },
   '/app/code': { icon: '💻', labelKey: 'title.code' },
   '/app/launchpad': { icon: '🚀', labelKey: 'title.launchpad' },
   '/app/agents': { icon: '🤖', labelKey: 'agent.sidebar_title' },

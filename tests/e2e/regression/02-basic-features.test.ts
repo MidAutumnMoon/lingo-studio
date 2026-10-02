@@ -2,22 +2,6 @@ import { caseDefinition } from '../../../scripts/e2e/regression/cases'
 import { expect, test } from './fixture'
 import { dismissOnboarding, openLaunchpad, openLaunchpadApp, selectSidebarApp } from './navigation'
 
-test(...caseDefinition('APP-01'), async ({ mainWindow: page }) => {
-  await dismissOnboarding(page)
-
-  await openLaunchpadApp(page, 'MiniApp')
-  const miniApp = page.getByRole('main').getByRole('button', { name: 'ChatGPT', exact: true })
-  await expect(miniApp).toBeVisible()
-  await miniApp.click()
-  await expect(page.getByRole('button', { name: 'Go Back', exact: true })).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toBeVisible()
-
-  await selectSidebarApp(page, 'Chat')
-  await page.getByRole('button', { name: 'Apps', exact: true }).click()
-  await miniApp.click()
-  await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toBeVisible({ timeout: 30_000 })
-})
-
 test(...caseDefinition('N-01'), async ({ app, mainWindow }) => {
   let page = mainWindow
   await openLaunchpadApp(page, 'Notes')

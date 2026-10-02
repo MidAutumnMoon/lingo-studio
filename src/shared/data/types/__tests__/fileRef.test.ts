@@ -9,7 +9,6 @@ import {
   FileRefSchema,
   jobFileRefSchema,
   jobSourceType,
-  miniAppLogoRef,
   paintingFileRefSchema,
   paintingSourceType,
   providerLogoRef,
@@ -38,9 +37,7 @@ describe('FileRefSourceType', () => {
       'painting',
       'job',
       'translate_history',
-      'provider_logo',
-      'mini_app_logo',
-      'mini_app_file'
+      'provider_logo'
     ])
   })
 })
@@ -133,9 +130,9 @@ describe('paintingFileRefSchema', () => {
   })
 })
 
-describe('single-file ref variants (provider_logo / mini_app_logo)', () => {
+describe('single-file ref variants (provider_logo)', () => {
   it('accepts a well-formed roleless logo ref (free-string sourceId)', () => {
-    for (const ref of [providerLogoRef, miniAppLogoRef]) {
+    for (const ref of [providerLogoRef]) {
       const parsed = ref.schema.parse({
         id: REF_ID,
         fileEntryId: ENTRY_ID,

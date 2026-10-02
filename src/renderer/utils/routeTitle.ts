@@ -12,7 +12,6 @@ const routeTitleKeys: Record<string, string> = {
   '/app/paintings': 'title.paintings',
   '/app/translate': 'title.translate',
   '/app/launchpad': 'title.launchpad',
-  '/app/mini-app': 'title.apps',
   '/app/knowledge': 'title.knowledge',
   '/app/files': 'title.files',
   '/app/code': 'title.code',
@@ -25,8 +24,7 @@ const routeTitleKeys: Record<string, string> = {
 // refresh on language change. Paintings qualifies because its splat route
 // ignores the URL segment (the provider comes from preference), so a
 // paintings sub-path tab has no per-entity title — the section title is the
-// only meaningful label. Contrast /app/mini-app, which is deliberately left
-// out so caller-supplied per-entity titles survive.
+// only meaningful label.
 const autoLocalizableBasePaths = new Set(['/app/paintings'])
 
 /**

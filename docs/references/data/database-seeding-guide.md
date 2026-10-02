@@ -64,7 +64,7 @@ Each seeder declares how it relates to re-runs via `executionPolicy` (mirrors Li
 
 | Policy | Semantics | Use For |
 |--------|-----------|---------|
-| `run-on-change` (default) | Re-run whenever `version` differs from the journal | Managed reference/default data that must track its source (preferences, languages, providers, mini-apps) |
+| `run-on-change` (default) | Re-run whenever `version` differs from the journal | Managed reference/default data that must track its source (preferences, languages, providers) |
 | `bootstrap-only` | Run only during the **bootstrap window**; never afterwards | Data meant exclusively for brand-new installations (e.g. `DefaultAssistantSeeder`) |
 
 **Bootstrap window**: open until the first fully-successful seeding pass completes. `SeedRunner` then writes the `seedRunner:bootstrapCompleted` marker to `app_state`; the window never reopens. If a pass fails partway, the marker is not written, so the window stays open across restarts (already-applied seeders are skipped by version match).

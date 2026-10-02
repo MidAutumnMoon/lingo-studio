@@ -83,11 +83,6 @@ const SIDEBAR_APP_DEFINITIONS = [
     routePrefix: '/app/translate'
   },
   {
-    id: 'mini_app',
-    routePrefix: '/app/mini-app',
-    exactRouteFocus: true
-  },
-  {
     id: 'knowledge',
     routePrefix: '/app/knowledge'
   },
@@ -172,7 +167,6 @@ export function createSidebarShortcutTarget(
 // shortcut is a second row for something already on screen.
 const LEGACY_PROVIDER_BY_TYPE = {
   app: SIDEBAR_SHORTCUT_PROVIDER_IDS.APP,
-  mini_app: SIDEBAR_SHORTCUT_PROVIDER_IDS.MINI_APP,
   agent: SIDEBAR_SHORTCUT_PROVIDER_IDS.AGENT
 } as const
 

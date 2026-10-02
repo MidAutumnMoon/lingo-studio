@@ -47,8 +47,6 @@ import { Route as SettingsSkillsRouteImport } from './routes/settings/skills'
 import { Route as SettingsSystemRouteImport } from './routes/settings/system'
 import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
 import { Route as SettingsWebsearchRouteImport } from './routes/settings/websearch'
-import { Route as AppMiniAppIndexRouteImport } from './routes/app/mini-app.index'
-import { Route as AppMiniAppAppIdRouteImport } from './routes/app/mini-app/$appId'
 import { Route as AppPaintingsIndexRouteImport } from './routes/app/paintings.index'
 import { Route as AppPaintingsSplatRouteImport } from './routes/app/paintings/$'
 import { Route as SettingsMcpIndexRouteImport } from './routes/settings/mcp.index'
@@ -255,16 +253,6 @@ const SettingsWebsearchRoute = SettingsWebsearchRouteImport.update({
   path: '/websearch',
   getParentRoute: () => SettingsRoute,
 } as any)
-const AppMiniAppIndexRoute = AppMiniAppIndexRouteImport.update({
-  id: '/mini-app/',
-  path: '/mini-app/',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppMiniAppAppIdRoute = AppMiniAppAppIdRouteImport.update({
-  id: '/mini-app/$appId',
-  path: '/mini-app/$appId',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppPaintingsIndexRoute = AppPaintingsIndexRouteImport.update({
   id: '/paintings/',
   path: '/paintings/',
@@ -378,7 +366,6 @@ export interface FileRoutesByFullPath {
   '/settings/usage': typeof SettingsUsageRoute
   '/settings/websearch': typeof SettingsWebsearchRoute
   '/settings/': typeof SettingsIndexRoute
-  '/app/mini-app/$appId': typeof AppMiniAppAppIdRoute
   '/app/paintings/$': typeof AppPaintingsSplatRoute
   '/settings/mcp/$': typeof SettingsMcpSplatRoute
   '/settings/mcp/builtin': typeof SettingsMcpBuiltinRoute
@@ -388,7 +375,6 @@ export interface FileRoutesByFullPath {
   '/settings/mcp/servers': typeof SettingsMcpServersRoute
   '/settings/scheduled-tasks/$taskId': typeof SettingsScheduledTasksTaskIdRoute
   '/settings/skills/$skillId': typeof SettingsSkillsSkillIdRoute
-  '/app/mini-app/': typeof AppMiniAppIndexRoute
   '/app/paintings/': typeof AppPaintingsIndexRoute
   '/settings/mcp/': typeof SettingsMcpIndexRoute
   '/settings/scheduled-tasks/': typeof SettingsScheduledTasksIndexRoute
@@ -430,7 +416,6 @@ export interface FileRoutesByTo {
   '/settings/usage': typeof SettingsUsageRoute
   '/settings/websearch': typeof SettingsWebsearchRoute
   '/settings': typeof SettingsIndexRoute
-  '/app/mini-app/$appId': typeof AppMiniAppAppIdRoute
   '/app/paintings/$': typeof AppPaintingsSplatRoute
   '/settings/mcp/$': typeof SettingsMcpSplatRoute
   '/settings/mcp/builtin': typeof SettingsMcpBuiltinRoute
@@ -440,7 +425,6 @@ export interface FileRoutesByTo {
   '/settings/mcp/servers': typeof SettingsMcpServersRoute
   '/settings/scheduled-tasks/$taskId': typeof SettingsScheduledTasksTaskIdRoute
   '/settings/skills/$skillId': typeof SettingsSkillsSkillIdRoute
-  '/app/mini-app': typeof AppMiniAppIndexRoute
   '/app/paintings': typeof AppPaintingsIndexRoute
   '/settings/mcp': typeof SettingsMcpIndexRoute
   '/settings/scheduled-tasks': typeof SettingsScheduledTasksIndexRoute
@@ -487,7 +471,6 @@ export interface FileRoutesById {
   '/settings/usage': typeof SettingsUsageRoute
   '/settings/websearch': typeof SettingsWebsearchRoute
   '/settings/': typeof SettingsIndexRoute
-  '/app/mini-app/$appId': typeof AppMiniAppAppIdRoute
   '/app/paintings/$': typeof AppPaintingsSplatRoute
   '/settings/mcp/$': typeof SettingsMcpSplatRoute
   '/settings/mcp/builtin': typeof SettingsMcpBuiltinRoute
@@ -497,7 +480,6 @@ export interface FileRoutesById {
   '/settings/mcp/servers': typeof SettingsMcpServersRoute
   '/settings/scheduled-tasks/$taskId': typeof SettingsScheduledTasksTaskIdRoute
   '/settings/skills/$skillId': typeof SettingsSkillsSkillIdRoute
-  '/app/mini-app/': typeof AppMiniAppIndexRoute
   '/app/paintings/': typeof AppPaintingsIndexRoute
   '/settings/mcp/': typeof SettingsMcpIndexRoute
   '/settings/scheduled-tasks/': typeof SettingsScheduledTasksIndexRoute
@@ -545,7 +527,6 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/settings/websearch'
     | '/settings/'
-    | '/app/mini-app/$appId'
     | '/app/paintings/$'
     | '/settings/mcp/$'
     | '/settings/mcp/builtin'
@@ -555,7 +536,6 @@ export interface FileRouteTypes {
     | '/settings/mcp/servers'
     | '/settings/scheduled-tasks/$taskId'
     | '/settings/skills/$skillId'
-    | '/app/mini-app/'
     | '/app/paintings/'
     | '/settings/mcp/'
     | '/settings/scheduled-tasks/'
@@ -597,7 +577,6 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/settings/websearch'
     | '/settings'
-    | '/app/mini-app/$appId'
     | '/app/paintings/$'
     | '/settings/mcp/$'
     | '/settings/mcp/builtin'
@@ -607,7 +586,6 @@ export interface FileRouteTypes {
     | '/settings/mcp/servers'
     | '/settings/scheduled-tasks/$taskId'
     | '/settings/skills/$skillId'
-    | '/app/mini-app'
     | '/app/paintings'
     | '/settings/mcp'
     | '/settings/scheduled-tasks'
@@ -653,7 +631,6 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/settings/websearch'
     | '/settings/'
-    | '/app/mini-app/$appId'
     | '/app/paintings/$'
     | '/settings/mcp/$'
     | '/settings/mcp/builtin'
@@ -663,7 +640,6 @@ export interface FileRouteTypes {
     | '/settings/mcp/servers'
     | '/settings/scheduled-tasks/$taskId'
     | '/settings/skills/$skillId'
-    | '/app/mini-app/'
     | '/app/paintings/'
     | '/settings/mcp/'
     | '/settings/scheduled-tasks/'
@@ -944,20 +920,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsWebsearchRouteImport
       parentRoute: typeof SettingsRoute
     }
-    '/app/mini-app/': {
-      id: '/app/mini-app/'
-      path: '/mini-app'
-      fullPath: '/app/mini-app/'
-      preLoaderRoute: typeof AppMiniAppIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/mini-app/$appId': {
-      id: '/app/mini-app/$appId'
-      path: '/mini-app/$appId'
-      fullPath: '/app/mini-app/$appId'
-      preLoaderRoute: typeof AppMiniAppAppIdRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/paintings/': {
       id: '/app/paintings/'
       path: '/paintings'
@@ -1071,9 +1033,7 @@ interface AppRouteChildren {
   AppNotesRoute: typeof AppNotesRoute
   AppReleaseNotesRoute: typeof AppReleaseNotesRoute
   AppTranslateRoute: typeof AppTranslateRoute
-  AppMiniAppAppIdRoute: typeof AppMiniAppAppIdRoute
   AppPaintingsSplatRoute: typeof AppPaintingsSplatRoute
-  AppMiniAppIndexRoute: typeof AppMiniAppIndexRoute
   AppPaintingsIndexRoute: typeof AppPaintingsIndexRoute
 }
 
@@ -1089,9 +1049,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppNotesRoute: AppNotesRoute,
   AppReleaseNotesRoute: AppReleaseNotesRoute,
   AppTranslateRoute: AppTranslateRoute,
-  AppMiniAppAppIdRoute: AppMiniAppAppIdRoute,
   AppPaintingsSplatRoute: AppPaintingsSplatRoute,
-  AppMiniAppIndexRoute: AppMiniAppIndexRoute,
   AppPaintingsIndexRoute: AppPaintingsIndexRoute,
 }
 

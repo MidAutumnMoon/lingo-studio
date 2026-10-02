@@ -58,8 +58,6 @@ const mocks = vi.hoisted(() => ({
   // has not yet re-rendered the deferred lane.
   holdDeferredValue: false,
   recentItems: [] as GlobalSearchRecentEntry[],
-  pinnedMiniApps: [] as any[],
-  openedMiniApps: [] as any[],
   tabs: [] as Tab[],
   preferenceValues: {
     'app.user.name': 'JD',
@@ -79,9 +77,6 @@ const mocks = vi.hoisted(() => ({
   setPreferences: vi.fn(),
   setActiveTab: vi.fn(),
   cacheSet: vi.fn(),
-  setOpenedKeepAliveMiniApps: vi.fn(),
-  updateMiniAppStatus: vi.fn(),
-  removeCustomMiniApp: vi.fn(),
   dataApiGet: vi.fn(),
   dataApiPut: vi.fn(),
   invalidateCache: vi.fn(),
@@ -281,10 +276,6 @@ vi.mock('@renderer/components/icons/SvgIcon', () => ({
   OpenClawSidebarIcon: (props: React.ComponentProps<'svg'>) => <svg aria-hidden="true" {...props} />
 }))
 
-vi.mock('@renderer/components/icons/MiniAppIcon', () => ({
-  default: ({ app }: any) => <span aria-hidden="true">{app.logo ?? 'mini-app-icon'}</span>
-}))
-
 vi.mock('@renderer/components/VirtualList', async () => {
   const React = await vi.importActual<ReactModule>('react')
 
@@ -389,23 +380,9 @@ vi.mock('@renderer/hooks/useConversationNavigation', () => ({
   }
 }))
 
-vi.mock('@renderer/hooks/useMiniApps', () => ({
-  useMiniApps: () => ({
-    miniApps: [...mocks.pinnedMiniApps, ...mocks.openedMiniApps],
-    openedKeepAliveMiniApps: mocks.openedMiniApps,
-    pinned: mocks.pinnedMiniApps,
-    currentMiniAppId: '',
-    miniAppShow: false,
-    setOpenedKeepAliveMiniApps: mocks.setOpenedKeepAliveMiniApps,
-    updateAppStatus: mocks.updateMiniAppStatus,
-    removeCustomMiniApp: mocks.removeCustomMiniApp
-  })
-}))
-
 vi.mock('@renderer/utils/routeTitle', () => ({
   getDefaultRouteTitle: (path: string) =>
     ({
-      '/app/mini-app': 'Apps',
       '/app/knowledge': 'Knowledge',
       '/app/paintings/zhipu': 'Paintings',
       '/app/translate': 'Translate',
@@ -504,7 +481,6 @@ vi.mock('@renderer/i18n/label', () => ({
       store: 'Library',
       paintings: 'Paintings',
       translate: 'Translate',
-      mini_app: 'Mini Apps',
       knowledge: 'Knowledge',
       files: 'Files',
       code_tools: 'Code',
@@ -537,10 +513,7 @@ vi.mock('react-i18next', () => ({
           'globalSearch.groups.agent': 'Agent',
           'globalSearch.groups.knowledge-base': 'Knowledge',
           'globalSearch.keyboard.select': 'Select',
-          'launchpad.apps': 'Apps',
-          'launchpad.miniApps': 'Mini Apps',
           'library.title': 'Library',
-          'title.apps': 'Apps',
           'title.code': 'Code',
           'title.files': 'Files',
           'title.knowledge': 'Knowledge',
@@ -629,8 +602,6 @@ describe('GlobalSearchPanel', () => {
         lastAccessTime: 20
       }
     ]
-    mocks.pinnedMiniApps = []
-    mocks.openedMiniApps = []
     mocks.tabs = []
     mocks.queryResult = undefined
     mocks.messageQueryResult = undefined
@@ -789,7 +760,6 @@ describe('GlobalSearchPanel', () => {
 
     render(<GlobalSearchPanel onClose={mocks.onClose} />)
 
-    expect(screen.queryByRole('heading', { name: 'Apps' })).not.toBeInTheDocument()
     expect(screen.getByText('Topic recent')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Manage' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Search type: Conversation' })).not.toBeInTheDocument()
@@ -803,7 +773,6 @@ describe('GlobalSearchPanel', () => {
       const listbox = screen.getByRole('listbox')
       const resultOption = screen.getByRole('option', { name: /Writing Assistant/ })
 
-      expect(screen.queryByRole('heading', { name: 'Apps' })).not.toBeInTheDocument()
       expect(resultOption).toBeInTheDocument()
       expect(screen.getByText('2 minutes ago')).toBeInTheDocument()
       expect(screen.getAllByText('🧪')).not.toHaveLength(0)

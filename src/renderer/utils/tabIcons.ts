@@ -1,4 +1,4 @@
-/** `Tab.icon` descriptor prefix marking an emoji glyph (vs mini-app id / image url). */
+/** `Tab.icon` descriptor prefix marking an emoji glyph (vs an image url). */
 export const TAB_ICON_EMOJI_PREFIX = 'emoji:'
 
 /** Build a `Tab.icon` value for an assistant/agent emoji, or undefined when blank. */

@@ -24,7 +24,7 @@ interface Props {
   partition: string
   reloadKey?: number | string
   allowPopups?: boolean
-  /** Omit to preserve a runtime-owned popup policy, such as a local MiniApp sandbox. */
+  /** Omit to preserve the runtime-owned popup policy. */
   openLinksExternal?: boolean
   userAgent?: string
   className?: string

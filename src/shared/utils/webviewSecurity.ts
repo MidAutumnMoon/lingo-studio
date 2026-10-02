@@ -1,5 +1,5 @@
 export const WebviewSecurityProfile = {
-  MiniApp: 'mini-app',
+  SharedWebview: 'shared-webview',
   AgentBrowser: 'agent-browser',
   AgentDevPreview: 'agent-dev-preview',
   AgentHtmlArtifact: 'agent-html-artifact',
@@ -10,7 +10,7 @@ export type WebviewSecurityProfile = (typeof WebviewSecurityProfile)[keyof typeo
 
 export const WEBVIEW_SECURITY_PARTITIONS = {
   [WebviewSecurityProfile.AgentBrowser]: 'persist:agent-browser',
-  [WebviewSecurityProfile.MiniApp]: 'persist:webview',
+  [WebviewSecurityProfile.SharedWebview]: 'persist:webview',
   [WebviewSecurityProfile.AgentDevPreview]: 'agent-dev-preview',
   [WebviewSecurityProfile.AgentHtmlArtifact]: 'agent-html-artifact',
   [WebviewSecurityProfile.HtmlArtifactPreview]: 'html-artifact-preview'

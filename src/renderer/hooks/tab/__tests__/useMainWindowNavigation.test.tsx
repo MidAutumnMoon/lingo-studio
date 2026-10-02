@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   setActiveTab: vi.fn(),
   updateTab: vi.fn(),
   attachTab: vi.fn(),
-  tabs: [] as Array<{ id: string; type: 'route' | 'miniapp'; url: string; title: string }>,
+  tabs: [] as Array<{ id: string; type: 'route' | 'webview'; url: string; title: string }>,
   initData: null as
     | { kind: 'navigation'; to: string; requestId: number }
     | { kind: 'tab-attach'; tab: { id: string }; requestId: number }

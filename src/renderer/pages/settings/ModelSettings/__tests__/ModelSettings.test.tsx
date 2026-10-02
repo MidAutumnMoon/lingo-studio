@@ -8,10 +8,8 @@ import { ENDPOINT_TYPE, type Model, MODEL_CAPABILITY } from '@shared/data/types/
 
 const harness = vi.hoisted(() => ({
   defaultModel: undefined as Model | undefined,
-  quickModel: undefined as Model | undefined,
   translateModel: undefined as Model | undefined,
   setDefaultModel: vi.fn(),
-  setQuickModel: vi.fn(),
   setTranslateModel: vi.fn(),
   setPaintingModel: vi.fn(),
   onDefaultModelSelected: vi.fn(),
@@ -86,11 +84,9 @@ vi.mock('@renderer/components/ModelSelector', () => ({
 vi.mock('@renderer/hooks/useModel', () => ({
   useDefaultModel: () => ({
     defaultModel: harness.defaultModel,
-    quickModel: harness.quickModel,
     translateModel: harness.translateModel,
     paintingModel: undefined,
     setDefaultModel: harness.setDefaultModel,
-    setQuickModel: harness.setQuickModel,
     setTranslateModel: harness.setTranslateModel,
     setPaintingModel: harness.setPaintingModel
   })
@@ -155,14 +151,12 @@ describe('ModelSettings', () => {
       value: matchMediaMock.mockReturnValue({ matches: false })
     })
     harness.defaultModel = undefined
-    harness.quickModel = undefined
     harness.translateModel = undefined
     harness.selectorCallbacks = []
     harness.selectorFilters = []
     harness.preferenceValues = {}
     harness.preferenceSetters = {}
     harness.setDefaultModel.mockResolvedValue(undefined)
-    harness.setQuickModel.mockResolvedValue(undefined)
     harness.setTranslateModel.mockResolvedValue(undefined)
     harness.onDefaultModelSelected.mockResolvedValue(undefined)
   })
@@ -171,7 +165,6 @@ describe('ModelSettings', () => {
     const hiddenModel = createModel('cherryai', 'built-in')
     const selectedModel = createModel('openai', 'gpt-4o')
     harness.defaultModel = hiddenModel
-    harness.quickModel = hiddenModel
     harness.translateModel = hiddenModel
 
     render(
@@ -192,7 +185,7 @@ describe('ModelSettings', () => {
 
   it('does not fill the other models when any visible model is already selected', async () => {
     const selectedModel = createModel('openai', 'gpt-4o')
-    harness.quickModel = createModel('openai', 'gpt-4o-mini')
+    harness.translateModel = createModel('openai', 'gpt-4o-mini')
 
     render(
       <ModelSettings
@@ -206,7 +199,6 @@ describe('ModelSettings', () => {
     act(() => harness.selectorCallbacks[0](selectedModel))
 
     await waitFor(() => expect(harness.setDefaultModel).toHaveBeenCalledWith(selectedModel))
-    expect(harness.setQuickModel).not.toHaveBeenCalled()
     expect(harness.setTranslateModel).not.toHaveBeenCalled()
   })
 

@@ -1,7 +1,6 @@
 import type { AiUsageRecordListSortBy, AiUsageRecordSortOrder } from '@shared/data/api/schemas/aiUsageRecords'
 import type { JobProgress, JobSnapshot } from '@shared/data/api/schemas/jobs'
 import type { ChannelStatus } from '@shared/data/types/channel'
-import type { MiniAppRegion, TransientMiniApp } from '@shared/data/types/miniApp'
 import type { Currency } from '@shared/data/types/model'
 import type { AutoBackupEvent, AutoBackupType } from '@shared/types/backup'
 import type { AbsoluteFilePath } from '@shared/types/file'
@@ -144,17 +143,6 @@ export type UseCacheSchema = {
   // Notes page state
   'notes.active_file_path': AbsoluteFilePath | undefined
 
-  // MiniApp management
-  'mini_app.opened_keep_alive': CacheValueTypes.CacheMiniAppType[]
-  'mini_app.current_id': string
-  /** Whether the mini app view is split into two panes. */
-  'mini_app.split_open': boolean
-  /** Mini app shown in the split pane. Empty while the pane awaits a pick. */
-  'mini_app.split_id': string
-  'mini_app.show': boolean
-  'mini_app.opened_oneoff': CacheValueTypes.CacheMiniAppType | null
-  'mini_app.detected_region': MiniAppRegion | null
-
   // Topic management
   'topic.renaming': string[]
   'topic.newly_renamed': string[]
@@ -229,15 +217,6 @@ export const DefaultUseCache: UseCacheSchema = {
   'ui.window.agent.right_pane_open_override': null,
   'knowledge.recall.search_queries': {},
   'notes.active_file_path': undefined,
-
-  // MiniApp management
-  'mini_app.opened_keep_alive': [],
-  'mini_app.current_id': '',
-  'mini_app.split_open': false,
-  'mini_app.split_id': '',
-  'mini_app.show': false,
-  'mini_app.opened_oneoff': null,
-  'mini_app.detected_region': null,
 
   // Topic management
   'topic.renaming': [],
@@ -326,19 +305,6 @@ export type SharedCacheSchema = {
   // active, then left to linger under a short TTL after the job exits so the
   // polled item status can reach its terminal state before the value vanishes.
   'knowledge.item.embedding_progress.${itemId}': number | null
-  // A mini app opened via `openSmartMiniApp` (OpenClaw's dashboard, the S3 help page,
-  // the release notes) has no database row, so `/app/mini-app/<id>` is unresolvable
-  // through DataApi. Publishing the descriptor here — not into the keep-alive list,
-  // which doubles as the per-window WebView LRU — makes it readable by every window
-  // and outlives any single window's eviction, so detaching such a tab and attaching
-  // it back both keep resolving. Memory-only: the URL can hold a session secret (the
-  // OpenClaw dashboard embeds the gateway auth token) and must not reach disk.
-  // Nothing evicts an entry — that is the point, and it costs a handful of rows per
-  // session. Null is the cache miss (see the `jobs.state` precedent above).
-  'mini_app.transient_descriptor.${appId}': TransientMiniApp | null
-  // Apps that want the user's attention, and why (a host-added permission, or an update).
-  // Main-owned runtime state, shared with every renderer window.
-  'mini_app.attention': CacheValueTypes.CacheMiniAppAttention[]
   'channel.status.${channelId}': ChannelStatus | null
   'storage.health': StorageHealth
   'backup.auto_sync.state.${type}': AutoBackupEvent | null
@@ -375,8 +341,6 @@ export const DefaultSharedCache: SharedCacheSchema = {
   'jobs.state.${jobId}': null,
   'jobs.progress.${jobId}': { progress: 0 },
   'knowledge.item.embedding_progress.${itemId}': null,
-  'mini_app.transient_descriptor.${appId}': null,
-  'mini_app.attention': [],
   'channel.status.${channelId}': null,
   'storage.health': { level: 'ok', freeBytes: 0, totalBytes: 0, checkedAt: 0 },
   'backup.auto_sync.state.${type}': null,

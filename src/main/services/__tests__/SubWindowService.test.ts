@@ -249,19 +249,19 @@ describe('SubWindowService', () => {
       })
     })
 
-    it('threads tab.icon through initData when supplied (mini-app logo / emoji descriptor)', () => {
+    it('threads tab.icon through initData when supplied (logo / emoji descriptor)', () => {
       const win = createMockWindow()
       windowManagerMock.getWindow.mockReturnValue(win)
 
       svc.createWindow({
-        id: 'tab-mini',
-        url: '/app/mini-app/chatgpt',
-        title: 'ChatGPT',
-        icon: 'chatgpt'
+        id: 'tab-icon',
+        url: '/settings/provider',
+        title: 'Provider',
+        icon: 'openai'
       })
 
       const { args } = lastOpenCall()
-      expect(args.initData).toMatchObject({ icon: 'chatgpt' })
+      expect(args.initData).toMatchObject({ icon: 'openai' })
     })
 
     it('omits icon from initData when blank or absent', () => {

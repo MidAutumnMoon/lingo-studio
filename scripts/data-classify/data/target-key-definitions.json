@@ -34,13 +34,6 @@
       "description": "Prevent system sleep while the app has active work (v2 new feature, no v1 source)"
     },
     {
-      "targetKey": "app.notification.mini_app.enabled",
-      "type": "boolean",
-      "defaultValue": true,
-      "status": "classified",
-      "description": "Show system notifications from installed mini apps that hold the notification grant (v2 new feature, no v1 source)"
-    },
-    {
       "targetKey": "app.onboarding.provider_setup.status",
       "type": "PreferenceTypes.OnboardingProviderSetupStatus",
       "defaultValue": "pending",
@@ -784,13 +777,6 @@
       "defaultValue": null,
       "status": "classified",
       "description": "Global default Agent reply language independent of UI (app.language). Human-readable label via AgentLanguageSchema (e.g. \"English\"); null means no language constraint is injected; per-Agent configuration.language overrides with undefined=inherit, null=explicit no constraint"
-    },
-    {
-      "targetKey": "feature.mini_app.check_updates_on_open",
-      "type": "boolean",
-      "defaultValue": true,
-      "status": "classified",
-      "description": "Check installed mini apps for updates when they are opened (v2 new feature, no v1 source)"
     },
     {
       "targetKey": "data.backup.webdav.allow_self_signed_tls",

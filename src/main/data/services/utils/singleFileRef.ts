@@ -27,8 +27,8 @@
  * `clearSingleFileRefTx` / `insertSingleFileRefTx` are the table-agnostic
  * mechanism. {@link reconcileLogoSlotTx} with {@link LogoBindInput} /
  * {@link LogoColumns} sits one level above and is logo-specific, because every
- * single-file slot that exists today IS a logo slot (`provider_logo`,
- * `mini_app_logo`; the user avatar deliberately has no slot table). The
+ * single-file slot that exists today IS a logo slot (`provider_logo`;
+ * the user avatar deliberately has no slot table). The
  * mechanism is named for the category so a future non-logo slot reuses it
  * unchanged; the reconcile layer is named for what it actually resolves — the
  * owner row's `logo_key` column. Do NOT genericize the reconcile layer until a

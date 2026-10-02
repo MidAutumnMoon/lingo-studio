@@ -8,14 +8,12 @@ import { fileEntryTable } from '@data/db/schemas/file'
 import {
   chatMessageFileRefTable,
   jobFileRefTable,
-  miniAppLogoFileRefTable,
   paintingFileRefTable,
   persistentFileRefTablesBySourceType,
   providerLogoFileRefTable
 } from '@data/db/schemas/fileRelations'
 import { jobTable } from '@data/db/schemas/job'
 import { messageTable } from '@data/db/schemas/message'
-import { miniAppTable } from '@data/db/schemas/miniApp'
 import { paintingTable } from '@data/db/schemas/painting'
 import { topicTable } from '@data/db/schemas/topic'
 import { userProviderTable } from '@data/db/schemas/userProvider'
@@ -1736,26 +1734,6 @@ describe('FileEntryService', () => {
     })
   }
 
-  async function seedMiniAppLogoRef(fileEntryId: FileEntryId): Promise<void> {
-    const now = Date.now()
-    const appId = `app-${fileEntryId.slice(-12)}`
-    await dbh.db.insert(miniAppTable).values({
-      appId,
-      presetMiniAppId: null,
-      name: 'A',
-      url: 'https://a.com',
-      status: 'enabled',
-      orderKey: appId
-    })
-    await dbh.db.insert(miniAppLogoFileRefTable).values({
-      id: `55555555-5555-4555-8555-${fileEntryId.slice(-12)}`,
-      fileEntryId,
-      sourceId: appId,
-      createdAt: now,
-      updatedAt: now
-    })
-  }
-
   // Seeds a `job` row plus a `job_file_ref` pointing at `fileEntryId` (mirrors
   // how AiService protects async image-job inputs). Returns the job id so a test
   // can delete the job row and assert the FK cascade releases the ref.
@@ -1880,30 +1858,6 @@ describe('FileEntryService', () => {
         size: 1
       })
       await seedProviderLogoRef(referenced)
-
-      expect(fileEntryService.findManualUnreferenced().map((e) => e.id)).toEqual([orphan])
-    })
-
-    it('excludes entries referenced only by mini_app_logo_file_ref', async () => {
-      const referenced = '019606a0-0000-7000-8000-000000000d33' as FileEntryId
-      const orphan = '019606a0-0000-7000-8000-000000000d34' as FileEntryId
-      fileEntryService.create({
-        id: referenced,
-        origin: 'internal',
-        cleanupPolicy: 'manual',
-        name: 'malogo',
-        ext: 'webp',
-        size: 1
-      })
-      fileEntryService.create({
-        id: orphan,
-        origin: 'internal',
-        cleanupPolicy: 'manual',
-        name: 'orphan',
-        ext: 'webp',
-        size: 1
-      })
-      await seedMiniAppLogoRef(referenced)
 
       expect(fileEntryService.findManualUnreferenced().map((e) => e.id)).toEqual([orphan])
     })

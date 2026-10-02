@@ -149,8 +149,7 @@ The maintained feature surfaces currently include:
 - `notes.view`, `notes.navigation`, and `notes.editor`;
 - `translate.view`, `translate.input`, and `translate.output`;
 - `paintings.view`;
-- `code.view`, `code.navigation`, and `code.content`;
-- `mini-apps.view`.
+- `code.view`, `code.navigation`, and `code.content`.
 
 The maintained chat surface currently includes:
 

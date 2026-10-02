@@ -1,17 +1,16 @@
 /**
- * Promote a v1 inline base64 entity image (provider / mini-app logo, or user
- * avatar) into a v2 `file_entry`, returning the new file-entry id. Provider /
- * mini-app logos additionally get a single-file `file_ref` slot row; the avatar
- * deliberately does NOT — the `app.user.avatar` preference is its only
- * persisted copy.
+ * Promote a v1 inline base64 entity image (provider logo or user avatar) into
+ * a v2 `file_entry`, returning the new file-entry id. Provider logos
+ * additionally get a single-file `file_ref` slot row; the avatar deliberately
+ * does NOT — the `app.user.avatar` preference is its only persisted copy.
  *
  * That split is exactly why `cleanupPolicy` is a required argument here rather
  * than inherited from the DB default — see the note on
  * {@link prepareBase64ImageFileEntry}.
  *
  * v1 stored these as base64 data URLs (provider logos in Dexie under
- * `image://provider-<id>`, custom mini-app logos in `custom-minapps.json`, the
- * avatar under `image://avatar`). v2 keeps them on disk as normalized WebP
+ * `image://provider-<id>`, the avatar under `image://avatar`). v2 keeps them
+ * on disk as normalized WebP
  * (128×128 cover-crop via `transcodeToEntityWebp`, matching the live upload
  * path) — so the bytes must be transcoded here, not stored raw.
  *
@@ -49,7 +48,7 @@ export interface EntityImageDescriptor {
   role: string
 }
 
-/** The single-file ref slot an image belongs to (provider/mini-app logo). */
+/** The single-file ref slot an image belongs to (provider logo). */
 export interface EntityImageRef extends EntityImageDescriptor {
   sourceType: SingleFileRefSourceType
 }
@@ -68,7 +67,7 @@ export interface PreparedEntityImageFile<R extends EntityImageDescriptor = Entit
  * creation surface requires it (file-entry-cleanup.md §4.1): retention hinges on
  * how the id is held, which only the caller knows. Migrated images must land on
  * the *same* policy their live counterparts get from `bindLogoImage` /
- * `withCreatedImageEntry` — a ref-backed provider / mini-app logo is
+ * `withCreatedImageEntry` — a ref-backed provider logo is
  * `delete_when_unreferenced` (reclaimed when its owner row, and thus the logo
  * ref, is gone or the slot is replaced), while the avatar is `manual` because it
  * has no ref table at all and the anti-join would otherwise reclaim it on sight.

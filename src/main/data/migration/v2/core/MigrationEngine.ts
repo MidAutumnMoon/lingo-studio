@@ -27,7 +27,6 @@ import { fileEntryTable } from '@data/db/schemas/file'
 import {
   agentSessionMessageFileRefTable,
   chatMessageFileRefTable,
-  miniAppLogoFileRefTable,
   paintingFileRefTable,
   providerLogoFileRefTable
 } from '@data/db/schemas/fileRelations'
@@ -36,7 +35,6 @@ import { jobScheduleTable } from '@data/db/schemas/job'
 import { knowledgeBaseTable, knowledgeItemTable } from '@data/db/schemas/knowledge'
 import { mcpServerTable } from '@data/db/schemas/mcpServer'
 import { messageTable } from '@data/db/schemas/message'
-import { miniAppTable } from '@data/db/schemas/miniApp'
 import { noteTable } from '@data/db/schemas/note'
 import { paintingTable } from '@data/db/schemas/painting'
 import { pinTable } from '@data/db/schemas/pin'
@@ -89,7 +87,6 @@ const MIGRATION_TARGET_TABLES = [
   { table: assistantKnowledgeBaseTable, name: 'assistant_knowledge_base' }, // Junction: clear before assistant
   { table: assistantTable, name: 'assistant' },
   { table: mcpServerTable, name: 'mcp_server' },
-  { table: miniAppTable, name: 'mini_app' },
   { table: preferenceTable, name: 'preference' },
   { table: noteTable, name: 'note' },
   { table: translateHistoryTable, name: 'translate_history' },
@@ -113,7 +110,6 @@ const MIGRATION_TARGET_TABLES = [
   { table: chatMessageFileRefTable, name: 'chat_message_file_ref' },
   { table: paintingFileRefTable, name: 'painting_file_ref' },
   { table: providerLogoFileRefTable, name: 'provider_logo_file_ref' },
-  { table: miniAppLogoFileRefTable, name: 'mini_app_logo_file_ref' },
   { table: fileEntryTable, name: 'file_entry' }
 ]
 

@@ -196,7 +196,6 @@ const sidebarIconKeyMap = {
   agents: 'title.work',
   paintings: 'title.paintings',
   translate: 'translate.title',
-  mini_app: 'miniApp.title',
   knowledge: 'knowledge.title',
   files: 'files.title',
   code_tools: 'code.title',
@@ -216,7 +215,6 @@ const sidebarFavoriteKeyMap = {
   store: 'assistants.presets.title',
   paintings: 'title.paintings',
   translate: 'translate.title',
-  mini_app: 'miniApp.title',
   knowledge: 'knowledge.title',
   files: 'files.title',
   code_tools: 'code.title',
@@ -273,15 +271,6 @@ const mcpTypeKeyMap = {
 
 export const getMcpTypeLabelKey = (key: string): string => {
   return getLabelKey(mcpTypeKeyMap, key)
-}
-
-const miniAppsStatusKeyMap = {
-  visible: 'settings.miniApps.visible',
-  disabled: 'settings.miniApps.disabled'
-} as const
-
-export const getMiniAppsStatusLabelKey = (key: string): string => {
-  return getLabelKey(miniAppsStatusKeyMap, key)
 }
 
 const httpMessageKeyMap = {

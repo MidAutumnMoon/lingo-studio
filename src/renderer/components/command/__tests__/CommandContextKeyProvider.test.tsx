@@ -43,9 +43,7 @@ describe('CommandContextKeyProvider', () => {
     cleanup()
   })
 
-  it('initializes platform and feature flags', () => {
-    preferenceValues['feature.quick_assistant.enabled'] = true
-
+  it('initializes the platform flag', () => {
     render(
       <CommandContextKeyProvider>
         <SnapshotView />
@@ -53,30 +51,7 @@ describe('CommandContextKeyProvider', () => {
     )
 
     expect(readSnapshot()).toMatchObject({
-      platform: expect.any(String),
-      'feature.quick_assistant.enabled': true
-    })
-  })
-
-  it('updates snapshot when feature preferences change', async () => {
-    preferenceValues['feature.quick_assistant.enabled'] = false
-    const { rerender } = render(
-      <CommandContextKeyProvider>
-        <SnapshotView />
-      </CommandContextKeyProvider>
-    )
-
-    expect(readSnapshot()['feature.quick_assistant.enabled']).toBe(false)
-
-    preferenceValues['feature.quick_assistant.enabled'] = true
-    rerender(
-      <CommandContextKeyProvider>
-        <SnapshotView />
-      </CommandContextKeyProvider>
-    )
-
-    await waitFor(() => {
-      expect(readSnapshot()['feature.quick_assistant.enabled']).toBe(true)
+      platform: expect.any(String)
     })
   })
 

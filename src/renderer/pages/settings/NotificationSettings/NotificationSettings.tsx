@@ -21,8 +21,7 @@ const NotificationSettings: FC = () => {
   const [notificationSettings, setNotificationSettings] = useMultiplePreferences({
     assistant: 'app.notification.assistant.enabled',
     backup: 'app.notification.backup.enabled',
-    knowledge: 'app.notification.knowledge.enabled',
-    'mini-app': 'app.notification.mini_app.enabled'
+    knowledge: 'app.notification.knowledge.enabled'
   })
 
   const handleNotificationChange = (type: NotificationSource, value: boolean) => {
@@ -62,15 +61,6 @@ const NotificationSettings: FC = () => {
           <Switch
             checked={notificationSettings.knowledge}
             onCheckedChange={(v) => handleNotificationChange('knowledge', v)}
-          />
-        </SettingRow>
-        <SettingDivider />
-        <SettingRow id="setting-notifications-mini-app-notification" className="scroll-mt-6">
-          <SettingRowTitle>{t('settings.notification.mini_app')}</SettingRowTitle>
-          <Switch
-            aria-label={t('settings.notification.mini_app')}
-            checked={notificationSettings['mini-app']}
-            onCheckedChange={(v) => handleNotificationChange('mini-app', v)}
           />
         </SettingRow>
       </SettingGroup>

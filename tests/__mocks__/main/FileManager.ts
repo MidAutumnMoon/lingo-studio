@@ -43,8 +43,8 @@ function emptyOrphanFileReport(): MockFileSweepReport {
 /**
  * Minimal FileManager mock. The DataApi read models project an uploaded logo's
  * ref-row file id onto the DTO's `logoSrc` via `FileManager.getUrl` (see
- * `rowToRuntimeProvider` / `rowToMiniApp`, which skip the call entirely when the
- * slot is empty), so provider / mini-app DTOs expose a stable URL in tests.
+ * `rowToRuntimeProvider`, which skips the call entirely when the
+ * slot is empty), so provider DTOs expose a stable URL in tests.
  * Deterministic path so assertions can predict it.
  */
 const mockFileManager = {

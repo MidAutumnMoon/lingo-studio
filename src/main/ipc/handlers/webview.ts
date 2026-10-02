@@ -3,7 +3,7 @@ import type { webviewRequestSchemas } from '@shared/ipc/schemas/webview'
 import type { IpcHandlersFor } from '@shared/ipc/types'
 
 /**
- * Webview-domain handlers acting on a MiniApp `<webview>` guest by its webContents id.
+ * Webview-domain handlers acting on a `<webview>` guest by its webContents id.
  * Guest operations delegate to WebviewService, which validates the caller before
  * touching the WebContents.
  */

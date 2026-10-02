@@ -180,18 +180,16 @@ describe('CodeBlock', () => {
       }
     )
 
-    it.each([
-      '/app/mini-app/example',
-      '/app/paintings/example',
-      '/settings/mcp/example/details',
-      '/settings/scheduled-tasks/task-1'
-    ])('should render declared dynamic route %s as a navigation entry', (path) => {
-      render(<CodeBlock {...defaultProps} className={undefined} children={path} />)
+    it.each(['/app/paintings/example', '/settings/mcp/example/details', '/settings/scheduled-tasks/task-1'])(
+      'should render declared dynamic route %s as a navigation entry',
+      (path) => {
+        render(<CodeBlock {...defaultProps} className={undefined} children={path} />)
 
-      expect(screen.queryByTestId('clickable-file-path')).not.toBeInTheDocument()
-    })
+        expect(screen.queryByTestId('clickable-file-path')).not.toBeInTheDocument()
+      }
+    )
 
-    it.each(['/app/chat/not-a-route', '/app/mini-app/example/details', '/settings/provider/not-a-route'])(
+    it.each(['/app/chat/not-a-route', '/settings/provider/not-a-route'])(
       'should keep undeclared descendant %s as a file path',
       (path) => {
         render(<CodeBlock {...defaultProps} className={undefined} children={path} />)

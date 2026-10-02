@@ -74,13 +74,16 @@ describe('sidebar shortcut storage transforms', () => {
   })
 
   it('uses the first built-in app shortcut as the startup destination', () => {
-    const stored = [
-      shortcut('core.mini-app', 'mini-1'),
-      shortcut('core.app', 'paintings'),
-      shortcut('core.app', 'assistants')
-    ]
+    const stored = [shortcut('core.app', 'paintings'), shortcut('core.app', 'assistants')]
 
     expect(getSidebarDefaultLandingUrl(stored, 'openai')).toBe('/app/paintings/openai')
-    expect(getSidebarDefaultLandingUrl([shortcut('core.mini-app', 'mini-1')], 'openai')).toBe('')
+  })
+
+  it('filters out stored shortcuts for retired providers on read', () => {
+    const paintings = shortcut('core.app', 'paintings')
+    const stored = [shortcut('core.mini-app', 'mini-1'), paintings]
+
+    expect(normalizeSidebarShortcutItems(stored)).toEqual([paintings])
+    expect(getSidebarDefaultLandingUrl(stored, 'openai')).toBe('/app/paintings/openai')
   })
 })

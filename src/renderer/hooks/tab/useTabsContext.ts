@@ -14,7 +14,7 @@ export interface OpenTabOptions {
   type?: TabType
   /** Custom tab ID (auto-generated if not provided) */
   id?: string
-  /** Per-entity icon descriptor (e.g. mini-app logo string); rendered in the tab bar when set */
+  /** Per-entity icon descriptor (e.g. `emoji:<glyph>`); rendered in the tab bar when set */
   icon?: string
   /** Optional tab metadata copied into the newly-created tab. */
   metadata?: Tab['metadata']

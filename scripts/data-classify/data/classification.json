@@ -448,24 +448,6 @@
       ],
       "messageBlock": [],
       "migrate": [],
-      "minapps": [
-        {
-          "originalKey": "enabled",
-          "type": "string",
-          "defaultValue": "allMiniApps",
-          "status": "pending",
-          "category": null,
-          "targetKey": null
-        },
-        {
-          "originalKey": "disabled",
-          "type": "array",
-          "defaultValue": [],
-          "status": "pending",
-          "category": null,
-          "targetKey": null
-        }
-      ],
       "newMessage": [],
       "nutstore": [
         {
@@ -1693,36 +1675,12 @@
           "targetKey": null
         },
         {
-          "originalKey": "maxKeepAliveMinapps",
-          "type": "number",
-          "defaultValue": 3,
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "feature.mini_app.max_keep_alive"
-        },
-        {
           "originalKey": "showOpenedMinappsInSidebar",
           "type": "boolean",
           "defaultValue": true,
           "status": "deleted",
           "category": null,
           "targetKey": null
-        },
-        {
-          "originalKey": "minappsOpenLinkExternal",
-          "type": "boolean",
-          "defaultValue": false,
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "feature.mini_app.open_link_external"
-        },
-        {
-          "originalKey": "minAppRegion",
-          "type": "PreferenceTypes.MiniAppRegionFilter",
-          "defaultValue": "auto",
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "feature.mini_app.region"
         },
         {
           "originalKey": "enableDataCollection",

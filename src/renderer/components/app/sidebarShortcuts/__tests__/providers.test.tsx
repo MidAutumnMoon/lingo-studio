@@ -1,6 +1,5 @@
 import { MockDataApiUtils } from '@test-mocks/renderer/DataApiService'
 import { mockPreferenceService } from '@test-mocks/renderer/PreferenceService'
-import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { dataApiService } from '@renderer/data/DataApiService'
@@ -37,7 +36,6 @@ describe('core sidebar shortcut providers', () => {
 
   it.each([
     ['core.app', 'files', 'workspace', '/app/files'],
-    ['core.mini-app', 'mini app/one', 'workspace', '/app/mini-app/mini%20app%2Fone'],
     ['core.agent', 'agent/one', 'workspace', '/app/agents?agentId=agent%2Fone'],
     ['core.knowledge-base', 'base/one', 'workspace', '/app/knowledge?baseId=base%2Fone'],
     ['core.topic', 'topic/one', 'workspace', '/app/chat?topicId=topic%2Fone'],
@@ -121,19 +119,6 @@ describe('core sidebar shortcut providers', () => {
     ])
     expect([...result.values()].every((item) => item.supportsNewTab)).toBe(true)
     expect(mocks.dataGet).not.toHaveBeenCalled()
-  })
-
-  it('keeps a configured Mini App image in the full icon slot', async () => {
-    mocks.dataGet.mockResolvedValue([{ appId: 'branded', name: 'Branded', logoSrc: '/brand.png' }])
-    const result = await provider('core.mini-app').resolveMany([
-      createSidebarShortcutTarget('core.mini-app', 'branded')
-    ])
-    const resource = [...result.values()][0]
-    if (!resource) throw new Error('Expected the Mini App shortcut to resolve')
-
-    render(resource.renderIcon({ slotSize: 18, glyphSize: 16 }))
-
-    expect(screen.getByRole('img', { name: 'Branded' })).toHaveStyle({ width: '18px', height: '18px' })
   })
 
   it('batch-resolves only requested topics through one exact-id query', async () => {

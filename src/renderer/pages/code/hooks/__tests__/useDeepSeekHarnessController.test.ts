@@ -7,12 +7,7 @@ import { CLI_API_GATEWAY_PROVIDER_ID, CodeCli } from '@shared/types/codeCli'
 
 const mocks = vi.hoisted(() => ({
   request: vi.fn(),
-  openSmartMiniApp: vi.fn(),
   toastError: vi.fn()
-}))
-
-vi.mock('@renderer/hooks/useMiniAppPopup', () => ({
-  useMiniAppPopup: () => ({ openSmartMiniApp: mocks.openSmartMiniApp })
 }))
 
 vi.mock('@data/hooks/useCache', async (importOriginal) => importOriginal())
@@ -64,7 +59,7 @@ describe('useDeepSeekHarnessController', () => {
 
   afterEach(() => vi.restoreAllMocks())
 
-  it('starts directly without passing a directory, terminal, URL, port, or key and opens the Mini App', async () => {
+  it('starts directly without passing a directory, terminal, URL, port, or key and opens the web UI externally', async () => {
     const { result } = renderController()
     await act(async () => result.current.onLaunch())
 
@@ -74,13 +69,7 @@ describe('useDeepSeekHarnessController', () => {
       agentPreset: 'code',
       permissionMode: 'read-only'
     })
-    const descriptor = mocks.openSmartMiniApp.mock.calls[0][0]
-    expect(descriptor).toMatchObject({
-      appId: 'deepseek-harness-web',
-      name: 'DeepSeek Harness',
-      logo: 'deepseek'
-    })
-    expect(new URL(descriptor.url).searchParams.get('cherry_navigation_revision')).toBe('1776000000000')
+    expect(mocks.request).toHaveBeenCalledWith('system.shell.open_external_website', 'http://127.0.0.1:43123')
     // Running state is no longer written locally — it arrives as a main-pushed event.
     await act(async () => {
       emitStatusChanged({ status: 'running', url: 'http://127.0.0.1:43123' })
@@ -120,14 +109,14 @@ describe('useDeepSeekHarnessController', () => {
     })
   })
 
-  it('does not open a Mini App when main rejects the launch', async () => {
+  it('does not open the web UI when main rejects the launch', async () => {
     mocks.request.mockImplementation((route: string) => {
       if (route === 'deepseek_harness.start') return Promise.resolve({ success: false, message: 'config collision' })
       return Promise.resolve({ success: true })
     })
     const { result } = renderController()
     await act(async () => result.current.onLaunch())
-    expect(mocks.openSmartMiniApp).not.toHaveBeenCalled()
+    expect(mocks.request).not.toHaveBeenCalledWith('system.shell.open_external_website', expect.anything())
     expect(mocks.toastError).toHaveBeenCalledWith('config collision')
   })
 
@@ -144,7 +133,7 @@ describe('useDeepSeekHarnessController', () => {
     await waitFor(() => expect(result.current.running).toBe(true))
 
     await act(async () => result.current.onOpenWebUi())
-    expect(mocks.openSmartMiniApp).toHaveBeenCalledOnce()
+    expect(mocks.request).toHaveBeenCalledWith('system.shell.open_external_website', 'http://127.0.0.1:45231')
 
     // A kill surfaces immediately through the pushed event — no 5s polling wait.
     await act(async () => {

@@ -241,7 +241,6 @@ as heavy infrastructure. Idle tabs are the smaller cost; snapshot capture is the
 - browser-use keeps exactly one `about:blank` (AboutBlankWatchdog) and closes the browser when the
   agent ends; UI-TARS shares one Chrome and closes unresponsive pages during active-page election;
   playwright-mcp appends `### Open tabs` to every response so the model sees what it holds.
-- In-repo precedent: the mini-app webview pool (per-app partition + LRU eviction).
 
 **Target design and current boundary**
 
@@ -261,7 +260,7 @@ not delivered by PR1.
 | Snapshot cost (the real hot path) | `getFullAXTree + DOMSnapshot` costs 100 ms–1 s and MBs on large pages: cache the last revision per tab and emit **diffs by default**, viewport ±1000 px filter, 40 k-char cap, screenshots on demand rather than per step | browser-use cap, Codex diff, agent-browser `-i/-c` |
 
 Out of scope: cross-restart persistence of tab state (cookies already persist in the partition) and
-pre-warmed pools (unlike mini apps, agent tabs should be released when done).
+pre-warmed pools (agent tabs should be released when done).
 
 ## Roadmap
 
@@ -334,10 +333,9 @@ for limits, cleanup and real-runtime acceptance.
 
 ## Follow-ups / open questions
 
-- PR7 consolidates MiniApp and Browser guest hosting and navigation state while preserving
-  MiniApp lifetime/runtime policies and each product's toolbar. Website MiniApp login sharing
-  remains a separate product decision; infrastructure reuse does not merge partitions. See
-  [implementation §14](./browser-use-implementation.md#14-miniapp-and-browser-infrastructure-boundary)
+- PR7 consolidated Browser guest hosting and navigation state behind `WebviewHost` and
+  `useWebviewNavigation`; infrastructure reuse does not merge partitions. See
+  [implementation §14](./browser-use-implementation.md#14-shared-webview-host-infrastructure)
   for the ownership/storage matrix and acceptance criteria.
 - PR1 completed shared session ownership and annotation capture. P3 still needs a concrete
   annotation-target handoff contract before adding document/node identifiers to saved locators.

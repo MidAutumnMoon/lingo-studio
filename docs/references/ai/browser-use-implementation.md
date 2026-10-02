@@ -25,7 +25,7 @@ engine are in the same PR; there is no separate documentation prerequisite PR.
 | PR2 / B — `browser-use-mcp` | `browser-use-engine` | Implemented on this branch: MCP migration, snapshot/action tools, dialog/download results |
 | PR3 / C1–C2 — `browser-use-inspection` | PR B | Open in [#20139](https://github.com/CherryHQ/cherry-studio/pull/20139): inspection and same-document ref recovery |
 | Existing Agent browser integration — `agent-browser-integration` | PR3 | Open in [#20166](https://github.com/CherryHQ/cherry-studio/pull/20166): visible-page control, ordinary browsing, history/import, settings and skill (§12) |
-| PR7 — `webview-shared-host` | `agent-browser-integration` | Shared renderer guest host and navigation state for MiniApp and Browser (§14) |
+| PR7 — `webview-shared-host` | `agent-browser-integration` | Shared renderer guest host and navigation state (§14) |
 | Cursor feedback — `browser-use-cursor` | `webview-shared-host` | Agent pointer feedback follows the stable guest; hidden presentation skips visual waits (§12.1) |
 | C3 — `browser-use-webmcp` | `browser-use-cursor` | Native website tools for managed and Agent-bound guests (§5.7) |
 | C4–C5 follow-ups | PR3 | Retained-tab freezing and WebContentsView remain independent |
@@ -387,7 +387,7 @@ fallbacks and injected polyfills are outside this delivery.
 Electron 44.2.0 bundles Chromium 152.0.7977.76. That Chromium revision includes the
 [experimental CDP WebMCP domain](https://chromedevtools.github.io/devtools-protocol/tot/WebMCP/),
 while the page feature remains experimental. Browser guests explicitly enable the `WebMCP`
-Blink feature before page scripts run. Annotation-only MiniApps and artifact preview profiles
+Blink feature before page scripts run. Artifact preview profiles
 are not enabled by this change. Secure-context requirements still apply.
 
 The [Community Group draft](https://webmachinelearning.github.io/webmcp/) is not a W3C Standard.
@@ -939,7 +939,7 @@ resources and directory trees do not share a generic resource manager.
 Add an ordinary-browsing security profile alongside `AgentDevPreview` and `AgentHtmlArtifact`, using
 a dedicated persistent partition (`persist:agent-browser`). The settings import and
 visible ordinary pages resolve the same partition centrally. Do not merge the existing preview,
-artifact, MiniApp or legacy `persist:default` partitions, or silently migrate their data.
+artifact or legacy `persist:default` partitions, or silently migrate their data.
 
 Ordinary pages share login state across Agent Sessions; control authority does not cross sessions.
 Local preview URLs and explicitly opened HTML artifacts continue through their existing policies.
@@ -1175,7 +1175,7 @@ The Agent browser group opt-out remains independent. Disabling Agent control lea
 `app.browser.open_links_in_browser` also defaults true when unset. When enabled, ordinary HTTP(S) clicks in Agent
 message links open the current session's right browser pane through the message action provider;
 other website links open `/app/browser` tabs through main-window navigation, sharing the browser profile and history. Shell link
-IPC, host-window link interception, app menu links and external mini-app popups use that policy. Explicit
+IPC, host-window link interception and app menu links use that policy. Explicit
 external-browser buttons use a separate IPC command; OAuth authorization and non-HTTP schemes retain
 their existing handling.
 
@@ -1199,66 +1199,48 @@ Main-renderer readiness is revoked only for main-document navigation, renderer c
 destruction. Child-frame/WebView loading and same-document navigation keep the existing IPC receivers
 ready, so browser tabs and protocol requests do not remain queued behind an unrelated page load.
 
-## 14. MiniApp and Browser infrastructure boundary
+## 14. Shared webview host infrastructure
 
-PR7 (`webview-shared-host`, based on `agent-browser-integration`) consolidates the renderer
-guest host and navigation state. Both products compose `WebviewHost`; MiniApp retains a
-`WebviewContainer` adapter for runtime preparation and product callbacks.
+PR7 (`webview-shared-host`, based on `agent-browser-integration`) consolidated the renderer
+guest host and navigation state. [WebviewHost](../../../src/renderer/components/WebviewHost.tsx)
+owns element creation, event cleanup, focus/keyboard forwarding and preference application;
+`WebviewBrowser` and `AgentBrowserRuntimeHost` compose it.
 
-| Layer | MiniApp | Browser | Current relationship |
-|---|---|---|---|
-| Guest host | [WebviewContainer](../../../src/renderer/components/MiniApp/WebviewContainer.tsx) | [WebviewHost](../../../src/renderer/components/WebviewHost.tsx), composed by `WebviewBrowser` | Shared element creation, event cleanup, focus/keyboard forwarding and preference application |
-| Navigation toolbar | `MinimalToolbar` | `WebviewNavigation` | Separate product controls; shared `useWebviewNavigation` for guest-bound navigation and address drafts |
-| Page lifetime | `MiniAppTabsPool` owns keep-alive and split-pane placement | Browser tab or Agent pane owns the guest | Separate product ownership |
-| Page search | `WebviewSearch` | `WebviewSearch` | Shared |
-| Annotation controls | Hidden | `WebviewAnnotationControls` in Agent panes only; hidden in standalone tabs | Requires a conversation receiver (`onAnnotationSaved`) |
-| Annotation accessibility capture | [annotationExport](../../../src/main/services/webview/annotationExport.ts) borrows a guest lease | `BrowserSessionService` / `GuestSession` | Shared debugger ownership and capture engine |
-| Runtime and security | `MiniAppRuntimeService`, app preparation and MiniApp host policies | Browser session/control and profile policies | Separate authorities; sharing capture does not grant Agent control over MiniApps |
+- Navigation toolbar: `WebviewNavigation` on top of the shared `useWebviewNavigation` hook for
+  guest-bound navigation and address drafts.
+- Page lifetime: the Browser tab or Agent pane owns the guest.
+- Page search: `WebviewSearch` is shared across hosts.
+- Annotation controls: `WebviewAnnotationControls` in Agent panes only; hidden in standalone
+  tabs, because they require a conversation receiver (`onAnnotationSaved`).
+- Annotation accessibility capture: [annotationExport](../../../src/main/services/webview/annotationExport.ts)
+  borrows a guest lease; `BrowserSessionService` / `GuestSession` own the debugger and capture engine.
 
 Storage remains isolated:
 
 | Surface | Electron partition |
 |---|---|
 | Ordinary Browser tabs and Agent browser panes | `persist:agent-browser` |
-| Website MiniApps (`kind: site`) | `persist:webview` |
-| Local MiniApps (`kind: app`) | `persist:miniapp:${appid}` |
+| Shared webview guests governed by `WebviewService` | `persist:webview` |
 
-Browser imports write website data to the ordinary Browser partition. Browser history tracking and
-the import banner also target ordinary Browser pages. They do not automatically apply to MiniApps,
-and importing a login into Browser does not log the user into a MiniApp.
+Browser imports write website data to the ordinary Browser partition; browser history tracking
+and the import banner also target ordinary Browser pages.
 
 The shared host accepts an explicit partition selected by its consumer. Browser maps its security
-profile at the composition boundary; MiniApp supplies its existing website or per-app partition.
-Main remains the authority for guest attachment, preload and permissions. Omitting
-`openLinksExternal` leaves the runtime popup policy untouched, so local MiniApps never install the
-ordinary website popup handler.
+profile at the composition boundary. Main remains the authority for guest attachment, preload and
+permissions.
 
 Host event subscriptions follow the concrete guest, while React Effect Events read current
-callbacks without replaying readiness on preference or callback changes. The MiniApp adapter waits
-for runtime preparation and remounts that preparation state when app identity changes. Its loaded
-callback timer is cancelled on a new full navigation or eviction. The pool still owns placement,
-keep-alive, visibility reporting and focused-pane context.
+callbacks without replaying readiness on preference or callback changes. Guest replacement
+removes listeners and pending updates before subscribing to the new guest; no polling is
+required.
 
 `useWebviewNavigation` binds navigation state to the concrete guest and revision. It shares back /
-forward state, main-frame URL tracking and address draft preservation across both toolbars. Guest
-replacement removes listeners and pending updates before subscribing to the new guest; no polling
-is required. URL validation, navigation submission, history suggestions and product actions remain
-with the respective toolbar.
+forward state, main-frame URL tracking and address draft preservation across hosts. URL
+validation, navigation submission and history suggestions remain with the toolbar.
 
-Acceptance covers both consumers: switching tabs and split layouts preserves the intended guest,
-listeners do not duplicate, late events from retired guests cannot overwrite the current toolbar,
-local apps wait for runtime preparation, and profile/permission isolation remains intact. Website
-MiniApp login sharing is a separate product decision; this refactor does not change partitions or
-migrate cookies/storage. Ordered batch actions and a generic Chat/Agent side pane remain outside PR7.
-
-PR7 validation: 91 focused renderer tests cover the host, both toolbars, Browser, MiniApp
-preparation, pool retention/split behavior and guest replacement. An isolated Electron 41.8.0
-component harness exercised real website MiniApp and Browser guests: address navigation/back,
-layout toggles without guest replacement, separate localStorage, preference updates without
-readiness replay, and one trusted keyboard relay. Local packaged-app preparation and popup
-policy preservation are covered by component tests; the native packaged-app path was not rerun.
-The temporary runtime was closed after both guests were released. The full test suite is
-intentionally skipped under the local validation override.
+Acceptance: switching tabs and split layouts preserves the intended guest, listeners do not
+duplicate, and late events from retired guests cannot overwrite the current toolbar; profile and
+permission isolation remains intact.
 
 ## 15. Assistant conversation browser
 

@@ -12,7 +12,6 @@ import { BaseService, Emitter, type Event, Injectable, Phase, ServicePhase } fro
 import { isLinux, isMac, isWin } from '@main/core/platform'
 import { isAppRendererUrl } from '@main/core/security/validateSender'
 import { WindowType } from '@main/core/window/types'
-import { isMiniAppPartition } from '@main/features/miniApp/runtime/partition'
 import { t } from '@main/i18n'
 import { openTabInMainWindow, resetMainRendererTabAttachDelivery } from '@main/services/mainWindowNavigation'
 import {
@@ -141,7 +140,7 @@ export class MainWindowService extends BaseService {
   private registerContextMenu() {
     // App-level so every webContents gets the menu — the main window's own
     // (web-contents-created fires during BrowserWindow construction, before
-    // onWindowCreatedByType) and all webviews like miniapp. Must stay a single
+    // onWindowCreatedByType) and all webview guests. Must stay a single
     // registration here: a per-window one would stack one app listener per
     // singleton main-window rebuild and pop duplicate menus.
     const handler = (_: Electron.Event, webContents: Electron.WebContents) => {
@@ -430,13 +429,12 @@ export class MainWindowService extends BaseService {
 
     mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
       const securityProfile = getWebviewSecurityProfile(params.partition ?? '')
-      // Mini app partitions carry their own gate (installMiniAppWebviewHost) and the
-      // shared `persist:webview` lockdown lives in WebviewService.attachWebviewPreload.
+      // The shared `persist:webview` lockdown lives in WebviewService.attachWebviewPreload.
       if (!securityProfile) {
-        if (!isMiniAppPartition(params.partition)) event.preventDefault()
+        event.preventDefault()
         return
       }
-      if (securityProfile === WebviewSecurityProfile.MiniApp) return
+      if (securityProfile === WebviewSecurityProfile.SharedWebview) return
 
       if (
         (securityProfile === WebviewSecurityProfile.AgentBrowser &&
@@ -659,7 +657,7 @@ export class MainWindowService extends BaseService {
           action: 'allow',
           overrideBrowserWindowOptions: {
             webPreferences: {
-              partition: getWebviewPartition(WebviewSecurityProfile.MiniApp)
+              partition: getWebviewPartition(WebviewSecurityProfile.SharedWebview)
             }
           }
         }

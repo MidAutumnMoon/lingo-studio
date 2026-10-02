@@ -24,10 +24,6 @@ vi.mock('@tanstack/react-router', () => ({
   useSearch: () => mocks.search
 }))
 
-vi.mock('@renderer/hooks/useMiniAppPopup', () => ({
-  useMiniAppPopup: () => ({ openSmartMiniApp: vi.fn() })
-}))
-
 vi.mock('@renderer/hooks/useOpenReleaseNotes', () => ({
   useOpenReleaseNotes: () => vi.fn()
 }))

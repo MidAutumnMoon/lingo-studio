@@ -298,9 +298,7 @@ describe('TabRouter', () => {
   })
 
   it('quietly covers the outgoing page while an external retarget is unresolved', () => {
-    const { rerender } = render(
-      <TabRouter tab={tab('route-tab', '/app/mini-app/claude')} isActive onUrlChange={() => {}} />
-    )
+    const { rerender } = render(<TabRouter tab={tab('route-tab', '/app/notes')} isActive onUrlChange={() => {}} />)
 
     rerender(<TabRouter tab={tab('route-tab', '/app/agents')} isActive onUrlChange={() => {}} />)
 

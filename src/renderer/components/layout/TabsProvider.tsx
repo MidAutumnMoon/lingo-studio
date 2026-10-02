@@ -65,10 +65,6 @@ function routePathOfTab(tab: Tab): string | null {
   }
 }
 
-function isTransientMiniAppTab(tab: Tab): boolean {
-  return tab.metadata?.transientMiniApp === true
-}
-
 /**
  * Reconcile persisted pinned tabs against routes that have since been removed or relocated: drop
  * `/app/library` pins outright, and redirect `/app/openclaw` pins to `/app/code` (deduping so the
@@ -80,10 +76,6 @@ export function migratePinnedTabs(pinnedTabs: Tab[]): { tabs: Tab[]; changed: bo
   const tabs: Tab[] = []
   let changed = false
   for (const tab of pinnedTabs) {
-    if (isTransientMiniAppTab(tab)) {
-      changed = true
-      continue
-    }
     const path = routePathOfTab(tab)
     if (path === LEGACY_LIBRARY_ROUTE_PATH) {
       changed = true
@@ -110,14 +102,13 @@ function withLocalizedRouteTitle(tab: Tab): Tab {
     return tab.title ? tab : { ...tab, title: getDefaultRouteTitle(tab.url) }
   }
   // Only auto-localize titles for top-level and settings routes. Parameterized
-  // routes (e.g. /app/mini-app/<id>) preserve the title supplied at openTab
-  // time so callers can pass per-entity names like a mini-app's display name.
+  // routes preserve the title supplied at openTab time so callers can pass
+  // per-entity names.
   //
   // The `home` tab follows the SAME rule — it must not be special-cased into an
   // unconditional route-default title. When the home tab is reused for a
-  // per-entity route (e.g. opening a mini-app from the sidebar), forcing the
-  // route default here clobbers the caller-supplied title every render and
-  // fights MiniAppPage's title-sync effect, spinning into an infinite
+  // per-entity route, forcing the route default here clobbers the
+  // caller-supplied title every render and can spin into an infinite
   // `updateTab` loop ("Maximum update depth exceeded"). On top-level / settings
   // routes the branch below still relocalizes the home tab, so language changes
   // are unaffected.
@@ -155,7 +146,7 @@ function computeInitialSession(params: {
   persistedActiveTabId: string
 }): InitialSession {
   const { includePinnedTabs, initialDefaultTab, pinnedTabs, persistedNormalTabs, persistedActiveTabId } = params
-  const restorableNormalTabs = persistedNormalTabs.filter((tab) => !isTransientMiniAppTab(tab))
+  const restorableNormalTabs = persistedNormalTabs
 
   const freshSession: InitialSession = {
     normalTabs: initialDefaultTab ? [initialDefaultTab] : [],
@@ -286,7 +277,7 @@ export function TabsProvider({
   // coalesces redundant writes.
   useEffect(() => {
     if (!includePinnedTabs) return
-    setPersistedNormalTabs(normalTabs.filter((tab) => !isTransientMiniAppTab(tab)))
+    setPersistedNormalTabs(normalTabs)
   }, [includePinnedTabs, normalTabs, setPersistedNormalTabs])
 
   useEffect(() => {
@@ -546,7 +537,7 @@ export function TabsProvider({
   const pinTab = useCallback(
     (id: string) => {
       const tab = tabs.find((t) => t.id === id)
-      if (!tab || tab.isPinned || isTransientMiniAppTab(tab)) return
+      if (!tab || tab.isPinned) return
 
       // Remove from normalTabs
       setNormalTabs((prev) => prev.filter((t) => t.id !== id))

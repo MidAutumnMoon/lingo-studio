@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useMiniAppPopup } from '@renderer/hooks/useMiniAppPopup'
 import { ipcApi } from '@renderer/ipc'
 import { loggerService } from '@renderer/services/LoggerService'
 import { toast } from '@renderer/services/toast'
@@ -43,7 +42,6 @@ export function useDeepSeekHarnessController({
   setCurrentProvider
 }: UseDeepSeekHarnessControllerOptions): DeepSeekHarnessController {
   const { t } = useTranslation()
-  const { openSmartMiniApp } = useMiniAppPopup()
   const isDeepSeekHarness = selectedCliTool === CodeCli.DEEPSEEK_HARNESS
   // Status comes from main-pushed events (single source of truth); only the local
   // launching/stopping intents live here, covering the gap until events arrive.
@@ -55,19 +53,9 @@ export function useDeepSeekHarnessController({
     [currentProviderConfig?.config]
   )
 
-  const openWebUi = useCallback(
-    (webUrl: string) => {
-      const target = new URL(webUrl)
-      target.searchParams.set('cherry_navigation_revision', String(Date.now()))
-      openSmartMiniApp({
-        appId: 'deepseek-harness-web',
-        name: 'DeepSeek Harness',
-        url: target.toString(),
-        logo: 'deepseek'
-      })
-    },
-    [openSmartMiniApp]
-  )
+  const openWebUi = useCallback((webUrl: string) => {
+    void ipcApi.request('system.shell.open_external_website', webUrl)
+  }, [])
 
   const handleLaunch = useCallback(async () => {
     const parsedModelId = await resolveLaunchModelId({

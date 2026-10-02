@@ -195,10 +195,6 @@ vi.mock('../hooks/useApiGatewayProvider', () => ({
   useApiGatewayProvider: () => gatewayState.bundle
 }))
 
-vi.mock('@renderer/hooks/useMiniAppPopup', () => ({
-  useMiniAppPopup: () => ({ openSmartMiniApp: vi.fn() })
-}))
-
 vi.mock('@renderer/hooks/useModel', () => ({
   useModels: () => ({ models: [...gatewayState.modelsById.values()], isLoading: false })
 }))

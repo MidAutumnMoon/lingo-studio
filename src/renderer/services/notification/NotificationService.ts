@@ -11,8 +11,7 @@ export class NotificationService {
     const notificationSettings = await preferenceService.getMultiple({
       assistant: 'app.notification.assistant.enabled',
       backup: 'app.notification.backup.enabled',
-      knowledge: 'app.notification.knowledge.enabled',
-      'mini-app': 'app.notification.mini_app.enabled'
+      knowledge: 'app.notification.knowledge.enabled'
     })
 
     if (notificationSettings[notification.source]) {

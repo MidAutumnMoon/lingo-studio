@@ -50,14 +50,6 @@ describe('the site webview preload', () => {
     expect(webPreferences.sandbox).toBe(true)
   })
 
-  it('yields the preload slot to a local mini app capability bridge', () => {
-    const webPreferences: { preload?: string; sandbox?: boolean } = {}
-
-    willAttach({}, webPreferences, { partition: 'persist:miniapp:com.example.mygame' })
-
-    expect(webPreferences).toEqual({})
-  })
-
   it('does not inject into an unrelated webview partition', () => {
     const webPreferences: { preload?: string; sandbox?: boolean } = {}
 

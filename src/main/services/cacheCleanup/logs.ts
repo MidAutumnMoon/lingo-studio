@@ -10,7 +10,6 @@ import {
   type CleanupTarget,
   collectOwnedTargets,
   isNodeError,
-  isPathWithin,
   issue,
   measurePaths,
   removeCleanupTarget,
@@ -52,10 +51,6 @@ async function collectLogTargets(minAgeDays: number): Promise<{
   issues: CacheCleanupIssue[]
 }> {
   const logsDir = application.getPath('app.logs')
-  // Mini apps keep their newest activity days however old those are — a monthly app must
-  // still show its last session — so calendar retention stays off that tree. Only the
-  // manual sweep, which the user asked for explicitly, takes those files.
-  const miniAppLogsDir = minAgeDays === 0 ? null : application.getPath('feature.mini_app.logs')
 
   let entries
   try {
@@ -68,12 +63,7 @@ async function collectLogTargets(minAgeDays: number): Promise<{
 
   return collectOwnedTargets(
     entries
-      .filter(
-        (entry) =>
-          entry.isFile() &&
-          isRemovable(entry.name, minAgeDays) &&
-          !(miniAppLogsDir && isPathWithin(entry.parentPath, miniAppLogsDir))
-      )
+      .filter((entry) => entry.isFile() && isRemovable(entry.name, minAgeDays))
       .map((entry): CleanupTarget => ({ item: 'logs', path: path.join(entry.parentPath, entry.name), kind: 'file' }))
   )
 }

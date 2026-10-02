@@ -19,7 +19,7 @@ export const COMMAND_DEFINITIONS = [
     keybinding: {
       defaultBinding: ['Escape'],
       editable: false,
-      // A MiniApp guest owns Escape (closing its own dialogs); the host must not steal it.
+      // A webview guest owns Escape (closing its own dialogs); the host must not steal it.
       when: '!webview.focused'
     }
   }),

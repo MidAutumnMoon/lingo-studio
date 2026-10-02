@@ -13,6 +13,6 @@ it.each([
   ['javascript:alert(1)', null],
   ['custom:page', null],
   ['', null]
-])('normalizes the same address for browser and MiniApp: %s', (input, expected) => {
+])('normalizes a webview address bar input: %s', (input, expected) => {
   expect(normalizeWebviewAddress(input)).toBe(expected)
 })
