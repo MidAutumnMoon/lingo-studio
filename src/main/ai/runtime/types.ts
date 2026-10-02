@@ -11,9 +11,9 @@ import type { AutonomousTurnOrigin } from '@shared/ai/agentSessionTurnOrigin'
 import type { Tool } from '@shared/ai/tool'
 import type { AgentSessionMessageEntity } from '@shared/data/api/schemas/agentSessionMessages'
 import type { AgentSessionEntity } from '@shared/data/api/schemas/agentSessions'
-import type { AiUsagePricingSnapshot } from '@shared/data/types/aiUsageRecord'
+import type { AiUsagePricingSnapshot, AiUsageCostBreakdown } from '@shared/data/types/aiUsageRecord'
 import type { MessageSnapshot } from '@shared/data/types/message'
-import type { ServiceTierSelection, UniqueModelId } from '@shared/data/types/model'
+import type { Currency, ServiceTierSelection, UniqueModelId } from '@shared/data/types/model'
 import type { AgentTaskEventPartData } from '@shared/data/types/uiParts'
 import type { ReasoningEffortOption } from '@shared/types/aiSdk'
 
@@ -125,6 +125,12 @@ export interface AgentRuntimeUsageInvocation {
     noCacheTokens: number
     cacheReadTokens: number
     cacheWriteTokens: number
+  }
+  /** Serving-runtime-computed cost (pi pricing); absent → the app-side computed fallback applies. */
+  providerCost?: {
+    amount: number
+    currency: Currency
+    breakdown?: AiUsageCostBreakdown
   }
   metrics?: {
     timeFirstTokenMs?: number

@@ -23,6 +23,7 @@ import {
   resolvePiProviderInjectionFromSnapshot,
   withPiSessionHeader
 } from './modelInjection'
+import { toProviderCost, type PiProviderCost } from './piCost'
 import { createIsolatedPiModelRuntime } from './piSdk'
 
 const logger = loggerService.withContext('PiOneShot')
@@ -65,6 +66,8 @@ export interface PiOneShotUsage {
 export interface PiOneShotTextResult {
   text: string
   usage: PiOneShotUsage
+  /** Provider-computed cost from pi's pricing, when rates are known (see `toProviderCost`). */
+  providerCost: PiProviderCost | undefined
   /** Injection the call ran on — model id + credential receipt for usage attribution. */
   injection: PiDirectProviderInjection
   /** Wall-clock duration of the provider call, for usage-record metrics. */
@@ -199,5 +202,11 @@ export async function runPiOneShotText(request: PiOneShotTextRequest): Promise<P
   if (message.stopReason === 'aborted') {
     throw new DOMException('pi one-shot generation aborted', 'AbortError')
   }
-  return { text: assistantText(message), usage: toUsageRecord(message.usage), injection, timeCompletionMs }
+  return {
+    text: assistantText(message),
+    usage: toUsageRecord(message.usage),
+    providerCost: toProviderCost(message.usage.cost),
+    injection,
+    timeCompletionMs
+  }
 }

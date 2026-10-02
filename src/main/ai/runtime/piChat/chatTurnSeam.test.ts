@@ -195,16 +195,25 @@ describe('pi chat seam gate', () => {
     expect(await tryStreamPiChatTurn(input)).toBeNull()
   })
 
-  it('falls back to legacy for gateway client-tool requests', async () => {
+  it('errors explicitly (no legacy fallback) for gateway client-tool requests', async () => {
     mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({ callOverrides: { tools: { external: {} } } })
-    expect(await tryStreamPiChatTurn(input)).toBeNull()
+    const stream = await tryStreamPiChatTurn(input)
+    expect(stream).not.toBeNull()
+    const reader = stream!.getReader()
+    const { value, done } = await reader.read()
+    expect(done).toBe(false)
+    expect(value).toEqual({ type: 'error', errorText: expect.stringContaining('tool-less clients only') })
+    expect(await reader.read()).toEqual({ value: undefined, done: true })
+    expect(mockStreamPiChatTurn).not.toHaveBeenCalled()
   })
 
-  it('falls back to legacy for an API-key override (not represented in the pi injection)', async () => {
+  it('serves an API-key override on pi, threaded into the injection', async () => {
     mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({ apiKeyOverride: 'sk-override' })
-    expect(await tryStreamPiChatTurn(input)).toBeNull()
+    const stream = await tryStreamPiChatTurn(input)
+    expect(stream).not.toBeNull()
+    expect(mockResolveInjection).toHaveBeenCalledWith(expect.anything(), expect.anything(), undefined, 'sk-override')
   })
 
   it('fails the turn (no fallback) when the shared plan rejects', async () => {

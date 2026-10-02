@@ -704,6 +704,7 @@ export class AiService extends BaseService {
       context: captureContext,
       modality: 'language',
       usage: result.usage,
+      ...(result.providerCost ? { providerCost: result.providerCost } : {}),
       metrics: { timeCompletionMs: result.timeCompletionMs },
       completedAt: Date.now()
     })

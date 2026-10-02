@@ -35,7 +35,6 @@ import type {
   ToolDefinition
 } from '@earendil-works/pi-coding-agent'
 import { context as otelContext, SpanKind, SpanStatusCode, trace, type Span } from '@opentelemetry/api'
-import type { FinishReason } from 'ai'
 
 import { application } from '@application'
 import { loggerService } from '@logger'
@@ -48,8 +47,10 @@ import {
   ToolLoopTerminalError
 } from '@main/ai/tools/toolLoopTerminal'
 import { getReasoningTagName } from '@main/ai/utils/reasoning'
+import type { FinishReason } from '@shared/ai/uiDialect'
 import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/message'
 
+import { toProviderCost } from '../pi/piCost'
 import { withPiInvocationCapture, type PiInvocationMetrics } from '../pi/PiRuntimeConnection'
 import { createIsolatedPiModelRuntime, loadPiSdk } from '../pi/piSdk'
 import { PiStreamAdapter } from '../pi/piStreamAdapter'
@@ -283,6 +284,7 @@ function buildInvocation(
   const cacheWriteTokens = finiteTokenCount(message.usage.cacheWrite)
   const inputTokens = noCacheTokens + cacheReadTokens + cacheWriteTokens
   const outputTokens = finiteTokenCount(message.usage.output)
+  const providerCost = toProviderCost(message.usage.cost)
   return {
     requestId: `pi-chat:${request.executionId}:${message.responseId?.trim() || `${message.timestamp}:${message.model}`}`,
     model: message.responseModel?.trim() || message.model || request.provider.modelId,
@@ -296,6 +298,7 @@ function buildInvocation(
       cacheReadTokens,
       cacheWriteTokens
     },
+    ...(providerCost ? { providerCost } : {}),
     ...(metrics ? { metrics } : {})
   }
 }

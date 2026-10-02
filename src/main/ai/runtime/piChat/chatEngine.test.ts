@@ -1,9 +1,9 @@
 import type { TranscriptContext } from '@earendil-works/pi-ai'
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent'
-import { readUIMessageStream } from 'ai'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as z from 'zod'
 
+import { readUIMessageStream } from '@shared/ai/uiDialect'
 import type { CherryUIMessage, CherryUIMessageChunk } from '@shared/data/types/message'
 
 import { toolApprovalRegistry } from '../../toolApproval/ToolApprovalRegistry'
@@ -685,6 +685,9 @@ describe('streamPiChatTurn', () => {
     expect(usage!.totalTokens).toBe(usage!.inputTokens + usage!.outputTokens)
     // The faux reports no reasoning breakdown, so the field must be absent, not zeroed.
     expect('reasoningTokens' in usage!).toBe(false)
+    // The faux provider reports a zero-cost usage (no pricing known), so the record
+    // must NOT carry a providerCost — the app-side computed fallback stays in charge.
+    expect(invocations[0].providerCost).toBeUndefined()
     expect(invocations[0].metrics?.timeCompletionMs).toBeGreaterThanOrEqual(0)
   })
 

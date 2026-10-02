@@ -94,6 +94,18 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
 
   if (!piChatEngineEnabled()) return null
 
+  // Owner decision: the gateway serves tool-less clients only. A tool-carrying
+  // request has no pi lane and no long-term legacy home — fail loud at the seam
+  // instead of degrading to a legacy run that dies with the engine.
+  if (Object.keys(request.callOverrides?.tools ?? {}).length > 0) {
+    logger.warn('pi chat engine: rejecting a tool-carrying gateway request', {
+      topicId: request.conversation.topicId
+    })
+    return errorTextStream(
+      'Client tools are not supported: this gateway serves tool-less clients only. Remove the tools parameter or execute tool calls in your own client.'
+    )
+  }
+
   const exclusion = resolvePiExclusion(input)
   if (exclusion) {
     logger.info('pi chat engine excluded, falling back to legacy', {
@@ -109,7 +121,7 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
   // its own well-known error UX for missing keys).
   const injection = (() => {
     try {
-      return resolvePiProviderInjectionFromSnapshot(provider, model)
+      return resolvePiProviderInjectionFromSnapshot(provider, model, undefined, request.apiKeyOverride)
     } catch (error) {
       if (error instanceof PiUnsupportedProviderError) {
         logger.info('pi chat engine excluded, falling back to legacy', {
@@ -281,6 +293,7 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
           context: captureContext,
           modality: 'language',
           usage: invocation.usage,
+          ...(invocation.providerCost ? { providerCost: invocation.providerCost } : {}),
           metrics: invocation.metrics,
           completedAt: Date.now()
         })
@@ -315,7 +328,8 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
 
 /** The per-execution matrix exclusions (register rows); `undefined` means "gate passes".
  *  Pure checks only — the provider-injection try/catch lives in the main flow so the
- *  credential rotation is consumed at most once. */
+ *  credential rotation is consumed at most once. Client tools were moved out: they are
+ *  an explicit seam error (tool-less gateway policy), not a legacy fallback. */
 function resolvePiExclusion(input: PiChatSeamInput): string | undefined {
   const { request } = input
 
@@ -331,15 +345,17 @@ function resolvePiExclusion(input: PiChatSeamInput): string | undefined {
     return 'served list does not end with a user message (legacy pause / degenerate regenerate)'
   }
 
-  // Gateway client tools carry no execute implementation; the pi surface converts
-  // registry entries only and a client tool would fail at call time.
-  if (Object.keys(request.callOverrides?.tools ?? {}).length > 0) return 'client tools (gateway tools request)'
-
-  // The API-key override is an AI-SDK serving concern; the pi injection resolves
-  // its own credential and would silently ignore the override.
-  if (request.apiKeyOverride) return 'apiKeyOverride (not represented in the pi injection)'
-
   return undefined
+}
+
+/** A one-chunk error stream — the dialect's terminal error chunk, as the engine emits on failure. */
+function errorTextStream(errorText: string): ReadableStream<UIMessageChunk> {
+  return new ReadableStream<UIMessageChunk>({
+    start(controller) {
+      controller.enqueue({ type: 'error', errorText })
+      controller.close()
+    }
+  })
 }
 
 /**
