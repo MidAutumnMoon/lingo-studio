@@ -28,7 +28,7 @@ import type { Provider as DataProvider } from '@shared/data/types/provider'
 import type { BinaryAvailability } from '@shared/types/binary'
 import type { OperationResult } from '@shared/types/codeTools'
 import { type AbsoluteFilePath, AbsoluteFilePathSchema } from '@shared/types/file'
-import { formatApiHost, hasApiVersion, withoutTrailingSlash } from '@shared/utils/api'
+import { hasApiVersion, withoutTrailingSlash } from '@shared/utils/api'
 import { isNonChatModel } from '@shared/utils/model'
 import { redactSecretText } from '@shared/utils/redaction'
 
@@ -365,7 +365,6 @@ const OPENCLAW_API_TYPES = {
  */
 const NO_KEY_PLACEHOLDERS: Record<string, string> = {
   gpustack: 'gpustack',
-  ollama: 'ollama',
   lmstudio: 'lmstudio'
 }
 
@@ -1359,7 +1358,7 @@ export class OpenClawService extends BaseService {
 
       // Get API key - for vertexai, get access token from VertexAiService
       // If multiple API keys are configured (comma-separated), use the first one
-      // Some providers like Ollama and LM Studio don't require API keys
+      // Some providers like LM Studio don't require API keys
       let apiKey = provider.apiKey ? provider.apiKey.split(',')[0].trim() : ''
       if (isVertexProvider(provider)) {
         try {
@@ -1376,7 +1375,7 @@ export class OpenClawService extends BaseService {
         }
       }
 
-      // Providers like Ollama and LM Studio don't require real API keys,
+      // Providers like LM Studio don't require real API keys,
       // but OpenClaw needs a non-empty placeholder value
       if (!apiKey) {
         apiKey = this.getNoKeyPlaceholder(provider) ?? 'no-key-required'
@@ -1591,14 +1590,6 @@ export class OpenClawService extends BaseService {
    * - Others: {host}/v1
    */
   private formatOpenAIUrl(provider: Provider): string {
-    // Special-case the built-in Copilot provider: its host should
-    // not have a `/v1` suffix appended by default (renderer applies
-    // `formatApiHost(..., false)`). Mirror that behavior here
-    // to avoid constructing incorrect endpoints that return 404.
-    if (provider.id === 'copilot') {
-      return formatApiHost(provider.apiHost, false)
-    }
-
     const url = withoutTrailingSlash(provider.apiHost)
     const providerType = provider.type
 

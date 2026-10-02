@@ -316,28 +316,6 @@ describe('model connectivity against an HTTP provider', () => {
     expect(requests).toHaveLength(1)
   })
 
-  it('uses a real confirmed Ollama conversation instead of metadata-only health evidence', async () => {
-    dbh.db
-      .update(userProviderTable)
-      .set({
-        presetProviderId: 'ollama',
-        endpointConfigs: {
-          [ENDPOINT_TYPE.OLLAMA_CHAT]: { baseUrl: new URL(url).origin }
-        }
-      })
-      .run()
-    dbh.db
-      .update(userModelTable)
-      .set({ endpointTypes: [ENDPOINT_TYPE.OLLAMA_CHAT] })
-      .run()
-    const started = await start()
-    expect(requests).toEqual([])
-    expect(result(await confirm(started), 'provider-model-conversation')?.status).toBe('pass')
-    expect(paths).toContain('POST /api/chat')
-    expect(paths).not.toContain('POST /api/show')
-    expect(requests[0]).toMatchObject({ model: 'wire-model', stream: false })
-  })
-
   it.each(['endpoint', 'model deletion'] as const)('invalidates confirmation after %s changes', async (change) => {
     const started = await start()
     if (change === 'endpoint')

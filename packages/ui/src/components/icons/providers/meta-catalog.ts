@@ -61,7 +61,6 @@ import { meta as flowithMeta } from './flowith/meta'
 import { meta as gensparkMeta } from './genspark/meta'
 import { meta as giteeAiMeta } from './gitee-ai/meta'
 import { meta as githubMeta } from './github/meta'
-import { meta as githubCopilotMeta } from './github-copilot/meta'
 import { meta as glamaMeta } from './glama/meta'
 import { meta as googleMeta } from './google/meta'
 import { meta as gpustackMeta } from './gpustack/meta'
@@ -110,7 +109,6 @@ import { meta as notebooklmMeta } from './notebooklm/meta'
 import { meta as nousresearchMeta } from './nousresearch/meta'
 import { meta as nvidiaMeta } from './nvidia/meta'
 import { meta as ocoolaiMeta } from './ocoolai/meta'
-import { meta as ollamaMeta } from './ollama/meta'
 import { meta as omlxMeta } from './omlx/meta'
 import { meta as openaiMeta } from './openai/meta'
 import { meta as openclawMeta } from './openclaw/meta'
@@ -224,7 +222,6 @@ export const PROVIDER_ICON_META_CATALOG = {
   genspark: gensparkMeta,
   'gitee-ai': giteeAiMeta,
   github: githubMeta,
-  'github-copilot': githubCopilotMeta,
   glama: glamaMeta,
   google: googleMeta,
   gpustack: gpustackMeta,
@@ -273,7 +270,6 @@ export const PROVIDER_ICON_META_CATALOG = {
   nousresearch: nousresearchMeta,
   nvidia: nvidiaMeta,
   ocoolai: ocoolaiMeta,
-  ollama: ollamaMeta,
   omlx: omlxMeta,
   openai: openaiMeta,
   openclaw: openclawMeta,

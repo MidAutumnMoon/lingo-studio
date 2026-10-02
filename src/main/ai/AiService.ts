@@ -53,7 +53,7 @@ import {
   isNonChatModel,
   isRerankModel
 } from '@shared/utils/model'
-import { isExternalCliProvider, isOllamaProvider } from '@shared/utils/provider'
+import { isExternalCliProvider } from '@shared/utils/provider'
 
 import { isAgentSessionTopic } from './agentSession/topic'
 import { createAnalyticsHook } from './hooks/analyticsHook'
@@ -69,7 +69,7 @@ import type { ImageGenerationJobOutput, ImageGenerationJobPayload } from './prov
 import { buildVendorProviderOptions } from './provider/custom/wire/buildImageRequest'
 import { DEFAULT_DIFFUSION_REGISTRATION, WIRE_REGISTRY } from './provider/custom/wire/wireProfile'
 import { resolveEffectiveEndpoint, resolveWireModelId } from './provider/endpoint'
-import { listModels as listModelsFromProvider, probeOllamaModel } from './provider/listModels'
+import { listModels as listModelsFromProvider } from './provider/listModels'
 import { resolveSdkConfig } from './provider/sdkConfig'
 import type { AgentLoopHooks, NativeFileSupport, RequestFeature } from './runtime/aiSdk'
 import { Agent, buildAgentParams } from './runtime/aiSdk'
@@ -661,7 +661,7 @@ export class AiService extends BaseService {
 
     // Same media gating as the streaming path — `agent.generate` hands `ModelMessage[]` to the
     // SDK as-is, so without these the structured tool-result media the converter produces would
-    // be JSON/base64-encoded or rejected on OpenAI/Ollama, diverging from `stream`.
+    // be JSON/base64-encoded or rejected on OpenAI-compatible wires, diverging from `stream`.
     const mediaCapabilities = resolveMediaCapabilities(model)
     const agent = new Agent({
       providerId: sdkConfig.providerId,
@@ -1116,9 +1116,7 @@ export class AiService extends BaseService {
     const probeRequest = { ...request, requestOptions: { ...request.requestOptions, signal } }
     try {
       let probe: Promise<unknown>
-      if (isOllamaProvider(provider) && !options?.chatOnly) {
-        probe = probeOllamaModel(provider, model.apiModelId, signal, request.apiKeyOverride)
-      } else if (!options?.chatOnly && isRerankModel(model)) {
+      if (!options?.chatOnly && isRerankModel(model)) {
         probe = this.rerank({ ...probeRequest, query: 'test', documents: ['test'], topN: 1 }).then((result) => {
           if (result.ranking.length === 0) {
             throw new Error('Rerank health check returned empty ranking')

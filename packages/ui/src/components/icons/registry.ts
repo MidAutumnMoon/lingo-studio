@@ -295,8 +295,6 @@ const PROVIDER_ID_ALIASES: Record<string, string> = {
   yi: 'zero-one',
   ovms: 'intel',
   gemini: 'google',
-  copilot: 'github-copilot',
-  'github-copilot-openai-compatible': 'github-copilot',
   doubao: 'volcengine',
   stepfun: 'step',
   voyageai: 'voyage',

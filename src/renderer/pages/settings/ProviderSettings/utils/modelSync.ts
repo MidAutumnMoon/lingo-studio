@@ -64,8 +64,8 @@ export function toCreateModelDto(
     group: model.group,
     ...(capabilities ? { capabilities: [...capabilities] } : {}),
     ...(resolvedEndpointTypes?.length ? { endpointTypes: [...resolvedEndpointTypes] } : {}),
-    // Discovered rather than registry-supplied for local providers — Ollama's window comes from
-    // `/api/show`, and dropping it here leaves the row without one, so no `num_ctx` is ever sent.
+    // Discovered rather than registry-supplied for local providers — dropping it here
+    // leaves the row without one, so no context limit is ever sent.
     ...(model.contextWindow ? { contextWindow: model.contextWindow } : {})
   }
 }

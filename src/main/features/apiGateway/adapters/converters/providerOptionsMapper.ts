@@ -138,22 +138,6 @@ export function mapAnthropicThinkingToProviderOptions(
       resolveNativeAnthropicEffort(provider, model, resolvedEndpoint, effort, maxTokens)
     )
   }
-  // Ollama's ChatHandler 400s when `think` is true for a model that lacks
-  // thinking capability. The SDK default ({type:'adaptive'}) would map to
-  // think:true, breaking agent mode for non-thinking models. Only emit think
-  // when the user explicitly enabled thinking or set a reasoning effort.
-  if (endpointType === ENDPOINT_TYPE.OLLAMA_CHAT) {
-    if (config?.type !== 'disabled' && effort == null && config?.type !== 'enabled') return undefined
-    const context = resolveProviderReasoningContext(provider, model, resolvedEndpoint)
-    if (config?.type === 'disabled') return buildProviderOptions(context, 'none', maxTokens)
-    if (effort != null) return buildProviderOptions(context, effort, maxTokens)
-    if (config?.type === 'enabled') {
-      const budgetEffort =
-        nearestEffortForBudget(config.budget_tokens, context.invocationModel.reasoning?.thinkingTokenLimits) ?? 'high'
-      return buildProviderOptions(context, budgetEffort, maxTokens)
-    }
-    return undefined
-  }
 
   if (effort != null) {
     return buildProviderOptions(resolveProviderReasoningContext(provider, model, resolvedEndpoint), effort, maxTokens)

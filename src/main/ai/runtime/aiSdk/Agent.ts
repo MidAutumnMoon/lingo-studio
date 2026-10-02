@@ -168,7 +168,7 @@ export class Agent<T extends AppProviderKey = AppProviderKey> {
           ? { prompt: input.prompt, ...(signal && { abortSignal: signal }) }
           : {
               // Same wire-media gate `stream()` applies: without it, structured tool-result
-              // media (images/audio) rides as JSON/base64 or is rejected on OpenAI/Ollama.
+              // media (images/audio) rides as JSON/base64 or is rejected on OpenAI-compatible wires.
               messages: routeToolResultMedia(
                 input.messages,
                 this.params.mediaCapabilities ?? ALL_MEDIA,

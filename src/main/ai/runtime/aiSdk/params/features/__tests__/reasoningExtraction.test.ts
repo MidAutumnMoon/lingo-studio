@@ -4,10 +4,6 @@ import type { LanguageModelMiddleware } from 'ai'
 import { streamText, wrapLanguageModel } from 'ai'
 import { describe, expect, it } from 'vitest'
 
-import { ENDPOINT_TYPE } from '@shared/data/types/model'
-
-import { createOllamaWithImageModel } from '../../../../../provider/custom/ollama/ollamaProvider'
-import { reasoningExtractionFeature } from '../reasoningExtraction'
 import { createAnchoredReasoningExtraction } from '../reasoningExtractionMiddleware'
 
 const PROMPT: LanguageModelV3CallOptions['prompt'] = [
@@ -16,36 +12,6 @@ const PROMPT: LanguageModelV3CallOptions['prompt'] = [
 
 const OPEN_TAG = '<think>'
 const CLOSE_TAG = '</think>'
-
-interface OllamaMessageDelta {
-  content: string
-  thinking?: string
-}
-
-function ollamaChunk(message: OllamaMessageDelta, done = false): string {
-  return JSON.stringify({
-    model: 'qwen3.6:27b-mtp-q8_0',
-    created_at: '2026-08-19T00:00:00Z',
-    done,
-    message: { role: 'assistant', ...message },
-    ...(done ? { done_reason: 'stop', prompt_eval_count: 1, eval_count: 2 } : {})
-  })
-}
-
-async function getOllamaReasoningMiddleware(): Promise<LanguageModelMiddleware[]> {
-  const scope = {
-    endpointType: ENDPOINT_TYPE.OLLAMA_CHAT,
-    model: { id: 'ollama::qwen3.6:27b-mtp-q8_0' }
-  } as never
-
-  if (reasoningExtractionFeature.applies?.(scope) === false) return []
-
-  const middlewares: LanguageModelMiddleware[] = []
-  for (const plugin of reasoningExtractionFeature.contributeModelAdapters?.(scope) ?? []) {
-    await plugin.configureContext?.({ middlewares } as never)
-  }
-  return middlewares
-}
 
 async function streamWith(
   model: LanguageModelV3,
@@ -57,20 +23,6 @@ async function streamWith(
   const parts: LanguageModelV3StreamPart[] = []
   for await (const part of result.stream) parts.push(part)
   return parts
-}
-
-async function streamOllama(chunks: string[]): Promise<LanguageModelV3StreamPart[]> {
-  const fetch = () =>
-    Promise.resolve(
-      new Response(`${chunks.join('\n')}\n`, {
-        status: 200,
-        headers: { 'content-type': 'application/x-ndjson' }
-      })
-    )
-  const baseModel = createOllamaWithImageModel({ baseURL: 'https://ollama.example/api', fetch }).languageModel(
-    'qwen3.6:27b-mtp-q8_0'
-  )
-  return streamWith(baseModel, await getOllamaReasoningMiddleware())
 }
 
 /** openai-compatible chat model whose SSE stream is the given deltas, verbatim. */
@@ -149,39 +101,6 @@ function finishPart(): LanguageModelV3StreamPart {
     }
   }
 }
-
-describe('reasoningExtractionFeature', () => {
-  it('extracts inline Ollama reasoning when think tags are split across stream chunks', async () => {
-    const parts = await streamOllama([
-      ollamaChunk({ content: '<thi' }),
-      ollamaChunk({ content: 'nk>first step' }),
-      ollamaChunk({ content: ' and second step</th' }),
-      ollamaChunk({ content: 'ink>The answer is 42.' }),
-      ollamaChunk({ content: '' }, true)
-    ])
-
-    expect(joinedDelta(parts, 'reasoning-delta')).toBe('first step and second step')
-    expect(joinedDelta(parts, 'text-delta')).toBe('The answer is 42.')
-  })
-
-  it('preserves Ollama native thinking without duplicating it', async () => {
-    const parts = await streamOllama([
-      ollamaChunk({ content: '', thinking: 'native thought' }),
-      ollamaChunk({ content: 'Native answer.' }),
-      ollamaChunk({ content: '' }, true)
-    ])
-
-    expect(joinedDelta(parts, 'reasoning-delta')).toBe('native thought')
-    expect(joinedDelta(parts, 'text-delta')).toBe('Native answer.')
-  })
-
-  it('leaves ordinary Ollama text unchanged', async () => {
-    const parts = await streamOllama([ollamaChunk({ content: 'Plain answer.' }), ollamaChunk({ content: '' }, true)])
-
-    expect(joinedDelta(parts, 'reasoning-delta')).toBe('')
-    expect(joinedDelta(parts, 'text-delta')).toBe('Plain answer.')
-  })
-})
 
 describe('anchored inline reasoning extraction', () => {
   it('keeps a mid-text literal tag in the answer when the wire streamed structured reasoning', async () => {

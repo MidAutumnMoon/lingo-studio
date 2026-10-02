@@ -89,7 +89,7 @@ function createBase(id = 'kb-1'): KnowledgeBase {
     name: 'KB',
     groupId: null,
     dimensions: 1024,
-    embeddingModelId: 'ollama::nomic-embed-text',
+    embeddingModelId: 'silicon::BAAI/bge-m3',
     status: 'completed',
     error: null,
     chunkSize: DEFAULT_KNOWLEDGE_BASE_CHUNK_SIZE,

@@ -4,7 +4,7 @@ import { definePlugin } from '@cherrystudio/ai-core'
 
 /**
  * Qwen Thinking Middleware
- * Controls thinking mode for Qwen models on providers that don't support enable_thinking parameter (like Ollama)
+ * Controls thinking mode for Qwen models on providers that don't support enable_thinking parameter (like LMStudio)
  * Appends '/think' or '/no_think' suffix to user messages based on reasoning_effort setting
  *
  * NOTE: Qwen3.5 does not officially support the soft switch of Qwen3, i.e., /think and /nothink.
@@ -56,17 +56,16 @@ const createQwenThinkingPlugin = (enableThinking: boolean) =>
   })
 
 import { isQwen35to39Model, isSupportedThinkingTokenQwenModel } from '@shared/utils/model'
-import { isOllamaProvider, isSupportEnableThinkingProvider } from '@shared/utils/provider'
+import { isSupportEnableThinkingProvider } from '@shared/utils/provider'
 
 import type { RequestFeature } from '../feature'
 
 /** Qwen thinking toggle for providers that don't support the native
- *  `enable_thinking` parameter (e.g. non-Ollama Qwen serving). */
+ *  `enable_thinking` parameter (e.g. LMStudio-served Qwen). */
 export const qwenThinkingFeature: RequestFeature = {
   name: 'qwen-thinking',
   applies: (scope) =>
     (Boolean(scope.assistant) || scope.request.reasoningEffort !== undefined) &&
-    !isOllamaProvider(scope.provider) &&
     isSupportedThinkingTokenQwenModel(scope.model) &&
     !isQwen35to39Model(scope.model) &&
     !isSupportEnableThinkingProvider(scope.provider) &&

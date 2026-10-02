@@ -36,68 +36,6 @@ export const OpenAIModelsResponseSchema = z
     }
   })
 
-// === GitHub Copilot (/models) ===
-export const CopilotModelsResponseSchema = z.object({
-  data: z.array(
-    z.looseObject({
-      id: z.string(),
-      object: z.string().optional().default('model'),
-      created: z.number().optional(),
-      owned_by: z.string().optional(),
-      name: z.string().optional(),
-      vendor: z.string().optional(),
-      version: z.string().optional(),
-      preview: z.boolean().optional(),
-      model_picker_enabled: z.boolean().optional(),
-      policy: z
-        .looseObject({
-          state: z.string().optional(),
-          terms: z.string().optional()
-        })
-        .optional()
-    })
-  ),
-  object: z.string().optional()
-})
-
-// === Ollama ===
-
-export const OllamaTagsResponseSchema = z.object({
-  models: z.array(
-    z.looseObject({
-      name: z.string(),
-      model: z.string().optional(),
-      modified_at: z.string().optional(),
-      size: z.number().optional(),
-      digest: z.string().optional(),
-      capabilities: z.array(z.string()).optional(),
-      details: z
-        .looseObject({
-          parent_model: z.string().optional(),
-          format: z.string().optional(),
-          family: z.string().optional(),
-          families: z
-            .array(z.string())
-            .nullable()
-            .optional()
-            .transform((v) => v ?? undefined),
-          parameter_size: z.string().optional(),
-          quantization_level: z.string().optional()
-        })
-        .optional()
-    })
-  )
-})
-
-/**
- * `POST /api/show`. `model_info` keys are architecture-prefixed
- * (`llama.context_length`, `qwen3.context_length`, …), so the architecture has to be
- * read first — `/api/tags` carries no context length at all.
- */
-export const OllamaShowResponseSchema = z.looseObject({
-  model_info: z.record(z.string(), z.unknown()).optional()
-})
-
 // === Gemini ===
 
 export const GeminiModelsResponseSchema = z.object({

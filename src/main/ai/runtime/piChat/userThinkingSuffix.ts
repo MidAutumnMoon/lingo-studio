@@ -4,7 +4,7 @@
  *
  * - qwen `/think`·`/no_think`: qwen models with a controllable thinking-token toggle served
  *   by providers WITHOUT native `enable_thinking` (everything outside the
- *   `NOT_SUPPORT_QWEN3_ENABLE_THINKING_PROVIDERS` deny list that is also not ollama — in
+ *   `NOT_SUPPORT_QWEN3_ENABLE_THINKING_PROVIDERS` deny list — in
  *   practice nvidia/gpustack). Suffix every user text part.
  * - ovms `/no_think`: the ovms provider, only when MCP tools are declared. Suffix the
  *   FINAL user content block, and only when it is text.
@@ -17,7 +17,7 @@ import type { ResolvedReasoningKind } from '@main/ai/utils/reasoningSerializers'
 import type { Model } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
 import { isQwen35to39Model, isSupportedThinkingTokenQwenModel } from '@shared/utils/model'
-import { isOllamaProvider, isSupportEnableThinkingProvider } from '@shared/utils/provider'
+import { isSupportEnableThinkingProvider } from '@shared/utils/provider'
 
 export interface UserThinkingSuffixInput {
   provider: Provider
@@ -45,7 +45,6 @@ export interface UserTextSuffix {
 export function resolveUserThinkingSuffix(input: UserThinkingSuffixInput): UserTextSuffix | undefined {
   const qwenApplies =
     (input.hasAssistant || input.hasExplicitReasoningEffort) &&
-    !isOllamaProvider(input.provider) &&
     isSupportedThinkingTokenQwenModel(input.model) &&
     !isQwen35to39Model(input.model) &&
     !isSupportEnableThinkingProvider(input.provider) &&

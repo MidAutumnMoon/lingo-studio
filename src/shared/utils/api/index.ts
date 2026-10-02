@@ -1,7 +1,6 @@
 export {
   formatApiHost,
   formatApiKeys,
-  formatOllamaApiHost,
   getTrailingApiVersion,
   hasApiVersion,
   isBareVertexApiHost,

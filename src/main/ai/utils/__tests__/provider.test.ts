@@ -64,11 +64,11 @@ describe('getBaseUrl', () => {
       defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
       endpointConfigs: {
         [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: {},
-        [ENDPOINT_TYPE.OLLAMA_CHAT]: { baseUrl: 'https://relay.example/ollama' },
+        [ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT]: { baseUrl: 'https://relay.example/gemini' },
         [ENDPOINT_TYPE.ANTHROPIC_MESSAGES]: { baseUrl: 'https://relay.example/anthropic' }
       }
     })
-    // ANTHROPIC_MESSAGES precedes OLLAMA_CHAT in the fallback order
+    // ANTHROPIC_MESSAGES precedes GOOGLE_GENERATE_CONTENT in the fallback order
     expect(getBaseUrl(provider)).toBe('https://relay.example/anthropic')
   })
 

@@ -77,7 +77,7 @@ export function resolveProviderVariant(
 ): AppProviderId {
   if (!endpointType) return baseProviderId
 
-  if (endpointType === ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS || endpointType === ENDPOINT_TYPE.OLLAMA_CHAT) {
+  if (endpointType === ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS) {
     const chatVariant = `${baseProviderId}-chat`
     if (chatVariant in appProviderIds) return appProviderIds[chatVariant]
   }
@@ -139,9 +139,6 @@ export function resolveProviderOptionsKey(
       return 'xai'
     case 'bedrock':
       return 'bedrock'
-    case SystemProviderIds.ollama:
-      return 'ollama'
-    case 'github-copilot-openai-compatible':
     case 'openai-compatible':
       return context?.actualProviderId ?? providerId
     case 'cherryin':

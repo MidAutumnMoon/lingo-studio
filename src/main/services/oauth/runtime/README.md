@@ -26,7 +26,6 @@ create a leaky mega-abstraction:
 | Flow | Where | Why separate |
 | --- | --- | --- |
 | MCP remote servers | `src/main/ai/mcp/oauth/` | SDK-driven (`@modelcontextprotocol/sdk` `OAuthClientProvider`) + dynamic client registration (RFC 7591); control is inverted — the SDK drives, we implement an interface. Storage is per-server-URL JSON files. |
-| GitHub Copilot | `src/main/services/CopilotService.ts` | Device flow (RFC 8628) — no redirect/callback; encrypted-file storage. |
 | Nutstore | `src/main/services/nutstore/` | Proprietary SSO with custom encryption — not standard OAuth. |
 | WeChat | `src/main/ai/channels/adapters/` | Proprietary binary protocol — not OAuth. |
 | Silicon / PPIO / 302 / AIHubMix / AIOnly | `src/renderer/utils/oauth.ts` | One-shot popup that returns an **API key** (no token session / refresh). |
@@ -105,8 +104,8 @@ worth doing until a real second consumer appears (YAGNI):
 - **General OAuth (don't, yet).** The flow engine (transports + `PkceOAuthClient`
   + orchestration) is entity-agnostic; only the token store is provider-tied.
   Making it system-wide means: generalize `providerId` → a subject id, inject the
-  `OAuthTokenStore` per subject, decouple the panels from `useProvider`, and add
-  a `device-code` transport for Copilot. Do this only when a second *self-driven*
+  `OAuthTokenStore` per subject, decouple the panels from `useProvider`, and add a
+  `device-code` transport. Do this only when a second *self-driven*
   (non-SDK) OAuth consumer needs the shared refresh/expiry/secure-storage path.
   MCP is not that consumer — it is SDK-driven and rightly owns its own flow.
 

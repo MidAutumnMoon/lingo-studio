@@ -10,7 +10,6 @@ import p_baidu_cloud from './baidu-cloud'
 import p_burncloud from './burncloud'
 import p_cerebras from './cerebras'
 import p_cherryin from './cherryin'
-import p_copilot from './copilot'
 import p_dashscope from './dashscope'
 import p_deepseek from './deepseek'
 import p_dmxapi from './dmxapi'
@@ -37,7 +36,6 @@ import p_moonshot_global from './moonshot-global'
 import p_new_api from './new-api'
 import p_nvidia from './nvidia'
 import p_ocoolai from './ocoolai'
-import p_ollama from './ollama'
 import p_omlx from './omlx'
 import p_openai from './openai'
 import p_openai_codex from './openai-codex'
@@ -83,7 +81,6 @@ export const PROVIDERS: Provider[] = [
   p_ppio,
   p_qiniu,
   p_openrouter,
-  p_ollama,
   p_radeon_cloud,
   p_tokendance,
   p_new_api,
@@ -97,7 +94,6 @@ export const PROVIDERS: Provider[] = [
   p_azure_openai,
   p_gemini,
   p_vertexai,
-  p_copilot,
   p_moonshot,
   p_moonshot_global,
   p_baichuan,

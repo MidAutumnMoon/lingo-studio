@@ -63,7 +63,6 @@ import { FlowithIcon } from './flowith'
 import { GensparkIcon } from './genspark'
 import { GiteeAiIcon } from './gitee-ai'
 import { GithubIcon } from './github'
-import { GithubCopilotIcon } from './github-copilot'
 import { GlamaIcon } from './glama'
 import { GoogleIcon } from './google'
 import { GpustackIcon } from './gpustack'
@@ -113,7 +112,6 @@ import { NotebooklmIcon } from './notebooklm'
 import { NousresearchIcon } from './nousresearch'
 import { NvidiaIcon } from './nvidia'
 import { OcoolaiIcon } from './ocoolai'
-import { OllamaIcon } from './ollama'
 import { OmlxIcon } from './omlx/omlx'
 import { OpenaiIcon } from './openai'
 import { OpenclawIcon } from './openclaw'
@@ -227,7 +225,6 @@ export const PROVIDER_ICON_CATALOG = {
   genspark: GensparkIcon,
   'gitee-ai': GiteeAiIcon,
   github: GithubIcon,
-  'github-copilot': GithubCopilotIcon,
   glama: GlamaIcon,
   google: GoogleIcon,
   gpustack: GpustackIcon,
@@ -276,7 +273,6 @@ export const PROVIDER_ICON_CATALOG = {
   nousresearch: NousresearchIcon,
   nvidia: NvidiaIcon,
   ocoolai: OcoolaiIcon,
-  ollama: OllamaIcon,
   omlx: OmlxIcon,
   openai: OpenaiIcon,
   openclaw: OpenclawIcon,

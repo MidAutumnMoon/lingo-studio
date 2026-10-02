@@ -973,15 +973,15 @@ describe('ProviderRegistryService', () => {
     })
 
     it('a standalone override (no models.json entry) only carries image-generation capability when it declares capabilities.force', async () => {
-      // Regression: a vendor-exclusive override (e.g. Ollama's x/z-image-turbo) that sets
-      // imageGeneration but omits `capabilities` synthesizes with capabilities: [] — invisible to
+      // Regression: a vendor-exclusive override that sets imageGeneration but omits
+      // `capabilities` synthesizes with capabilities: [] — invisible to
       // the Paintings model filter, which requires the image-generation capability.
       mockReadModels.mockReturnValue({ version: '1.0', models: [] })
       mockReadProviderModels.mockReturnValue({
         version: '1.0',
         overrides: [
           {
-            providerId: 'ollama',
+            providerId: 'acme-img',
             modelId: 'x/z-image-turbo',
             apiModelId: 'x/z-image-turbo',
             name: 'Z-Image Turbo',
@@ -990,7 +990,7 @@ describe('ProviderRegistryService', () => {
             imageGeneration: { modes: { generate: { supports: {} } } }
           },
           {
-            providerId: 'ollama',
+            providerId: 'acme-img',
             modelId: 'x/no-capability',
             apiModelId: 'x/no-capability',
             name: 'No Capability',
@@ -1001,10 +1001,10 @@ describe('ProviderRegistryService', () => {
       })
       mockReadProviders.mockReturnValue({
         version: '1.0',
-        providers: [{ id: 'ollama', name: 'Ollama', defaultChatEndpoint: null, metadata: {} }]
+        providers: [{ id: 'acme-img', name: 'Acme Img', defaultChatEndpoint: null, metadata: {} }]
       } as ReturnType<typeof readProviderRegistry>)
 
-      const models = providerRegistryService.listProviderRegistryModels({ providerId: 'ollama' })
+      const models = providerRegistryService.listProviderRegistryModels({ providerId: 'acme-img' })
 
       expect(models.find((m) => m.apiModelId === 'x/z-image-turbo')?.capabilities).toEqual(['image-generation'])
       expect(models.find((m) => m.apiModelId === 'x/no-capability')?.capabilities).toEqual([])

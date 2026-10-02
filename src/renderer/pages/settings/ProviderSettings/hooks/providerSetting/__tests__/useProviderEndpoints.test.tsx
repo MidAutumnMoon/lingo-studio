@@ -43,16 +43,16 @@ describe('useProviderEndpoints', () => {
 
   it('falls back to the first supported runtime chat endpoint when defaultChatEndpoint is missing', () => {
     const provider = {
-      id: 'ollama',
+      id: 'gemini',
       endpointConfigs: {
-        [ENDPOINT_TYPE.OLLAMA_CHAT]: { baseUrl: 'http://localhost:11434' }
+        [ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT]: { baseUrl: 'https://generativelanguage.googleapis.com' }
       }
     } as any
 
     const { result } = renderHook(() => useProviderEndpoints(provider))
 
-    expect(result.current.primaryEndpoint).toBe(ENDPOINT_TYPE.OLLAMA_CHAT)
-    expect(result.current.providerApiHost).toBe('http://localhost:11434')
+    expect(result.current.primaryEndpoint).toBe(ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT)
+    expect(result.current.providerApiHost).toBe('https://generativelanguage.googleapis.com')
   })
 
   it('keeps the anthropic host input even for cherryin', () => {

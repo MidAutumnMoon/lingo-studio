@@ -5,7 +5,6 @@ import { SettingsContentColumn } from '@renderer/components/SettingsPrimitives'
 import { useTheme } from '@renderer/hooks/useTheme'
 import { getWebSearchCapabilityTitleKey } from '@renderer/utils/webSearchProviderMeta'
 
-import { ToolSourceSettings } from './components/ToolSourceSettings'
 import { WebSearchGeneralSettings } from './components/WebSearchGeneralSettings'
 import { WebSearchProviderSetting } from './components/WebSearchProviderSetting'
 import { useWebSearchProviderLists } from './hooks/useWebSearchProviderLists'
@@ -71,7 +70,6 @@ const WebSearchSettings: FC = () => {
           </section>
         )
       })}
-      <ToolSourceSettings />
     </SettingsContentColumn>
   )
 }

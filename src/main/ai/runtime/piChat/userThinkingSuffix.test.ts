@@ -46,11 +46,10 @@ describe('resolveUserThinkingSuffix', () => {
     })
   })
 
-  it('skips the qwen dialect for omitted reasoning, enable_thinking providers, ollama, and qwen3.5+', () => {
+  it('skips the qwen dialect for omitted reasoning, enable_thinking providers, and qwen3.5+', () => {
     expect(resolveUserThinkingSuffix(input({ reasoningKind: 'omit' }))).toBeUndefined()
     // dashscope is not in the deny list → enable_thinking provider → no suffix.
     expect(resolveUserThinkingSuffix(input({ provider: provider('dashscope') }))).toBeUndefined()
-    expect(resolveUserThinkingSuffix(input({ provider: provider('ollama') }))).toBeUndefined()
     expect(resolveUserThinkingSuffix(input({ model: qwen('qwen3.5-instruct') }))).toBeUndefined()
     // The outer gate: neither an assistant nor an explicit effort.
     expect(resolveUserThinkingSuffix(input({ hasAssistant: false }))).toBeUndefined()

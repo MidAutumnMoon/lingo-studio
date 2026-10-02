@@ -182,10 +182,10 @@ describe('ApiKey', () => {
 
   it('keeps the existing inline key field for providers with optional authentication', () => {
     useProviderMock.mockReturnValue({
-      provider: { id: 'ollama', name: 'Ollama', authOptional: true }
+      provider: { id: 'lmstudio', name: 'LM Studio', authOptional: true }
     })
 
-    render(<ApiKey providerId="ollama" />)
+    render(<ApiKey providerId="lmstudio" />)
 
     expect(screen.getByPlaceholderText('settings.provider.api_key.placeholder')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'settings.provider.api_setup.add_key' })).not.toBeInTheDocument()

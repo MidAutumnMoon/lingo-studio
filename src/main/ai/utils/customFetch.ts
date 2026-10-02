@@ -39,10 +39,10 @@ export interface HttpTraceFinalBodySlot {
  * Resolve the effective `User-Agent` from a {@link HeadersInit} with
  * case-insensitive last-writer-wins.
  *
- * A plain header object can hold case variants of the same name — e.g. Copilot's
- * default `User-Agent` plus a lowercase `user-agent` from `extraHeaders` after a
+ * A plain header object can hold case variants of the same name — a default
+ * `User-Agent` plus a lowercase `user-agent` from `extraHeaders` after a
  * `{ ...defaults, ...extraHeaders }` merge. `new Headers(...).get('user-agent')`
- * would comma-join them (`"Copilot/1.0, MyAgent/1.0"`), losing the override; here
+ * would comma-join them (`"DefaultAgent/1.0, MyAgent/1.0"`), losing the override; here
  * the last entry wins, matching the merge's `extraHeaders`-precedence.
  */
 function resolveUserAgent(headers: HeadersInit): string | null {

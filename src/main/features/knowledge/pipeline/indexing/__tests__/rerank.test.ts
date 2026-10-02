@@ -49,7 +49,7 @@ function createKnowledgeBase(overrides: Partial<KnowledgeBase> = {}): KnowledgeB
     name: 'Knowledge Base',
     groupId: null,
     dimensions: 1024,
-    embeddingModelId: 'ollama::nomic-embed-text',
+    embeddingModelId: 'silicon::BAAI/bge-m3',
     rerankModelId: 'jina::jina-reranker-v2-base-multilingual',
     fileProcessorId: null,
     status: 'completed',

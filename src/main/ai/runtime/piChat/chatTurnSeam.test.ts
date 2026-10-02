@@ -359,15 +359,6 @@ describe('pi chat seam preparation', () => {
     expect(mockResolveToolApproval).toHaveBeenCalledWith('topic-1', 'call-9', true)
   })
 
-  it('falls back to legacy when web search is server-routed (provider-native search has no pi surface)', async () => {
-    mockPreferenceGet.mockReturnValue(true)
-    mockResolvePlan.mockResolvedValue(makePlan({ webToolRoutes: { webSearch: 'server', webFetch: 'none' } }))
-    expect(await tryStreamPiChatTurn(seamInput())).toBeNull()
-    expect(mockStreamPiChatTurn).not.toHaveBeenCalled()
-    // The route is only final after the plan resolves — the exclusion must not re-derive it.
-    expect(mockResolvePlan).toHaveBeenCalled()
-  })
-
   it('passes the request-level output cap into the materialized config and the stream options', async () => {
     mockPreferenceGet.mockReturnValue(true)
     mockResolvePlan.mockResolvedValue(makePlan({ requestedMaxOutputTokens: 4321 }))

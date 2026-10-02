@@ -4,32 +4,21 @@
  * can attribute the request without consulting mutable rotation state later.
  */
 
-import { isEmpty } from 'es-toolkit/compat'
-
 import { application } from '@application'
 import { formatPrivateKey, hasProviderConfig, type StringKeys } from '@cherrystudio/ai-core/provider'
 import type { CherryInProviderSettings } from '@cherrystudio/ai-sdk-provider'
 import { providerService, type ResolvedProviderApiKey } from '@main/data/services/ProviderService'
-import { copilotService } from '@main/services/CopilotService'
-import { mergeHeaders } from '@main/utils/http'
 import { CHERRYAI_PROVIDER_ID, isManagedCherryCloudModel } from '@shared/data/presets/cherryai'
 import { OPENAI_CODEX_PROVIDER_ID } from '@shared/data/presets/codex'
 import { GROK_CLI_PROVIDER_ID } from '@shared/data/presets/grokCli'
 import type { EndpointType, Model } from '@shared/data/types/model'
 import { ENDPOINT_TYPE } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
-import {
-  formatApiHost,
-  formatOllamaApiHost,
-  isBareVertexApiHost,
-  isWithTrailingSharp,
-  withoutTrailingApiVersion
-} from '@shared/utils/api'
+import { formatApiHost, isBareVertexApiHost, isWithTrailingSharp, withoutTrailingApiVersion } from '@shared/utils/api'
 import { isGenerateImageModel } from '@shared/utils/model'
 import {
   isAzureOpenAIProvider,
   isGeminiProvider,
-  isOllamaProvider,
   isVertexProvider,
   matchesPreset,
   resolveEndpointDialect
@@ -44,7 +33,6 @@ import { normalizeArkResponsesResponse, stripArkUnsupportedIncludes } from './ar
 import { generateSignature } from './cherryai'
 import { buildCherryCloudProviderConfig } from './cherryCloud'
 import { buildCodexRequestHeaders, coerceCodexRequestBody } from './codex'
-import { COPILOT_DEFAULT_HEADERS } from './constants'
 import type { ServingAuthMethod, ServingCredentialReceipt } from './credential'
 import { appendDashScopeWebExtractor } from './custom/dashscope/dashscopeWebExtractor'
 import { dmxapiUsesCustomTransport } from './custom/dmxapi/dmxapiImageRouting'
@@ -83,7 +71,7 @@ export interface ResolvedProviderAiSdkConfig {
   credentialReceipt: ServingCredentialReceipt
 }
 
-/** Applies endpoint-/provider-specific formatting (API version, Ollama/Gemini paths). */
+/** Applies endpoint-/provider-specific formatting (API version, Gemini paths). */
 function formatBaseURL(baseURL: string, provider: Provider, endpointType?: EndpointType): string {
   if (!baseURL) return ''
 
@@ -97,19 +85,15 @@ function formatBaseURL(baseURL: string, provider: Provider, endpointType?: Endpo
   }
 
   // Endpoint-driven formatting
-  if (endpointType === ENDPOINT_TYPE.OLLAMA_CHAT || endpointType === ENDPOINT_TYPE.OLLAMA_GENERATE) {
-    return formatOllamaApiHost(baseURL)
-  }
   if (endpointType === ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT) {
     return formatApiHost(baseURL, appendApiVersion, 'v1beta')
   }
 
   // Provider-driven formatting (for providers without endpoint type info)
-  if (isOllamaProvider(provider)) return formatOllamaApiHost(baseURL)
   if (isGeminiProvider(provider)) return formatApiHost(baseURL, appendApiVersion, 'v1beta')
 
   // Providers that don't append API version
-  const noVersionProviders = ['copilot', CHERRYAI_PROVIDER_ID, 'perplexity', 'newapi', 'new-api', 'azure-openai']
+  const noVersionProviders = [CHERRYAI_PROVIDER_ID, 'perplexity', 'newapi', 'new-api', 'azure-openai']
   if (noVersionProviders.includes(provider.id) || noVersionProviders.includes(provider.presetProviderId ?? '')) {
     return formatApiHost(baseURL, false)
   }
@@ -211,7 +195,6 @@ export async function resolveProviderAiSdkConfig(
   }
 
   const builders: ConfigBuilderEntry[] = [
-    { match: (p) => p.id === SystemProviderIds.copilot, build: withProviderAuth('oauth', buildCopilotConfig) },
     {
       match: (p) => matchesPreset(p, SystemProviderIds.opencode),
       build: withSelectedApiKey(buildOpenCodeGoConfig)
@@ -223,7 +206,6 @@ export async function resolveProviderAiSdkConfig(
       build: withoutCredential((ctx) => buildCherryCloudProviderConfig(ctx.endpointType, ctx.endpoint))
     },
     { match: (p) => p.id === CHERRYAI_PROVIDER_ID, build: withSelectedApiKey(buildCherryAIConfig) },
-    { match: (p) => isOllamaProvider(p), build: withSelectedApiKey(buildOllamaConfig) },
     { match: (p) => isAzureOpenAIProvider(p), build: withSelectedApiKey(buildAzureConfig) },
     // DashScope chat is OpenAI-compatible, but Bailian rerank uses a provider-specific URL.
     // Only replace the OpenAI-compatible branch so other DashScope endpoint families stay routed normally.
@@ -384,23 +366,6 @@ export async function resolveProviderAiSdkConfig(
 }
 
 // ── Config Builders ──
-
-async function buildCopilotConfig(ctx: BuilderContext): Promise<ProviderConfig<'github-copilot-openai-compatible'>> {
-  const storedHeaders = {} // TODO: read from PreferenceService if copilot headers are persisted
-  const headers = mergeHeaders(COPILOT_DEFAULT_HEADERS, storedHeaders)
-  const { token } = await copilotService.getToken(null as any, headers)
-
-  return {
-    providerId: 'github-copilot-openai-compatible',
-    endpoint: ctx.endpoint,
-    providerSettings: {
-      ...ctx.baseConfig,
-      apiKey: token,
-      headers: mergeHeaders(headers, getExtraHeaders(ctx.actualProvider)),
-      name: ctx.actualProvider.id
-    }
-  }
-}
 
 /**
  * OpenCode Go/Zen requires `x-opencode-session` on every request. The builder only
@@ -563,22 +528,6 @@ function buildCommonOptions(ctx: BuilderContext) {
     options.headers['X-Api-Key'] = ctx.baseConfig.apiKey
   }
   return options
-}
-
-function buildOllamaConfig(ctx: BuilderContext): ProviderConfig<'ollama'> {
-  const headers: Record<string, string> = {
-    ...getProviderAppHeaders(ctx.actualProvider),
-    ...getExtraHeaders(ctx.actualProvider)
-  }
-  if (!isEmpty(ctx.baseConfig.apiKey)) {
-    headers.Authorization = `Bearer ${ctx.baseConfig.apiKey}`
-  }
-
-  return {
-    providerId: 'ollama',
-    endpoint: ctx.endpoint,
-    providerSettings: { ...ctx.baseConfig, headers }
-  }
 }
 
 function buildBedrockConfig(ctx: BuilderContext): ResolvedProviderConfigBuild {

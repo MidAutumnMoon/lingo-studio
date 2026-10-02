@@ -38,7 +38,6 @@ export const USER_DATA_WIPE = [
   'version.log',
   'restore-journal.json',
   'restore-staging',
-  '.copilot_token',
   'config.json',
   'window-state.json',
   'Cache',

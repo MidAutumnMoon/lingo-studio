@@ -206,7 +206,6 @@ describe('WebSearchButton', () => {
     mocks.provider = undefined
     mocks.providerLookupId = undefined
     MockUsePreferenceUtils.resetMocks()
-    MockUsePreferenceUtils.setPreferenceValue('chat.web_search.model_tools_preferred', false)
     MockUsePreferenceUtils.setPreferenceValue('chat.web_search.provider_overrides', {})
     MockUsePreferenceUtils.setPreferenceValue('chat.web_search.default_search_keywords_provider', null)
     MockUsePreferenceUtils.setPreferenceValue('chat.web_search.default_fetch_urls_provider', null)
@@ -215,18 +214,6 @@ describe('WebSearchButton', () => {
       key: 'exa',
       meta: { id: 'exa', colorPrimary: '#1F40ED', colorScheme: 'color' }
     })
-  })
-
-  it('reads only the current model provider', () => {
-    const view = render(<WebSearchButton assistantId="assistant-1" launcher={launcherApi} />)
-
-    expect(mocks.providerLookupId).toBe('anthropic')
-
-    mocks.model = undefined
-    view.unmount()
-    render(<WebSearchButton assistantId="assistant-1" launcher={launcherApi} />)
-
-    expect(mocks.providerLookupId).toBeUndefined()
   })
 
   it('opens web search settings and restores trigger focus when external providers are missing', () => {
@@ -261,20 +248,6 @@ describe('WebSearchButton', () => {
     confirmOptions.focusOnClose?.()
 
     expect(button).not.toHaveFocus()
-  })
-
-  it('enables model-native search when configured services are preferred but unavailable', async () => {
-    mocks.provider = {
-      id: 'anthropic',
-      serverTools: [{ id: 'web-search', modelScope: 'all-chat-models' }]
-    }
-
-    render(<WebSearchButton assistantId="assistant-1" launcher={launcherApi} />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'chat.input.web_search.label' }))
-
-    await waitFor(() => expect(mocks.updateAssistant).toHaveBeenCalledWith({ settings: { enableWebSearch: true } }))
-    expect(popup.confirm).not.toHaveBeenCalled()
   })
 
   it('disables web search when the configured provider cannot be consumed by the current model', async () => {
@@ -412,16 +385,8 @@ describe('WebSearchButton', () => {
     MockUsePreferenceUtils.setPreferenceValue('chat.web_search.default_search_keywords_provider', 'exa-mcp')
     mocks.model = { ...mocks.model!, capabilities: [MODEL_CAPABILITY.FUNCTION_CALL] }
 
-    const { unmount } = render(<WebSearchButton assistantId="assistant-1" launcher={launcherApi} />)
-    expect(screen.getByTestId('tooltip')).toHaveAttribute('data-content', 'chat.input.web_search.route.client')
-    unmount()
-
-    MockUsePreferenceUtils.setPreferenceValue('chat.web_search.model_tools_preferred', true)
-    mocks.provider = { id: 'gemini', serverTools: [{ id: 'web-search', modelScope: 'model-dependent' }] }
-    mocks.model = { ...mocks.model, providerId: 'gemini', apiModelId: 'gemini-2.5-pro' }
-
     render(<WebSearchButton assistantId="assistant-1" launcher={launcherApi} />)
-    expect(screen.getByTestId('tooltip')).toHaveAttribute('data-content', 'chat.input.web_search.route.builtin')
+    expect(screen.getByTestId('tooltip')).toHaveAttribute('data-content', 'chat.input.web_search.route.client')
   })
 
   // The pinned toolbar renders the registered launcher, not the button, and falls back to `label`

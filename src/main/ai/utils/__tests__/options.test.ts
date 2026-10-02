@@ -174,36 +174,6 @@ describe('mergeCustomProviderParameters', () => {
     expect((result['openai-compatible'] as Record<string, unknown>).reasoningEffort).toBe('low')
   })
 
-  it('normalizes reasoning_effort → reasoningEffort for github-copilot-openai-compatible (#11140)', () => {
-    // Mirror the OpenAI-compatible path: AI SDK silently drops snake_case keys, so a
-    // user's custom parameter dictionary carrying `reasoning_effort` must be renamed
-    // to `reasoningEffort` before being merged into the `copilot` provider namespace.
-    const customProviders: Record<string, Record<string, never>> = { copilot: {} }
-    const result = mergeCustomProviderParameters(
-      customProviders,
-      { reasoning_effort: 'high' },
-      'github-copilot-openai-compatible',
-      'github-copilot-openai-compatible'
-    )
-    expect(result).toEqual({ copilot: { reasoningEffort: 'high' } })
-    expect(result.copilot.reasoning_effort).toBeUndefined()
-  })
-
-  it('does NOT clobber existing reasoningEffort with renamed reasoning_effort for github-copilot (#11140)', () => {
-    // Mirror the openai-compatible clobber test: when the user's custom params carry BOTH
-    // `reasoningEffort` (already in the SDK dialect) and `reasoning_effort` (snake_case),
-    // the existing camelCase wins and the snake_case form is dropped.
-    const customProviders: Record<string, Record<string, never>> = { copilot: {} }
-    const result = mergeCustomProviderParameters(
-      customProviders,
-      { reasoning_effort: 'high', reasoningEffort: 'low' },
-      'github-copilot-openai-compatible',
-      'github-copilot-openai-compatible'
-    )
-    expect((result['copilot'] as Record<string, unknown>).reasoningEffort).toBe('low')
-    expect((result['copilot'] as Record<string, unknown>).reasoning_effort).toBeUndefined()
-  })
-
   it('normalizes reasoning_effort into a concrete provider namespace for an openai-compatible adapter', () => {
     const result = mergeCustomProviderParameters(
       { dashscope: {} },
@@ -250,7 +220,6 @@ describe('customParameters → providerOptions plugin contract', () => {
 describe('OpenAI-compatible reasoning normalization', () => {
   it.each([
     ['openai-compatible', 'relay'],
-    ['github-copilot-openai-compatible', 'copilot'],
     ['google-vertex-maas', 'vertex'],
     ['aihubmix', 'aihubmix'],
     ['dmxapi', 'openai']
@@ -466,38 +435,6 @@ describe('buildCapabilityProviderOptions', () => {
     expect(result.dashscope.reasoning_effort).toBeUndefined()
   })
 
-  it('encodes GitHub Copilot reasoning into the copilot namespace (its model reads `name`, not the registration id)', () => {
-    const result = buildCapabilityProviderOptions(
-      {
-        id: 'copilot::gpt-5',
-        providerId: 'copilot',
-        name: 'GPT-5',
-        capabilities: [MODEL_CAPABILITY.REASONING]
-      } as unknown as Model,
-      { id: 'copilot', name: 'GitHub Copilot', settings: {} } as Provider,
-      { enableReasoning: true, enableWebSearch: false, enableGenerateImage: false },
-      {
-        // adapterFamily/runtime id is `github-copilot-openai-compatible`, but the language model's
-        // providerOptionsName is `copilot` (= actualProvider.id passed as `name`).
-        aiSdkProviderId: 'github-copilot-openai-compatible',
-        runtimeProviderId: 'github-copilot-openai-compatible',
-        providerOptionsKey: 'copilot',
-        endpointType: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
-        reasoning: {
-          kind: 'effort',
-          selection: 'high',
-          effort: 'high',
-          emissions: [{ target: 'reasoning_effort', value: 'high' }]
-        }
-      }
-    )
-
-    // Lands in `copilot` (read namespace), snake→camel normalized, not the registration id.
-    expect(result).toMatchObject({ copilot: { reasoningEffort: 'high' } })
-    expect(result.copilot.reasoning_effort).toBeUndefined()
-    expect(result['github-copilot-openai-compatible']).toBeUndefined()
-  })
-
   it.each([
     ['qwen3.5-plus', 'dmxapi'],
     ['gpt-5', 'openai']
@@ -610,75 +547,4 @@ describe('buildCapabilityProviderOptions', () => {
       expect(result).not.toHaveProperty(runtimeProviderId)
     }
   )
-
-  it('forwards the configured contextWindow as num_ctx for Ollama models', () => {
-    const result = buildCapabilityProviderOptions(
-      {
-        id: 'ollama::qwen3:32b',
-        providerId: 'ollama',
-        name: 'qwen3:32b',
-        capabilities: [],
-        contextWindow: 32_768
-      } as unknown as Model,
-      {
-        id: 'ollama',
-        settings: {},
-        reportsActualCost: false
-      } as Provider,
-      {
-        enableReasoning: false,
-        enableWebSearch: false,
-        enableGenerateImage: false
-      },
-      {
-        aiSdkProviderId: 'ollama',
-        runtimeProviderId: 'ollama',
-        providerOptionsKey: 'ollama',
-        endpointType: undefined,
-        reasoning: {
-          kind: 'omit',
-          selection: 'default',
-          emissions: []
-        }
-      }
-    )
-
-    expect(result).toMatchObject({ ollama: { options: { num_ctx: 32_768 } } })
-  })
-
-  it('omits num_ctx for an Ollama model whose contextWindow could not be read', () => {
-    const result = buildCapabilityProviderOptions(
-      {
-        id: 'ollama::qwen3:32b',
-        providerId: 'ollama',
-        name: 'qwen3:32b',
-        capabilities: []
-      } as unknown as Model,
-      {
-        id: 'ollama',
-        settings: {},
-        reportsActualCost: false
-      } as Provider,
-      {
-        enableReasoning: false,
-        enableWebSearch: false,
-        enableGenerateImage: false
-      },
-      {
-        aiSdkProviderId: 'ollama',
-        runtimeProviderId: 'ollama',
-        providerOptionsKey: 'ollama',
-        endpointType: undefined,
-        reasoning: {
-          kind: 'omit',
-          selection: 'default',
-          emissions: []
-        }
-      }
-    )
-
-    // Not a fixed floor: Ollama sizes by available VRAM (4k / 32k / 256k) when num_ctx is
-    // absent, so substituting a guess would shrink the window on a well-provisioned machine.
-    expect(result.ollama).not.toHaveProperty('options')
-  })
 })

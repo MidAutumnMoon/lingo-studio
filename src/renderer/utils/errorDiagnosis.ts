@@ -149,7 +149,7 @@ function buildContextHint(errorInfo: Record<string, unknown>, context?: Diagnosi
   }
 
   // Generic
-  return `## Context\nCherry Studio is an AI chat app connecting to LLM providers (OpenAI, Anthropic, Google, Ollama, etc.) with API keys. Error occurred during ${source || 'chat'}.\n`
+  return `## Context\nCherry Studio is an AI chat app connecting to LLM providers (OpenAI, Anthropic, Google, etc.) with API keys. Error occurred during ${source || 'chat'}.\n`
 }
 
 function parseResponse(raw: string): DiagnosisResult {

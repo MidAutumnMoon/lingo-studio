@@ -14,7 +14,7 @@ export function isCanonicalPresetProvider(provider: Provider): boolean {
  * and cloud-account presets need their provider-specific setup instead.
  */
 export function isProviderPresetInstanceSource(provider: Provider): boolean {
-  if (!isCanonicalPresetProvider(provider) || isLoginBasedProvider(provider) || provider.id === 'copilot') {
+  if (!isCanonicalPresetProvider(provider) || isLoginBasedProvider(provider)) {
     return false
   }
 

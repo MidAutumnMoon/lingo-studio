@@ -125,12 +125,10 @@ describe('registry serverTools declarations have a runtime delivery path', () =>
   it('does not route Moonshot Global web search through its Anthropic endpoint', () => {
     expect(isBuiltinWebSearchAvailable(kimiK3, moonshotGlobal, ENDPOINT_TYPE.ANTHROPIC_MESSAGES)).toBe(false)
     expect(
-      resolveWebToolRoutes(kimiK3, moonshotGlobal, {
+      resolveWebToolRoutes(kimiK3, {
         webSearchEnabled: true,
         clientSearchAvailable: true,
-        clientFetchAvailable: false,
-        modelToolsPreferred: true,
-        endpointType: ENDPOINT_TYPE.ANTHROPIC_MESSAGES
+        clientFetchAvailable: false
       })
     ).toMatchObject({ webSearch: 'client' })
   })

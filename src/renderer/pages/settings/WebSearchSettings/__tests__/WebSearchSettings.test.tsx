@@ -154,7 +154,6 @@ describe('WebSearchSettings', () => {
     vi.clearAllMocks()
     MockUsePreferenceUtils.resetMocks()
     ipcRequestMock.mockResolvedValue({ results: [] })
-    MockUsePreferenceUtils.setPreferenceValue('chat.web_search.model_tools_preferred', true)
     MockUsePreferenceUtils.setPreferenceValue('chat.web_search.provider_overrides', {})
     MockUsePreferenceUtils.setPreferenceValue('chat.web_search.default_search_keywords_provider', 'tavily')
     MockUsePreferenceUtils.setPreferenceValue('chat.web_search.default_fetch_urls_provider', 'fetch')
@@ -235,23 +234,6 @@ describe('WebSearchSettings', () => {
     expect(searchResultTitle).toBeVisible()
     expect(compressionControl).toBeVisible()
     expect(blacklistTitle).toBeVisible()
-  })
-
-  // The preference governs every capability section, so it lives in its own group rather than under
-  // one section's advanced settings — no accordion interaction needed to reach it.
-  it('defaults to model-native web-tool priority and persists switch changes', async () => {
-    render(<WebSearchSettings />)
-
-    const prioritySwitch = screen.getByRole('switch', {
-      name: 'settings.tool.websearch.model_tools_preferred.label'
-    })
-    expect(prioritySwitch).toHaveAttribute('aria-checked', 'true')
-
-    fireEvent.click(prioritySwitch)
-
-    await waitFor(() => {
-      expect(MockUsePreferenceUtils.getPreferenceValue('chat.web_search.model_tools_preferred')).toBe(false)
-    })
   })
 
   it('syncs clean max-result drafts from external preference changes', () => {

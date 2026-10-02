@@ -137,9 +137,6 @@ export function buildPathRegistry() {
     'feature.mcp.registry_file': path.join(CHERRY_HOME, 'config', 'mcp-registry.json'),
     'feature.mcp.auto_install_settings_file': path.join(CHERRY_HOME, 'config', 'mcp-auto-install-settings.json'),
 
-    // Copilot token
-    'feature.copilot.token_file': path.join(CHERRY_HOME, 'config', '.copilot_token'),
-
     // Cherry Cloud account credentials (device identity is retained when the session is cleared)
     'feature.cherry_account.credentials_file': path.join(appUserData, 'Credentials', 'cherry-account.json'),
 

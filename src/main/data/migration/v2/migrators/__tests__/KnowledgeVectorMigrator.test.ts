@@ -289,7 +289,7 @@ function createMigratedBase(overrides: Partial<MigratedKnowledgeBaseRow> = {}): 
   return {
     id: MIGRATED_KNOWLEDGE_BASE_ID,
     dimensions: 2,
-    embeddingModelId: 'ollama::nomic-embed-text',
+    embeddingModelId: 'silicon::BAAI/bge-m3',
     status: 'completed',
     chunkSize: 1000,
     chunkOverlap: 200,

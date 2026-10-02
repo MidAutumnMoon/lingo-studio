@@ -4,7 +4,6 @@ import { ENDPOINT_TYPE, type Model, MODEL_CAPABILITY, SERVER_TOOL } from '@share
 import type { Provider } from '@shared/data/types/provider'
 import {
   finalizeWebToolRoutes,
-  isBuiltinWebFetchAvailable,
   isBuiltinWebSearchAvailable,
   isServerToolModelEligible,
   resolveWebToolRoutes
@@ -60,18 +59,10 @@ describe('server-tool model eligibility', () => {
       ]
     } as Provider
     const flash = model('deepseek-flash', { capabilities: [MODEL_CAPABILITY.FUNCTION_CALL] })
-    const route = (endpointType: (typeof ENDPOINT_TYPE)[keyof typeof ENDPOINT_TYPE]) =>
-      resolveWebToolRoutes(flash, deepseek, {
-        webSearchEnabled: true,
-        clientSearchAvailable: true,
-        clientFetchAvailable: false,
-        modelToolsPreferred: true,
-        endpointType
-      })
 
-    expect(route(ENDPOINT_TYPE.OPENAI_RESPONSES)).toMatchObject({ webSearch: 'server' })
-    expect(route(ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS)).toMatchObject({ webSearch: 'client' })
-    expect(route(ENDPOINT_TYPE.ANTHROPIC_MESSAGES)).toMatchObject({ webSearch: 'client' })
+    expect(isBuiltinWebSearchAvailable(flash, deepseek, ENDPOINT_TYPE.OPENAI_RESPONSES)).toBe(true)
+    expect(isBuiltinWebSearchAvailable(flash, deepseek, ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS)).toBe(false)
+    expect(isBuiltinWebSearchAvailable(flash, deepseek, ENDPOINT_TYPE.ANTHROPIC_MESSAGES)).toBe(false)
     expect(isBuiltinWebSearchAvailable(model('deepseek-v3.2'), deepseek, ENDPOINT_TYPE.OPENAI_RESPONSES)).toBe(false)
   })
 
@@ -107,44 +98,6 @@ describe('server-tool model eligibility', () => {
     expect(isBuiltinWebSearchAvailable(dated, provider('model-dependent', 'doubao'))).toBe(true)
   })
 
-  // A gateway whose declaration narrows to `gemini` resolves the same google tool factory through the
-  // model's `<host>.google` provider segment, so pre-3 Gemini hits the same native-vs-function-tool
-  // conflict there. Keying the guard to the host id let cherryin/aihubmix ship the unsupported combo.
-  it.each(['cherryin', 'aihubmix'])('applies the Gemini tool conflict on %s, not just gemini hosts', (providerId) => {
-    const gateway = {
-      id: providerId,
-      serverTools: [{ id: SERVER_TOOL.WEB_SEARCH, modelScope: 'model-dependent', vendors: ['gemini', 'openai'] }]
-    } as unknown as Provider
-    const gemini25 = model('google/gemini-2.5-pro', { capabilities: [MODEL_CAPABILITY.FUNCTION_CALL] })
-
-    expect(
-      resolveWebToolRoutes(gemini25, gateway, {
-        webSearchEnabled: true,
-        clientSearchAvailable: false,
-        clientFetchAvailable: false,
-        modelToolsPreferred: true,
-        hasFunctionToolSignals: true
-      })
-    ).toMatchObject({ webSearch: 'none', reasons: { webSearch: 'gemini-function-tool-conflict' } })
-
-    // Gemini 3 combines them, so the same gateway keeps the server route.
-    expect(
-      resolveWebToolRoutes(
-        model('google/gemini-3-1-pro-preview', { capabilities: [MODEL_CAPABILITY.FUNCTION_CALL] }),
-        {
-          ...gateway
-        },
-        {
-          webSearchEnabled: true,
-          clientSearchAvailable: false,
-          clientFetchAvailable: false,
-          modelToolsPreferred: true,
-          hasFunctionToolSignals: true
-        }
-      )
-    ).toMatchObject({ webSearch: 'server' })
-  })
-
   it('keeps provider-wide tools independent from model-dependent eligibility', () => {
     expect(isBuiltinWebSearchAvailable(model('private-model'), provider('all-chat-models'))).toBe(true)
   })
@@ -154,112 +107,51 @@ describe('web-tool routing', () => {
   const claude = model('claude-sonnet-4-6', {
     capabilities: [MODEL_CAPABILITY.FUNCTION_CALL]
   })
-  const serverProvider = {
-    id: 'anthropic',
-    serverTools: [
-      { id: SERVER_TOOL.WEB_SEARCH, modelScope: 'all-chat-models' },
-      { id: SERVER_TOOL.URL_CONTEXT, modelScope: 'model-dependent' }
-    ]
-  } as Provider
-  const bothEnabled = {
-    webSearchEnabled: true,
-    clientSearchAvailable: true,
-    clientFetchAvailable: true
-  }
 
-  it('selects the preferred side for both search and fetch when both sides are available', () => {
-    expect(resolveWebToolRoutes(claude, serverProvider, { ...bothEnabled, modelToolsPreferred: true })).toEqual({
-      webSearch: 'server',
-      webFetch: 'server'
-    })
-    expect(resolveWebToolRoutes(claude, serverProvider, { ...bothEnabled, modelToolsPreferred: false })).toEqual({
-      webSearch: 'client',
-      webFetch: 'client'
-    })
-  })
-
-  it.each([
-    {
-      name: 'configured services when model-native tools are unavailable',
-      provider: { serverTools: [] } as unknown as Provider,
-      clientSearchAvailable: true,
-      clientFetchAvailable: true,
-      modelToolsPreferred: true,
-      expected: { webSearch: 'client', webFetch: 'client' }
-    },
-    {
-      name: 'model-native tools when configured services are unavailable',
-      provider: serverProvider,
-      clientSearchAvailable: false,
-      clientFetchAvailable: false,
-      modelToolsPreferred: false,
-      expected: { webSearch: 'server', webFetch: 'server' }
-    },
-    {
-      name: 'no tools when neither side is available',
-      provider: { serverTools: [] } as unknown as Provider,
-      clientSearchAvailable: false,
-      clientFetchAvailable: false,
-      modelToolsPreferred: true,
-      expected: {
-        webSearch: 'none',
-        webFetch: 'none',
-        reasons: { webSearch: 'no-backend', webFetch: 'no-backend' }
-      }
-    }
-  ])('falls back to $name', ({ provider, expected, ...options }) => {
-    expect(resolveWebToolRoutes(claude, provider, { webSearchEnabled: true, ...options })).toEqual(expected)
-  })
-
-  it('routes each capability through its preferred side and then the available fallback', () => {
+  it('routes to the client side when a backend is configured', () => {
     expect(
-      resolveWebToolRoutes(claude, provider('all-chat-models'), {
-        ...bothEnabled,
-        modelToolsPreferred: true
+      resolveWebToolRoutes(claude, {
+        webSearchEnabled: true,
+        clientSearchAvailable: true,
+        clientFetchAvailable: true
       })
-    ).toEqual({ webSearch: 'server', webFetch: 'client' })
+    ).toEqual({ webSearch: 'client', webFetch: 'client' })
+  })
+
+  it('routes each capability independently', () => {
     expect(
-      resolveWebToolRoutes(claude, serverProvider, {
-        ...bothEnabled,
+      resolveWebToolRoutes(claude, {
+        webSearchEnabled: true,
         clientSearchAvailable: false,
-        modelToolsPreferred: false
+        clientFetchAvailable: true
       })
-    ).toEqual({ webSearch: 'server', webFetch: 'client' })
+    ).toEqual({
+      webSearch: 'none',
+      webFetch: 'client',
+      reasons: { webSearch: 'no-backend' }
+    })
   })
 
-  it('recognizes provider-native URL fetch for supported model families', () => {
-    expect(isBuiltinWebFetchAvailable(claude, serverProvider)).toBe(true)
-    expect(isBuiltinWebFetchAvailable(model('private-model'), serverProvider)).toBe(false)
-  })
-
-  it('honors the declaration vendors narrowing (Vertex url-context is Gemini-only)', () => {
-    const vertexLike = {
-      id: 'vertexai',
-      serverTools: [{ id: SERVER_TOOL.URL_CONTEXT, modelScope: 'model-dependent', vendors: ['gemini'] }]
-    } as Provider
-    expect(isBuiltinWebFetchAvailable(model('gemini-2.5-pro'), vertexLike)).toBe(true)
-    expect(isBuiltinWebFetchAvailable(claude, vertexLike)).toBe(false)
-  })
-
-  // A gateway serves the underlying vendor's native tool; a model whose vendor
-  // owns no tool factory must not claim the capability (it would route to the
-  // server side and inject nothing while the client tools stay withheld).
-  it('keeps unservable vendors off a gateway declaration', () => {
-    const gatewayLike = {
-      id: 'cherryin',
-      serverTools: [
-        { id: SERVER_TOOL.WEB_SEARCH, modelScope: 'model-dependent', vendors: ['anthropic', 'gemini', 'openai'] }
-      ]
-    } as Provider
-    expect(isBuiltinWebSearchAvailable(claude, gatewayLike)).toBe(true)
-    expect(isBuiltinWebSearchAvailable(model('deepseek-v4-pro'), gatewayLike)).toBe(false)
-  })
-
-  it('reports model-unsupported when only client backends exist for a non-function-calling model', () => {
+  it('reports no-backend when the toggle is on and nothing is configured', () => {
     expect(
-      resolveWebToolRoutes(model('private-model'), { serverTools: [] } as unknown as Provider, {
-        ...bothEnabled,
-        modelToolsPreferred: false
+      resolveWebToolRoutes(claude, {
+        webSearchEnabled: true,
+        clientSearchAvailable: false,
+        clientFetchAvailable: false
+      })
+    ).toEqual({
+      webSearch: 'none',
+      webFetch: 'none',
+      reasons: { webSearch: 'no-backend', webFetch: 'no-backend' }
+    })
+  })
+
+  it('reports model-unsupported when backends exist but the model cannot call tools', () => {
+    expect(
+      resolveWebToolRoutes(model('private-model'), {
+        webSearchEnabled: true,
+        clientSearchAvailable: true,
+        clientFetchAvailable: true
       })
     ).toEqual({
       webSearch: 'none',
@@ -267,91 +159,15 @@ describe('web-tool routing', () => {
       reasons: { webSearch: 'model-unsupported', webFetch: 'model-unsupported' }
     })
   })
-})
 
-describe('conflict-aware routing', () => {
-  const gemini25 = model('gemini-2.5-pro', { capabilities: [MODEL_CAPABILITY.FUNCTION_CALL] })
-  const geminiProvider = {
-    id: 'gemini',
-    serverTools: [
-      { id: SERVER_TOOL.WEB_SEARCH, modelScope: 'model-dependent' },
-      { id: SERVER_TOOL.URL_CONTEXT, modelScope: 'model-dependent' }
-    ]
-  } as Provider
-
-  it('falls back to the client side when function-tool signals conflict with Gemini native tools', () => {
+  it('yields no routes while the toggle is off', () => {
     expect(
-      resolveWebToolRoutes(gemini25, geminiProvider, {
-        webSearchEnabled: true,
+      resolveWebToolRoutes(claude, {
+        webSearchEnabled: false,
         clientSearchAvailable: true,
-        clientFetchAvailable: true,
-        modelToolsPreferred: true,
-        hasFunctionToolSignals: true
+        clientFetchAvailable: true
       })
-    ).toEqual({ webSearch: 'client', webFetch: 'client' })
-  })
-
-  it('coordinates web routes to the side with broader coverage when pre-3 Gemini cannot mix them', () => {
-    const searchOnlyProvider = {
-      id: 'gemini',
-      serverTools: [{ id: SERVER_TOOL.WEB_SEARCH, modelScope: 'model-dependent' }]
-    } as Provider
-
-    expect(
-      resolveWebToolRoutes(gemini25, searchOnlyProvider, {
-        webSearchEnabled: true,
-        clientSearchAvailable: true,
-        clientFetchAvailable: true,
-        modelToolsPreferred: true
-      })
-    ).toEqual({ webSearch: 'client', webFetch: 'client' })
-  })
-
-  it('reports the conflict when no client fallback exists', () => {
-    expect(
-      resolveWebToolRoutes(gemini25, geminiProvider, {
-        webSearchEnabled: true,
-        clientSearchAvailable: false,
-        clientFetchAvailable: false,
-        modelToolsPreferred: true,
-        hasFunctionToolSignals: true
-      })
-    ).toEqual({
-      webSearch: 'none',
-      webFetch: 'none',
-      reasons: { webSearch: 'gemini-function-tool-conflict', webFetch: 'gemini-function-tool-conflict' }
-    })
-  })
-
-  it('suppresses OpenAI native search under minimal reasoning effort', () => {
-    const gpt5 = model('gpt-5', { capabilities: [MODEL_CAPABILITY.FUNCTION_CALL, MODEL_CAPABILITY.REASONING] })
-    const openaiProvider = {
-      id: 'openai',
-      defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_RESPONSES,
-      serverTools: [{ id: SERVER_TOOL.WEB_SEARCH, modelScope: 'model-dependent' }]
-    } as Provider
-    expect(
-      resolveWebToolRoutes(gpt5, openaiProvider, {
-        webSearchEnabled: true,
-        clientSearchAvailable: false,
-        clientFetchAvailable: false,
-        modelToolsPreferred: true,
-        reasoningEffort: 'minimal'
-      })
-    ).toEqual({
-      webSearch: 'none',
-      webFetch: 'none',
-      reasons: { webSearch: 'openai-minimal-reasoning', webFetch: 'no-backend' }
-    })
-    expect(
-      resolveWebToolRoutes(gpt5, openaiProvider, {
-        webSearchEnabled: true,
-        clientSearchAvailable: false,
-        clientFetchAvailable: false,
-        modelToolsPreferred: true,
-        reasoningEffort: 'high'
-      })
-    ).toMatchObject({ webSearch: 'server' })
+    ).toEqual({ webSearch: 'none', webFetch: 'none' })
   })
 })
 

@@ -151,19 +151,6 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
     )
   })
 
-  // Provider-native search has no pi surface (`providerOptions` plugins are legacy-only),
-  // and the client `web_search` tool only loads for client-routed turns — the DEFAULT for
-  // native-search providers without a search backend is `server`, which on pi would send
-  // a search-telling prompt with no search behind it. Legacy keeps serving those turns.
-  if (plan.webToolRoutes.webSearch === 'server') {
-    logger.info('pi chat engine excluded, falling back to legacy', {
-      topicId: request.conversation.topicId,
-      modelId: model.id,
-      reason: 'server-routed web search (provider-native search has no pi surface)'
-    })
-    return null
-  }
-
   const materialized = await materializePiProviderStream(injection, piStreamRequestOptions(plan, assistant, model))
   // The injection's model config carries the MODEL-level output cap only; the
   // request-level cap (assistant setting / callOverrides) would otherwise be

@@ -24,8 +24,6 @@ function resolveDefaultEndpoint(type?: string): EndpointType {
     case 'gemini':
     case 'vertexai':
       return ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT
-    case 'ollama':
-      return ENDPOINT_TYPE.OLLAMA_CHAT
     default:
       return ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS
   }

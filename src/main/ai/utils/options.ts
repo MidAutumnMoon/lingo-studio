@@ -84,7 +84,6 @@ function shouldNormalizeOpenAICompatibleReasoning(
 ): boolean {
   return (
     providerId === 'openai-compatible' ||
-    providerId === 'github-copilot-openai-compatible' ||
     providerId === 'google-vertex-maas' ||
     (endpointType === ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS &&
       (providerId === 'aihubmix' || providerId === SystemProviderIds.dmxapi))
@@ -165,9 +164,6 @@ export function buildCapabilityProviderOptions(
     case 'bedrock':
       providerSpecificOptions = buildBedrockProviderOptions(model, reasoningOptions.options)
       break
-    case SystemProviderIds.ollama:
-      providerSpecificOptions = buildOllamaProviderOptions(model, reasoningOptions.options)
-      break
     case 'cherryin':
     case 'cherryin-chat':
     case 'newapi':
@@ -247,9 +243,8 @@ export function isCustomProviderNamespace(
  * For OpenAI-compatible adapter families, rename `reasoning_effort` → `reasoningEffort` —
  * AI SDK silently drops the snake_case form.
  *
- * Covers both `'openai-compatible'` (custom OpenAI-compatible providers, see #11987) and
- * `'github-copilot-openai-compatible'` (GitHub Copilot, see #11140) — both speak the
- * OpenAI Chat Completions dialect and silently drop snake_case reasoning keys.
+ * Covers `'openai-compatible'` (custom OpenAI-compatible providers, see #11987) — it speaks the
+ * OpenAI Chat Completions dialect and silently drops snake_case reasoning keys.
  */
 export function mergeCustomProviderParameters(
   providerOptions: Record<string, Record<string, JSONValue>>,
@@ -260,15 +255,13 @@ export function mergeCustomProviderParameters(
   const actualAiSdkProviderIds = Object.keys(providerOptions)
   const primaryAiSdkProviderId = actualAiSdkProviderIds[0]
   const normalizedProviderParams =
-    adapterFamily === 'openai-compatible' || adapterFamily === 'github-copilot-openai-compatible'
-      ? normalizeOpenAICompatibleParams(providerParams)
-      : providerParams
+    adapterFamily === 'openai-compatible' ? normalizeOpenAICompatibleParams(providerParams) : providerParams
 
   let result = providerOptions
   for (const key of Object.keys(normalizedProviderParams)) {
     const isProviderNamespace = isCustomProviderNamespace(key, providerOptions, rawProviderId)
     const value =
-      (adapterFamily === 'openai-compatible' || adapterFamily === 'github-copilot-openai-compatible') &&
+      adapterFamily === 'openai-compatible' &&
       isProviderNamespace &&
       normalizedProviderParams[key] !== null &&
       typeof normalizedProviderParams[key] === 'object' &&
@@ -415,21 +408,6 @@ function buildBedrockProviderOptions(
     providerOptions.anthropicBeta = betaHeaders
   }
   return { bedrock: providerOptions }
-}
-
-function buildOllamaProviderOptions(
-  model: Model,
-  reasoningOptions: Record<string, unknown>
-): Record<string, Record<string, unknown>> {
-  return {
-    ollama: {
-      ...reasoningOptions,
-      // Forward the model's context window so large-context models are not silently
-      // truncated. Omitting it is deliberate when unknown: Ollama then sizes by available
-      // VRAM (4k / 32k / 256k), which beats any fixed guess we could substitute.
-      ...(model.contextWindow ? { options: { num_ctx: model.contextWindow } } : {})
-    }
-  }
 }
 
 function buildGenericProviderOptions(

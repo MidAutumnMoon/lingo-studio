@@ -63,7 +63,6 @@ describe('isProviderPresetInstanceSource', () => {
     expect(isProviderPresetInstanceSource(presetSource({ id: 'openai-work' }))).toBe(false)
     expect(isProviderPresetInstanceSource(presetSource({ authMethods: ['oauth'] }))).toBe(false)
     expect(isProviderPresetInstanceSource(presetSource({ authType: 'iam-gcp' }))).toBe(false)
-    expect(isProviderPresetInstanceSource(presetSource({ id: 'copilot', presetProviderId: 'copilot' }))).toBe(false)
   })
 
   it('rejects other presets without a configured default chat endpoint', () => {

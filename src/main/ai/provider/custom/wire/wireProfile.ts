@@ -185,19 +185,6 @@ export const DMXAPI_GOOGLE_PROFILE: WireProfile = {
   }
 }
 
-/**
- * Ollama's own experimental image-gen models (`x/z-image-turbo`,
- * `x/flux2-klein`, served through `/api/generate`). Only `numInferenceSteps`
- * needs a rule — its wire name is `steps`, not the catalog's auto snake_case
- * `num_inference_steps` — since `size`/`seed` reach `ollamaTransport` via the
- * native AI SDK call options (`input.size`/`input.seed`), never this profile.
- */
-export const OLLAMA_WIRE_PROFILE: WireProfile = {
-  fields: {
-    numInferenceSteps: { to: 'steps' }
-  }
-}
-
 /** MiniMax image API fields that differ from the canonical catalog names. */
 export const MINIMAX_WIRE_PROFILE: WireProfile = {
   fields: {
@@ -264,7 +251,6 @@ export const WIRE_REGISTRY: Record<string, WireRegistration> = {
   // `openai` mirror stays clean (mapped fields only).
   aihubmix: { profile: AIHUBMIX_WIRE_PROFILE, dualOpenAI: true, passthrough: true },
   dmxapi: { profile: DMXAPI_WIRE_PROFILE, also: [{ key: 'google', profile: DMXAPI_GOOGLE_PROFILE }] },
-  ollama: { profile: OLLAMA_WIRE_PROFILE },
   minimax: { profile: MINIMAX_WIRE_PROFILE }
 }
 

@@ -1,5 +1,4 @@
-import { formatApiHost } from '@renderer/utils/api'
-import { formatOllamaApiHost, formatVertexApiHost, isWithTrailingSharp } from '@renderer/utils/api'
+import { formatApiHost, formatVertexApiHost, isWithTrailingSharp } from '@renderer/utils/api'
 import { ENDPOINT_TYPE, type EndpointType } from '@shared/data/types/model'
 import type { AuthConfig, Provider } from '@shared/data/types/provider'
 import {
@@ -26,15 +25,12 @@ export function buildHostEndpointPreviews(params: {
   if (primaryEndpoint === ENDPOINT_TYPE.ANTHROPIC_MESSAGES) {
     formattedHost = formatApiHost(anthropicApiHost || apiHost, appendVersion)
   } else if (
-    provider.id === 'copilot' ||
     isCherryAIProvider(provider) ||
     isPerplexityProvider(provider) ||
     isNewApiProvider(provider) ||
     isAzureOpenAIProvider(provider)
   ) {
     formattedHost = formatApiHost(apiHost, false)
-  } else if (primaryEndpoint === ENDPOINT_TYPE.OLLAMA_CHAT) {
-    formattedHost = formatOllamaApiHost(apiHost)
   } else if (isVertexProvider(provider)) {
     // Ahead of the generic google-generate-content rule, mirroring the request
     // path in `main/ai/provider/config.ts` — Vertex owns its own base URL.
@@ -51,7 +47,6 @@ export function buildHostEndpointPreviews(params: {
   }
 
   const hostPreview = (() => {
-    if (primaryEndpoint === ENDPOINT_TYPE.OLLAMA_CHAT) return `${formattedHost}/chat`
     if (provider.id === 'gateway') return `${formattedHost}/language-model`
     if (isAzureOpenAIProvider(provider)) {
       const version = provider.settings?.apiVersion || ''

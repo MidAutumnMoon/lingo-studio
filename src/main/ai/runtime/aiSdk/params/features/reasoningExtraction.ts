@@ -25,18 +25,17 @@ const createReasoningExtractionPlugin = (options: { tagName?: string } = {}) =>
  * reverses the middleware chain, reasoning extraction wraps simulateStreaming
  * and resolves unclosed `<think>` tags produced by the simulated stream.
  *
- * Applies to `openai-chat-completions` and Ollama. Chat-completions has no native reasoning field;
- * Ollama supports one, but custom model templates can still emit inline `<tag>…</tag>` text. Native
- * Ollama reasoning remains separate and passes through untouched. Other native-reasoning endpoints
- * (anthropic-messages / google / openai-responses) are left untouched, so literal tags stay content.
+ * Applies to `openai-chat-completions`. Chat-completions has no native reasoning field, so
+ * custom model templates that emit inline `<tag>…</tag>` text need it lifted out. Other
+ * native-reasoning endpoints (anthropic-messages / google / openai-responses) are left
+ * untouched, so literal tags stay content.
  *
  * The extraction itself is anchored (see `reasoningExtractionMiddleware`): a tag that is not the
  * start of the reply, or a reply whose wire already streamed structured reasoning, stays content.
  */
 export const reasoningExtractionFeature: RequestFeature = {
   name: 'reasoning-extraction',
-  applies: (scope) =>
-    scope.endpointType === ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS || scope.endpointType === ENDPOINT_TYPE.OLLAMA_CHAT,
+  applies: (scope) => scope.endpointType === ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
   contributeModelAdapters: (scope) => [
     createReasoningExtractionPlugin({ tagName: getReasoningTagName(scope.model.id.toLowerCase()) })
   ]

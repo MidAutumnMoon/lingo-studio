@@ -13,7 +13,7 @@ function createBase(overrides: Partial<KnowledgeBase> = {}): KnowledgeBase {
     name: 'KB',
     groupId: null,
     dimensions: 1024,
-    embeddingModelId: 'ollama::nomic-embed-text',
+    embeddingModelId: 'silicon::BAAI/bge-m3',
     status: 'completed',
     error: null,
     chunkSize: 1000,

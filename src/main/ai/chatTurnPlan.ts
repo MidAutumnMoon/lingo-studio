@@ -186,25 +186,7 @@ export async function resolveChatTurnPlan(input: ChatTurnPlanInput): Promise<Cha
   const mcpToolIds = signals?.mcpToolIds ?? new Set<string>()
   const mcpResourceServerIds = signals?.mcpResourceServerIds ?? new Set<string>()
 
-  const webToolRoutes = await resolveRequestWebToolRoutes(model, provider, assistant, {
-    endpointType,
-    hasFunctionToolSignals: Boolean(
-      signals &&
-      (signals.browserEnabled === true ||
-        signals.mcpToolIds.size > 0 ||
-        // Same `applies` gate the mcp_resource_* tools use, so a resource-only assistant is not
-        // mistaken for a request that loads no function tool.
-        signals.mcpResourceServerIds.size > 0 ||
-        // Mirrors the KB tools' own `applies`: owning a base is not enough, this request must also
-        // scope one. ORing the two made every user with any KB look like a function-tool conflict,
-        // which withheld the server web-search route on Gemini 2.5 for requests that load no tool.
-        (signals.hasAnyKnowledgeBase && knowledgeBaseIds.length > 0) ||
-        hasFileAttachments ||
-        hasClientTools ||
-        assistant?.settings.enableGenerateImage === true)
-    ),
-    reasoningEffort: request.reasoningEffort ?? assistant?.settings.reasoning_effort
-  })
+  const webToolRoutes = await resolveRequestWebToolRoutes(model, assistant)
 
   const selectedEntries = canConsumeTools
     ? await selectRegistryTools({
@@ -361,16 +343,7 @@ export async function resolveRequestToolSignals(
   }
 }
 
-async function resolveRequestWebToolRoutes(
-  model: Model,
-  provider: Provider,
-  assistant: Assistant | undefined,
-  requestContext: {
-    endpointType: EndpointType | undefined
-    hasFunctionToolSignals: boolean
-    reasoningEffort: string | undefined
-  }
-): Promise<WebToolRoutes> {
+async function resolveRequestWebToolRoutes(model: Model, assistant: Assistant | undefined): Promise<WebToolRoutes> {
   if (!assistant) return NO_WEB_TOOL_ROUTES
 
   const preferenceService = application.get('PreferenceService')
@@ -381,16 +354,11 @@ async function resolveRequestWebToolRoutes(
         resolveClientWebCapabilityAvailability('fetchUrls')
       ])
     : [false, false]
-  const modelToolsPreferred = preferenceService.get('chat.web_search.model_tools_preferred')
 
-  return resolveWebToolRoutes(model, provider, {
+  return resolveWebToolRoutes(model, {
     webSearchEnabled: clientWebToolsEnabled,
     clientSearchAvailable,
-    clientFetchAvailable,
-    modelToolsPreferred,
-    endpointType: requestContext.endpointType,
-    hasFunctionToolSignals: requestContext.hasFunctionToolSignals,
-    reasoningEffort: requestContext.reasoningEffort
+    clientFetchAvailable
   })
 
   async function resolveClientWebCapabilityAvailability(capability: WebSearchCapability): Promise<boolean> {

@@ -144,8 +144,8 @@ deadline. Listing failure never implicitly prevents an independently confirmed c
 
 `AiService.prepareModelCheck` captures the model/provider configuration and exposes model operations,
 resolved target information and snapshot validity. It imports no Doctor contracts. Conversation reuses
-`AiService.checkModel` in chat-only mode without history, tools, retry or fallback. Ollama sends a real
-chat request; non-chat models skip without prompting. NetworkService retains ownership of reachability.
+`AiService.checkModel` in chat-only mode without history, tools, retry or fallback; non-chat models skip
+without prompting. NetworkService retains ownership of reachability.
 
 The contextual API does not replace the existing Doctor report cache. Error Details uses the contextual run route,
 renders the three connectivity steps, supports confirmation, cancellation and in-place retry, and can open the

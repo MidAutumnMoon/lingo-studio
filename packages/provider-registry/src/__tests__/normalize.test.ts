@@ -172,7 +172,7 @@ describe('normalizeModelId — spelling variants collapse to one canonical', () 
 
 describe('registry-tag colon size/quant tags — size-preserving normalization', () => {
   it('realigns a colon size/quant tag to the catalog hyphen spelling', () => {
-    // Local runners such as Ollama spell a variant with a `:tag` (`qwen2.5:7b`, `gpt-oss:20b`); the rule
+    // Local runners spell a variant with a `:tag` (`qwen2.5:7b`, `gpt-oss:20b`); the rule
     // is provider-agnostic. Only a size/quant LEADER is realigned.
     expect(colonVariantTagToHyphen('gpt-oss:20b')).toBe('gpt-oss-20b')
     expect(colonVariantTagToHyphen('qwen2.5:7b')).toBe('qwen2.5-7b')

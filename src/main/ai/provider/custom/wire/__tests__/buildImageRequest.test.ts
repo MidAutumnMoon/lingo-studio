@@ -254,17 +254,6 @@ describe('buildVendorProviderOptions — dmxapi (cross-key: dmxapi body + google
   })
 })
 
-describe('buildVendorProviderOptions — Ollama (numInferenceSteps → steps; size/seed are native, not profile fields)', () => {
-  it('maps numInferenceSteps to steps and omits everything else', () => {
-    const paramValues = { numInferenceSteps: 9, seed: 42, negativePrompt: 'no blur', quality: 'hd' }
-    expect(engine('ollama', paramValues)).toEqual({ ollama: { steps: 9 } })
-  })
-
-  it('returns {} when numInferenceSteps is unset', () => {
-    expect(engine('ollama', {})).toEqual({})
-  })
-})
-
 describe('buildVendorProviderOptions — MiniMax image API', () => {
   it('maps output, optimizer, and watermark fields under the MiniMax key', () => {
     expect(

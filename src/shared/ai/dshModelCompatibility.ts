@@ -58,7 +58,7 @@ export function mapEndpointToDshApi(
       return 'openai-completions'
     case ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT:
       return 'google-generative-ai'
-    // Rerank/embeddings/audio/image/video/ollama are not chat protocols it drives.
+    // Rerank/embeddings/audio/image/video/ollama endpoints are not chat protocols it drives.
     default:
       return undefined
   }

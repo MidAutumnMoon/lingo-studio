@@ -10,7 +10,7 @@ import type { RequestFeature } from '../feature'
  * (e.g. user-configured vLLM / openai-compatible endpoints).
  *
  * Complement of `qwenThinkingFeature`: that feature handles providers that
- * do NOT support `enable_thinking` (Ollama, LMStudio, …) by appending
+ * do NOT support `enable_thinking` (LMStudio, …) by appending
  * `/think` or `/no_think` to messages. This feature handles providers that
  * DO support `enable_thinking` but lack a registered wire profile.
  */

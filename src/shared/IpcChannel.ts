@@ -1,7 +1,7 @@
 /**
  * Central registry of legacy Electron IPC channel names. Command IPC has largely moved to
  * IpcApi (`ipcApi.request`); what remains here is the data/IpcApi transport infrastructure
- * plus channels not yet migrated — v1-only backup / nutstore / copilot, the file module,
+ * plus channels not yet migrated — v1-only backup / nutstore, the file module,
  * LAN transfer, and a handful of micro-domains.
  */
 export enum IpcChannel {
@@ -18,14 +18,6 @@ export enum IpcChannel {
   // Python: main→renderer(pyodide)→main reverse RPC
   Python_ExecutionRequest = 'python:execution-request',
   Python_ExecutionResponse = 'python:execution-response',
-
-  //copilot
-  Copilot_GetAuthMessage = 'copilot:get-auth-message',
-  Copilot_GetCopilotToken = 'copilot:get-copilot-token',
-  Copilot_SaveCopilotToken = 'copilot:save-copilot-token',
-  Copilot_GetToken = 'copilot:get-token',
-  Copilot_Logout = 'copilot:logout',
-  Copilot_GetUser = 'copilot:get-user',
 
   // nutstore
   Nutstore_GetSsoUrl = 'nutstore:get-sso-url',

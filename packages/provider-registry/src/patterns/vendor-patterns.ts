@@ -39,7 +39,7 @@ export const VENDOR_PATTERNS = {
   /** Google Gemini family. */
   gemini: /^(?:gemini|palm|veo|imagen|learnlm|lyria)/i,
 
-  /** Google Gemma family (gemma-*, gemma2/3/4, and the Ollama-style `gemma:2b` tag). */
+  /** Google Gemma family (gemma-*, gemma2/3/4, and the local-runner `gemma:2b` tag). */
   gemma: /^gemma(?:[-:\d]|$)/i,
 
   /** xAI Grok family. */

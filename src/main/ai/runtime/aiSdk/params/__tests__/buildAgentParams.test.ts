@@ -423,38 +423,6 @@ describe('buildAgentParams provider resolution', () => {
     expect(result.plugins.map((plugin) => plugin.name)).not.toContain('urlContext')
   })
 
-  it('keeps URL Context when Gemini 3 receives function tools', async () => {
-    resolveProviderAiSdkConfigMock.mockResolvedValue({
-      config: { providerId: 'google', providerSettings: {} },
-      credentialReceipt: { attribution: 'unknown' }
-    })
-    const provider = makeProvider({
-      id: 'gemini',
-      defaultChatEndpoint: ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT,
-      endpointConfigs: {
-        [ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT]: { adapterFamily: 'google' }
-      },
-      serverTools: [{ id: 'url-context', modelScope: 'model-dependent' }]
-    })
-    const model = makeModel({
-      id: 'gemini::gemini-3-1-pro-preview',
-      providerId: 'gemini',
-      apiModelId: 'gemini-3-1-pro-preview',
-      capabilities: [MODEL_CAPABILITY.FUNCTION_CALL]
-    })
-    const assistant = makeAssistant({ settings: { enableWebSearch: true } })
-
-    const result = await buildAgentParams({
-      request: { conversation: CONVERSATION, callOverrides: { tools: { mcp__test__lookup: {} as Tool } } },
-      signal: undefined,
-      provider,
-      model,
-      assistant
-    })
-
-    expect(result.plugins.map((plugin) => plugin.name)).toContain('urlContext')
-  })
-
   it('preserves assistant custom parameters unchanged in the final provider request body', async () => {
     const firstCustomParameters = [
       { name: 'enable_search', type: 'json' as const, value: 'true' },
@@ -888,69 +856,36 @@ describe('buildAgentParams web-tool routing', () => {
     registry.deregister(clientFetchEntry.name)
   })
 
-  it.each([
-    {
-      name: 'model-native tools are preferred',
-      modelToolsPreferred: true,
-      defaultSearchKeywordsProvider: 'exa-mcp',
-      defaultFetchUrlsProvider: 'jina',
-      expectedRoute: 'server'
-    },
-    {
-      name: 'configured services are preferred',
-      modelToolsPreferred: false,
-      defaultSearchKeywordsProvider: 'exa-mcp',
-      defaultFetchUrlsProvider: 'jina',
-      expectedRoute: 'client'
-    },
-    {
-      name: 'configured services are preferred but unavailable',
-      modelToolsPreferred: false,
-      defaultSearchKeywordsProvider: null,
-      defaultFetchUrlsProvider: null,
-      expectedRoute: 'server'
-    }
-  ])(
-    'injects only $expectedRoute implementations when $name',
-    async ({ modelToolsPreferred, defaultSearchKeywordsProvider, defaultFetchUrlsProvider, expectedRoute }) => {
-      const preferences = new Map<string, unknown>([
-        ['app.developer_mode.enabled', false],
-        ['chat.web_search.model_tools_preferred', modelToolsPreferred],
-        ['chat.web_search.default_search_keywords_provider', defaultSearchKeywordsProvider],
-        ['chat.web_search.default_fetch_urls_provider', defaultFetchUrlsProvider],
-        ['chat.web_search.provider_overrides', {}],
-        ['chat.web_search.max_results', 5],
-        ['chat.web_search.exclude_domains', []]
-      ])
-      preferenceGetMock.mockImplementation((key: string) => preferences.get(key) ?? null)
-      registry.register(clientSearchEntry)
-      registry.register(clientFetchEntry)
+  it('injects the client web tools only when a backend is configured', async () => {
+    const preferences = new Map<string, unknown>([
+      ['app.developer_mode.enabled', false],
+      ['chat.web_search.default_search_keywords_provider', 'exa-mcp'],
+      ['chat.web_search.default_fetch_urls_provider', 'jina'],
+      ['chat.web_search.provider_overrides', {}],
+      ['chat.web_search.max_results', 5],
+      ['chat.web_search.exclude_domains', []]
+    ])
+    preferenceGetMock.mockImplementation((key: string) => preferences.get(key) ?? null)
+    registry.register(clientSearchEntry)
+    registry.register(clientFetchEntry)
 
-      const result = await buildAgentParams({
-        request: { conversation: CONVERSATION },
-        signal: undefined,
-        provider,
-        model,
-        assistant
-      })
-      const hasClientSearch = result.tools?.web_search === clientSearchEntry.tool
-      const hasClientFetch = result.tools?.web_fetch === clientFetchEntry.tool
-      const hasServerSearch = result.plugins.some((plugin) => plugin.name === 'webSearch')
-      const hasServerFetch = result.plugins.some((plugin) => plugin.name === 'urlContext')
+    const result = await buildAgentParams({
+      request: { conversation: CONVERSATION },
+      signal: undefined,
+      provider,
+      model,
+      assistant
+    })
 
-      expect(hasClientSearch).toBe(expectedRoute === 'client')
-      expect(hasClientFetch).toBe(expectedRoute === 'client')
-      expect(hasServerSearch).toBe(expectedRoute === 'server')
-      expect(hasServerFetch).toBe(expectedRoute === 'server')
-      expect(Number(hasClientSearch) + Number(hasServerSearch)).toBe(1)
-      expect(Number(hasClientFetch) + Number(hasServerFetch)).toBe(1)
-    }
-  )
+    expect(result.tools?.web_search).toBe(clientSearchEntry.tool)
+    expect(result.tools?.web_fetch).toBe(clientFetchEntry.tool)
+    expect(result.plugins.some((plugin) => plugin.name === 'webSearch')).toBe(false)
+    expect(result.plugins.some((plugin) => plugin.name === 'urlContext')).toBe(false)
+  })
 
   it('keeps client search available through ExaMCP when the selected provider has no key', async () => {
     const preferences = new Map<string, unknown>([
       ['app.developer_mode.enabled', false],
-      ['chat.web_search.model_tools_preferred', false],
       ['chat.web_search.default_search_keywords_provider', 'tavily'],
       ['chat.web_search.default_fetch_urls_provider', null],
       ['chat.web_search.provider_overrides', { tavily: { apiKeys: [] } }],
@@ -971,6 +906,7 @@ describe('buildAgentParams web-tool routing', () => {
     expect(result.tools?.web_search).toBe(clientSearchEntry.tool)
     expect(result.plugins.some((plugin) => plugin.name === 'webSearch')).toBe(false)
   })
+
   it('disables Responses storage for assistant-backed calls too', async () => {
     resolveProviderAiSdkConfigMock.mockResolvedValue({
       config: { providerId: 'openai', providerSettings: {} },
@@ -998,151 +934,6 @@ describe('buildAgentParams web-tool routing', () => {
     })
 
     expect(result.options.providerOptions?.openai).toMatchObject({ store: false })
-  })
-
-  it.each([
-    { endpointType: ENDPOINT_TYPE.OPENAI_RESPONSES, runtimeProviderId: 'openai', expectedRoute: 'server' },
-    {
-      endpointType: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
-      runtimeProviderId: 'deepseek',
-      expectedRoute: 'client'
-    },
-    { endpointType: ENDPOINT_TYPE.ANTHROPIC_MESSAGES, runtimeProviderId: 'anthropic', expectedRoute: 'client' }
-  ] as const)(
-    'routes DeepSeek Flash web search to $expectedRoute on $endpointType',
-    async ({ endpointType, runtimeProviderId, expectedRoute }) => {
-      resolveProviderAiSdkConfigMock.mockResolvedValue({
-        config: { providerId: runtimeProviderId, providerSettings: {} },
-        credentialReceipt: { attribution: 'unknown' }
-      })
-      const deepseekProvider = makeProvider({
-        id: 'deepseek',
-        presetProviderId: 'deepseek',
-        defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
-        endpointConfigs: {
-          [ENDPOINT_TYPE.OPENAI_RESPONSES]: { adapterFamily: 'openai' },
-          [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { adapterFamily: 'deepseek' },
-          [ENDPOINT_TYPE.ANTHROPIC_MESSAGES]: { adapterFamily: 'anthropic' }
-        },
-        serverTools: [
-          {
-            id: SERVER_TOOL.WEB_SEARCH,
-            modelScope: 'model-dependent',
-            endpointTypes: [ENDPOINT_TYPE.OPENAI_RESPONSES]
-          }
-        ]
-      })
-      const deepseekModel = makeModel({
-        id: 'deepseek::deepseek-flash',
-        providerId: 'deepseek',
-        apiModelId: 'deepseek-flash',
-        endpointTypes: [endpointType],
-        capabilities: [MODEL_CAPABILITY.FUNCTION_CALL]
-      })
-      const preferences = new Map<string, unknown>([
-        ['app.developer_mode.enabled', false],
-        ['chat.web_search.model_tools_preferred', true],
-        ['chat.web_search.default_search_keywords_provider', 'exa-mcp'],
-        ['chat.web_search.provider_overrides', {}],
-        ['chat.web_search.max_results', 5],
-        ['chat.web_search.exclude_domains', []]
-      ])
-      preferenceGetMock.mockImplementation((key: string) => preferences.get(key) ?? null)
-      registry.register(clientSearchEntry)
-
-      const result = await buildAgentParams({
-        request: { conversation: CONVERSATION },
-        signal: undefined,
-        provider: deepseekProvider,
-        model: deepseekModel,
-        assistant
-      })
-
-      expect(result.plugins.some((plugin) => plugin.name === 'webSearch')).toBe(expectedRoute === 'server')
-      expect(result.tools?.web_search === clientSearchEntry.tool).toBe(expectedRoute === 'client')
-    }
-  )
-
-  it.each(['deepseek-v3', 'deepseek-v3.2'])(
-    'keeps Bailian built-in search enabled for %s on Chat Completions',
-    async (apiModelId) => {
-      resolveProviderAiSdkConfigMock.mockResolvedValue({
-        config: { providerId: 'openai-compatible', providerSettings: {} },
-        credentialReceipt: { attribution: 'unknown' }
-      })
-      const dashscopeProvider = makeProvider({
-        id: 'dashscope',
-        presetProviderId: 'dashscope',
-        defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
-        endpointConfigs: {
-          [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { adapterFamily: 'openai-compatible' }
-        },
-        serverTools: [{ id: SERVER_TOOL.WEB_SEARCH, modelScope: 'model-dependent' }]
-      })
-      const dashscopeModel = makeModel({
-        id: `dashscope::${apiModelId}`,
-        providerId: 'dashscope',
-        apiModelId,
-        endpointTypes: [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS],
-        capabilities: [MODEL_CAPABILITY.FUNCTION_CALL]
-      })
-      preferenceGetMock.mockImplementation((key: string) => {
-        if (key === 'chat.web_search.model_tools_preferred') return true
-        if (key === 'chat.web_search.max_results') return 5
-        if (key === 'chat.web_search.exclude_domains') return []
-        return null
-      })
-
-      const result = await buildAgentParams({
-        request: { conversation: CONVERSATION },
-        signal: undefined,
-        provider: dashscopeProvider,
-        model: dashscopeModel,
-        assistant
-      })
-
-      expect(result.options.providerOptions).toMatchObject({
-        dashscope: { enable_search: true, search_options: { forced_search: true } }
-      })
-      expect(result.tools?.web_search).toBeUndefined()
-    }
-  )
-
-  // Owning a knowledge base is global account state; the KB tools only load when this request also
-  // scopes one (their `applies` requires both). Treating the global flag as a function-tool signal
-  // made every Gemini 2.5 request look like a native-tool conflict and lose the server route.
-  it('keeps the server route for Gemini 2.5 when a knowledge base exists but none is selected', async () => {
-    resolveProviderAiSdkConfigMock.mockResolvedValue({
-      config: { providerId: 'google', providerSettings: {} },
-      credentialReceipt: { attribution: 'unknown' }
-    })
-    const geminiProvider = makeProvider({
-      id: 'gemini',
-      defaultChatEndpoint: ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT,
-      endpointConfigs: { [ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT]: { adapterFamily: 'google' } },
-      serverTools: [{ id: SERVER_TOOL.WEB_SEARCH, modelScope: 'model-dependent' }]
-    })
-    const geminiModel = makeModel({
-      id: 'gemini::gemini-2.5-pro',
-      providerId: 'gemini',
-      apiModelId: 'gemini-2.5-pro',
-      capabilities: [MODEL_CAPABILITY.FUNCTION_CALL]
-    })
-    preferenceGetMock.mockImplementation((key: string) =>
-      key === 'chat.web_search.model_tools_preferred' ? true : null
-    )
-    registry.register(clientSearchEntry)
-
-    const result = await buildAgentParams({
-      request: { conversation: CONVERSATION },
-      signal: undefined,
-      provider: geminiProvider,
-      model: geminiModel,
-      assistant
-    })
-
-    expect(result.plugins.some((plugin) => plugin.name === 'webSearch')).toBe(true)
-    expect(result.tools?.web_search).toBeUndefined()
   })
 })
 
@@ -1369,34 +1160,6 @@ describe('buildAgentParams assistant-less reasoning', () => {
     })
     return { provider, model }
   }
-
-  it('applies the Ollama context-window default without an assistant', async () => {
-    resolveProviderAiSdkConfigMock.mockResolvedValue({
-      config: { providerId: 'ollama', providerSettings: {} },
-      credentialReceipt: { attribution: 'unknown' }
-    })
-    const provider = makeProvider({
-      id: 'ollama',
-      presetProviderId: 'ollama',
-      defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
-      endpointConfigs: { [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { adapterFamily: 'ollama' } }
-    })
-    const model = makeModel({
-      id: 'ollama::qwen3',
-      providerId: 'ollama',
-      apiModelId: 'qwen3',
-      contextWindow: 131072
-    })
-
-    const result = await buildAgentParams({
-      request: { conversation: CONVERSATION },
-      signal: undefined,
-      provider,
-      model
-    })
-
-    expect(result.options.providerOptions?.ollama).toMatchObject({ options: { num_ctx: 131072 } })
-  })
 
   it("encodes an explicit 'none' selection into the off wire mode without an assistant (translate)", async () => {
     const { provider, model } = makeOffCapableSetup()

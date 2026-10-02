@@ -498,9 +498,11 @@ describe('buildPiProviderInjection', () => {
 
   it('throws PiUnsupportedProviderError for a provider with no pi mapping', () => {
     const provider = makeProvider({
-      id: 'ollama',
-      defaultChatEndpoint: 'ollama-chat',
-      endpointConfigs: { 'ollama-chat': { adapterFamily: 'ollama', baseUrl: 'http://localhost:11434' } }
+      id: 'legacy-completions',
+      defaultChatEndpoint: 'openai-text-completions',
+      endpointConfigs: {
+        'openai-text-completions': { adapterFamily: 'openai-compatible', baseUrl: 'https://legacy.invalid/v1' }
+      }
     })
 
     expect(() => buildPiProviderInjection(provider, makeModel({}), REAL_KEY)).toThrow(PiUnsupportedProviderError)
@@ -778,8 +780,10 @@ describe('modelInjection service resolution', () => {
 
     serviceMocks.getByProviderId.mockReturnValueOnce({
       id: 'p',
-      defaultChatEndpoint: 'ollama-chat',
-      endpointConfigs: { 'ollama-chat': { adapterFamily: 'ollama', baseUrl: 'http://localhost:11434' } }
+      defaultChatEndpoint: 'openai-text-completions',
+      endpointConfigs: {
+        'openai-text-completions': { adapterFamily: 'openai-compatible', baseUrl: 'https://legacy.invalid/v1' }
+      }
     })
     await expect(assertPiProviderUsable('p::m')).rejects.toThrow(PiUnsupportedProviderError)
   })
@@ -1052,9 +1056,9 @@ describe('pi provider dialect compat', () => {
   })
 
   it('leaves the suffix-handled providers off the dialect', () => {
-    // ollama/lmstudio/nvidia/gpustack are excluded by the shared predicate: legacy
+    // lmstudio/nvidia/gpustack are excluded by the shared predicate: legacy
     // control for them is the `/think` prompt suffix, not an enable_thinking parameter.
-    for (const providerId of ['ollama', 'lmstudio', 'nvidia', 'gpustack'] as const) {
+    for (const providerId of ['lmstudio', 'nvidia', 'gpustack'] as const) {
       const provider = makeProvider({
         id: providerId,
         defaultChatEndpoint: 'openai-chat-completions',

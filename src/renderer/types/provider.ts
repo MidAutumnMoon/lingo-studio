@@ -118,7 +118,6 @@ export type Provider = {
   models: Model[]
   enabled?: boolean
   isSystem?: boolean
-  isAuthed?: boolean
   rateLimit?: number
 
   // API options

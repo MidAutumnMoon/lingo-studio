@@ -4,7 +4,7 @@ import { mergeHeaders } from '../http'
 
 describe('mergeHeaders', () => {
   it('collapses case variants of the same header so the last writer wins', () => {
-    const merged = mergeHeaders({ 'User-Agent': 'Copilot/1.0' }, { 'user-agent': 'MyAgent/1.0' })
+    const merged = mergeHeaders({ 'User-Agent': 'DefaultAgent/1.0' }, { 'user-agent': 'MyAgent/1.0' })
 
     expect(Object.keys(merged)).toEqual(['user-agent'])
     expect(new Headers(merged).get('user-agent')).toBe('MyAgent/1.0')

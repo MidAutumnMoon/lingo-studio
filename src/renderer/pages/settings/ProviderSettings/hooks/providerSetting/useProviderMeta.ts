@@ -13,7 +13,7 @@ export function useProviderMeta(providerId: string) {
 
   return useMemo(() => {
     const hideApiInput = provider ? isAwsBedrockProvider(provider) : false
-    const hideApiKeyInput = provider ? matchesPreset(provider, 'copilot') || isVertexProvider(provider) : false
+    const hideApiKeyInput = provider ? isVertexProvider(provider) : false
     const isDmxapi = provider ? matchesPreset(provider, 'dmxapi') : false
 
     return {

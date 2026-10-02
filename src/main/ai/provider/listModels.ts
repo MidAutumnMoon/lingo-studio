@@ -14,14 +14,12 @@ import {
   createJsonResponseHandler,
   type FetchFunction,
   getFromApi as aiSdkGetFromApi,
-  postJsonToApi,
   zodSchema
 } from '@ai-sdk/provider-utils'
 import * as z from 'zod'
 
 import { loggerService } from '@logger'
 import { providerService } from '@main/data/services/ProviderService'
-import { copilotService } from '@main/services/CopilotService'
 import { mergeHeaders } from '@main/utils/http'
 import type { EndpointType, Model } from '@shared/data/types/model'
 import {
@@ -32,20 +30,13 @@ import {
   MODEL_CAPABILITY
 } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
-import { formatApiHost, formatOllamaApiHost, withoutTrailingApiVersion, withoutTrailingSlash } from '@shared/utils/api'
+import { formatApiHost, withoutTrailingApiVersion, withoutTrailingSlash } from '@shared/utils/api'
 import { deriveModelGroupName } from '@shared/utils/model'
-import {
-  isAIGatewayProvider,
-  isGeminiProvider,
-  isOllamaProvider,
-  isVertexProvider,
-  matchesPreset
-} from '@shared/utils/provider'
+import { isAIGatewayProvider, isGeminiProvider, isVertexProvider, matchesPreset } from '@shared/utils/provider'
 import { SystemProviderIds } from '@shared/utils/systemProviderId'
 
 import { customFetch } from '../utils/customFetch'
-import { defaultHeaders, getBaseUrl, getExtraHeaders, getProviderAppHeaders } from '../utils/provider'
-import { COPILOT_DEFAULT_HEADERS } from './constants'
+import { defaultHeaders, getBaseUrl, getProviderAppHeaders } from '../utils/provider'
 import {
   createVertexModelListRequest,
   DEFAULT_VERTEX_MODEL_PUBLISHERS,
@@ -56,12 +47,9 @@ import {
 import {
   AIHubMixModelsResponseSchema,
   AnthropicModelsResponseSchema,
-  CopilotModelsResponseSchema,
   GeminiModelsResponseSchema,
   LMStudioModelsResponseSchema,
   NewApiModelsResponseSchema,
-  OllamaShowResponseSchema,
-  OllamaTagsResponseSchema,
   OmlxModelStatusResponseSchema,
   OpenAIModelsResponseSchema,
   OVMSConfigResponseSchema,
@@ -217,76 +205,6 @@ function pickPreferredString(values: Array<unknown>): string | undefined {
   return undefined
 }
 
-/** The trained context length from `/api/show`, whose `model_info` keys carry an architecture prefix. */
-function readOllamaContextLength(modelInfo: Record<string, unknown> | undefined): number | undefined {
-  const architecture = modelInfo?.['general.architecture']
-  if (typeof architecture !== 'string') return undefined
-  const contextLength = modelInfo?.[`${architecture}.context_length`]
-  return typeof contextLength === 'number' && contextLength > 0 ? contextLength : undefined
-}
-
-/**
- * `/api/tags` carries no context length, so without this the model has no `contextWindow` and
- * Ollama falls back to sizing by available VRAM — 4k below 24 GiB, where an agent's tool preamble
- * alone overruns the window and Ollama truncates the conversation away (#18643). Its own guidance
- * puts agent and coding workloads at 64k+, which only the model's real window can satisfy.
- */
-async function fetchOllamaContextWindow(
-  baseUrl: string,
-  provider: Provider,
-  model: string,
-  signal?: AbortSignal
-): Promise<number | undefined> {
-  try {
-    const { value } = await postJsonToApi({
-      url: `${baseUrl}/api/show`,
-      headers: defaultHeaders(provider),
-      body: { model },
-      successfulResponseHandler: createJsonResponseHandler(zodSchema(OllamaShowResponseSchema)),
-      failedResponseHandler: createJsonErrorResponseHandler({
-        errorSchema: zodSchema(ApiErrorSchema),
-        errorToMessage: (error: ApiError) => error.error?.message || error.message || 'Unknown error'
-      }),
-      abortSignal: signal,
-      fetch: modelListFetch
-    })
-    return readOllamaContextLength(value.model_info)
-  } catch (error) {
-    // A model that cannot be inspected still belongs in the list; it falls back to the default window.
-    logger.warn('failed to read Ollama context length', { model, error })
-    return undefined
-  }
-}
-
-const ollamaFetcher: ModelFetcher = {
-  match: (p) => isOllamaProvider(p),
-  fetch: async (provider, signal) => {
-    const baseUrl = withoutTrailingSlash(getBaseUrl(provider))
-      .replace(/\/v1$/, '')
-      .replace(/\/api$/, '')
-    const response = await getFromApi({
-      url: `${baseUrl}/api/tags`,
-      headers: defaultHeaders(provider),
-      responseSchema: OllamaTagsResponseSchema,
-      abortSignal: signal
-    })
-    const models = dedup(response.models, (m) => m.name)
-    const contextWindows = await Promise.all(
-      models.map((m) => fetchOllamaContextWindow(baseUrl, provider, m.name, signal))
-    )
-    return models.map((m, index) => {
-      const capabilities: Model['capabilities'] = []
-      if (m.capabilities?.includes('thinking')) capabilities.push(MODEL_CAPABILITY.REASONING)
-      if (m.capabilities?.includes('tools')) capabilities.push(MODEL_CAPABILITY.FUNCTION_CALL)
-      return toModel(m.name, provider, {
-        ownedBy: 'ollama',
-        capabilities,
-        ...(contextWindows[index] ? { contextWindow: contextWindows[index] } : {})
-      })
-    })
-  }
-}
-
 const EXCLUDED_GEMINI_GENERATION_METHODS = ['predictLongRunning', 'bidiGenerateContent'] as const
 
 const EXCLUDED_GEMINI_MODEL_KEYWORDS = ['tts'] as const
@@ -421,34 +339,6 @@ const vertexFetcher: ModelFetcher = {
     }
 
     return filteredModels
-  }
-}
-
-const copilotFetcher: ModelFetcher = {
-  match: (p) => matchesPreset(p, SystemProviderIds.copilot),
-  fetch: async (provider, signal) => {
-    const copilotHeaders = mergeHeaders(COPILOT_DEFAULT_HEADERS, provider.settings.extraHeaders)
-    // getToken exchanges the stored GitHub OAuth token for a Copilot session token.
-    // It must NOT carry the provider's `Authorization: Bearer <apiKey>` (added by
-    // defaultHeaders) — GitHub's token endpoint rejects the conflicting header with 401.
-    const { token } = await copilotService.getToken(null as any, copilotHeaders)
-    const response = await getFromApi({
-      url: `${withoutTrailingSlash(getBaseUrl(provider, ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS))}/models`,
-      headers: mergeHeaders(copilotHeaders, { Authorization: `Bearer ${token}` }),
-      responseSchema: CopilotModelsResponseSchema,
-      abortSignal: signal
-    })
-
-    const filtered = response.data.filter((m) => {
-      const modelId = m.id.toLowerCase()
-      return (
-        m.policy?.state !== 'disabled' &&
-        !/^accounts\/[^/]+\/routers\//.test(modelId) &&
-        !/^(tts|whisper|speech)/.test(modelId.split('/').pop() || '')
-      )
-    })
-
-    return dedup(filtered, (m) => m.id).map((m) => toModel(m.id, provider, { ownedBy: m.owned_by }))
   }
 }
 
@@ -987,45 +877,14 @@ const lmStudioFetcher: ModelFetcher = {
   }
 }
 
-// ── Ollama probe ──
-
-/** Lightweight model-existence check for Ollama — avoids loading the model into memory. */
-export async function probeOllamaModel(
-  provider: Provider,
-  modelApiId: string | undefined,
-  signal?: AbortSignal,
-  apiKeyOverride?: string
-): Promise<{ latency: number }> {
-  const start = performance.now()
-  const baseUrl = formatOllamaApiHost(getBaseUrl(provider))
-  const resolved = providerService.resolveApiKey(provider.id, apiKeyOverride)
-  const headers = mergeHeaders(getProviderAppHeaders(provider), getExtraHeaders(provider), {
-    'Content-Type': 'application/json',
-    ...(resolved.value ? { Authorization: `Bearer ${resolved.value}`, 'X-Api-Key': resolved.value } : {})
-  })
-  const response = await fetch(`${baseUrl}/show`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ model: modelApiId ?? '' }),
-    signal
-  })
-  if (!response.ok) {
-    const body = (await response.json().catch(() => undefined)) as { error?: string; message?: string } | undefined
-    throw new Error(body?.error ?? body?.message ?? `Ollama /api/show returned ${response.status}`)
-  }
-  return { latency: performance.now() - start }
-}
-
 // ── Registry (order matters: first match wins) ──
 
 const fetchers: ModelFetcher[] = [
   aiHubMixFetcher,
-  ollamaFetcher,
   lmStudioFetcher,
   omlxFetcher,
   geminiFetcher,
   vertexFetcher,
-  copilotFetcher,
   ovmsFetcher,
   togetherFetcher,
   newApiFetcher,

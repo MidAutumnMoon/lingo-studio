@@ -51,10 +51,6 @@ vi.mock('@renderer/pages/settings/ProviderSettings/ProviderSpecific/GpuStackSett
   default: ({ providerId }: any) => <div>{`gpustack-settings-${providerId}`}</div>
 }))
 
-vi.mock('@renderer/pages/settings/ProviderSettings/ProviderSpecific/GithubCopilotSettings', () => ({
-  default: ({ providerId }: any) => <div>{`copilot-settings-${providerId}`}</div>
-}))
-
 vi.mock('@renderer/pages/settings/ProviderSettings/ProviderSpecific/AwsBedrockSettings', () => ({
   default: ({ providerId }: any) => <div>{`aws-bedrock-settings-${providerId}`}</div>
 }))
@@ -135,12 +131,6 @@ describe('ProviderSpecificSettings', () => {
       placement: 'afterAuth' as const,
       meta: { isCherryIN: false, isDmxapi: false },
       expectedText: 'gpustack-settings-gpustack'
-    },
-    {
-      providerId: 'copilot',
-      placement: 'afterAuth' as const,
-      meta: { isCherryIN: false, isDmxapi: false },
-      expectedText: 'copilot-settings-copilot'
     },
     {
       providerId: 'aws-bedrock',

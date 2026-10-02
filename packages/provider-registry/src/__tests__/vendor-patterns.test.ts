@@ -41,7 +41,7 @@ describe('matchVendor — hunyuan `hy-` is anchored (#6)', () => {
   })
 })
 
-describe('matchVendor — gemma covers the Ollama-style tags (#7)', () => {
+describe('matchVendor — gemma covers the local-runner-style tags (#7)', () => {
   it('matches gemma-, gemmaN, and gemma: forms', () => {
     expect(matchVendor('gemma-7b')).toBe('gemma')
     expect(matchVendor('gemma2:9b')).toBe('gemma')

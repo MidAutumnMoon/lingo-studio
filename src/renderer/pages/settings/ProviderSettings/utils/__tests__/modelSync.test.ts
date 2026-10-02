@@ -85,8 +85,8 @@ describe('fetchResolvedProviderModels', () => {
   it('uses registry reasoning controls while preserving discovered thinking support', async () => {
     listModelsMock.mockResolvedValueOnce([
       {
-        id: 'ollama::qwen3:32b',
-        providerId: 'ollama',
+        id: 'lmstudio::qwen3:32b',
+        providerId: 'lmstudio',
         apiModelId: 'qwen3:32b',
         name: 'qwen3:32b',
         capabilities: [MODEL_CAPABILITY.REASONING]
@@ -94,8 +94,8 @@ describe('fetchResolvedProviderModels', () => {
     ])
     dataApiGetMock.mockResolvedValueOnce([
       {
-        id: 'ollama::qwen3:32b',
-        providerId: 'ollama',
+        id: 'lmstudio::qwen3:32b',
+        providerId: 'lmstudio',
         apiModelId: 'qwen3:32b',
         presetModelId: 'qwen3-32b',
         name: 'Qwen3 32B',
@@ -107,7 +107,7 @@ describe('fetchResolvedProviderModels', () => {
       }
     ])
 
-    const [model] = await fetchResolvedProviderModels('ollama')
+    const [model] = await fetchResolvedProviderModels('lmstudio')
 
     expect(model).toMatchObject({
       presetModelId: 'qwen3-32b',
@@ -275,9 +275,9 @@ describe('toCreateModelDto', () => {
   })
 
   it('forwards all discovered capabilities for a custom model', () => {
-    const dto = toCreateModelDto('ollama', {
-      id: 'ollama::acme-thinker:latest',
-      providerId: 'ollama',
+    const dto = toCreateModelDto('lmstudio', {
+      id: 'lmstudio::acme-thinker:latest',
+      providerId: 'lmstudio',
       apiModelId: 'acme-thinker:latest',
       name: 'Acme Thinker',
       capabilities: [MODEL_CAPABILITY.REASONING, MODEL_CAPABILITY.FUNCTION_CALL],
@@ -290,11 +290,11 @@ describe('toCreateModelDto', () => {
   })
 
   it('persists a discovered context window so the runtime can send num_ctx', () => {
-    // Ollama's window is read from /api/show at listing time, not supplied by the registry;
+    // a local runner contextWindow is discovered at listing time, not supplied by the registry;
     // dropping it here leaves the stored row without one and num_ctx is never sent (#18643).
-    const dto = toCreateModelDto('ollama', {
-      id: 'ollama::qwen3:32b',
-      providerId: 'ollama',
+    const dto = toCreateModelDto('lmstudio', {
+      id: 'lmstudio::qwen3:32b',
+      providerId: 'lmstudio',
       apiModelId: 'qwen3:32b',
       name: 'qwen3:32b',
       capabilities: [],
@@ -308,9 +308,9 @@ describe('toCreateModelDto', () => {
   })
 
   it('omits contextWindow when the model has none', () => {
-    const dto = toCreateModelDto('ollama', {
-      id: 'ollama::acme:latest',
-      providerId: 'ollama',
+    const dto = toCreateModelDto('lmstudio', {
+      id: 'lmstudio::acme:latest',
+      providerId: 'lmstudio',
       apiModelId: 'acme:latest',
       name: 'acme:latest',
       capabilities: [],
@@ -323,9 +323,9 @@ describe('toCreateModelDto', () => {
   })
 
   it('keeps registry capabilities inherited for a preset-backed thinking model', () => {
-    const dto = toCreateModelDto('ollama', {
-      id: 'ollama::qwen3:32b',
-      providerId: 'ollama',
+    const dto = toCreateModelDto('lmstudio', {
+      id: 'lmstudio::qwen3:32b',
+      providerId: 'lmstudio',
       apiModelId: 'qwen3:32b',
       presetModelId: 'qwen3-32b',
       name: 'Qwen3 32B',

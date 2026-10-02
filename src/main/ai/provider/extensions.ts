@@ -13,8 +13,6 @@ import type { MistralProviderSettings } from '@ai-sdk/mistral'
 import type { PerplexityProviderSettings } from '@ai-sdk/perplexity'
 import type { ProviderV3 } from '@ai-sdk/provider'
 import type { TogetherAIProviderSettings } from '@ai-sdk/togetherai'
-import type { GitHubCopilotProviderSettings } from '@opeoginni/github-copilot-openai-compatible'
-import type { OllamaProviderSettings } from 'ollama-ai-provider-v2'
 import type { VoyageProviderSettings } from 'voyage-ai-provider'
 
 import { ProviderExtension, type ProviderExtensionConfig } from '@cherrystudio/ai-core/provider'
@@ -95,21 +93,6 @@ export const GoogleVertexMaaSExtension = ProviderExtension.create({
   GoogleVertexMaasProviderSettings,
   GoogleVertexMaasProvider,
   'google-vertex-maas'
->)
-
-export const GitHubCopilotExtension = ProviderExtension.create({
-  name: 'github-copilot-openai-compatible',
-  aliases: ['copilot', 'github-copilot'] as const,
-  supportsImageGeneration: false,
-  // Cast because the upstream package doesn't fully implement `ProviderV3`.
-  create: async (options?: GitHubCopilotProviderSettings) =>
-    (await import('@opeoginni/github-copilot-openai-compatible')).createGitHubCopilotOpenAICompatible(
-      options
-    ) as unknown as ProviderV3
-} as const satisfies ProviderExtensionConfig<
-  GitHubCopilotProviderSettings,
-  ProviderV3,
-  'github-copilot-openai-compatible'
 >)
 
 export const BedrockExtension = ProviderExtension.create({
@@ -194,13 +177,6 @@ export const GroqExtension = ProviderExtension.create({
   supportsImageGeneration: false,
   create: async (settings) => (await import('@ai-sdk/groq')).createGroq(settings)
 } as const satisfies ProviderExtensionConfig<GroqProviderSettings, ProviderV3, 'groq'>)
-
-export const OllamaExtension = ProviderExtension.create({
-  name: 'ollama',
-  supportsImageGeneration: true,
-  create: async (options?: OllamaProviderSettings) =>
-    (await import('./custom/ollama/ollamaProvider')).createOllamaWithImageModel(options)
-} as const satisfies ProviderExtensionConfig<OllamaProviderSettings, ProviderV3, 'ollama'>)
 
 export const MinimaxExtension = ProviderExtension.create({
   name: 'minimax',
@@ -381,7 +357,6 @@ export const extensions = [
   GoogleVertexExtension,
   GoogleVertexAnthropicExtension,
   GoogleVertexMaaSExtension,
-  GitHubCopilotExtension,
   BedrockExtension,
   PerplexityExtension,
   MistralExtension,
@@ -389,7 +364,6 @@ export const extensions = [
   HuggingFaceExtension,
   GatewayExtension,
   CerebrasExtension,
-  OllamaExtension,
   MinimaxExtension,
   MoonshotExtension,
   AiHubMixExtension,

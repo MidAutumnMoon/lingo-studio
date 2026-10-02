@@ -40,7 +40,7 @@ vi.mock('@main/core/paths/pathRegistry', async () => {
         'feature.notes.data': '/mock/userData/Data/Notes',
         'feature.agents.system_workspaces': '/mock/userData/Data/Agents/system',
         // Cherry-owned files (auto-ensure dirname only)
-        'feature.copilot.token_file': '/mock/home/.cherrystudio/config/.copilot_token',
+        'feature.version_log.file': '/mock/home/.cherrystudio/logs/version.log',
         'app.database.file': '/mock/userData/Data/cherrystudio.sqlite',
         // NO_ENSURE — exact key entries (build artifacts)
         'app.exe_file': '/mock/install/CherryStudio',
@@ -137,11 +137,11 @@ describe('Application.getPath', () => {
     })
 
     it('mkdirs path.dirname(base) for a key whose name ends with "_file"', () => {
-      app.getPath('feature.copilot.token_file')
-      // The token file key points to a file; auto-ensure should target
+      app.getPath('feature.version_log.file')
+      // The file key points to a file; auto-ensure should target
       // its parent directory so the caller can immediately write the file.
       expect(fs.mkdirSync).toHaveBeenCalledTimes(1)
-      expect(fs.mkdirSync).toHaveBeenCalledWith('/mock/home/.cherrystudio/config', { recursive: true })
+      expect(fs.mkdirSync).toHaveBeenCalledWith('/mock/home/.cherrystudio/logs', { recursive: true })
     })
 
     it('mkdirs path.dirname(base) for a key whose name ends with ".file"', () => {

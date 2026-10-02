@@ -17,7 +17,6 @@ const {
   getRotatedApiKeyMock,
   getAuthConfigMock,
   getAuthHeadersMock,
-  getCopilotTokenMock,
   aiSdkGetFromApiMock,
   aiSdkPostJsonToApiMock,
   isRegistryProviderMock
@@ -25,7 +24,6 @@ const {
   getRotatedApiKeyMock: vi.fn<(providerId: string) => string>(),
   getAuthConfigMock: vi.fn(),
   getAuthHeadersMock: vi.fn(),
-  getCopilotTokenMock: vi.fn(),
   aiSdkGetFromApiMock: vi.fn(),
   aiSdkPostJsonToApiMock: vi.fn(),
   isRegistryProviderMock: vi.fn<(providerId: string) => boolean>()
@@ -50,12 +48,6 @@ vi.mock('@main/services/VertexAiService', () => ({
   }
 }))
 
-vi.mock('@main/services/CopilotService', () => ({
-  copilotService: {
-    getToken: getCopilotTokenMock
-  }
-}))
-
 vi.mock('@ai-sdk/provider-utils', async (importOriginal) => {
   const actual = await importOriginal<typeof AiSdkProviderUtils>()
   return {
@@ -72,7 +64,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   getRotatedApiKeyMock.mockReturnValue('AIza-secret-key')
   isRegistryProviderMock.mockImplementation((providerId) => providerId === 'openai')
-  getCopilotTokenMock.mockResolvedValue({ token: 'copilot-token' })
   aiSdkPostJsonToApiMock.mockResolvedValue({ value: {} })
   // listModels' getFromApi wrapper reads `value` off the provider-utils result.
   aiSdkGetFromApiMock.mockResolvedValue({
@@ -415,111 +406,6 @@ describe('listModels — LM Studio', () => {
   })
 })
 
-describe('listModels — Ollama capabilities', () => {
-  function makeOllamaProvider() {
-    return makeProvider({
-      id: 'ollama',
-      defaultChatEndpoint: ENDPOINT_TYPE.OLLAMA_CHAT,
-      endpointConfigs: {
-        [ENDPOINT_TYPE.OLLAMA_CHAT]: { baseUrl: 'http://ollama.test:11434' }
-      }
-    })
-  }
-
-  it('maps native thinking support to the reasoning capability without declaring controls', async () => {
-    aiSdkGetFromApiMock.mockResolvedValueOnce({
-      value: {
-        models: [
-          {
-            name: 'qwen3:32b-q4_K_M',
-            capabilities: ['completion', 'tools', 'thinking'],
-            details: { family: 'qwen3' }
-          },
-          {
-            name: 'qwen3-embedding:4b',
-            capabilities: ['embedding'],
-            details: { family: 'qwen3' }
-          }
-        ]
-      }
-    })
-
-    const models = await listModels(makeOllamaProvider())
-
-    expect(models[0]).toMatchObject({
-      apiModelId: 'qwen3:32b-q4_K_M',
-      capabilities: [MODEL_CAPABILITY.REASONING, MODEL_CAPABILITY.FUNCTION_CALL]
-    })
-    expect(models[0].reasoning).toBeUndefined()
-    expect(models[1]).toMatchObject({ capabilities: [] })
-    expect(models[1].reasoning).toBeUndefined()
-    expect(aiSdkGetFromApiMock.mock.calls[0][0]).toMatchObject({
-      url: 'http://ollama.test:11434/api/tags'
-    })
-  })
-
-  it('maps the tools flag to the function-call capability without thinking', async () => {
-    aiSdkGetFromApiMock.mockResolvedValueOnce({
-      value: {
-        models: [
-          { name: 'llama3.1:8b', capabilities: ['completion', 'tools'] },
-          { name: 'mistral:7b', capabilities: ['completion'] }
-        ]
-      }
-    })
-
-    const models = await listModels(makeOllamaProvider())
-
-    expect(models[0]).toMatchObject({ capabilities: [MODEL_CAPABILITY.FUNCTION_CALL] })
-    expect(models[1]).toMatchObject({ capabilities: [] })
-  })
-
-  it('reads the trained context window from /api/show so num_ctx is not left at Ollama default', async () => {
-    // /api/tags carries no context length; without this the model has no contextWindow and no
-    // num_ctx is sent, leaving Ollama to size by VRAM — 4k below 24 GiB, which an agent's tool
-    // preamble overruns on its own (#18643).
-    aiSdkGetFromApiMock.mockResolvedValueOnce({
-      value: { models: [{ name: 'qwen3:32b', capabilities: ['completion', 'tools'] }] }
-    })
-    aiSdkPostJsonToApiMock.mockResolvedValueOnce({
-      value: { model_info: { 'general.architecture': 'qwen3', 'qwen3.context_length': 40960 } }
-    })
-
-    const models = await listModels(makeOllamaProvider())
-
-    expect(models[0]).toMatchObject({ apiModelId: 'qwen3:32b', contextWindow: 40960 })
-    expect(aiSdkPostJsonToApiMock.mock.calls[0][0]).toMatchObject({
-      url: 'http://ollama.test:11434/api/show',
-      body: { model: 'qwen3:32b' }
-    })
-  })
-
-  it('still lists a model whose /api/show call fails', async () => {
-    aiSdkGetFromApiMock.mockResolvedValueOnce({
-      value: { models: [{ name: 'qwen3:32b', capabilities: ['completion'] }] }
-    })
-    aiSdkPostJsonToApiMock.mockRejectedValueOnce(new Error('connection refused'))
-
-    const models = await listModels(makeOllamaProvider())
-
-    expect(models).toHaveLength(1)
-    expect(models[0].contextWindow).toBeUndefined()
-  })
-
-  it('ignores a context length that does not match the reported architecture', async () => {
-    aiSdkGetFromApiMock.mockResolvedValueOnce({
-      value: { models: [{ name: 'qwen3:32b', capabilities: ['completion'] }] }
-    })
-    aiSdkPostJsonToApiMock.mockResolvedValueOnce({
-      value: { model_info: { 'general.architecture': 'qwen3', 'llama.context_length': 8192 } }
-    })
-
-    const models = await listModels(makeOllamaProvider())
-
-    expect(models[0].contextWindow).toBeUndefined()
-  })
-})
-
 describe('listModels — geminiFetcher API key transport', () => {
   it('passes the API key via the x-goog-api-key header, never the ?key= query (REGRESSION)', async () => {
     const provider = makeGeminiProvider()
@@ -742,29 +628,6 @@ describe('listModels — anthropicFetcher (x-api-key + anthropic-version transpo
     expect(call.headers['anthropic-version']).toBe('2023-06-01')
     // dedup keeps a single entry for the repeated id
     expect(models.map((m) => m.apiModelId)).toEqual(['claude-opus-4-8'])
-  })
-})
-
-describe('listModels — copilotFetcher (preset-aware routing)', () => {
-  it('routes copied Copilot providers (uuid id + presetProviderId) through the Copilot fetcher and its audio filter (REGRESSION)', async () => {
-    const copiedCopilotProvider = makeProvider({
-      id: 'c1a2b3c4-d5e6-7f80-9012-3456789abcde',
-      presetProviderId: 'copilot',
-      defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
-      endpointConfigs: {
-        [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://api.githubcopilot.com' }
-      }
-    })
-    aiSdkGetFromApiMock.mockResolvedValue({
-      value: {
-        data: [{ id: 'gpt-4o' }, { id: 'tts-1' }, { id: 'whisper-1' }]
-      }
-    })
-
-    const models = await listModels(copiedCopilotProvider)
-
-    expect(getCopilotTokenMock).toHaveBeenCalledTimes(1)
-    expect(models.map((m) => m.apiModelId)).toEqual(['gpt-4o'])
   })
 })
 

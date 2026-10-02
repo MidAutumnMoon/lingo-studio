@@ -31,12 +31,6 @@ vi.mock('@main/services/VertexAiService', () => ({
   }
 }))
 
-vi.mock('@main/services/CopilotService', () => ({
-  copilotService: {
-    getToken: vi.fn()
-  }
-}))
-
 // Listing issues its HTTP through `customFetch` (Electron `net.fetch`, the Chromium stack),
 // which has no Chromium behind it under Vitest. Delegate to Node's fetch so the real
 // loopback server below stays reachable; the transport is not what this suite exercises.

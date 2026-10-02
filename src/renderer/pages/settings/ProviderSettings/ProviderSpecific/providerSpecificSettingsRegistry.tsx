@@ -10,7 +10,6 @@ import type { useProviderMeta } from '../hooks/providerSetting/useProviderMeta'
 const AwsBedrockSettings = lazy(() => import('./AwsBedrockSettings'))
 const CherryInOauth = lazy(() => import('./CherryInOauth'))
 const DmxapiSettings = lazy(() => import('./DmxapiSettings'))
-const GithubCopilotSettings = lazy(() => import('./GithubCopilotSettings'))
 const GpuStackSettings = lazy(() => import('./GpuStackSettings'))
 const LmStudioSettings = lazy(() => import('./LmStudioSettings'))
 const LoginOauthPanel = lazy(() => import('./LoginOauthPanel'))
@@ -80,11 +79,6 @@ export const PROVIDER_SPECIFIC_SETTINGS_REGISTRY: Record<ProviderSpecificPlaceme
       key: 'gpustack-settings',
       when: ({ provider }) => matchesPreset(provider, 'gpustack'),
       render: (providerId) => <GpuStackSettings providerId={providerId} />
-    },
-    {
-      key: 'copilot-settings',
-      when: ({ provider }) => matchesPreset(provider, 'copilot'),
-      render: (providerId) => <GithubCopilotSettings providerId={providerId} />
     },
     {
       key: 'aws-bedrock-settings',

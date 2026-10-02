@@ -70,7 +70,6 @@ const DEFAULT_LISTING = [
   'cache.json',
   'version.log',
   'restore-journal.json',
-  '.copilot_token',
   'config.json',
   'window-state.json',
   // wiped — Chromium state
@@ -110,7 +109,6 @@ const EXPECTED_WIPED = [
   'cache.json',
   'version.log',
   'restore-journal.json',
-  '.copilot_token',
   'config.json',
   'window-state.json',
   'Cache',

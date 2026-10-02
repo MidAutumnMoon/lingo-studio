@@ -518,16 +518,9 @@ class ModelService {
     // descriptor-driven like catalog rows (#16598).
     if (dtoValues.reasoning == null) {
       const declaredReasoning = (dtoValues.capabilities ?? []).includes(MODEL_CAPABILITY.REASONING)
-      const inferred =
-        inferCustomModelReasoning(dto.modelId, registryData?.reasoningProfile.wire, { declaredReasoning }) ??
-        (declaredReasoning && registryData?.reasoningProfile.format === 'ollama'
-          ? projectRuntimeReasoning(
-              {
-                controls: [{ kind: 'toggle' }, { kind: 'effort', values: ['low', 'medium', 'high'] }]
-              },
-              registryData.reasoningProfile.wire
-            )
-          : undefined)
+      const inferred = inferCustomModelReasoning(dto.modelId, registryData?.reasoningProfile.wire, {
+        declaredReasoning
+      })
       if (inferred) dtoValues.reasoning = inferred
     }
 

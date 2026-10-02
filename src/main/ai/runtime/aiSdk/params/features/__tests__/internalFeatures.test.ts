@@ -104,16 +104,6 @@ describe('INTERNAL_FEATURES — decision matrix', () => {
     expect(
       activeNames(
         makeScope({
-          provider: { id: 'ollama' },
-          model: {},
-          aiSdkProviderId: 'ollama',
-          endpointType: 'ollama-chat'
-        })
-      )
-    ).toContain('reasoning-extraction')
-    expect(
-      activeNames(
-        makeScope({
           provider: { id: 'openai' },
           model: {},
           aiSdkProviderId: 'openai',
@@ -372,23 +362,6 @@ describe('INTERNAL_FEATURES — decision matrix', () => {
               selection: 'auto',
               emissions: [{ target: 'enable_thinking', value: true }]
             }
-          })
-        )
-      ).not.toContain('qwen-enable-thinking')
-    })
-
-    it('does not activate for Ollama (excluded by isOllamaProvider)', () => {
-      expect(
-        activeNames(
-          makeScope({
-            provider: { id: 'ollama' },
-            model: {
-              id: 'ollama::qwen3-14b',
-              providerId: 'ollama',
-              reasoning: { selectableEfforts: ['none', 'auto'] }
-            },
-            assistant: { id: 'a', settings: { reasoning_effort: 'auto' } as Assistant['settings'] },
-            reasoning: { kind: 'auto', selection: 'auto', emissions: [{ target: 'reasoningEffort', value: 'low' }] }
           })
         )
       ).not.toContain('qwen-enable-thinking')

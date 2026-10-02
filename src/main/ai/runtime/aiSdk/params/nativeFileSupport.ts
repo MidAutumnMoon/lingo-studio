@@ -88,7 +88,6 @@ const OPENAI_CHAT_MEDIA_PROVIDER_IDS = new Set<AppProviderId>([
   'openai-chat',
   'openai-compatible',
   'azure',
-  'github-copilot-openai-compatible',
   'google-vertex-maas'
 ])
 

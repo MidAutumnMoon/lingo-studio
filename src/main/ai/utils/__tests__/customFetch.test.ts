@@ -61,11 +61,11 @@ describe('customFetch', () => {
   it('resolves the User-Agent override with case-insensitive last-writer-wins', async () => {
     vi.mocked(net.fetch).mockResolvedValue(new Response())
 
-    // Mirrors Copilot's `{ ...COPILOT_DEFAULT_HEADERS, ...extraHeaders }`: a default
+    // Mirrors a `{ ...defaultHeaders, ...extraHeaders }` merge: a default
     // `User-Agent` plus a lowercase `user-agent` override from extraHeaders. A bare
     // `new Headers(...).get('user-agent')` would comma-join the two; the override wins.
     await customFetch('https://api.test/v1/chat', {
-      headers: { 'User-Agent': 'GitHubCopilotChat/0.26.7', 'user-agent': 'MyAgent/1.0' }
+      headers: { 'User-Agent': 'DefaultAgent/1.0', 'user-agent': 'MyAgent/1.0' }
     })
 
     const [, init] = vi.mocked(net.fetch).mock.calls[0]
