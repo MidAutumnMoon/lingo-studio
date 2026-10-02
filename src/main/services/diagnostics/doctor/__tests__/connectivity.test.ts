@@ -98,16 +98,32 @@ describe('model connectivity against an HTTP provider', () => {
           res.end(JSON.stringify({ error: { message: 'probe rejected' } }))
           return
         }
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(
+        // The pi one-shot lane streams (openai SDK, stream_options.include_usage) —
+        // serve SSE chunks when the caller asks for a stream.
+        const chunk = (delta: Record<string, unknown>, finishReason: string | null) =>
           JSON.stringify({
             id: 'check',
-            object: 'chat.completion',
+            object: 'chat.completion.chunk',
             created: 0,
             model: 'wire-model',
-            choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
-            usage: { prompt_tokens: 2, completion_tokens: 1, total_tokens: 3 }
+            choices: [{ index: 0, delta, finish_reason: finishReason }]
           })
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+        res.end(
+          [
+            `data: ${chunk({ role: 'assistant', content: 'ok' }, null)}`,
+            `data: ${chunk({}, 'stop')}`,
+            `data: ${JSON.stringify({
+              id: 'check',
+              object: 'chat.completion.chunk',
+              created: 0,
+              model: 'wire-model',
+              choices: [],
+              usage: { prompt_tokens: 2, completion_tokens: 1, total_tokens: 3 }
+            })}`,
+            'data: [DONE]',
+            ''
+          ].join('\n\n')
         )
       } else if (req.url === '/api/chat') {
         let body = ''

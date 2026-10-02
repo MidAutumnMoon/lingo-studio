@@ -47,7 +47,15 @@ export function serializeError(error: unknown): SerializedError {
 
     if ('url' in e) serialized.url = String(e.url ?? '')
     if ('requestBodyValues' in e) serialized.requestBodyValues = toSerializable(e.requestBodyValues)
-    if ('statusCode' in e) serialized.statusCode = (e.statusCode as number) ?? null
+    if ('statusCode' in e) {
+      serialized.statusCode = (e.statusCode as number) ?? null
+    } else {
+      // pi folds provider failures into the message string ("... (503): body" /
+      // "503: body" — its only status channel); lift it back out so the doctor's
+      // status-based classification and the UI keep their HTTP signal.
+      const lifted = /(?:\((\d{3})\):|^(\d{3}):)/.exec(error.message)
+      if (lifted) serialized.statusCode = Number(lifted[1] ?? lifted[2])
+    }
     if ('responseBody' in e) serialized.responseBody = e.responseBody != null ? String(e.responseBody) : null
     if ('isRetryable' in e) serialized.isRetryable = Boolean(e.isRetryable)
     if ('data' in e) serialized.data = toSerializable(e.data)
