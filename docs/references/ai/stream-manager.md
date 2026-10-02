@@ -167,11 +167,9 @@ Choose by **consumer / producer fanout**:
 
 ```
 src/main/ai/
-├── AiService.ts                       provider-call owner: streamText + one-shot operations + engine gate
-├── chatTurnPlan.ts                    engine-agnostic chat-turn plan (both engines consume it)
-├── runtime/aiSdk/
-│   └── Agent.ts                       single-pass `Agent.stream` wrapper (see Agent Loop)
-└── runtime/piChat/                    pi chat engine + seam (engine gate)
+├── AiService.ts                       provider-call owner: streamText + one-shot operations
+├── chatTurnPlan.ts                    engine-agnostic chat-turn plan (consumed by the pi seam)
+└── runtime/piChat/                    pi chat engine (the only chat engine) + chat-turn seam
 
 src/main/ai/streamManager/
 ├── AiStreamManager.ts                 the registry + execution loop + multicast
@@ -415,7 +413,7 @@ behind the explicit control/lifecycle paths owned by `AiStreamManager` and
 | Source field | Owner | Collected at |
 |---|---|---|
 | `MessageRuntimeTiming.startedAt/completedAt` | execution timing collector | execution start and terminal event |
-| tool spans | engine tool hooks (AI SDK execute hooks; pi session `tool_execution_*` events with the approval wait subtracted) | exact tool execute interval |
+| tool spans | engine tool events (pi `tool_execution_*` events with the approval wait subtracted) | exact tool execute interval |
 | approval spans | execution timing collector | request to approve, deny, abort, or error |
 | usage, cost, request count, provider performance | AI usage record projector | successful provider invocation insertion |
 
@@ -562,7 +560,7 @@ interface SendResult {
 ### Execution loop — `runExecutionLoop` + `pipeStreamLoop`
 
 Each execution runs an independent loop that bridges "the single
-`ReadableStream` of `UIMessageChunk`s from the selected engine" to "what the
+`ReadableStream` of `UIMessageChunk`s from the chat engine" to "what the
 manager has to do":
 broadcast to listeners, buffer for reconnect, and accumulate a
 persistable `finalMessage`.
@@ -576,9 +574,9 @@ const stream: ReadableStream<UIMessageChunk> = await aiService.streamText({
 })
 ```
 
-`streamText` returns the engine-provided chunk stream — the legacy AI SDK
-engine's `agent.stream(...)`, or the pi chat engine's chunk dialect when the
-engine gate routes the turn there. `signal` comes from
+`streamText` returns the engine-provided chunk stream — the pi chat
+engine's `UIMessageChunk` dialect (`tryStreamPiChatTurn` returns the stream,
+or fails the turn with an explicit localized error turn). `signal` comes from
 `StreamExecution.abortController`; `abort()` triggers it.
 
 **Step 2 — wrap with `withIdleTimeout`.** Resets per chunk; on idle
@@ -596,10 +594,10 @@ independent branches:
 | Broadcast | `onChunk(topicId, modelId, chunk)` per chunk | Buffer into `exec.buffer` (ring), fan out to every listener |
 | Accumulator | `readUIMessageStream` | Each yielded snapshot is written to `exec.finalMessage`; at stream end it's the final message |
 
-The accumulator reader is **not** cancelled directly on abort —
-`Agent.stream` honours the same signal upstream and propagates `done`
+The accumulator reader is **not** cancelled directly on abort — the
+engine's stream honours the same signal upstream and propagates `done`
 through `tee()`, so the accumulator drains naturally. Cancelling the
-accumulator reader directly would race AI SDK's internal
+accumulator reader directly would race the engine's internal
 `controller.close()` and produce an `ERR_INVALID_STATE`
 unhandledRejection.
 
@@ -728,8 +726,8 @@ is still streaming:
 2. `dispatchStreamRequest` calls `manager.enqueuePendingSteer(topicId, id)`,
    pushing the row onto the topic's `pendingSteers` FIFO, then `send()` — which,
    seeing the live stream, just upserts the subscriber (inject).
-3. The running turn's `steerYield` stop condition (OR'd into `stopWhen`) sees
-   `hasPendingSteer` and stops the turn cleanly at the next step boundary
+3. The running turn's steer-yield stop condition (`hasPendingSteer`) sees
+   the queued steer and stops the turn cleanly at the next step boundary
    (persisted as **`success`**, not `paused`).
 4. `onExecutionDone` sees the queued steer and, instead of finalizing the topic,
    chains a `steer-continuation` dispatch (`startNextChatTurn`) that answers the
@@ -761,7 +759,7 @@ duplicated; the rest are stream-manager-specific.
 | Flow | Trigger | Mechanism | Terminal / result |
 |---|---|---|---|
 | Submit (standard) | `ai.stream.open` | `dispatchStreamRequest` → `prepareDispatch` (persist user msg, reserve placeholders, build listeners + models) → `manager.send` → N × `runExecutionLoop` | `ai.stream.done`; `PersistenceListener.persistAssistant`; chat lifecycle `scheduleCleanup(30 s)` |
-| Steering — chat resubmit | `ai.stream.open` on a live chat topic | provider persists the steer user row + `enqueuePendingSteer` → `pendingSteers`; `steerYield` stops the running turn cleanly; `onExecutionDone` chains a `steer-continuation` | prior turn persisted as **`success`**; the continuation answers the steer — see [Steering](#steering) |
+| Steering — chat resubmit | `ai.stream.open` on a live chat topic | provider persists the steer user row + `enqueuePendingSteer` → `pendingSteers`; the running turn stops cleanly at the steer boundary; `onExecutionDone` chains a `steer-continuation` | prior turn persisted as **`success`**; the continuation answers the steer — see [Steering](#steering) |
 | Agent-session follow-up | `ai.stream.open` on a live `agent-session:*` topic | provider persists the user row, `enqueueUserMessage` steers via `connection.redirect()` (no abort) or queues on `pendingTurns`; `manager.send` upserts the subscriber → `{ mode: 'injected' }` | steer folds into the current turn (rolled at a `steer-boundary`), else the next turn starts from `pendingTurns` — see [Agent Session Runtime](./agent-session-runtime.md#live-follow-up) |
 | Tool-approval pause+resume | approval-request chunk → `awaiting-approval` | decision via `ai.tool.respond_approval`; a live agent runtime resolves its registry entry, while MCP dispatches `continue-conversation` | card clears when the resumed stream broadcasts `pending` — see [Tool Approval](./tool-approval.md) |
 | Reconnect | `ai.stream.attach` on mount | `manager.attach`: `not-found` / streaming (register listener + compact replay) / done-paused (`finalMessage(s)`) / error | live chunks resume, or the final row is returned; attach never changes runtime state |
@@ -952,8 +950,8 @@ skip-when-no-finalMessage, swallow errors) is implemented once.
   handlers in `onInit`.
 
 `AiStreamManager` calls `await application.get('AiService').streamText(...)`.
-Pre-stream errors (provider / model resolution, agent param build)
-reject the returned Promise; mid-stream errors come through the returned
+Pre-stream errors (provider / model resolution, turn preparation) reject the
+returned Promise; mid-stream errors come through the returned
 stream's error path — the two error paths never overlap.
 
 ## Grace period & reconnect
@@ -984,7 +982,7 @@ still completes, but a stale callback cannot mutate its replacement.
 
 | Case | Handling |
 |---|---|
-| User sends again on the same topic mid-stream (chat) | provider persists the steer row + `enqueuePendingSteer`; the running turn yields (`steerYield`) and persists as `success`, then `onExecutionDone` chains a `steer-continuation` |
+| User sends again on the same topic mid-stream (chat) | provider persists the steer row + `enqueuePendingSteer`; the running turn yields (`hasPendingSteer`) and persists as `success`, then `onExecutionDone` chains a `steer-continuation` |
 | Retry immediately after stream ends | `send` takes start; `evictStream` clears the grace-period entry first |
 | Window closes mid-stream | Next broadcast sees `WebContentsListener.isAlive() === false` and removes it; `PersistenceListener` doesn't depend on a window |
 | All windows closed + `backgroundMode='continue'` | Stream continues; `PersistenceListener` persists when done |
@@ -993,7 +991,7 @@ still completes, but a stale callback cannot mutate its replacement.
 | Same window re-attaches | Listener id is stable (`wc:${wc.id}:${topicId}`); `addListener` upserts by id |
 | Attach mid-stream | `attach` returns compact ring replay per execution; observer fills in the available tail without changing runtime state |
 | Ring overflow with pending approval | Eviction pauses while `pendingApprovalToolCallIds` is non-empty, so the approval's tool-input chunks stay replayable; it resumes with the chunk that resolves the approval |
-| Multi-model + resubmit | the steer is queued once per topic; every model's execution yields via `steerYield`, and the single continuation answers it after the turn completes |
+| Multi-model + resubmit | the steer is queued once per topic; every model's execution yields at the steer boundary, and the single continuation answers it after the turn completes |
 | Stream emits `tool-approval-request` | Its `toolCallId` enters `exec.pendingApprovalToolCallIds`; on stream end the topic surfaces `awaiting-approval` via the shared cache |
 | Main process restart | `activeStreams` clears; in-flight streams are lost; the renderer re-reads from the DB |
 

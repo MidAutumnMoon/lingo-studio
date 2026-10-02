@@ -164,7 +164,7 @@ homes.
 | anthropic headers / gateway usage / tool-schema / devtools | native / N/A | pi sends interleaved-thinking + merges beta headers; usage normalized by pi-ai; google rides full `parametersJsonSchema` (no strict mode); AI-SDK devtools is middleware-shaped — dropped on pi turns |
 | Google custom fetch / proxy | accepted-delta | pi-ai's google adapter rejects custom fetch (`PI_API_SUPPORTS_CUSTOM_FETCH`); proxy env still passed, requests ride the Node dispatcher — no Electron session sharing there. Fix, if proxy users break, is a pi-ai change |
 | Same-model replay descriptor | landed | Engine-owned (`isSameModelAsTurn`) because the per-execution provider name is engine-internal; suppressed on thinking-off anthropic turns (signed thinking on a disabled request is rejected) |
-| Engine gate (W6) | landed | Flag → exclusions → provider-injection try, in the seam. Excluded: `streamOutput=false`; continue-conversation and any assistant-terminated list; gateway client tools; `apiKeyOverride`; huggingface (router 400s reasoning input on both protocols) until its port; gateway-routed (cherryin) providers; server-routed web search (provider-native search has no pi surface; legacy keeps serving); unsupported/missing-key at injection. NOT excluded: ovms (suffix landed), DeepSeek responses (live probe), DSML (dogfood-tolerable). Excluding fallback-configured/multi-key requests was rejected — it would shrink dogfood to near-zero. Seam-preparation errors (plan resolution, materialization, surface building) FAIL the turn rather than falling back — deliberate, so silent fallback cannot mask engine bugs during dogfood; a scoped try/catch-with-warn is the pre-default-on softening |
+| Engine gate (W6) | closed (legacy deleted 2026-10-02) | The gate existed to route dogfood turns: flag → exclusions → provider-injection try, falling back to the legacy engine. With the legacy engine deleted, the seam (`chatTurnSeam.ts`) is the only path: it returns a stream or fails the turn — missing key throws the `chat.no_api_key` i18n-keyed error; unsupported families, continue-conversation / assistant-terminated dispatches, and tool-carrying gateway requests serve localized one-chunk error turns (`chat.errors.*`, owner decisions 2026-10-02); `apiKeyOverride` is threaded into the injection; the `chat.pi_engine.enabled` preference is removed outright. Earlier exclusions that named now-deleted lanes (`streamOutput=false` with the flag, server-routed web search, huggingface/cherryin providers) died with them |
 | Provider-native server-side web search | accepted-delta | pi-ai has no `providerOptions` surface; chat web search on pi is the MCP `web_search` tool only. Provider-native search survives on the legacy path — and becomes permanently absent when the legacy path dies at Phase 1 exit |
 | Translate / prompt streams | in scope (verify) | Same `streamText` callsite, so translate/naming/gateway ride the gate; assistant-less turns take the 20 cap and reason from `request.reasoningEffort`. Per-level checklist owns the live verify |
 | Attachments | landed + deltas | Native support pinned to `{image: vision, pdf/audio/video: false}` (pi user content is text+image; a "native" PDF would degrade to a filename note); budget fed from the plan's registry selection — the UNCOLLAPSED set, so a defer-mode assistant reserves more schema space on pi — with the request's output cap |
@@ -195,15 +195,15 @@ byte-identical (one recorded type cleanup: `sourceSnapshotForAssistant` emits
 
 Remaining rungs, each its own merge:
 
-1. **Dogfood** (now): the owner flips the flag; the gate logs every exclusion.
+1. **Dogfood** (historic): the owner flipped the flag; the gate logged every exclusion.
    Dogfood = manual flipping here — this fork has no team-topic concept.
-2. **Default on.** Requires: the W3 live spot-check per family; the matrix fully
-   green; the 0.6 smoke; and the pre-default-on register rows resolved —
-   retry/fallback turn-level wrap, steer early-yield, DSML port-or-exclude, HF
-   port, DeepSeek responses probe, think settled-message rewrite,
-   provider-reported cost mapping, phantom-request SDK ask, seam-error scoped
-   fallback softening — plus the dogfood-verify rows signed off per host.
-3. **Remove the legacy path** (Phase 1 exit).
+2. **Default on.** (Superseded 2026-10-02: the owner accepted the residuals — steer
+   latency, phantom request, DSML as markup — and the think settled-message rewrite +
+   provider-cost mapping landed, so instead of flipping the flag the flag itself was
+   removed and the engine deletion proceeded directly; pi is simply the only engine.)
+3. **Remove the legacy path** (Phase 1 exit) — **done** (2026-10-02: `runtime/aiSdk`
+   deleted, seam fallbacks converted to explicit error turns, orphaned ai-sdk deps
+   dropped; aiCore keeps `ai` for embeddings/rerank/image per D2a).
 
 **Per-level manual checklist** (run at dogfood and again at default-on): plain
 send; tool call + approval; image attachment; multi-model topic; regenerate;

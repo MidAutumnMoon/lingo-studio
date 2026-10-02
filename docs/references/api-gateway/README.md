@@ -187,8 +187,8 @@ The OpenAI, Anthropic, and Gemini generation routes call
      (the `Provider` is loaded best-effort from `ProviderService`).
 4. **Assemble overrides.** Sampling + tools + provider options are merged into a
    single `CallOverrides` object — the gateway is **assistant-agnostic**, so
-   everything is passed per-request (merged at highest precedence inside
-   `buildAgentParams`).
+   everything is passed per-request (merged at highest precedence inside the
+   chat-turn plan, `request.callOverrides`).
 5. **Pick the output adapter.** `StreamAdapterFactory.createAdapter(outputFormat)`
    + `.getFormatter(outputFormat)` give the `IStreamAdapter` (state machine that
    turns `UIMessageChunk`s into dialect events) and the `ISseFormatter` (event →
@@ -196,8 +196,8 @@ The OpenAI, Anthropic, and Gemini generation routes call
 6. **Drive the stream.** With `streamId = "gateway-<uuid>"`, call
    `AiStreamManager.streamPrompt({ streamId, uniqueModelId, messages, listener,
    callOverrides, contextOwner: 'caller', idleTimeoutMs })`. Caller ownership
-   keeps externally managed history out of Cherry's context-build and in-loop
-   compaction middleware. This uses the **`promptStreamLifecycle`** — no status
+   keeps externally managed history out of Cherry's context-build (turn-start
+   compaction and tool-output offload). This uses the **`promptStreamLifecycle`** — no status
    broadcast, no attach/reconnect, no persistence; the stream evicts immediately
    at terminal.
    - **Streaming**: an `SseListener` with a push-API `formatChunk` /
@@ -503,7 +503,7 @@ streaming `buildStreamErrorFrame`.
 ## Related references
 
 - [AI Reference](../ai/README.md) — `AiStreamManager`, `streamPrompt`,
-  `UIMessageChunk`, `buildAgentParams` / `CallOverrides`, the listener model
+  `UIMessageChunk`, `CallOverrides`, the listener model
   (`SseListener`, `WebContentsListener`).
 - [Service Lifecycle](../lifecycle/README.md) — `BaseService`, `Activatable`,
   `@ServicePhase`, `serviceRegistry.ts`.

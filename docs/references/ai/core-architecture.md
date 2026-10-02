@@ -1,5 +1,5 @@
 ---
-description: End-to-end chat turn flow from renderer IPC transport through AiStreamManager and the engine gate to persistence
+description: End-to-end chat turn flow from renderer IPC transport through AiStreamManager and the pi chat-turn seam to persistence
 sources:
   - src/main/ai/streamManager
   - src/main/ai/AiService.ts
@@ -51,12 +51,13 @@ each subsystem.
 │    runs N StreamExecution loops, fan-out per chunk to listeners       │
 │                                                                      │
 │  runExecutionLoop (AiStreamManager) → AiService.streamText(req,signal)│
-│    engine gate: piChatEngineEnabled() → tryStreamPiChatTurn —         │
-│      flag off / excluded ⇒ null ⇒ legacy engine below                 │
-│    legacy: resolveChatTurnPlan (chatTurnPlan.ts, the shared           │
-│      engine-agnostic core) → buildAgentParams (AI-SDK tail: defer     │
-│      exposition, features, options) → new Agent({tools, hookParts})   │
-│    → agent.stream(messages, signal)                                   │
+│    agent-session runtime → AgentSessionRuntimeService.openTurnStream  │
+│    chat: tryStreamPiChatTurn (runtime/piChat/chatTurnSeam.ts) —       │
+│      pi is the ONLY chat engine: a stream or an explicit error turn   │
+│      (no legacy fallback; localized chat.errors.* streams /           │
+│      i18n-keyed missing-key throw)                                    │
+│      resolveChatTurnPlan (chatTurnPlan.ts) → assembleSystemPrompt     │
+│      → prepareChatMessages → pi session stream (UIMessageChunk)       │
 │    pipeStreamLoop tees:                                              │
 │      • broadcast → WebContents / SSE / channel-adapter / persistence │
 │      • readUIMessageStream → CherryUIMessage snapshot                │
@@ -68,7 +69,6 @@ each subsystem.
 │    SseListener          → res.write('[DONE]')                         │
 └──────────────────────────────────────────────────────────────────────┘
                                  ↓
-                @ai-sdk/* package (legacy engine)
                 @earendil-works/pi-ai (pi chat engine)
                                  ↓
                           LLM provider API
@@ -91,7 +91,7 @@ each subsystem.
    - **chat resubmit** (topic already streaming): the provider persists the
      steer user row and `dispatch` calls `manager.enqueuePendingSteer(topicId)`;
      `send()` **injects** (just upserts the subscriber). The running turn yields
-     via `steerYield` (persisting as `success`) and `onExecutionDone` chains a
+     cleanly (persisting as `success`) and `onExecutionDone` chains a
      `steer-continuation` — steering is enqueue + yield + chain, not
      abort-and-restart and not mid-turn injection.
    - **agent-session follow-up**: the stream is left running and `send()`
@@ -104,21 +104,19 @@ each subsystem.
    - **Agent-session runtime requests** bypass the generic path:
      `streamText` calls `AgentSessionRuntimeService.openTurnStream()` so the
      registered driver can own the concrete agent runtime.
-   - **Engine gate** (everything else): with the `chat.pi_engine.enabled`
-     preference on, `tryStreamPiChatTurn`
-     (`runtime/piChat/chatTurnSeam.ts`) checks the per-execution exclusions
-     and prepares the turn for the pi chat engine — the exclusion matrix
-     and the provider injection both live in the seam. An excluded request
-     returns `null`, and `streamText` falls through to the legacy engine.
-   - **Legacy engine**: resolves `resolveChatTurnPlan` (`chatTurnPlan.ts`,
-     the engine-agnostic core — retained context, context settings, tool
-     selection, web routing, reasoning, the tool-call limit) and hands it
-     to `buildAgentParams` (the AI-SDK tail: `applyDeferExposition`,
-     per-feature plugins, options), which constructs an `Agent`
-     (`composeHooks` folds observers + caller + features inside `Agent`)
-     and calls `agent.stream(messages, signal)` — opening AI SDK's stream
-     and yielding `UIMessageChunk`s.
-   The pi chat engine emits the same chunk dialect through the unchanged
+   - **Everything else** runs on the pi chat engine:
+     `tryStreamPiChatTurn` (`runtime/piChat/chatTurnSeam.ts`) resolves the
+     engine-agnostic turn plan (`resolveChatTurnPlan`, `chatTurnPlan.ts` —
+     retained context, context settings, tool selection, web routing,
+     reasoning, the tool-call limit), assembles the system prompt, prepares
+     messages and attachments, and streams the turn on an in-memory pi
+     session. There is no legacy fallback: a request the seam cannot serve
+     fails explicitly — tool-carrying gateway requests, unsupported provider
+     families, approval-resume-after-crash dispatches, and served lists not
+     ending with a user message become one-chunk localized error streams
+     (`chat.errors.*`), and a provider with no credential throws an
+     i18n-keyed error the renderer renders as the localized missing-key UX.
+   The engine emits the `UIMessageChunk` dialect through the unchanged
    trunk, and is deliberately not a driver-registry entry — a chat turn is
    stateless per execution.
 8. `pipeStreamLoop` reads the chunk stream once, tees: broadcast to
@@ -145,8 +143,8 @@ each subsystem.
    chat engine's authorizer was holding the tool-call promise in-process,
    and the responder looks it up in the engine-neutral
    `toolApprovalRegistry` (`pi-chat:<executionId>` scope) to settle it —
-   no re-dispatch happens; the legacy MCP path dispatches a
-   `continue-conversation` so the existing stream rebroadcasts.
+   no re-dispatch happens; deferred MCP approvals end the turn and
+   re-dispatch a `continue-conversation` so a fresh stream rebroadcasts.
 6. Status flips back to `streaming`; UI hides the card.
 
 See [Tool Approval](./tool-approval.md) for invariants and the
@@ -158,12 +156,11 @@ overlay-vs-persist conditional write.
 |---|---|
 | Active-stream registry, listeners, persistence backends, reconnect, abort, grace-period eviction | [Stream Manager](./stream-manager.md) |
 | Agent-session host plus Pi and DSH runtime drivers | [Agent Session Runtime](./agent-session-runtime.md) |
-| `Agent.stream` single-pass loop, hooks model, error/abort | [Agent Loop](./agent-loop.md) |
-| `buildAgentParams`, `RequestFeature` composition, `INTERNAL_FEATURES` order | [Params Pipeline](./params-pipeline.md) |
+| `resolveChatTurnPlan` — selection, budgets, web-tool routing, reasoning invocation, custom parameters | [Chat Turn Plan](./params-pipeline.md) |
 | Tool registry, MCP sync, meta-tools (`tool_search` / `tool_inspect` / `tool_invoke` / `tool_exec`), defer exposition | [Tool Registry](./tool-registry.md) |
 | `Provider.endpointConfigs`, `endpointType` resolution, variant suffixes, custom providers | [Provider Resolution](./provider-resolution.md) |
 | `adapterFamily` field, runtime resolver, write paths (catalog / migrator) | [Adapter Family](./adapter-family.md) |
-| OTel span tree, `AdapterTracer`, `AiSdkSpanAdapter`, dev-tools view | [Observability](./observability.md) |
+| OTel span tree, pi provider spans, local projection, dev-tools view | [Observability](./observability.md) |
 | `IpcChatTransport`, dispatch service, per-execution demux | [IPC Transport](./ipc-transport.md) |
 | Approval flow, Main-as-writer invariant, persistent decisions | [Tool Approval](./tool-approval.md) |
 
@@ -182,16 +179,14 @@ overlay-vs-persist conditional write.
 - **`tools/applies` predicates are pure.** They run on every
   `selectActive` pass; side effects there break tool selection
   determinism.
-- **Features must not mutate `RequestScope`.** It is shared across all
-  features for a single request.
 
 ## Code map
 
 ```
 src/main/ai/
-├── AiService.ts                  ← provider operations, built-in tool init, approval decisions, engine gate
+├── AiService.ts                  ← provider operations, built-in tool init, approval decisions
 ├── chatTurnPlan.ts               ← engine-agnostic chat-turn plan (selection, context, reasoning, knobs)
-├── runtime/                      ← aiSdk (legacy engine), piChat (pi chat engine), pi / dsh agent-session drivers
+├── runtime/                      ← piChat (pi chat engine), pi / dsh agent-session drivers
 ├── agentSession/                 ← agent-session topic host
 ├── agents/                       ← AgentJobsService, AgentTaskJobHandler, runAgentTask, prompt, heartbeat
 ├── channels/                     ← ChannelManager + IM adapters (discord/qq/slack/telegram/wechat) + security/
@@ -201,7 +196,7 @@ src/main/ai/
 ├── skills/                       ← SkillService, SkillInstaller
 ├── contextBuild/                 ← context policy, compression, persisted tool outputs
 ├── tokens/                       ← token estimators and modality profiles
-├── tools/                        ← tool registry (both engines) and runtime-specific adapters
+├── tools/                        ← tool registry and runtime-specific adapters
 ├── observability/                ← AI trace adapters, local projection, sinks
 ├── messages/                     ← UI part ↔ model part conversion, replay views
 ├── types/                        ← AppProviderId, merged types, request types

@@ -83,16 +83,16 @@ export interface ChatTurnPlanInput {
   model: Model
   assistant?: Assistant
   /**
-   * The request's runtime provider id: legacy passes `sdkConfig.providerId`, the pi seam passes
-   * `resolveAiSdkProviderId(provider, endpointType)`. Only the `google-vertex-maas` reasoning
-   * endpoint remap reads it (and vertex is pi-excluded, so the two agree wherever pi runs).
+   * The request's runtime provider id. Only the `google-vertex-maas` reasoning
+   * endpoint remap reads it (vertex has no pi mapping, so this is uniform
+   * wherever the plan is served).
    */
   runtimeProviderId: string
   /**
    * The endpoint the SERVING engine will actually use. The pi seam passes pi's preference
-   * (`piPreferredEndpointType` — dual-protocol models ride anthropic-messages); legacy
-   * leaves it unset (`endpointTypes[0]`). The plan's reasoning profile, effort normalization
-   * and output-cap resolution are endpoint-keyed, so this must describe the real wire.
+   * (`piPreferredEndpointType` — dual-protocol models ride anthropic-messages). The plan's
+   * reasoning profile, effort normalization and output-cap resolution are endpoint-keyed,
+   * so this must describe the real wire.
    */
   preferredEndpoint?: EndpointType
 }
@@ -104,10 +104,10 @@ export interface ChatTurnPlan {
   hasFileAttachments: boolean
   hasPersistedOutputs: boolean
   contextSettings: EffectiveContextSettings
-  /** Legacy-only consumer (in-loop compaction); resolved with the context settings, so shared. */
+  /** Compression model for durable turn-start compaction; resolved with the context settings. */
   compressionModel: CompressionModelDescriptor | null
   toolCallLimit: number
-  /** The four-part legacy offload gate — fs_read admission and marker minting eligibility. */
+  /** The four-part offload gate — fs_read admission and marker minting eligibility. */
   canOffloadToolOutputs: boolean
   knowledgeBaseIds: readonly string[]
   /** Whether the model supports native function calling at all — false ⇒ no tool selection. */
@@ -122,10 +122,10 @@ export interface ChatTurnPlan {
   requestedSelection: ReasoningEffortOption
   hasExplicitReasoningEffort: boolean
   reasoningInvocation: ResolvedReasoningInvocation
-  /** The resolved wire profile — the legacy scope exposes it to reasoning features. */
+  /** The resolved wire profile — drives the seam's reasoning level resolution. */
   reasoningProfile: ReturnType<typeof providerRegistryService.resolveReasoningProfile>
   requestedMaxOutputTokens: number | undefined
-  /** Assistant custom params split standard/provider (already capability-filtered) — legacy options input. */
+  /** Assistant custom params split standard/provider (already capability-filtered). */
   customParameters: ReturnType<typeof extractAiSdkStandardParams>
 }
 
@@ -254,7 +254,7 @@ export async function resolveChatTurnPlan(input: ChatTurnPlanInput): Promise<Cha
   }
 }
 
-/** The citable-selection predicate shared with the legacy tail (which subtracts client tool names). */
+/** The citable-selection predicate (client tool names never count as citable). */
 export function hasCitableSelection(entries: readonly ToolEntry[], clientToolNames: ReadonlySet<string>): boolean {
   return entries.some((entry) => CITABLE_BUILTIN_TOOL_NAMES.has(entry.name) && !clientToolNames.has(entry.name))
 }

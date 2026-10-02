@@ -5,7 +5,7 @@ sources:
   - src/shared/data/types/provider.ts
   - src/main/data/services/ProviderRegistryService.ts
   - src/main/data/services/ProviderService.ts
-  - src/main/ai/runtime/aiSdk/params
+  - src/main/ai/chatTurnPlan.ts
 ---
 
 # Provider State Ownership
@@ -107,4 +107,4 @@ added yet.
 
 - [Adapter Family](./adapter-family.md)
 - [Provider Resolution](./provider-resolution.md)
-- [Params Pipeline](./params-pipeline.md)
+- [Chat Turn Plan](./params-pipeline.md)

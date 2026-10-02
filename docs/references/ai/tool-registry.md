@@ -1,5 +1,5 @@
 ---
-description: Unified ToolEntry registry — built-in web/kb tools, MCP sync, meta-tools, and deferred exposition; both chat engines consume it
+description: Unified ToolEntry registry — built-in web/kb tools, MCP sync, meta-tools, and deferred exposition; the pi chat engine consumes it
 sources:
   - src/main/ai/tools/adapters/aiSdk
 ---
@@ -25,17 +25,13 @@ a plain object with `inputSchema` (raw JSON Schema plus an optional
 canonicalizing `validate`), `execute`, `toModelOutput`, `needsApproval`,
 `metadata`, and `inputExamples`. Zod-backed tools convert once at
 definition time via `zodToolSchema` (the vendored dialect's `asSchema`).
-The legacy engine wraps these back into AI SDK `Tool`s at its boundary
-(`runtime/aiSdk/params/toSdkToolSet.ts`).
 
 `registry` (`src/main/ai/tools/adapters/aiSdk/registry.ts`) is a
 process-wide singleton. `AiService.onInit()` calls the single
 `registerBuiltinTools()` entry point; request preparation reads the
 registry through `selectRegistryTools` in `chatTurnPlan.ts` — the
-engine-agnostic selection both chat engines share (the legacy path then
-merges client tools, wraps to the SDK `ToolSet`, and applies defer
-exposition in `buildAgentParams`). The pi chat engine consumes this same
-registry through `toPiChatToolSurface` (`runtime/piChat/chatToolSurface.ts`),
+engine-agnostic selection. The pi chat engine consumes the selection
+through `toPiChatToolSurface` (`runtime/piChat/chatToolSurface.ts`),
 which converts entries to pi `ToolDefinition`s and pairs them with the
 approval authorizer. Agent-session runtimes are the exception: they build
 their own runtime-native tool surfaces (Pi's bridged custom tools, DSH's
@@ -137,9 +133,6 @@ three are injected:
 | `tool_invoke` | yes | Invoke any registry tool by name with a JSON arg blob |
 | `tool_exec` | **no** | Sandboxed JS exec with the full registry as a global API (`meta/exec/runtime.ts`, `meta/exec/worker.ts`) — defined but intentionally not injected |
 
-The injected three are added to the tool set by `applyDeferExposition` when
-(and only when) the request actually defers tools. See below.
-
 ## Defer exposition
 
 `src/main/ai/tools/adapters/aiSdk/exposition/`:
@@ -157,6 +150,13 @@ The injected three are added to the tool set by `applyDeferExposition` when
   `tool_invoke`, and returns the entries the system-prompt's
   `<DEFERRED_TOOLS>` section needs to enumerate (so the model knows what
   namespaces exist).
+
+**Current wiring:** the pi chat lane runs the full selection inline —
+`toPiChatToolSurface` converts every selected entry, no meta-tools are
+injected, and the `<DEFERRED_TOOLS>` prompt section never renders. The
+defer pass is retained for the pi port (a registered residual in
+`docs/plans/2026-09-pi-unification.md`); the entry `defer` metadata stays
+informational until then.
 
 **Approval-gated tools are never deferred.** A force-prompt MCP tool is registered
 with `defer: 'never'` — `mcp/mcpTools.ts` reads `isMcpToolForcePromptBySource` once
@@ -179,16 +179,11 @@ This statement is specific to the AI SDK registry. The Pi agent runtime has a
 separate, Pi-native `tool_search` / `tool_describe` / `tool_call` / `tool_exec` interface over its bridged MCP tools;
 see [Pi code mode](./agent-session-runtime.md#pi-code-mode).
 
-## `applies` and tool-call repair
+## `applies` predicates
 
 - `applies(scope: ToolApplyScope)` — per-entry predicate consulted at
   `registry.selectActive`. Throws are caught and treated as "inactive"
   with a warning log.
-- `createAiRepair(...)` (`runtime/aiSdk/params/repair.ts`) — passed to AI SDK as
-  `experimental_repairToolCall`. When the model emits **malformed args**
-  (`InvalidToolInputError`), the repair function gets one chance to fix it via a
-  follow-up LLM call. Other failures (e.g. an unknown tool name) are
-  returned unrepaired.
 
 ## Where to read more
 

@@ -6,8 +6,6 @@
  * pi is the ONLY chat engine: this either returns a stream or fails the turn —
  * matrix rows that once fell back to the legacy engine (approval-resume
  * dispatches, credentials, unsupported families) are explicit error turns now.
- * The `chat.pi_engine.enabled` preference is inert (pi runs either way, logged)
- * until its removal lands.
  *
  * Everything engine-agnostic is resolved by the shared `resolveChatTurnPlan`
  * (`src/main/ai/chatTurnPlan.ts`), so preparation decisions (selection, system

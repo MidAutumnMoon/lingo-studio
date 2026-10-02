@@ -39,7 +39,8 @@ resolveProviderOptionsKey(aiSdkProviderId, context): string
 The optional `preferredEndpointType` overrides `model.endpointTypes[0]` when
 the model declares both endpoint types — the pi chat engine passes
 `anthropic-messages` for dual-protocol models (see `piPreferredEndpointType`
-in `runtime/pi/modelInjection.ts`); the legacy path keeps `endpointTypes[0]`.
+in `runtime/pi/modelInjection.ts`); a caller that omits it gets
+`model.endpointTypes[0]`.
 
 `resolveAiSdkProviderId` is the runtime hot-path entry. It reads
 `provider.endpointConfigs[endpointType].adapterFamily`, applies the
@@ -111,20 +112,17 @@ the option and let the function resolve the endpoint itself.
 
 `resolveSdkConfig` (`src/main/ai/provider/sdkConfig.ts`) wraps it with the wire
 model id and the `providerOptions` namespace. It is the modality-agnostic
-transport core: `AiService`'s embedding, rerank and image verbs call it
-directly, and the legacy engine's chat pipeline (`buildAgentParams`) layers
-tools, prompt and context on top of it — pi-routed turns use the provider
-injection instead (`runtime/pi/modelInjection.ts`). Compression-model
-resolution also uses this core,
+transport core: `AiService`'s embedding, rerank and image verbs (the aiCore
+lanes) call it directly, and compression-model resolution uses this core,
 including wire model normalization, before binding its owning conversation
-to the summary model.
+to the summary model. Chat turns do not ride it — they use the pi provider
+injection instead (`runtime/pi/modelInjection.ts`).
 
 **Builders never read request context.** A config is a function of the
 provider, the model, the endpoint and the credential. When a provider's
-protocol needs something per request, the builder *declares* it and the chat
-pipeline fulfils it — OpenCode Go/Zen requires `x-opencode-session`, so
-`buildOpenCodeGoConfig` sets `ProviderConfig.conversationHeader` and
-`buildAgentOptions` fills it from `request.conversation.id`. Only chat
+protocol needs something per request, the builder *declares* it and the
+caller fulfils it — OpenCode Go/Zen requires `x-opencode-session`, so
+`buildOpenCodeGoConfig` sets `ProviderConfig.conversationHeader`. Only chat
 requests (`AiChatRequest`) carry a conversation; embedding, rerank and image
 requests have no such field, so nothing below the caller has to derive or
 default one.

@@ -374,7 +374,7 @@ export class TopicNamingService {
   ): Promise<string | null> {
     const systemPrompt = this.resolveNamingPrompt()
     // A title is a throwaway 10-word summary: never carry the source assistant /
-    // agent id, or buildAgentParams resolves its tool configuration (MCP tools,
+    // agent id, or the request resolves its tool configuration (MCP tools,
     // web search, knowledge bases) onto this request — the manual rename path in
     // the renderer omits assistantId for the same reason.
     const request: AsInProcessChat<AiGenerateRequest> = {
@@ -383,7 +383,7 @@ export class TopicNamingService {
       system: systemPrompt,
       prompt,
       // A title is 10 words: never reason. Set this explicitly so the request builder does not
-      // fall back to the source assistant's saved `reasoning_effort` (buildAgentParams precedence is
+      // fall back to the source assistant's saved `reasoning_effort` (its precedence is
       // `request.reasoningEffort ?? assistant.settings.reasoning_effort ?? 'default'`), which would
       // otherwise leak a `high`/`xhigh`/`max` thinking budget onto this throwaway request.
       reasoningEffort: 'none'

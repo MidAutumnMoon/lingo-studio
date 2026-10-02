@@ -47,8 +47,8 @@ export function resolveRequestedMaxOutputTokens(
  * takes the smallest window, so the derived input room is conservative at both
  * ends. `undefined` only when no model would send `max_tokens`.
  *
- * Used by the durable compaction path, which runs before `buildAgentParams` and
- * so has to resolve the assistant and endpoint itself. Both lookups are
+ * Used by the durable compaction path, which runs before the turn is prepared
+ * and so has to resolve the assistant and endpoint itself. Both lookups are
  * synchronous (better-sqlite3); a missing row degrades to "no reservation"
  * rather than failing the turn.
  */

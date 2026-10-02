@@ -4,7 +4,7 @@ sources:
   - src/main/data/db/schemas/aiUsageRecord.ts
   - src/main/data/services/AiUsageRecordService.ts
   - src/main/ai/utils/usageCapture.ts
-  - src/main/ai/hooks/billingHook.ts
+  - src/main/ai/runtime/piChat/chatEngine.ts
 ---
 
 # AI Usage Records
@@ -49,7 +49,7 @@ invoices remain authoritative.
 - Schema: `src/main/data/db/schemas/aiUsageRecord.ts`
 - Service and capture contract: `src/main/data/services/AiUsageRecordService.ts`
 - Capture factories: `src/main/ai/utils/usageCapture.ts`
-- Capture coverage: `src/main/ai/hooks/billingHook.ts`
+- Chat-path capture: `src/main/ai/runtime/piChat/chatEngine.ts`
 - Read-only DataApi:
   - `GET /ai-usage-records`
   - `GET /ai-usage-records/stats`
@@ -84,21 +84,18 @@ There is deliberately no operation table or persistence compensation layer.
 
 ## Billable operation contract
 
-`BILLABLE_AI_OPERATIONS` and `AI_USAGE_RECORD_OPERATION_COVERAGE` form the
-closed capture contract:
+Each billable operation has exactly one capture owner:
 
 | Operation | Capture owner | Record behavior |
 | --- | --- | --- |
-| `streamText` (legacy engine) | language model middleware | one row per successful `doStream`, written from its `finish` usage |
 | `streamText` (pi chat engine) | engine invocation sink (`onInvocation` → `recordInvocation`) | one row per provider response, including error/aborted ones (deduped by request id), with per-invocation metrics |
-| `generateText` | language model middleware | one row per successful `doGenerate` |
-| `embedMany` | aiCore embedding model middleware | one row per actual `doEmbed` batch |
+| `generateText` (pi one-shot) | `AiService` post-call capture (`runPiOneShotText` result → `recordInvocation`) | one row per successful one-shot provider call |
+| `embedMany` | aiCore embedding provider-call events | one row per actual `doEmbed` batch |
 | `generateImage` | aiCore image model middleware or custom transport owner | one row per actual provider generation |
 | `rerank` | aiCore runtime handler | one row after a successful result; usage and cost may be null |
 
 AI SDK batching is observed below `embedMany` and `generateImage`, so each real
-provider call is counted separately. Tool-input repair explicitly reuses the
-language usage middleware, making its `generateText` a separate invocation.
+provider call is counted separately.
 
 Failed calls do not produce successful records. A streaming call is recorded
 only after its finish chunk supplies final usage; previously completed calls
@@ -187,30 +184,29 @@ Null means unavailable or not applicable. Explicit zero remains observed data.
 
 Request id namespaces are:
 
-- language middleware: `ai-sdk:<providerId>:<uuid>`
 - aiCore provider handlers: `ai-core:<modality>:<uuid>`
-- Pi runtime: `pi-agent:<session-id>:<response-id>`
 - pi chat engine: `pi-chat:<execution-id>:<response-id>`
+- pi one-shot: `pi-one-shot:<providerId>:<uuid>`
+- Pi runtime: `pi-agent:<session-id>:<response-id>`
 - DSH runtime: `dsh-agent:<session-id>:<turn>:<sequence>`
 - custom async image: `custom-image:<job-id>`
 - migration: `legacy:<message-kind>:<message-id>`
 
 Known pi-chat deltas (recorded in `docs/plans/2026-09-pi-unification.md`):
-provider-reported cost is dropped (pi's `Usage.cost` never maps into
-`providerCost`, so local cost estimation is used instead), and analytics
-events fire per provider invocation where the legacy hook merges per-step
-usage into one per-turn event. Usage-record rows themselves cover error and
-aborted turns on both paths.
+`providerCost` is runtime-computed — pi's computed `Usage.cost` (bundled
+per-million USD rates, cache buckets included) maps through
+`runtime/pi/piCost.ts`, and a zero total means "no pricing known", falling
+back to app-side computed cost rather than pinning a bogus $0 row. Analytics
+events fire per provider invocation (one per response). Usage-record rows
+themselves cover error and aborted turns.
 
 ## Per-invocation metrics
 
-Language metrics are measured around the actual model middleware:
-
-- non-streaming `doGenerate`: completion duration only;
-- streaming `doStream`: completion duration, first semantic output, and
-  reasoning duration;
-- the stream wrapper forwards every original chunk without reordering,
-  replacing, or swallowing it.
+Language metrics are measured at the provider stream boundary by the serving
+runtime (`PiInvocationMetrics`: completion duration, first semantic output,
+and reasoning duration — first thinking frame to first non-thinking frame).
+The pi chat engine reports them per provider invocation; the pi one-shot lane
+reports completion duration only.
 
 Tokens per second are not stored. The list query and renderer derive:
 
@@ -225,7 +221,8 @@ Embedding, image, and rerank completion time is measured by the owner around
 the actual provider call. Direct Agent calls use the driver's own stream
 timing, measured at the provider stream boundary; metrics the driver cannot
 observe stay null. Gateway-backed Agent
-calls pass through the language middleware and have normal per-call metrics.
+calls pass through the pi chat engine's invocation sink and have normal
+per-call metrics.
 Legacy record metrics are also null; their historical message-level timings
 stay in `MessageStats`.
 
@@ -335,9 +332,11 @@ renderer normalize its scalar message timings into the same performance view
 model. Scalar timing is never copied into a new runtime timeline because it
 lacks absolute timestamps and tool/approval intervals.
 
-`AiStreamManager` owns one runtime timing collector per message execution. AI
-SDK tools report their exact execute interval through the existing loop hooks.
-Approval spans begin when the approval request is emitted and end on
+`AiStreamManager` owns one runtime timing collector per message execution. The
+chat engine reports each tool's exact execute interval from pi's
+`tool_execution_*` events (the approval wait subtracted); agent-session
+runtimes report through their driver's tool lifecycle events. Approval spans
+begin when the approval request is emitted and end on
 approve, deny, abort, or error.
 
 A continuation's context provider includes the persisted timing snapshot in
@@ -388,8 +387,8 @@ available. Duplicate completed invocation ids are ignored.
 
 The connection carries `{ owner: 'provider-calls' }`; driver-native usage events are
 ignored. Trusted in-process gateway context supplies the active assistant
-message id (or a reserved steer continuation id) and frozen source to the
-normal AiService language middleware.
+message id (or a reserved steer continuation id) and frozen source to
+the pi chat engine's invocation sink (the seam request's `usageContext`).
 A driver that injects steers asks the host (through the `onSteerInjected`
 connect hook) to reserve the continuation message id and frozen source
 synchronously, before its next provider request. The next gateway request
@@ -480,7 +479,8 @@ global SWR focus/reconnect revalidation is disabled.
 | `src/main/data/services/AiUsageRecordService.ts` | Capture contracts, insert owner, projection, queries, cursors, and message-stats merge policy |
 | `src/main/ai/utils/usageCapture.ts` | Immutable provider/model/key/pricing capture factories |
 | `src/main/ai/runtime/types.ts` | Agent runtime capture-owner contract |
-| `src/main/ai/hooks/billingHook.ts` | Language middleware and operation coverage |
+| `src/main/ai/runtime/piChat/chatEngine.ts` | Chat-path invocation sink (`onInvocation` → `recordInvocation`) |
+| `src/main/ai/runtime/pi/piCost.ts` | pi computed `Usage.cost` → `providerCost` mapping |
 | `packages/aiCore/src/core/runtime/` | Embedding/image/rerank provider-call events |
 | `src/main/ai/runtime/pi/PiRuntimeConnection.ts` | Pi provider-stream capture |
 | `src/main/ai/runtime/dsh/DshRuntimeConnection.ts` | DSH main/child invocation capture |

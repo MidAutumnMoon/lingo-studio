@@ -8,9 +8,9 @@ sources:
 # AI Reference
 
 This is the entry point for Cherry Studio's AI pipeline: main-process provider
-calls, chat execution (the legacy Vercel AI SDK engine — "the legacy engine" —
-or the in-process pi chat engine, selected per execution), registered
-agent-session runtimes, and the renderer-side transport that connects to them.
+calls, chat execution (the in-process pi chat engine — the only chat engine),
+registered agent-session runtimes, and the renderer-side transport that
+connects to them.
 
 ## Quick navigation
 
@@ -18,7 +18,7 @@ agent-session runtimes, and the renderer-side transport that connects to them.
 
 | Document | What it covers |
 |---|---|
-| [Core Architecture](./core-architecture.md) | End-to-end call flow: `ai.stream.open` IpcApi route → context provider → AiStreamManager → engine gate (legacy engine or pi chat engine) → broadcast / persist |
+| [Core Architecture](./core-architecture.md) | End-to-end call flow: `ai.stream.open` IpcApi route → context provider → AiStreamManager → pi chat-turn seam → broadcast / persist |
 | [Stream Manager](./stream-manager.md) | Active-stream registry, listeners, reconnect, abort, queue/yield/continuation steering, persistence backends |
 | [Agent Session Runtime](./agent-session-runtime.md) | Agent-session host/driver split, follow-up admission, resume persistence, and the registered Pi and DSH drivers |
 | [Agent Session Fork](./agent-session-fork.md) | Native fork behavior, service ownership, opaque checkpoints, workspace handling, publication, and recovery |
@@ -31,13 +31,12 @@ agent-session runtimes, and the renderer-side transport that connects to them.
 
 | Document | What it covers |
 |---|---|
-| [Agent Loop](./agent-loop.md) | Main-process `Agent.stream()`: single-pass stream, hook composition, observer pattern, error/abort semantics |
 | [Agent Prompt Layers](./agent-prompt-layers.md) | Agent System Prompt, workspace `system.md`, `SOUL.md`, precedence, update boundary, and variable lifecycle |
-| [Params Pipeline](./params-pipeline.md) | `buildAgentParams` + `RequestFeature` model: how capabilities, plugins, tools, and provider-specific quirks are composed |
+| [Chat Turn Plan](./params-pipeline.md) | `resolveChatTurnPlan`: the engine-agnostic turn plan — tool selection, context budgets, web-tool routing, reasoning invocation, custom-parameter split |
 | [Tool Registry](./tool-registry.md) | Built-in web/knowledge/file/image/MCP-resource tools, selected MCP tools, meta-tools, and deferred exposition |
 | [Chat Attachments](./chat-attachments.md) | How attached files reach the model: native file parts when supported, capped extracted text otherwise, `read_file` for overflow paging |
 | [Provider Resolution](./provider-resolution.md) | `Provider.endpointConfigs` schema, endpoint resolution chain, variant suffixes, custom provider extensions (aihubmix, newapi) |
-| [Observability (trace / telemetry)](./observability.md) | `AiSdkSpanAdapter`, root span propagation, OTel attribute shape, local span projection, sinks |
+| [Observability (trace / telemetry)](./observability.md) | Cherry-owned turn roots, pi chat provider spans, pi/dsh runtime spans, HTTP fetch tracing, local span projection, sinks |
 | [AI Usage Records](./ai-usage-records.md) | Best-effort per-provider-invocation usage/cost analytics: capture ownership, immutable attribution snapshots, message projection, bounded query API, migration, freshness |
 | [Browser Use Design](./browser-use-design.md) | Browser automation ownership, capability gaps, and delivery roadmap |
 | [Browser Use Implementation](./browser-use-implementation.md) | Session engine, MCP contracts, and implementation plan |
@@ -61,11 +60,10 @@ agent-session runtimes, and the renderer-side transport that connects to them.
 
 ```
 src/main/ai/
-├── AiService.ts                  ← provider operations, built-in tool init, approval decisions, engine gate
+├── AiService.ts                  ← provider operations, built-in tool init, approval decisions
 ├── chatTurnPlan.ts               ← engine-agnostic chat-turn plan (selection, context, reasoning, knobs)
 ├── runtime/                      ← AI execution backends + agent-session runtime registry
-│   ├── aiSdk/                    ← legacy engine: Agent class, loop, observers, params/features
-│   ├── piChat/                   ← pi chat engine + seam (engine gate, input preparation)
+│   ├── piChat/                   ← pi chat engine (the only chat engine) + chat-turn seam
 │   ├── pi/                       ← Pi runtime connection and approval extension (agent sessions)
 │   └── dsh/                      ← DeepSeek Harness runtime connection
 ├── agentSession/                 ← agent-session topic host
@@ -90,15 +88,15 @@ src/main/ai/
 ├── skills/                       ← SkillService, SkillInstaller
 ├── contextBuild/                 ← context-window policy, compression, persisted tool output
 ├── tokens/                       ← token estimation and modality profiles
-├── tools/                        ← unified tool registry (both chat engines consume it)
+├── tools/                        ← unified tool registry (consumed by the pi chat engine)
 │   └── adapters/
-│       └── aiSdk/                ← registry.ts, repair.ts; builtin/ (web_search/web_fetch/kb_*),
+│       └── aiSdk/                ← registry.ts; builtin/ (web_search/web_fetch/kb_*),
 │                                    mcp/ (server → ToolEntry sync), meta/ (tool_search/inspect/invoke;
 │                                    tool_exec defined but not injected), exposition/ (shouldDefer + applyDefer)
 ├── observability/                ← AI trace adapters (aiSdk), local projection, sinks
 ├── messages/                     ← UI part ↔ model part conversion, replay views
 ├── types/                        ← AppProviderId, merged extension types, request types
-└── utils/                        ← reasoning / model parameters / options / usage capture / websearch helpers
+└── utils/                        ← reasoning / model parameters / options / usage capture / system-prompt assembly
 ```
 
 ## How a chat turn flows
@@ -122,17 +120,18 @@ src/main/ai/
 5. Each execution's `runExecutionLoop` calls `AiService.streamText(request,
    signal)`. Agent-session runtime requests are routed to
    `AgentSessionRuntimeService.openTurnStream()` so the registered driver can
-   own the concrete agent runtime. Every other request passes the engine
-   gate. When the `chat.pi_engine.enabled` preference is on,
-   `tryStreamPiChatTurn` (`runtime/piChat/chatTurnSeam.ts`) checks the
-   per-execution exclusions; a request that passes runs on the pi chat
-   engine, an excluded one returns `null` and the legacy engine takes over.
-   The legacy path resolves `resolveChatTurnPlan` (`chatTurnPlan.ts`,
-   consumed by both engines) and then `buildAgentParams`, which constructs
-   an `Agent` composing hooks from `RequestFeature[]` (anthropic cache,
-   gateway usage normalisation, reasoning extraction, …) and calls
-   `agent.stream(messages, signal)` to open the AI SDK stream. Either
-   engine yields the same `UIMessageChunk` dialect into the trunk.
+   own the concrete agent runtime. Every other request runs on the pi chat
+   engine: `tryStreamPiChatTurn` (`runtime/piChat/chatTurnSeam.ts`) either
+   returns a stream or fails the turn — there is no legacy fallback. The seam
+   resolves `resolveChatTurnPlan` (`chatTurnPlan.ts`), assembles the system
+   prompt, prepares messages and attachments, and hands the turn to the
+   engine, which yields the `UIMessageChunk` dialect into the trunk. Requests
+   the seam cannot serve become explicit error turns: tool-carrying gateway
+   requests, unsupported provider families, approval-resume-after-crash
+   dispatches, and served lists that do not end with a user message get a
+   one-chunk localized error stream (`chat.errors.*` via main-process i18n);
+   a missing API key throws an i18n-keyed error the renderer renders as the
+   localized missing-key UX (`chat.no_api_key`).
 6. `pipeStreamLoop` tees the chunk stream: one branch broadcasts to listeners
    (WebContents / SSE / channel-adapter / persistence), one branch runs
    `readUIMessageStream` to accumulate a `CherryUIMessage` snapshot.

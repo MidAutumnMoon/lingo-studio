@@ -131,22 +131,13 @@ re-extract or re-OCR the same file. `extractDocumentText` reads bytes through
 
 ## Capability resolution
 
-`resolveNativeFileSupport`
-(`src/main/ai/runtime/aiSdk/params/nativeFileSupport.ts`) derives the
-"native" column from `(provider, model, resolved endpoint/runtime converter)`:
-image rides on the model capability (`isVision`, `@shared/utils/model`);
-audio/video require both the model capability and support from the selected AI
-SDK converter. PDF additionally requires a first-party provider
-(`supportsNativePdf`). There is no `pdf-compatibility` middleware — native PDFs
-pass through inline, non-native PDFs go through extraction.
-
-The pi chat engine does not use this resolver: pi's user content is
-text+image only, so the seam pins native support to
-`{ image: isVisionModel(model), pdf: false, audio: false, video: false }` —
-on a pi-routed turn, pdf/audio/video always become extracted text (or a
-short note) and only vision images ride natively. The attachment budget on
-that path is fed from the plan's registry selection with the request's
-output cap.
+pi's user content is text+image only, so the chat-turn seam pins native
+support to `{ image: isVisionModel(model), pdf: false, audio: false,
+video: false }` (the `NativeFileSupport` type lives in
+`src/main/ai/messages/attachmentRouting.ts`): pdf/audio/video always become
+extracted text (or a short note) and only vision images ride natively. The
+attachment budget on that path is fed from the plan's registry selection
+with the request's output cap.
 
 ## Invariants
 
