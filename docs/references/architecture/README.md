@@ -29,7 +29,7 @@ Cherry Studio is an Electron app with two app processes (plus preload), each map
 
 ═══ Renderer Process · Chromium · src/renderer/ ═════════════════════════
 
-  windows/     per-window entry roots — Main, Sub, Selection, …
+  windows/     per-window entry roots — Main, Sub, …
   pages/       route views — Chat, Agent, Settings, …
   features/    domain UI modules
   data hooks   useQuery / useMutation / usePreference / useCache
@@ -127,4 +127,4 @@ Where to go for detail. The three process docs own per-process directory layout 
 | AI subsystem | [AI Reference](../ai/README.md) |
 | Path registry | [paths/README](../../../src/main/core/paths/README.md) |
 
-Cherry Studio runs multiple windows (main window, sub-windows, selection toolbar, …), all managed by `WindowManager` and communicating through IPC and shared state (Cache, Preference); see the [Window Manager Reference](../window-manager/README.md).
+Cherry Studio runs multiple windows (main window, sub-windows, …), all managed by `WindowManager` and communicating through IPC and shared state (Cache, Preference); see the [Window Manager Reference](../window-manager/README.md).

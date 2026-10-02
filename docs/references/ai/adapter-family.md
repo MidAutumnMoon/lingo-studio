@@ -44,6 +44,9 @@ export function resolveAiSdkProviderId(provider, endpointType) {
   if (adapterFamily && adapterFamily in appProviderIds) {
     return resolveProviderVariant(appProviderIds[adapterFamily], endpointType)
   }
+  if (endpointType === ENDPOINT_TYPE.OPENAI_RESPONSES) {
+    return appProviderIds['open-responses']
+  }
   return appProviderIds['openai-compatible']
 }
 ```
@@ -70,7 +73,7 @@ export function inferAdapterFamily(endpointType, catalogConfig?): string {
 |---|---|
 | `anthropic-messages` | `anthropic` |
 | `google-generate-content` | `google` |
-| `ollama-chat` / `ollama-generate` | `ollama` |
+| `ollama-chat` / `ollama-generate` | `ollama` (legacy rows only — the adapter was removed with the Ollama provider, so runtime resolution falls back to `openai-compatible`) |
 | `jina-rerank` | `jina-rerank` |
 | `openai-responses` | `openai` |
 | everything else | `openai-compatible` (terminal fallback) |
@@ -92,8 +95,8 @@ picks between them:
   (DeepSeek's `response.reasoning_text.delta`) or a required field Ark wants and
   OpenAI tolerates (`status` on assistant items).
 - **Subset endpoints — `open-responses`.** Minimal servers that implement the
-  core only and may reject the extras: the HuggingFace router today, LM Studio /
-  vLLM / self-hosted next. They have no citations to lose, and the neutral
+  core only and may reject the extras: LM Studio / vLLM / self-hosted
+  servers. They have no citations to lose, and the neutral
   adapter sends the minimal body.
 
 Rule of thumb: **a missing feature belongs on `openai`; a conflicting field

@@ -47,7 +47,7 @@ reference for that Main-side design.
 ```
 ┌──────────────── Renderer ────────────────────────────────────┐
 │                                                              │
-│  useChat({ id: topicId, transport: IpcChatTransport })       │
+│  ChatStreamStore(topicId, IpcChatTransport)                  │
 │    ├─ sendMessages      → ai.stream.open                     │
 │    ├─ reconnectToStream → ai.stream.attach                   │
 │    └─ abort signal      → ai.stream.abort                    │
@@ -288,7 +288,7 @@ One listener + four backends:
 
 ```typescript
 interface PersistenceBackend {
-  readonly kind: string   // "sqlite" | "temp" | "agents-db" | "translation"
+  readonly kind: string   // "sqlite" | "temp" | "agents-db"
   persistAssistant(input: {
     finalMessage?: CherryUIMessage
     status: 'success' | 'paused' | 'error'
@@ -464,9 +464,10 @@ class AiStreamManager {
   // Multi-model is detected from `models.length > 1`.
   send(input: SendInput): SendResult
 
-  // ── Ad-hoc prompt stream (translate / topic-naming / model probes)
+  // ── Ad-hoc prompt stream (translate / API-gateway proxy streams)
   // Bypasses the chat dispatcher; uses promptStreamLifecycle (silent, no
-  // attach, immediate eviction).
+  // attach, immediate eviction). Non-streaming one-shots (topic naming,
+  // model probes) ride `AiService.generateText` instead.
   streamPrompt(input: {
     streamId: string                                       // doubles as topicId
     uniqueModelId: UniqueModelId
@@ -667,8 +668,8 @@ placeholder write + `startRuntimeTurn` handoff). See
 ## Lifecycle strategy — chat vs prompt
 
 The manager stays policy-free. Behaviour that differs between chat
-streams and one-shot ad-hoc prompts (translate, topic-naming, model
-probes) lives in `StreamLifecycle`:
+streams and ad-hoc prompt streams (translate, API-gateway proxy) lives
+in `StreamLifecycle`:
 
 ```typescript
 interface StreamLifecycle {
@@ -761,7 +762,7 @@ duplicated; the rest are stream-manager-specific.
 | Submit (standard) | `ai.stream.open` | `dispatchStreamRequest` → `prepareDispatch` (persist user msg, reserve placeholders, build listeners + models) → `manager.send` → N × `runExecutionLoop` | `ai.stream.done`; `PersistenceListener.persistAssistant`; chat lifecycle `scheduleCleanup(30 s)` |
 | Steering — chat resubmit | `ai.stream.open` on a live chat topic | provider persists the steer user row + `enqueuePendingSteer` → `pendingSteers`; the running turn stops cleanly at the steer boundary; `onExecutionDone` chains a `steer-continuation` | prior turn persisted as **`success`**; the continuation answers the steer — see [Steering](#steering) |
 | Agent-session follow-up | `ai.stream.open` on a live `agent-session:*` topic | provider persists the user row, `enqueueUserMessage` steers via `connection.redirect()` (no abort) or queues on `pendingTurns`; `manager.send` upserts the subscriber → `{ mode: 'injected' }` | steer folds into the current turn (rolled at a `steer-boundary`), else the next turn starts from `pendingTurns` — see [Agent Session Runtime](./agent-session-runtime.md#live-follow-up) |
-| Tool-approval pause+resume | approval-request chunk → `awaiting-approval` | decision via `ai.tool.respond_approval`; a live agent runtime resolves its registry entry, while MCP dispatches `continue-conversation` | card clears when the resumed stream broadcasts `pending` — see [Tool Approval](./tool-approval.md) |
+| Tool-approval pause+resume | approval-request chunk → `awaiting-approval` | decision via `ai.tool.respond_approval`; a live turn (agent runtime or pi chat engine) resolves its engine-neutral `toolApprovalRegistry` entry in-process, while deferred MCP cards dispatch a `continue-conversation` that the pi seam serves as an explicit error turn | card clears on the in-process resume (or the resend prompt) — see [Tool Approval](./tool-approval.md) |
 | Reconnect | `ai.stream.attach` on mount | `manager.attach`: `not-found` / streaming (register listener + compact replay) / done-paused (`finalMessage(s)`) / error | live chunks resume, or the final row is returned; attach never changes runtime state |
 | Abort — user stop | `ai.stream.abort` | `abortAndDrain` holds the topic dispatch lock; per exec: `abortController.abort` → loop `signal` aborts → broadcast reader `cancel` → read loop `done`; then Agent runtime close settles | partial persists as **`paused`** and the request resolves before the next same-topic dispatch is admitted |
 | Abort — no subscribers | last `WebContentsListener` dies + `backgroundMode === 'abort'` | `onChunk` prunes dead listeners; `listeners.size === 0` → auto `abort(topicId, 'no-subscribers')` | partial persisted as **`paused`** — never silently `success` or leaked |
@@ -933,7 +934,7 @@ wins).
 
 ### One PersistenceListener across all topic kinds
 
-Persistent / Temporary / Agent / Translation all share the same
+Persistent / Temporary / Agent all share the same
 `PersistenceListener` class — only the injected `PersistenceBackend`
 differs. The observer protocol (`modelId` filter, error part folding,
 skip-when-no-finalMessage, swallow errors) is implemented once.
@@ -970,8 +971,8 @@ from `activeStreams`), then creates the new stream. The grace-period entry never
 blocks the new generation; an in-progress user Stop intentionally does, through
 the topic dispatch lock, until terminal persistence and, for Agent sessions,
 runtime teardown settle. See [IPC Transport → User Stop](./ipc-transport.md#user-stop) for why the
-Renderer sends and awaits an explicit abort request even after calling AI SDK's
-`stop()`.
+Renderer sends and awaits an explicit abort request even after calling the
+`ChatStreamStore`'s `stop()`.
 
 **Terminal freshness invariant.** After awaiting terminal listener
 dispatch, the manager must re-check `activeStreams.get(topicId) === stream`

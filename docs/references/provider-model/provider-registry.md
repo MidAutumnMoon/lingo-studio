@@ -321,7 +321,7 @@ Reasoning is split across two boundaries:
 - **Model data** declares intrinsic controls and token limits. Main-process registry enrichment projects these into the runtime-only `selectableEfforts` consumed by renderer controls.
 - **Provider registry data** declares a closed `reasoningFormat` wire profile. It is resolved and interpreted in Main only; it is never copied into SQLite, DataApi, or renderer state.
 
-The request path resolves one profile from exact provider-model, endpoint override/default, then exhaustive format defaults. It combines that profile with the submit-time canonical selection and emits either native AI SDK provider options or generic compatible parameters.
+The request path resolves one profile from exact provider-model, endpoint override/default, then exhaustive format defaults. It combines that profile with the submit-time canonical selection; the chat-turn plan carries the resolved invocation, which the pi chat seam maps onto the request's thinking level.
 
 See [Reasoning Control](../../../packages/provider-registry/docs/reasoning-control.md) for the schemas, precedence rules, and UI-to-request data flow.
 

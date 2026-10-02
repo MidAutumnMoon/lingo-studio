@@ -27,13 +27,15 @@ See [Adapter Family](./adapter-family.md) for the full design.
 
 ## Resolver
 
-`src/main/ai/provider/endpoint.ts` exposes four pure helpers:
+`src/main/ai/provider/endpoint.ts` exposes the pure resolution helpers:
 
 ```ts
+resolveWireModelId(model, endpointType): string
 resolveEffectiveEndpoint(provider, model, preferredEndpointType?): { endpointType, baseUrl, providerOptionsKey? }
 resolveProviderVariant(baseProviderId, endpointType): AppProviderId
 resolveAiSdkProviderId(provider, endpointType): AppProviderId
 resolveProviderOptionsKey(aiSdkProviderId, context): string
+resolveEndpointProviderOptionsKey(provider, resolvedEndpoint): string  // composes the two below-gate calls
 ```
 
 The optional `preferredEndpointType` overrides `model.endpointTypes[0]` when
@@ -54,13 +56,15 @@ carried through `SdkConfig`; reasoning encoders consume the resolved namespace
 and never inspect provider or model ids themselves.
 
 ```ts
-// Full resolver — 6 lines
 export function resolveAiSdkProviderId(provider, endpointType) {
   const adapterFamily = endpointType
     ? provider.endpointConfigs?.[endpointType]?.adapterFamily
     : undefined
   if (adapterFamily && adapterFamily in appProviderIds) {
     return resolveProviderVariant(appProviderIds[adapterFamily], endpointType)
+  }
+  if (endpointType === ENDPOINT_TYPE.OPENAI_RESPONSES) {
+    return appProviderIds['open-responses']
   }
   return appProviderIds['openai-compatible']
 }
@@ -75,7 +79,7 @@ returns the base unchanged:
 
 | Endpoint type | Suffix tried |
 |---|---|
-| `openai-chat-completions`, `ollama-chat` | `-chat` |
+| `openai-chat-completions` | `-chat` |
 | `openai-responses` | `-responses` |
 
 Variants registered today (declared in each provider extension's
@@ -86,10 +90,8 @@ Variants registered today (declared in each provider extension's
 | `openai` | `openai-chat` (the base `openai` is itself the Responses API) |
 | `azure` | `azure-responses`, `azure-anthropic` |
 | `xai` | `xai-responses` |
-| `cherryin` | `cherryin-chat` |
 
-`ollama` has no registered variant, so an `ollama-chat` endpoint resolves
-to the base `ollama`. Likewise there is **no `openai-responses` variant**
+There is **no `openai-responses` variant**
 (the base already is) — and the standalone `open-responses` extension
 (`@ai-sdk/open-responses`, the minimal dialect for subset Responses servers —
 see [Adapter Family](./adapter-family.md)) is deliberately NOT named
@@ -127,28 +129,38 @@ requests (`AiChatRequest`) carry a conversation; embedding, rerank and image
 requests have no such field, so nothing below the caller has to derive or
 default one.
 
-The builder table (`config.ts`, first match wins):
+The builder table (`config.ts`, first match wins) — preset- or id-keyed
+special cases first, relay builders last, generic fallbacks after the table:
 
 | Match | Builder | Notes |
 |---|---|---|
-| `id === copilot` | `buildCopilotConfig` | async — fetches a Copilot token |
-| `id === 'cherryai'` | `buildCherryAIConfig` | |
-| `isOllamaProvider` | `buildOllamaConfig` | |
+| preset `opencode` | `buildOpenCodeGoConfig` | sets the `x-opencode-session` conversation header |
+| `id === 'openai-codex'` | `buildCodexConfig` | provider-OAuth credential path |
+| `id === 'grok-cli'` | `buildGrokCliConfig` | provider-OAuth credential path |
 | `isAzureOpenAIProvider` | `buildAzureConfig` | returns `azure` / `azure-responses` / `azure-anthropic` (Claude on Azure) |
+| preset `dashscope` + `openai-compatible` | `buildDashScopeConfig` | Bailian rerank URL |
+| preset `lmstudio` + `openai-compatible` | body transform | bare-base64 images for multi-image requests |
+| preset `moonshot` + `openai-compatible` | inline config | routes to the `moonshot` extension for the `$web_search` echo tool |
+| preset `doubao` + `openai` | inline config | strips Ark-rejected `include` fields; dev-mode `X-Fornax-Trace` |
+| preset `dashscope` + `openai` | inline config | appends the `web_extractor` Responses tool |
+| `id === 'open-responses'` | `buildOpenResponsesConfig` | minimal spec-neutral Responses body |
+| image model + image preset (`modelscope`/`ppio`/`doubao`/`dmxapi`/`tokenhub`/`minimax`) | inline config | overrides to the extension's bespoke image transport |
 | `id === 'bedrock'` | `buildBedrockConfig` | |
-| `id === 'google-vertex'` | `buildVertexConfig` | returns `google-vertex` or `google-vertex-anthropic` for Claude; leaves `baseURL` undefined when no host is configured so the SDK derives the aiplatform host |
-| `provider.id === 'cherryin'` | `buildCherryinConfig` | matches the **provider id**, not the resolved variant — the default chat endpoint resolves to `cherryin-chat`, so an `id === 'cherryin'` check never fires; async — resolves relay base URLs |
+| `id === 'google-vertex'` / `'google-vertex-anthropic'` | `buildVertexConfig` | returns `google-vertex` or `google-vertex-anthropic` for Claude; IAM-GCP credential path; leaves `baseURL` undefined when no host is configured so the SDK derives the aiplatform host |
 | `id === 'newapi'` | `buildNewApiConfig` | |
 | `id === 'aihubmix'` | `buildAiHubMixConfig` | passes the Chat, Responses, Anthropic, and Gemini URLs independently |
 | `id === 'dmxapi'` | `buildDmxapiConfig` | passes the Chat, Anthropic, and Gemini URLs independently |
-| _(no match)_ | `buildGenericProviderConfig` / `buildOpenAICompatibleConfig` | generic fallback |
+| _(no match, registered id)_ | `buildGenericProviderConfig` | |
+| _(no match)_ | `buildOpenAICompatibleConfig` | generic fallback |
 
-Several builders are `async` (Copilot token, CherryIN relay URLs), which is
-why `providerToAiSdkConfig` returns a promise.
+Several builders resolve provider credentials or relay URLs asynchronously,
+which is why `providerToAiSdkConfig` returns a promise.
 
 ## Custom providers
 
-`src/main/ai/provider/custom/`:
+`src/main/ai/provider/custom/` (multi-vendor relays highlighted; the
+directory also hosts per-provider adapters such as silicon, minimax,
+modelscope, moonshot, and the shared image-transport registry):
 
 - **aihubmix** — multi-vendor relay. Its model-id router selects the
   Anthropic, Gemini, OpenAI Responses, or OpenAI-compatible model and consumes

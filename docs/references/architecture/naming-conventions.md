@@ -51,7 +51,7 @@ The 90% case. See later sections for full rules and edge cases.
 | Business / domain module directory | `camelCase` | `apiServer/`, `fileProcessing/` |
 | Feature module directory (large, multi-file domain) | `features/<camelCase>/` | `features/apiGateway/` |
 | `packages/ui/` directory | `kebab-case` | `primitives/`, `button-group/` |
-| TanStack route file under `src/renderer/routes/` | `kebab-case.tsx` | `api-server.tsx`, `quick-assistant.tsx` |
+| TanStack route file under `src/renderer/routes/` | `kebab-case.tsx` | `file-preview.tsx`, `api-gateway.tsx` |
 
 > Stateful singleton capabilities use only `Service` (default) or `Manager` (instance pool); multi-instance helper classes take no suffix — see §5.2. Files placed inside any `utils/` directory drop the `Utils` suffix — the directory already declares the role; see §3.2.
 

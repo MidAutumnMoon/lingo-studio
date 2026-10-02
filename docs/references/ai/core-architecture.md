@@ -21,11 +21,11 @@ each subsystem.
 ┌──────────────────────────────────────────────────────────────────────┐
 │                            Renderer                                  │
 │                                                                      │
-│  useChat({ id: topicId, transport: IpcChatTransport })               │
+│  ChatStreamStore({ id: topicId, transport: IpcChatTransport })       │
 │    ├─ sendMessages      → ipcApi.request('ai.stream.open')            │
 │    ├─ reconnectToStream → ipcApi.request('ai.stream.attach')          │
 │    ├─ abort signal      → ipcApi.request('ai.stream.abort')           │
-│    └─ stop()            → sdkStop + await ai.stream.abort             │
+│    └─ stop()            → store abort + await ai.stream.abort         │
 │                                                                      │
 │  History:           useQuery('/topics/:topicId/messages') → DataApi   │
 │  Topic-level state: useTopicStreamStatus → shared cache              │
@@ -63,10 +63,10 @@ each subsystem.
 │      • readUIMessageStream → CherryUIMessage snapshot                │
 │                                                                      │
 │  Terminal listeners:                                                 │
-│    PersistenceListener → MessageService / TemporaryChat / Translation
+│    PersistenceListener → MessageService / TemporaryChat backends     │
 │    WebContentsListener  → ai.stream.done directed event              │
-│    ChannelAdapterListener → adapter.onStreamComplete                  │
-│    SseListener          → res.write('[DONE]')                         │
+│    ChannelAdapterListener → adapter.onStreamComplete                 │
+│    SseListener          → res.write('[DONE]')                        │
 └──────────────────────────────────────────────────────────────────────┘
                                  ↓
                 @earendil-works/pi-ai (pi chat engine)
@@ -76,7 +76,8 @@ each subsystem.
 
 ## Sequence: a fresh chat turn
 
-1. User hits send. `useChat.sendMessages` calls `IpcChatTransport.sendMessages`.
+1. User hits send. `ChatStreamStore.sendMessage` (driven by
+   `useChatWithHistory`) calls `IpcChatTransport.sendMessages`.
 2. Transport packages `AiStreamOpenRequest`, dispatches via
    `streamDispatchService` over IpcApi `ai.stream.open`.
 3. The `ai.stream.open` handler in `src/main/ipc/handlers/ai.ts` resolves the
@@ -143,8 +144,10 @@ each subsystem.
    chat engine's authorizer was holding the tool-call promise in-process,
    and the responder looks it up in the engine-neutral
    `toolApprovalRegistry` (`pi-chat:<executionId>` scope) to settle it —
-   no re-dispatch happens; deferred MCP approvals end the turn and
-   re-dispatch a `continue-conversation` so a fresh stream rebroadcasts.
+   no re-dispatch happens. `AiService.respondToolApproval` still
+   re-dispatches a `continue-conversation` for deferred MCP cards whose
+   turn is already gone, but the pi seam serves those an explicit error
+   turn (`chat.errors.approval_resume_gone`) — the user resends.
 6. Status flips back to `streaming`; UI hides the card.
 
 See [Tool Approval](./tool-approval.md) for invariants and the

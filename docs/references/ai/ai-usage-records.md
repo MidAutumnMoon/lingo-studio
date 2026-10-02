@@ -5,6 +5,7 @@ sources:
   - src/main/data/services/AiUsageRecordService.ts
   - src/main/ai/utils/usageCapture.ts
   - src/main/ai/runtime/piChat/chatEngine.ts
+  - src/main/ai/runtime/piChat/chatTurnSeam.ts
 ---
 
 # AI Usage Records
@@ -49,7 +50,7 @@ invoices remain authoritative.
 - Schema: `src/main/data/db/schemas/aiUsageRecord.ts`
 - Service and capture contract: `src/main/data/services/AiUsageRecordService.ts`
 - Capture factories: `src/main/ai/utils/usageCapture.ts`
-- Chat-path capture: `src/main/ai/runtime/piChat/chatEngine.ts`
+- Chat-path capture: `src/main/ai/runtime/piChat/chatTurnSeam.ts`
 - Read-only DataApi:
   - `GET /ai-usage-records`
   - `GET /ai-usage-records/stats`
@@ -75,8 +76,8 @@ invoices remain authoritative.
   rotation state.
 - Every runtime route has one capture owner. Gateway-backed Agent traffic uses
   provider-call capture; direct Agent traffic is captured by the runtime
-  driver; pi chat engine turns are captured by the engine itself (one
-  `onInvocation` per provider response, forwarded to
+  driver; pi chat engine turns are captured at the seam (the engine emits one
+  `onInvocation` per provider response; the seam forwards it to
   `aiUsageRecordService.recordInvocation` with the request's shared capture
   context).
 
@@ -479,7 +480,8 @@ global SWR focus/reconnect revalidation is disabled.
 | `src/main/data/services/AiUsageRecordService.ts` | Capture contracts, insert owner, projection, queries, cursors, and message-stats merge policy |
 | `src/main/ai/utils/usageCapture.ts` | Immutable provider/model/key/pricing capture factories |
 | `src/main/ai/runtime/types.ts` | Agent runtime capture-owner contract |
-| `src/main/ai/runtime/piChat/chatEngine.ts` | Chat-path invocation sink (`onInvocation` → `recordInvocation`) |
+| `src/main/ai/runtime/piChat/chatEngine.ts` | Emits one `onInvocation` per provider response |
+| `src/main/ai/runtime/piChat/chatTurnSeam.ts` | Chat-path invocation sink (`onInvocation` → `recordInvocation`) |
 | `src/main/ai/runtime/pi/piCost.ts` | pi computed `Usage.cost` → `providerCost` mapping |
 | `packages/aiCore/src/core/runtime/` | Embedding/image/rerank provider-call events |
 | `src/main/ai/runtime/pi/PiRuntimeConnection.ts` | Pi provider-stream capture |

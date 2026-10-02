@@ -50,7 +50,6 @@ business state into the command runtime merely to make the action triggerable.
 `CommandContextKeyProvider` supplies these base keys:
 
 - `platform`
-- `feature.quick_assistant.enabled`
 
 `useCommandContextKey` is the window-local extension point:
 

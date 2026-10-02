@@ -471,9 +471,9 @@ Built-in Elysia `VALIDATION` / `NOT_FOUND` / `PARSE` codes map to 400/404/400
 such as the pairing body's `413`, are preserved through Elysia's `ParseError` wrapper.
 Unknown provider/runtime errors are shaped by
 `transformAnthropicError` / `transformOpenAiError` — **status-driven**: they read
-`statusCode` off the AI-SDK `SerializedError`, so a provider 401/429/… keeps its
+`statusCode` off the serialized error, so a provider 401/429/… keeps its
 real status and message instead of flattening to 500. Internal-error messages are
-gated behind `isDev`, and the AI-SDK error extras (`stack` / `url` /
+gated behind `isDev`, and the serialized error extras (`stack` / `url` /
 request+response bodies) are dropped — for both the JSON handlers and the
 streaming `buildStreamErrorFrame`.
 

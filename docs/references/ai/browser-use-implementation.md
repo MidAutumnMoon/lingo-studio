@@ -718,6 +718,14 @@ Two import paths (the settings dialog defaults to the detected browser):
 
 ### 10.2 Module layout and API
 
+> **As shipped**, the import module consolidated several planned files: the
+> portable-cookie/imported-data schemas live in `import/portableBrowserData.ts`
+> (main-only — `src/shared/types/browserImport.ts` was not created), file/profile
+> parsing and decryption live in `importBrowserData.ts`,
+> `ChromiumCookieDecryptor.ts`, `browserProfiles.ts`, and `sqliteSnapshot.ts`,
+> and the IPC routes are `browser.import.sources` / `browser.import.run`. The
+> layout below is the plan of record; the names above are the tree.
+
 ```
 src/main/features/browser/import/
   formats.ts            parseStorageState(json) / parseNetscape(text) → ImportedCookie[] + ImportedOrigin[]

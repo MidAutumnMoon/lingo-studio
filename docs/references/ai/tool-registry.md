@@ -131,7 +131,7 @@ three are injected:
 | `tool_search` | yes | Browse the deferred pool by namespace + query, returns brief descriptions |
 | `tool_inspect` | yes | Emit a JSDoc stub for one tool — enough to call it correctly |
 | `tool_invoke` | yes | Invoke any registry tool by name with a JSON arg blob |
-| `tool_exec` | **no** | Sandboxed JS exec with the full registry as a global API (`meta/exec/runtime.ts`, `meta/exec/worker.ts`) — defined but intentionally not injected |
+| `tool_exec` | **no** | Sandboxed JS exec with the full registry as a global API (`meta/exec/runtime.ts`, worker orchestration in `tools/codeMode/`) — defined but intentionally not injected |
 
 ## Defer exposition
 
@@ -169,7 +169,8 @@ call `isApprovalGated` at execution time and refuse a gated tool (covering the
 [Tool Approval](./tool-approval.md).
 
 `tool_exec` is **not injected** by `applyDeferExposition` — there is no
-`metaTools.exec` flag. The injection site (`applyDeferExposition.ts:50-53`)
+`metaTools.exec` flag. The injection site (the explicit `tool_exec` carve-out
+in `exposition/applyDeferExposition.ts`)
 deliberately leaves it out: its `worker_threads` + `new Function` sandbox
 runs model-authored code with full Node privileges, a privilege-escalation
 surface vs the renderer's prior restrictions. It is meant to be re-enabled

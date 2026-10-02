@@ -85,8 +85,9 @@ Ordered by expected value:
   `PiRuntimeConnection` assigns `lastStopReason` only from `turn_end`, so partial stop
   reasons are structurally inert — keep it that way when touching stop-reason handling.
 - pi retries assistant calls itself (DNS failures, 5xx, Cloudflare 520, Azure capacity,
-  buffer-limit failures) and waits honor abort signals. Host retry wrapping is for
-  chat, not work sessions — don't double-wrap.
+  buffer-limit failures) and waits honor abort signals. Host retry wrapping is gone
+  entirely (the retry lane was removed 2026-10) — retries are pi's job; don't
+  reintroduce a host wrapper.
 - Bodyless 400/413 are no longer auto-classified as context overflow; z.ai
   `Prompt too long` is. Error messages chain underlying causes; unmapped terminal
   reasons surface as provider errors.
@@ -99,9 +100,9 @@ Ordered by expected value:
 - Google adapters reject non-global `fetch` implementations — matters for the W3 chat
   provider matrix.
 - Anthropic signed-thinking recovery (adaptive config + empty-signature history
-  handling) does **not** synthesize thinking for tool-only messages —
-  `normalizeCherryInThinkingReplay` keeps its job; don't delete it as "covered
-  upstream".
+  handling) does **not** synthesize thinking for tool-only messages. Cherry's
+  `normalizeCherryInThinkingReplay` workaround was deleted with the CherryIN preset
+  (2026-10) — the upstream gap it papered over is still there.
 - Custom providers receive branded `TranscriptContext`; system prompt and tool
   declarations live in transcript system messages (`getCurrentSystemPrompt()`/
   `getCurrentTools()`). Build contexts only via `normalizeContext()` — and Cherry

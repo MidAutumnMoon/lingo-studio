@@ -43,8 +43,8 @@ cross-application domain, not one call site.
 ```text
 app.spell_check.enabled
 chat.message.font_size
-feature.quick_assistant.enabled
-shortcut.general.show_main_window
+feature.translate.model_id
+shortcut.app.search
 ```
 
 ## Value Shape

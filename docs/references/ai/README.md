@@ -45,7 +45,7 @@ connects to them.
 
 | Document | What it covers |
 |---|---|
-| [IPC Transport](./ipc-transport.md) | `useChat` + `IpcChatTransport`: `sendMessages` / `reconnectToStream`, dispatch service, topic-status mirror |
+| [IPC Transport](./ipc-transport.md) | `ChatStreamStore` + `IpcChatTransport`: `sendMessages` / `reconnectToStream`, dispatch service, topic-status mirror |
 | [Execution Overlay](./execution-overlay.md) | `TopicStreamSubscription` + `useExecutionOverlay`: ref-counted attach, execution + anchor demux, one-shot `readUIMessageStream` per turn (the renderer half of the same merge function Main uses) |
 | [Text Translation](./translation.md) | `translate.open` prompt streams, renderer-owned result handling, and Home `data-translation` persistence |
 | [Tool Approval](./tool-approval.md) | Approval registry, Main-as-writer model, persistent decisions, `useToolApproval` hook |
@@ -101,7 +101,9 @@ src/main/ai/
 
 ## How a chat turn flows
 
-1. Renderer `useChat({ transport: IpcChatTransport })` calls `sendMessages` →
+1. Renderer `useChatWithHistory` drives a per-topic `ChatStreamStore`
+   (`renderer/services/aiTransport/`, the first-party replacement for
+   `@ai-sdk/react`'s `useChat`) whose `IpcChatTransport` calls `sendMessages` →
    IpcApi `ai.stream.open` (`{ topicId, trigger, userMessageParts,
    parentAnchorId?, mentionedModelIds? }`).
 2. The thin handler in `src/main/ipc/handlers/ai.ts` resolves the caller's

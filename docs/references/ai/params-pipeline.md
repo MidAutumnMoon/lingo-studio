@@ -22,12 +22,14 @@ live in a single place. The file sits at the `ai/` root next to its caller
 It is a standalone async orchestrator — no class or retained request state.
 It is the **chat** pipeline: its input is an `AiChatRequest`, which carries
 `conversation: ConversationRef { id, topicId? }` supplied by the caller — the
-stream manager passes the topic (or the trusted agent session), topic naming
-passes its topic, a health probe its own id. `AiStreamRequest` requires
+stream manager passes the topic (or the trusted agent session). Non-streaming
+one-shots (topic naming, health probes) ride the pi one-shot lane
+(`AiService.generateText`) and never enter this pipeline.
+`AiStreamRequest` requires
 `conversation.topicId` as its sole stream-topic field; `conversation.id` may
-instead identify the longer-lived agent session, and non-streaming requests
-such as probes may omit `topicId`. Embedding, rerank and image requests never
-enter this pipeline; they use `resolveSdkConfig` directly.
+instead identify the longer-lived agent session. Embedding, rerank and image
+requests never enter this pipeline either; they use `resolveSdkConfig`
+directly.
 
 ## Input
 

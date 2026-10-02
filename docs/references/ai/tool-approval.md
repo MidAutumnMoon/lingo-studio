@@ -26,8 +26,8 @@ persists, and resumes the stream.
    per engine: the agent-session runtime holds its registered approval;
    the pi chat engine's authorizer holds the tool-call promise in-process
    (registered in the engine-neutral `toolApprovalRegistry` under the
-   `pi-chat:<executionId>` scope); the legacy MCP path pauses the stream
-   on the approval part.
+   `pi-chat:<executionId>` scope). Only a card whose turn is gone (e.g.
+   after a crash/restart) falls to the DB-only MCP path below.
 
 2. **Stream pauses** — `AiStreamManager` transitions the topic to
    `awaiting-approval`. The `topic.stream.statuses.<topicId>` shared-cache
@@ -59,12 +59,16 @@ persists, and resumes the stream.
      `approval-requested` part is present on the DB row** — guarding the
      overlay-only case (approval received before the part has persisted).
      When all approvals on the turn are decided it dispatches a synthetic
-     `continue-conversation` request through `dispatchStreamRequest`; the
-     provider applies the decision when it reads parts.
+     `continue-conversation` request through `dispatchStreamRequest` — but
+     the pi seam serves that dispatch the explicit
+     `chat.errors.approval_resume_gone` error turn (the original turn is
+     gone; the user resends).
 
-5. **Awaiting-approval clears** — the moment the continue stream
+5. **Awaiting-approval clears** — the moment the resumed stream
    broadcasts `pending`, the shared-cache entry flips back. Every window
-   sees the approval card disappear in the same tick.
+   sees the approval card disappear in the same tick. On the in-process
+   resume the turn simply continues streaming; on the MCP path the error
+   turn replaces the card with the resend prompt.
 
 ## Persistent decisions
 

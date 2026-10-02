@@ -8,9 +8,10 @@ sources:
 # Execution Overlay
 
 The renderer-side counterpart of Main's `pipeStreamLoop`. Both sides
-use the **same pure assembler** —
-[AI SDK's `readUIMessageStream`](https://ai-sdk.dev/docs/reference/ai-sdk-ui/read-ui-message-stream) —
-to turn the chunk stream into a `CherryUIMessage`. Main writes the
+use the **same pure assembler** — `readUIMessageStream`, vendored from
+`ai` into `@shared/ai/uiDialect` (see
+[AI SDK's `readUIMessageStream` reference](https://ai-sdk.dev/docs/reference/ai-sdk-ui/read-ui-message-stream))
+— to turn the chunk stream into a `CherryUIMessage`. Main writes the
 result to disk; the renderer paints it onto the chat surface as an
 overlay above the SWR-backed history.
 
@@ -188,10 +189,11 @@ Four guards keep the lifecycle race-free without any turn-identity
 machinery:
 
 - **`reset()` / `disposeOverlay()` never touch an execution whose
-  reader is live.** A delayed DB handoff for a finished turn must not
-  freeze a newer turn already streaming on the same topic; the
-  "reader still running" check is the whole identity test. The
-  destructive full drop is a separate `clear()` (quick-assistant).
+   reader is live.** A delayed DB handoff for a finished turn must not
+   freeze a newer turn already streaming on the same topic; the
+   "reader still running" check is the whole identity test. The
+   destructive full drop is a separate `clear()` (not for terminal
+   handoff).
 - **A failed `ai.stream.attach` error-terminates its branches** so
   readers finish instead of hanging forever; the next mount re-attaches
   through a fresh subscription.
@@ -207,9 +209,9 @@ machinery:
 ### Overlay teardown is monotonic
 
 `disposeOverlay(messageId)` drops exactly one snapshot entry. The chat
-shell wires this so the overlay is released **only after** the DB
-refresh promise resolves (see `.finally(() => disposeOverlay(...))` in
-`V2ChatContent`). That ordering eliminates the visible flash between
+runtime wires this so the overlay is released **only after** the DB
+refresh promise settles (see `handleExecutionFinish` in
+`src/renderer/pages/home/useChatRuntimeState.ts`). That ordering eliminates the visible flash between
 "streaming overlay" and "persisted parts": the SWR cache holds the
 authoritative row before the overlay disappears.
 
@@ -223,7 +225,7 @@ The service keeps the final snapshot in `snapshots` until one of:
 - the same execution restarts (next turn clears it),
 - the caller calls `disposeOverlay(messageId)` (post-persist handoff),
 - the caller calls `reset()` (whole-turn post-persist handoff) or
-  `clear()` (destructive, quick-assistant),
+   `clear()` (destructive full drop, not for terminal handoff),
 - the entry is dropped (last reader ended at refCount 0, or eviction).
 
 That retention lets consumers read the final frame for the brief window

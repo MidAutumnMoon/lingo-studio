@@ -1,9 +1,10 @@
 ---
-description: IpcChatTransport bridging useChat to Main over ai.stream.* IpcApi routes, with dispatch ack coordination and detach vs abort
+description: IpcChatTransport bridging ChatStreamStore to Main over ai.stream.* IpcApi routes, with dispatch ack coordination and detach vs abort
 sources:
   - src/renderer/services/aiTransport/IpcChatTransport.ts
   - src/renderer/services/aiTransport/StreamDispatchService.ts
   - src/renderer/services/aiTransport/TopicStreamSubscription.ts
+  - src/renderer/services/aiTransport/ChatStreamStore.ts
 ---
 
 # IPC Transport
@@ -13,16 +14,19 @@ sources:
 `IpcChatTransport`
 (`src/renderer/services/aiTransport/IpcChatTransport.ts`) implements AI SDK's
 `ChatTransport<CherryUIMessage>` over Electron IPC. The renderer feeds
-it into `useChat({ id: topicId, transport: ... })`. The `ChatTransport`
+it into a per-topic `ChatStreamStore`
+(`src/renderer/services/aiTransport/ChatStreamStore.ts` — the first-party
+replacement for `@ai-sdk/react`'s `useChat`, driven by
+`useChatWithHistory`). The `ChatTransport`
 interface has only two methods — `sendMessages` / `reconnectToStream`;
 the transport relays each through `ipcApi.request('ai.stream.*', ...)` to
 Main's IpcApi handler and `AiStreamManager`. `cancel` is **not** a transport method: it is the
 `cancel` callback of the `ReadableStream` that `sendMessages` returns
-(AI SDK invokes it on unmount/disposal), and abort is driven by the
-request's `abortSignal`.
+(the store invokes it when it stops consuming the stream), and abort is
+driven by the request's `abortSignal`.
 
 ```
-useChat({ id: topicId, transport: new IpcChatTransport(defaultBody) })
+new ChatStreamStore({ id: topicId, transport: ipcChatTransport })
    │  transport methods
    ├─ sendMessages         → ai.stream.open
    ├─ reconnectToStream    → ai.stream.attach
@@ -39,8 +43,8 @@ persists the result. Stopping generation is a separate path — the request's
 
 ## User Stop
 
-`useChatWithHistory.stop()` starts `ai.stream.abort` before calling AI SDK's
-`stop()`, then awaits both. This establishes Main's topic admission barrier
+`useChatWithHistory.stop()` starts `ai.stream.abort` before calling the
+store's `stop()`, then awaits both. This establishes Main's topic admission barrier
 before local stream consumption ends and the UI can retry. The transport's
 request `abortSignal` covers a stream opened
 by `sendMessages`, but its abort callback sends IPC without exposing Main's
@@ -90,7 +94,7 @@ The chunk stream from Main is keyed by `(topicId, executionId)`.
 (`src/renderer/services/aiTransport/TopicStreamSubscription.ts`) owns the
 topic-level `ai.stream.attach` / `ai.stream.detach` requests with ref-counted lifecycle
 and demuxes chunks into per-execution branch `ReadableStream`s, so
-multi-model parallel responses render as separate AI SDK messages on
+multi-model parallel responses render as separate assistant messages on
 the same topic. `useExecutionOverlay` consumes each branch through
 `readUIMessageStream` — the same accumulator Main runs in
 `pipeStreamLoop`, so the renderer overlay and the persisted message

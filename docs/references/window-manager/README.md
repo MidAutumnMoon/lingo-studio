@@ -55,16 +55,12 @@ Per-type metadata in `windowRegistry.ts` is split into three layers. Each field 
 
 ## WM Does Not Know "Pin"
 
-**Cherry Studio windows do not share a single "pin" concept** — pin semantics belong to each window's owning service:
+**Cherry Studio windows do not share a single "pin" concept** — pin semantics belong to each window's owning service, and no current window type implements one (the QuickAssistant floating panel that did has been removed).
 
-| Window | What "pin" toggles |
-|---|---|
-| QuickAssistant | Suppress blur-auto-hide (`alwaysOnTop` stays true) |
-
-WindowManager therefore **exposes orthogonal primitives, not a `pin` abstraction**. Consumers compose pin semantics in their own service layer:
+WindowManager therefore **exposes orthogonal primitives, not a `pin` abstraction**. A consumer that wants pin semantics composes them in its own service layer:
 
 ```typescript
-// QuickAssistant (pin = suppress blur-hide only)
+// pin = suppress blur-auto-hide only
 wm.behavior.setHideOnBlur(id, !isPinned)
 ```
 
@@ -109,7 +105,7 @@ Runtime setters for the declarative behavior layer live on `wm.behavior` (the {@
 |---|---|---|---|---|
 | `default` | many | fresh create every call | destroys permanently | Windows that appear in parallel (e.g. sub windows) |
 | `singleton` | at most one | creates, or shows + focuses the existing one | destroys by default; hides and later destroys when `singletonConfig.retentionTime` is set | Unique windows (main, settings). See Warmup Mechanics → Singleton Variant for `singletonConfig` options. |
-| `pooled` | many, reusable | pops an idle window, or creates fresh if empty | returns to the idle pool, or destroys if over cap | Frequently opened windows where creation cost matters (selection actions) |
+| `pooled` | many, reusable | pops an idle window, or creates fresh if empty | returns to the idle pool, or destroys if over cap | Frequently opened windows where creation cost matters (sub windows) |
 
 Full mode semantics and registry examples: [Overview → Three Lifecycle Modes](./window-manager-overview.md#three-lifecycle-modes).
 

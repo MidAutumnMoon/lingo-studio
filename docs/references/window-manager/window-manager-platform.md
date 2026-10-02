@@ -33,8 +33,9 @@ The `mac`-prefixed quirks are macOS-only: on other platforms those methods are l
 ### Example
 
 ```typescript
-[WindowType.QuickAssistant]: {
-  type: WindowType.QuickAssistant,
+// Illustrative entry — no current registry entry declares quirks
+[WindowType.FloatingPanel]: {
+  type: WindowType.FloatingPanel,
   lifecycle: 'singleton',
   showMode: 'manual',
   windowOptions: { /* ... */ },
@@ -49,7 +50,7 @@ The `mac`-prefixed quirks are macOS-only: on other platforms those methods are l
 }
 ```
 
-With that in place, `this.toolbarWindow.hide()` from the domain service will:
+With `macRestoreFocusOnHide` + `macClearHoverOnHide` also enabled, `this.panelWindow.hide()` from the domain service will:
 
 1. Snapshot every visible focusable window and call `setFocusable(false)` on them.
 2. Invoke the native `hide()`.
@@ -123,7 +124,7 @@ Precedence (later wins) when merging inside `mergeWindowOptions`:
 | Cross-platform, non-hacky declarative behavior (auto-hide on blur, initial `setAlwaysOnTop` level, dock visibility, initial `setVisibleOnAllWorkspaces`) | `behavior` |
 | OS-specific bug workaround requiring a hide/show/close hook | `quirks` |
 
-The layers are composable: Selection's toolbar uses all three (`windowOptions.platformOverrides` for static per-OS differences, `behavior.hideOnBlur` / `behavior.alwaysOnTop` / `behavior.visibleOnAllWorkspaces` / `behavior.macShowInDock` for declarative behavior, and `quirks.*` for the macOS hide/show hacks).
+The layers are composable — a floating-panel window (the illustrative entry above) uses all three (`windowOptions.platformOverrides` for static per-OS differences, `behavior.hideOnBlur` / `behavior.alwaysOnTop` / `behavior.visibleOnAllWorkspaces` / `behavior.macShowInDock` for declarative behavior, and `quirks.*` for the macOS hide/show hacks).
 
 ## Electron Edge Cases
 

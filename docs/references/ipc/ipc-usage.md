@@ -78,33 +78,36 @@ To signal a failure the renderer must branch on, throw an `IpcError` with a **do
 Put the domain's codes in `@shared/ipc/errors/<domain>.ts` as an `as const` map, and import it **directly** on both sides (no barrel — `errors/` has no aggregating index; each domain map is imported directly):
 
 ```ts
-// src/shared/ipc/errors/file.ts — the domain's code map (zod-free, value-importable by both processes)
-export const fileErrorCodes = { FILE_NOT_FOUND: 'FILE_NOT_FOUND' } as const
+// src/shared/ipc/errors/trash.ts — a real domain's code map (zod-free, value-importable by both processes)
+export const trashErrorCodes = {
+  TRASH_TARGET_NOT_FOUND: 'TRASH_TARGET_NOT_FOUND',
+  TRASH_TOPIC_BUSY: 'TRASH_TOPIC_BUSY'
+} as const
 ```
 
 ```ts
-// main handler (src/main/ipc/handlers/file.ts)
+// main handler (src/main/ipc/handlers/trash.ts)
 import { IpcError } from '@shared/ipc/errors/IpcError'
-import { fileErrorCodes } from '@shared/ipc/errors/file'
+import { trashErrorCodes } from '@shared/ipc/errors/trash'
 
-'file.read_doc': async ({ path }) => {
-  if (!(await exists(path))) {
+'trash.topic.delete_permanently': async ({ topicId }) => {
+  if (!(await exists(topicId))) {
     // reference the constant, not a literal; machine-readable detail rides in `data`
-    throw new IpcError(fileErrorCodes.FILE_NOT_FOUND, `No file at ${path}`, { path })
+    throw new IpcError(trashErrorCodes.TRASH_TARGET_NOT_FOUND, `No topic ${topicId}`, { topicId })
   }
-  return read(path)
+  return purge(topicId)
 }
 ```
 
 ```ts
 // renderer — branch on the rebuilt IpcError's `code` using the same constant
 import { IpcError } from '@shared/ipc/errors/IpcError'
-import { fileErrorCodes } from '@shared/ipc/errors/file'
+import { trashErrorCodes } from '@shared/ipc/errors/trash'
 
 try {
-  await ipcApi.request('file.read_doc', { path })
+  await ipcApi.request('trash.topic.delete_permanently', { topicId })
 } catch (e) {
-  if (e instanceof IpcError && e.code === fileErrorCodes.FILE_NOT_FOUND) showMissing((e.data as { path: string }).path)
+  if (e instanceof IpcError && e.code === trashErrorCodes.TRASH_TARGET_NOT_FOUND) showMissing((e.data as { topicId: string }).topicId)
   else throw e
 }
 ```

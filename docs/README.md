@@ -33,7 +33,7 @@
 | [Core Architecture](./references/ai/core-architecture.md) | End-to-end chat turn flow from renderer IPC transport through AiStreamManager and the pi chat-turn seam to persistence |
 | [Execution Overlay](./references/ai/execution-overlay.md) | Renderer stream overlay — TopicStreamSubscription demux by execution and anchor feeding readUIMessageStream snapshots |
 | [Image-Generation Parameterized Architecture](./references/ai/image-generation-parameters.md) | Data-driven image-generation params — registry supports to form fields, canonical bag to vendor wire via WireProfile |
-| [IPC Transport](./references/ai/ipc-transport.md) | IpcChatTransport bridging useChat to Main over ai.stream.* IpcApi routes, with dispatch ack coordination and detach vs abort |
+| [IPC Transport](./references/ai/ipc-transport.md) | IpcChatTransport bridging ChatStreamStore to Main over ai.stream.* IpcApi routes, with dispatch ack coordination and detach vs abort |
 | [Observability](./references/ai/observability.md) | OTel tracing for AI calls and agent runtimes — Cherry-owned turn roots, pi chat engine provider spans, pi/dsh runtime spans, HTTP fetch tracing, local projection, and sinks |
 | [Chat Turn Plan](./references/ai/params-pipeline.md) | resolveChatTurnPlan — the engine-agnostic chat-turn plan resolving selection, context budgets, web-tool routing, reasoning, and the custom-parameter split before the engine runs |
 | [Provider Resolution](./references/ai/provider-resolution.md) | Endpoint resolution chain from provider.endpointConfigs and adapterFamily to the AI SDK provider id and variants |
