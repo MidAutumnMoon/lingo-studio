@@ -134,27 +134,6 @@ describe('GeneralSettings', () => {
     ])
   })
 
-  it('renders model retry settings in General and persists changes', async () => {
-    MockUsePreferenceUtils.setMultiplePreferenceValues({
-      'chat.retry.enabled': true,
-      'chat.retry.max_attempts': 3,
-      'chat.retry.backoff_enabled': true,
-      'chat.retry.fallback_model_ids': ['openai::gpt-4o']
-    })
-
-    render(<GeneralSettings />)
-
-    expect(screen.getByLabelText('settings.models.retry.max_attempts')).toHaveValue('3')
-    expect(screen.getByLabelText('settings.models.retry.backoff')).toBeInTheDocument()
-    expect(screen.getByText('settings.models.retry.fallback_models_count')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByLabelText('settings.models.retry.label'))
-
-    await waitFor(() => {
-      expect(MockUsePreferenceUtils.getPreferenceValue('chat.retry.enabled')).toBe(false)
-    })
-  })
-
   it('turns off every tray-dependent preference when the tray is disabled', async () => {
     render(<GeneralSettings />)
 

@@ -15,12 +15,7 @@ import type {
 import type { UniqueModelId } from '@shared/data/types/model'
 import type { SerializedError } from '@shared/types/error'
 
-import {
-  dropEmptyContentParts,
-  finalizeInterruptedParts,
-  type PersistenceBackend,
-  stripTransientStatusParts
-} from '../persistence/PersistenceBackend'
+import { dropEmptyContentParts, finalizeInterruptedParts, type PersistenceBackend } from '../persistence/PersistenceBackend'
 import type { StreamDoneResult, StreamErrorResult, StreamListener, StreamPausedResult } from '../types'
 
 const logger = loggerService.withContext('PersistenceListener')
@@ -102,14 +97,13 @@ export class PersistenceListener implements StreamListener {
       return
     }
 
-    // Strip live-only status parts (e.g. data-retry), then empty
-    // text/reasoning parts so neither can reach storage. Applied for all
-    // statuses. The `finalMessage`
-    // guard is for the typed-undefined error path (no finalMessage).
+    // Drop empty text/reasoning parts so they cannot reach storage. Applied
+    // for all statuses. The `finalMessage` guard is for the typed-undefined
+    // error path (no finalMessage).
     const finalMessageForPersistence = finalMessage
       ? {
           ...finalMessage,
-          parts: finalizeInterruptedParts(dropEmptyContentParts(stripTransientStatusParts(finalMessage.parts)), status)
+          parts: finalizeInterruptedParts(dropEmptyContentParts(finalMessage.parts), status)
         }
       : finalMessage
     const contextTokens = finalMessageForPersistence?.metadata?.stats?.contextTokens

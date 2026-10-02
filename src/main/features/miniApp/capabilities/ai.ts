@@ -240,8 +240,8 @@ export const aiCapability = {
           // Assistant-less caller — the same shape the API gateway uses. Without
           // `contextOwner: 'caller'` Cherry would reshape a history this app owns.
           contextOwner: 'caller',
-          // No retry, no fallback: a cross-model fallback resolves its model WITHOUT the
-          // usage plugin (`buildFallbackModels.ts:158`) — real money, and no ledger row.
+          // No retries: mini-app calls must not silently spend more than the
+          // user's one requested generation.
           maxRetries: 0,
           // `off` asks for no thinking where the wire profile can switch it off; `on`
           // sends nothing and leaves the model to its own default.

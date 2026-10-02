@@ -36,8 +36,6 @@ export type MenuPresentationMode = 'native' | 'cherry'
 
 export type OnboardingProviderSetupStatus = 'pending' | 'completed' | 'skipped'
 
-export type RetryFallbackModelId = UniqueModelId
-
 /**
  * Global default Agent reply language (`agent.language`). Human-readable label
  * ("English", "ไทย"), not an app locale code; null = no constraint injected.

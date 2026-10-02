@@ -72,14 +72,7 @@ import { resolveEffectiveEndpoint, resolveWireModelId } from './provider/endpoin
 import { listModels as listModelsFromProvider, probeOllamaModel } from './provider/listModels'
 import { resolveSdkConfig } from './provider/sdkConfig'
 import type { AgentLoopHooks, NativeFileSupport, RequestFeature } from './runtime/aiSdk'
-import {
-  Agent,
-  buildAgentParams,
-  buildApiKeyFallbackModels,
-  buildFallbackModels,
-  createRetryableWrap,
-  readRetryPolicy
-} from './runtime/aiSdk'
+import { Agent, buildAgentParams } from './runtime/aiSdk'
 import { piChatEngineEnabled, tryStreamPiChatTurn } from './runtime/piChat/chatTurnSeam'
 import { skillService } from './skills/SkillService'
 import { type MessageRuntimeTimingSink, WebContentsListener } from './streamManager'
@@ -99,21 +92,12 @@ import { type SplitImageParams, splitParamValues } from './utils/imageOptions'
 import { normalizeImageEditInputs } from './utils/normalizeImageEditInputs'
 import { routeToEndpoint } from './utils/provider'
 import {
-  createAiUsageCaptureContext,
   createRequestCaptureContext,
   resolveUsageAttribution,
   sourceSnapshotForAssistant
 } from './utils/usageCapture'
 
 const logger = loggerService.withContext('AiService')
-
-/**
- * Max concurrent `doEmbed` batches for `embedMany`. AI SDK defaults to
- * `Infinity`, which fires every batch of a long document at once and is the
- * primary embedding rate-limit trigger. Bounded fan-out trades a little
- * throughput for far fewer 429s.
- */
-const EMBEDDING_MAX_PARALLEL_CALLS = 5
 
 const NO_NATIVE_FILE_REQUIREMENTS: NativeFileSupport = { image: false, pdf: false, audio: false, video: false }
 
@@ -163,17 +147,6 @@ function bareModelKey(apiModelId: string | undefined): string {
   const id = apiModelId ?? ''
   const afterSlash = id.includes('/') ? id.slice(id.lastIndexOf('/') + 1) : id
   return afterSlash.toLowerCase()
-}
-
-function resolveTextRetryPolicy(
-  configured: ReturnType<typeof readRetryPolicy>,
-  requestMaxRetries: number | undefined,
-  hasApiKeyFallbacks: boolean
-): ReturnType<typeof readRetryPolicy> {
-  if (configured.enabled || !hasApiKeyFallbacks || requestMaxRetries === undefined || requestMaxRetries <= 0) {
-    return configured
-  }
-  return { ...configured, enabled: true, maxAttempts: Math.max(1, Math.trunc(requestMaxRetries)), fallbackModelIds: [] }
 }
 
 function createProviderCallHandler(context: AiUsageCaptureContext): RuntimeProviderCallHandler {
@@ -606,75 +579,6 @@ export class AiService extends BaseService {
       signal
     })
 
-    // An explicit per-request `maxRetries: 0` means "no retries for this request"
-    // — honor it (like embedding/rerank), overriding the global retry preference.
-    const retryDisabledForRequest = request.requestOptions?.maxRetries === 0
-    const agentRef: { current?: Agent } = {}
-    let activeRepairToolCall = options.repairToolCall
-    const repairToolCall = options.repairToolCall
-      ? (repairOptions: Parameters<NonNullable<typeof options.repairToolCall>>[0]) =>
-          activeRepairToolCall!(repairOptions)
-      : undefined
-    let wrapModel: ReturnType<typeof createRetryableWrap>
-    if (!retryDisabledForRequest) {
-      const apiKeyFallbacks = buildApiKeyFallbackModels({
-        request,
-        provider,
-        model,
-        assistant,
-        signal,
-        extraFeatures,
-        primaryCredentialReceipt: credentialReceipt,
-        createUsagePlugin: (fallbackReceipt) =>
-          createAiUsagePlugin(createAiUsageCaptureContext({ ...usageContext, credentialReceipt: fallbackReceipt }))
-      })
-      const retryPolicy = resolveTextRetryPolicy(
-        readRetryPolicy(),
-        request.requestOptions?.maxRetries,
-        apiKeyFallbacks.length > 0
-      )
-      wrapModel = createRetryableWrap({
-        apiKeyFallbacks,
-        retryPolicy,
-        diagnosticContext: {
-          chatId: request.conversation.topicId,
-          messageId: request.messageId,
-          assistantId: request.assistantId
-        },
-        fallbacks: buildFallbackModels({
-          request,
-          assistant,
-          signal,
-          primaryUniqueModelId: model.id,
-          primaryHasTools: !!tools && Object.keys(tools).length > 0,
-          requiredNativeFileSupport: resolveRequiredNativeFileSupport(request.messages, nativeFileSupport),
-          extraFeatures,
-          retryPolicy,
-          createUsagePlugin: ({ provider, model, sdkModelId, credentialReceipt }) =>
-            createAiUsagePlugin(
-              createRequestCaptureContext({
-                provider,
-                model,
-                sdkModelId,
-                credentialReceipt,
-                source: usageContext.source,
-                messageRef: usageContext.messageRef
-              })
-            )
-        }),
-        onFallbackActivated: (fallback) => {
-          activeRepairToolCall = fallback.repairToolCall ?? options.repairToolCall
-        },
-        onPrimaryActivated: () => {
-          activeRepairToolCall = options.repairToolCall
-        },
-        // Stable `id` so repeated retries reconcile into one live status part (latest wins).
-        // Not transient: it rides message.parts so the renderer can show it; the
-        // PersistenceListener strips it before the message is saved.
-        onRetryEvent: (event) => agentRef.current?.write({ type: 'data-retry', id: 'retry', data: event })
-      })
-    }
-
     const agent = new Agent({
       providerId: sdkConfig.providerId,
       providerSettings: sdkConfig.providerSettings,
@@ -682,10 +586,9 @@ export class AiService extends BaseService {
       errorContext: { providerId: provider.id, modelId: model.apiModelId ?? model.id },
       messageId: request.messageId,
       plugins: [...plugins, usagePlugin],
-      wrapModel,
       tools,
       system,
-      options: wrapModel ? { ...options, maxRetries: 0, repairToolCall } : options,
+      options,
       hookParts: [
         this.analyticsHookPart(model, request.tokenUsageSource ?? 'chat'),
         ...(request.runtimeTimingSink
@@ -704,7 +607,6 @@ export class AiService extends BaseService {
         resolveModelTokenDialect(provider, model)
       )
     })
-    agentRef.current = agent
 
     return agent.stream(preparedMessages, signal)
   }
@@ -758,8 +660,7 @@ export class AiService extends BaseService {
       provider,
       model,
       assistant,
-      hookParts,
-      nativeFileSupport
+      hookParts
     } = await this.buildAgentParamsFor(request, signal, extraFeatures, () => repairUsagePlugins.current ?? [])
     const usageContext = createRequestCaptureContext({
       provider,
@@ -771,64 +672,6 @@ export class AiService extends BaseService {
     })
     const usagePlugin = createAiUsagePlugin(usageContext)
     repairUsagePlugins.current = [usagePlugin]
-    let activeRepairToolCall = options.repairToolCall
-    const repairToolCall = options.repairToolCall
-      ? (repairOptions: Parameters<NonNullable<typeof options.repairToolCall>>[0]) =>
-          activeRepairToolCall!(repairOptions)
-      : undefined
-
-    // An explicit per-request `maxRetries: 0` disables retry for this request.
-    let wrapModel: ReturnType<typeof createRetryableWrap>
-    if (request.requestOptions?.maxRetries !== 0) {
-      const apiKeyFallbacks = buildApiKeyFallbackModels({
-        request,
-        provider,
-        model,
-        assistant,
-        signal,
-        extraFeatures,
-        primaryCredentialReceipt: credentialReceipt,
-        createUsagePlugin: (fallbackReceipt) =>
-          createAiUsagePlugin(createAiUsageCaptureContext({ ...usageContext, credentialReceipt: fallbackReceipt }))
-      })
-      const retryPolicy = resolveTextRetryPolicy(
-        readRetryPolicy(),
-        request.requestOptions?.maxRetries,
-        apiKeyFallbacks.length > 0
-      )
-      wrapModel = createRetryableWrap({
-        apiKeyFallbacks,
-        retryPolicy,
-        diagnosticContext: { assistantId: request.assistantId },
-        fallbacks: buildFallbackModels({
-          request,
-          assistant,
-          signal,
-          primaryUniqueModelId: model.id,
-          primaryHasTools: !!tools && Object.keys(tools).length > 0,
-          requiredNativeFileSupport: resolveRequiredNativeFileSupport(request.messages, nativeFileSupport),
-          extraFeatures,
-          retryPolicy,
-          createUsagePlugin: ({ provider, model, sdkModelId, credentialReceipt }) =>
-            createAiUsagePlugin(
-              createRequestCaptureContext({
-                provider,
-                model,
-                sdkModelId,
-                credentialReceipt,
-                source: usageContext.source,
-                messageRef: usageContext.messageRef
-              })
-            )
-        }),
-        onFallbackActivated: (fallback) => {
-          activeRepairToolCall = fallback.repairToolCall ?? options.repairToolCall
-        },
-        onPrimaryActivated: () => {
-          activeRepairToolCall = options.repairToolCall
-        }
-      })
-    }
 
     // Same media gating as the streaming path — `agent.generate` hands `ModelMessage[]` to the
     // SDK as-is, so without these the structured tool-result media the converter produces would
@@ -839,10 +682,9 @@ export class AiService extends BaseService {
       providerSettings: sdkConfig.providerSettings,
       modelId: sdkConfig.modelId,
       plugins: [...plugins, usagePlugin],
-      wrapModel,
       tools,
       system: request.system ?? system,
-      options: wrapModel ? { ...options, maxRetries: 0, repairToolCall } : options,
+      options,
       hookParts: [this.analyticsHookPart(model, request.tokenUsageSource ?? 'chat'), ...hookParts],
       mediaCapabilities,
       toolResultMediaCapabilities: resolveToolResultMediaCapabilities(
@@ -1120,17 +962,11 @@ export class AiService extends BaseService {
       messageRef: null
     })
 
-    const retryPolicy = readRetryPolicy()
     const result = await aiCoreEmbedMany<AppProviderSettingsMap>(sdkConfig.providerId, sdkConfig.providerSettings, {
       model: sdkConfig.modelId,
       values: request.values,
-      // A long document splits into many batches and embedMany defaults to
-      // unbounded parallelism — firing them all at once is the main rate-limit
-      // trigger. Keep the pre-feature default when retry is disabled.
-      ...(retryPolicy.enabled && { maxParallelCalls: EMBEDDING_MAX_PARALLEL_CALLS }),
-      // Disabled-default 2 = AI SDK's default, so default-config embedding keeps
-      // its prior transient-error resilience (this PR only adds, never removes).
-      maxRetries: request.requestOptions?.maxRetries ?? (retryPolicy.enabled ? retryPolicy.maxAttempts : 2),
+      // AI SDK's own default — embedding keeps its transient-error resilience.
+      maxRetries: request.requestOptions?.maxRetries ?? 2,
       onProviderCall: createProviderCallHandler(usageContext),
       ...(signal ? { abortSignal: signal } : {})
     })
@@ -1153,7 +989,6 @@ export class AiService extends BaseService {
       source: sourceSnapshotForAssistant(assistant),
       messageRef: null
     })
-    const retryPolicy = readRetryPolicy()
     const callerHeaders = request.requestOptions?.headers
     const headers = callerHeaders
       ? (Object.fromEntries(Object.entries(callerHeaders).filter(([, value]) => value !== undefined)) as Record<
@@ -1168,10 +1003,8 @@ export class AiService extends BaseService {
       documents: request.documents,
       ...(request.topN !== undefined ? { topN: request.topN } : {}),
       ...(headers && Object.keys(headers).length > 0 ? { headers } : {}),
-      // ai-retry doesn't support RerankingModelV3 — use the AI SDK's built-in
-      // exponential-backoff retry, defaulted from the retry preference. Rerank
-      // already defaulted to 0 retries pre-feature, so keep that when disabled.
-      maxRetries: request.requestOptions?.maxRetries ?? (retryPolicy.enabled ? retryPolicy.maxAttempts : 0),
+      // AI SDK built-in exponential-backoff retry; rerank historically defaults to 0.
+      maxRetries: request.requestOptions?.maxRetries ?? 0,
       onProviderCall: createProviderCallHandler(usageContext),
       ...(signal ? { abortSignal: signal } : {})
     }

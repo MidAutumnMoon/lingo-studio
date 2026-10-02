@@ -16,7 +16,6 @@ import type { StringKeys } from '@cherrystudio/ai-core/provider'
 
 import type { MediaCapabilities } from '../../../messages/messageCapabilities'
 import type { AppProviderSettingsMap } from '../../../types'
-import type { WrapLanguageModel } from '../retry/createRetryableWrap'
 
 type AppProviderKey = StringKeys<AppProviderSettingsMap>
 
@@ -112,8 +111,6 @@ export interface AgentLoopParams<T extends AppProviderKey = AppProviderKey> {
   /** Stable id for the first assistant UIMessage emitted by this execution. */
   messageId?: string
   plugins?: AiPlugin[]
-  /** Wraps the resolved model (e.g. ai-retry retry/fallback) before the agent uses it. */
-  wrapModel?: WrapLanguageModel
   tools?: ToolSet
   system?: string
   options?: AgentOptions

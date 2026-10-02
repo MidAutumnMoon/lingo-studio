@@ -102,8 +102,7 @@ describe('part corpus', () => {
       { type: 'data-agent-session-fork', data: { sourceSessionId: 's' } },
       { type: 'data-knowledge-scope', data: { baseIds: ['kb1'] } },
       { type: 'data-clear', data: {} },
-      { type: 'data-conversation-reset', data: {} },
-      { type: 'data-retry', data: { state: 'settled' } }
+      { type: 'data-conversation-reset', data: {} }
     ]
     const entries = toPiSessionEntries([
       msg('user', [{ type: 'text', text: 'real' }, ...dropped]),

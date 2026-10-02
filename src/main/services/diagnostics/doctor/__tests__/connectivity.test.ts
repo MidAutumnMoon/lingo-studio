@@ -294,23 +294,7 @@ describe('model connectivity against an HTTP provider', () => {
     expect(requests).toEqual([])
   })
 
-  it('does not retry or fall back after one confirmed request fails', async () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.retry.enabled', true)
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.retry.max_attempts', 3)
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.retry.fallback_model_ids', ['connectivity::backup'])
-    dbh.db
-      .insert(userModelTable)
-      .values({
-        id: 'connectivity::backup',
-        providerId: 'connectivity',
-        modelId: 'backup',
-        name: 'Backup',
-        capabilities: [],
-        endpointTypes: [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS],
-        supportsStreaming: true,
-        orderKey: 'a1'
-      })
-      .run()
+  it('does not retry after one confirmed request fails', async () => {
     conversationStatus = 503
     const started = await start()
     const response = await confirm(started)

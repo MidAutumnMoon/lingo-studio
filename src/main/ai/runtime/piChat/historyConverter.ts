@@ -43,7 +43,7 @@ import type {
  * | data-error / data-translation / data-code | dropped                                          | UI-only projections; matches the legacy engine's treatment |
  * | data-compact / data-compaction-anchor| dropped                                                | markers of host-owned durable compaction |
  * | data-clear / data-knowledge-scope / data-conversation-reset | dropped                          | hidden control parts, never model content |
- * | data-video / data-agent-task-event / data-agent-session-fork / data-retry | dropped          | no model content |
+ * | data-video / data-agent-task-event / data-agent-session-fork | dropped                      | no model content |
  *
  * Message-level rules: a message that converts to no content is skipped (empty user
  * turn, assistant turn holding only non-content parts); replayed AssistantMessages

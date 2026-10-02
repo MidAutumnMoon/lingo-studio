@@ -348,9 +348,7 @@ describe('cherry.ai.chat — streaming', () => {
     await call
   })
 
-  it('never retries or falls back — the fallback path bills nothing', async () => {
-    // `buildFallbackModels` resolves its model without the usage plugin: real money,
-    // no ledger row, and "exactly one row per finished call" quietly becomes false.
+  it('never retries — a failed call must not silently spend more', async () => {
     const call = chat()
     expect(lastCall().maxRetries).toBe(0)
     drive.done()
