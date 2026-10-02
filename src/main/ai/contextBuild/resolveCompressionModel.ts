@@ -1,22 +1,18 @@
 /**
  * Resolve a Cherry-side compression-model selector (`<providerId>::<modelId>`
- * UniqueModelId) into a `LanguageModelV3` via the SAME path the agent uses:
- * Provider+Model rows (DataApi) → `resolveSdkConfig` → `createExecutor`
- * → `executor.languageModel(modelId)`.
+ * UniqueModelId) into the provider/model rows the pi one-shot lane
+ * (`runtime/pi/piOneShot.ts`) builds its request from — the wire model id,
+ * API family and session headers are the injection's concern, not this one.
  *
  * Returns `null` (never throws) on any failure — the compress feature treats
  * null as "compression off" so a misconfigured model never breaks the chat.
  */
-import type { LanguageModelV3 } from '@ai-sdk/provider'
-import { defaultSettingsMiddleware, wrapLanguageModel } from 'ai'
-
-import { createExecutor } from '@cherrystudio/ai-core'
 import { loggerService } from '@logger'
-import { resolveEffectiveEndpoint } from '@main/ai/provider/endpoint'
-import { resolveSdkConfig } from '@main/ai/provider/sdkConfig'
 import { modelService } from '@main/data/services/ModelService'
 import { providerService } from '@main/data/services/ProviderService'
+import type { Model } from '@shared/data/types/model'
 import { isUniqueModelId, parseUniqueModelId } from '@shared/data/types/model'
+import type { Provider } from '@shared/data/types/provider'
 
 import type { ConversationRef } from '../types'
 import { resolveContextWindow } from './resolveContextWindow'
@@ -36,8 +32,11 @@ const logger = loggerService.withContext('resolveCompressionModel')
  * `contextWindow` is `null` when the compressor row declares none.
  */
 export interface CompressionModelDescriptor {
-  readonly languageModel: LanguageModelV3
+  readonly provider: Provider
+  readonly model: Model
   readonly contextWindow: number | null
+  /** Owning conversation — session-scoped providers (OpenCode) stamp it on the summarize request. */
+  readonly conversationId: string
 }
 
 export async function resolveCompressionModel(
@@ -51,41 +50,17 @@ export async function resolveCompressionModel(
 
   const { providerId, modelId } = parseUniqueModelId(modelIdRaw)
 
-  let provider
-  let model
   try {
-    provider = providerService.getByProviderId(providerId)
-    model = modelService.getByKey(providerId, modelId)
-  } catch (error) {
-    logger.warn('compression provider/model lookup failed', {
-      providerId,
-      modelId,
-      error: (error as Error).message
-    })
-    return null
-  }
-
-  try {
-    const { sdkConfig } = await resolveSdkConfig(provider, model, resolveEffectiveEndpoint(provider, model))
-    // App provider extensions are registered beyond the executor's built-in type union.
-    const executor = await createExecutor(
-      sdkConfig.providerId as Parameters<typeof createExecutor>[0],
-      sdkConfig.providerSettings as Parameters<typeof createExecutor>[1]
-    )
-    const languageModel = await executor.languageModel(sdkConfig.modelId)
+    const provider = providerService.getByProviderId(providerId)
+    const model = modelService.getByKey(providerId, modelId)
     return {
-      languageModel: sdkConfig.conversationHeader
-        ? wrapLanguageModel({
-            model: languageModel,
-            middleware: defaultSettingsMiddleware({
-              settings: { headers: { [sdkConfig.conversationHeader]: conversation.id } }
-            })
-          })
-        : languageModel,
-      contextWindow: resolveContextWindow(model.contextWindow)
+      provider,
+      model,
+      contextWindow: resolveContextWindow(model.contextWindow),
+      conversationId: conversation.id
     }
   } catch (error) {
-    logger.warn('compression model resolution failed', {
+    logger.warn('compression provider/model lookup failed', {
       providerId,
       modelId,
       error: (error as Error).message

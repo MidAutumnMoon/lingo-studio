@@ -199,6 +199,12 @@ vi.mock('@main/data/services/AiUsageRecordService', async (importActual) => {
   }
 })
 
+const mockRunPiOneShotText = vi.fn()
+
+vi.mock('../runtime/pi/piOneShot', () => ({
+  runPiOneShotText: (...args: unknown[]) => mockRunPiOneShotText(...args)
+}))
+
 const { listModels: listModelsFromProviderActual } =
   await vi.importActual<typeof ListModelsModule>('../provider/listModels')
 const { AiService, imageInputEntryParams, resolveRequiredNativeFileSupport } = await import('../AiService')
@@ -842,6 +848,150 @@ describe('AiService', () => {
           usage: { inputTokens: 0, totalTokens: 0 }
         })
       )
+    })
+  })
+
+  describe('generateText — pi one-shot lane', () => {
+    const ONE_SHOT_RESULT = {
+      text: 'title text',
+      usage: {
+        inputTokens: 21,
+        outputTokens: 5,
+        totalTokens: 26,
+        noCacheTokens: 3,
+        cacheReadTokens: 7,
+        cacheWriteTokens: 11,
+        reasoningTokens: 2
+      },
+      injection: {
+        providerName: 'test-provider',
+        api: 'openai-completions',
+        apiKey: 'real-key',
+        modelId: 'test-model',
+        providerConfig: {},
+        usageCapture: { owner: 'agent-sdk', credentialReceipt: { attribution: 'unknown' } }
+      },
+      timeCompletionMs: 37
+    }
+
+    const baseRequest = {
+      uniqueModelId: createUniqueModelId('test-provider', 'test-model'),
+      conversation: { id: 'one-shot:abc', topicId: 'one-shot:abc' },
+      system: 'reply with a title',
+      prompt: 'name this topic'
+    }
+
+    beforeEach(() => {
+      mockRunPiOneShotText.mockResolvedValue(ONE_SHOT_RESULT)
+    })
+
+    it('runs the prompt through the pi one-shot with system, session and reasoning threading', async () => {
+      const service = createService()
+      const result = await service.generateText({ ...baseRequest, reasoningEffort: 'none' })
+
+      expect(mockRunPiOneShotText).toHaveBeenCalledWith(
+        expect.objectContaining({
+          systemPrompt: 'reply with a title',
+          messages: [{ role: 'user', content: 'name this topic' }],
+          sessionId: 'one-shot:abc',
+          reasoning: 'none'
+        })
+      )
+      expect(result.text).toBe('title text')
+      expect(result.usage).toMatchObject({
+        inputTokens: 21,
+        outputTokens: 5,
+        totalTokens: 26,
+        inputTokenDetails: { noCacheTokens: 3, cacheReadTokens: 7, cacheWriteTokens: 11 },
+        outputTokenDetails: { reasoningTokens: 2 }
+      })
+    })
+
+    it('forwards an explicit API key override to the one-shot lane', async () => {
+      const service = createService()
+      await service.generateText({ ...baseRequest, apiKeyOverride: 'explicit-key' })
+
+      expect(mockRunPiOneShotText).toHaveBeenCalledWith(expect.objectContaining({ apiKeyOverride: 'explicit-key' }))
+    })
+
+    it('falls back to the assistant prompt when the request carries no system', async () => {
+      const service = createService()
+      mockAssistantGetById.mockReturnValue({
+        id: 'a1',
+        name: 'Helper',
+        emoji: null,
+        prompt: 'assistant instructions'
+      })
+      const assistantModel = {
+        id: 'test-provider::test-model',
+        providerId: 'test-provider',
+        apiModelId: 'test-model',
+        name: 'Test Model',
+        capabilities: [],
+        supportsStreaming: true,
+        isEnabled: true,
+        isHidden: false
+      }
+      mockModelGetByKey.mockReturnValue(assistantModel)
+
+      await service.generateText({
+        uniqueModelId: createUniqueModelId('test-provider', 'test-model'),
+        assistantId: 'a1',
+        conversation: { id: 'one-shot:abc', topicId: 'one-shot:abc' },
+        prompt: 'hello'
+      })
+
+      expect(mockRunPiOneShotText).toHaveBeenCalledWith(
+        expect.objectContaining({ systemPrompt: 'assistant instructions' })
+      )
+    })
+
+    it('records one language usage invocation and analytics tokens per call', async () => {
+      const service = createService()
+      const trackTokenUsage = vi.fn()
+      mockApplicationGet.mockImplementation((name: string) => {
+        if (name === 'PreferenceService') return defaultServiceInstances.PreferenceService
+        if (name === 'AnalyticsService') return { trackTokenUsage }
+        return undefined
+      })
+
+      await service.generateText(baseRequest)
+
+      expect(mockRecordRequest).toHaveBeenCalledTimes(1)
+      const record = mockRecordRequest.mock.calls[0][0]
+      expect(record).toMatchObject({
+        modality: 'language',
+        usage: ONE_SHOT_RESULT.usage,
+        metrics: { timeCompletionMs: 37 },
+        requestId: expect.stringMatching(/^pi-one-shot:test-provider:/)
+      })
+      expect(trackTokenUsage).toHaveBeenCalledWith({
+        provider: 'test-provider',
+        model: 'test-model',
+        input_tokens: 21,
+        output_tokens: 5,
+        source: 'chat'
+      })
+    })
+
+    it('propagates provider failures without recording usage', async () => {
+      const service = createService()
+      mockRunPiOneShotText.mockRejectedValue(new Error('upstream down'))
+
+      await expect(service.generateText(baseRequest)).rejects.toThrow('upstream down')
+      expect(mockRecordRequest).not.toHaveBeenCalled()
+    })
+
+    it('fails loudly for message-list input the pi lane cannot serve', async () => {
+      const service = createService()
+      await expect(
+        service.generateText({
+          uniqueModelId: createUniqueModelId('test-provider', 'test-model'),
+          conversation: { id: 'one-shot:abc', topicId: 'one-shot:abc' },
+          messages: []
+        })
+      ).rejects.toThrow(/requires `prompt`/)
+      expect(mockRunPiOneShotText).not.toHaveBeenCalled()
     })
   })
 })

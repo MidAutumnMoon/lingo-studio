@@ -9,7 +9,7 @@ import { type Span, SpanStatusCode } from '@opentelemetry/api'
 import type { ModelMessage, UIMessage } from 'ai'
 
 import { application } from '@application'
-import { ContextPrompts, resolveCompressionOutputTokens, summarizeModelMessages } from '@cherrystudio/ai-core'
+import { ContextPrompts, resolveCompressionOutputTokens } from '@cherrystudio/ai-core'
 import { assistantDataService } from '@data/services/AssistantService'
 import { topicService } from '@data/services/TopicService'
 import { loggerService } from '@logger'
@@ -42,6 +42,7 @@ import { resolveMinContextWindow } from '../../contextBuild/resolveContextWindow
 import { resolveInputRoom } from '../../contextBuild/resolveInputRoom'
 import { resolveOutputReservation } from '../../contextBuild/resolveOutputReservation'
 import { resolveRequestContextSettings } from '../../contextBuild/resolveRequestContextSettings'
+import { summarizeCompaction } from '../../contextBuild/summarizeCompaction'
 import { applyMaxMessagesWindow } from '../../messages/maxMessagesWindow'
 import { toModelMessages } from '../../messages/messageRules'
 import { applyTurnInputAttributes, startAiChildTurnSpan } from '../../observability'
@@ -1025,7 +1026,7 @@ export class PersistentChatContextProvider implements ChatContextProvider {
       const compressionWindow = compressionModel.contextWindow ?? minContextWindow
       const maxOutputTokens = resolveCompressionOutputTokens(compressionWindow)
       compactionSink?.(anchorId, { status: 'compacting', phase: 'turn-start', startedAt })
-      const summary = await summarizeModelMessages(modelMessages, compressionModel.languageModel, {
+      const summary = await summarizeCompaction(modelMessages, compressionModel, {
         maxOutputTokens,
         maxInputTokens: Math.max(
           COMPACTION_MIN_INPUT_BUDGET,

@@ -4,17 +4,18 @@ import type { LanguageModelUsage, ModelMessage } from 'ai'
  * In-loop compaction feature: a `prepareStep` hook that rewrites the
  * about-to-send prompt in place when it crosses `compress.thresholdPercent` of
  * the input room (window minus this request's output reservation). The aiCore
- * context module does the work via
- * `compactModelMessages` — it splits only on turn boundaries (never orphans a
+ * context module does the split/rebuild work via
+ * `compactCompactionMessages` — it splits only on turn boundaries (never orphans a
  * tool result), preserves `system` verbatim, and returns
- * `[...system, <summary>, ...recent turns]`.
+ * `[...system, <summary>, ...recent turns]`. The summarize call itself runs on
+ * the pi one-shot lane, same as durable compaction.
  *
  * `prepareStep`'s `messages` are complete at fire time
  * (`[...initialMessages, ...responseMessages]`), so we measure the full prompt
  * the model is about to receive. The `{ messages }` override is per-step
  * ephemeral (the loop rebuilds history each step), so an over-budget step
  * re-compacts every time — accepted cost; no memoization in v1.
- * `compactModelMessages` returns the SAME array reference on a no-op, so we
+ * `compactCompactionMessages` returns the SAME array reference on a no-op, so we
  * return `undefined` then (nothing to override).
  *
  * Persistent-chat-only: excluded for agent-session topics (they manage their
@@ -22,7 +23,7 @@ import type { LanguageModelUsage, ModelMessage } from 'ai'
  * replaces. Having both this hook and the old budget-stop active would
  * double-compact, so budgetStop is removed in the same change.
  */
-import { compactModelMessages, resolveCompressionOutputTokens } from '@cherrystudio/ai-core'
+import { resolveCompressionOutputTokens } from '@cherrystudio/ai-core'
 import { loggerService } from '@logger'
 import { isAgentSessionTopic } from '@main/ai/agentSession/topic'
 import {
@@ -33,6 +34,7 @@ import {
 import { resolveContextWindow } from '@main/ai/contextBuild/resolveContextWindow'
 import { resolveInputRoom } from '@main/ai/contextBuild/resolveInputRoom'
 import { resolveRequestedMaxOutputTokens } from '@main/ai/contextBuild/resolveOutputReservation'
+import { compactCompactionMessages } from '@main/ai/contextBuild/summarizeCompaction'
 import { resolveModelTokenDialect, type TokenDialect } from '@main/ai/tokens/dialect'
 import { estimateModelMessagesSync } from '@main/ai/tokens/footprint'
 import { tokenxTokenizer } from '@main/ai/tokens/textTokenizer'
@@ -150,7 +152,6 @@ export const inLoopCompactionFeature: RequestFeature = {
     const compressor = scope.compressionModel
     // `applies()` already guards compressionModel; this narrows the type.
     if (!compressor) return {}
-    const model = compressor.languageModel
     // A budget against a known window is the whole point of compaction, but
     // `contextWindow` is optional on `Model` (custom / v1-imported / CherryAI
     // rows can omit it). Casting it made `trigger`/`keepBudget` `NaN`, and
@@ -232,7 +233,7 @@ export const inLoopCompactionFeature: RequestFeature = {
         scope.compactionSink?.(anchorId, { status: 'compacting', phase: 'in-loop', startedAt })
         let compacted: ModelMessage[]
         try {
-          compacted = await compactModelMessages(candidate, model, {
+          compacted = await compactCompactionMessages(candidate, compressor, {
             keepRecentTurns,
             maxOutputTokens,
             maxInputTokens: Math.max(
@@ -241,7 +242,7 @@ export const inLoopCompactionFeature: RequestFeature = {
             )
           })
         } catch (error) {
-          // `compactModelMessages` propagates provider errors. Letting one out of
+          // The compact call propagates provider errors. Letting one out of
           // `prepareStep` kills the whole chat turn, so a compressor that is
           // misconfigured or rate-limited would take the conversation down with
           // it — the opposite of what a context-management aid should do (the
@@ -263,7 +264,7 @@ export const inLoopCompactionFeature: RequestFeature = {
           })
           return foldCache ? { messages: candidate } : undefined
         }
-        // `compactModelMessages` returns the SAME reference when there was nothing old
+        // The compact call returns the SAME reference when there was nothing old
         // enough to summarize or the summarizer produced no text. Settling that as `done`
         // is what made a no-op read as a completed compaction in the UI — preTokens ===
         // postTokens, foldedCount 0, yet "context compacted" (#17837). Check BEFORE

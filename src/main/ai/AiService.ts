@@ -72,7 +72,8 @@ import { resolveEffectiveEndpoint, resolveWireModelId } from './provider/endpoin
 import { listModels as listModelsFromProvider } from './provider/listModels'
 import { resolveSdkConfig } from './provider/sdkConfig'
 import type { AgentLoopHooks, NativeFileSupport, RequestFeature } from './runtime/aiSdk'
-import { Agent, buildAgentParams } from './runtime/aiSdk'
+import { Agent, assembleSystemPrompt, buildAgentParams } from './runtime/aiSdk'
+import { type PiOneShotUsage, runPiOneShotText } from './runtime/pi/piOneShot'
 import { piChatEngineEnabled, tryStreamPiChatTurn } from './runtime/piChat/chatTurnSeam'
 import { skillService } from './skills/SkillService'
 import { type MessageRuntimeTimingSink, WebContentsListener } from './streamManager'
@@ -166,6 +167,24 @@ function createProviderCallHandler(context: AiUsageCaptureContext): RuntimeProvi
       metrics: event.metrics,
       completedAt: event.completedAt
     })
+  }
+}
+
+/** pi one-shot usage → the public `AiGenerateResult.usage` shape (cache buckets split out). */
+function toLanguageModelUsage(usage: PiOneShotUsage): LanguageModelUsage {
+  return {
+    inputTokens: usage.inputTokens,
+    inputTokenDetails: {
+      noCacheTokens: usage.noCacheTokens,
+      cacheReadTokens: usage.cacheReadTokens,
+      cacheWriteTokens: usage.cacheWriteTokens
+    },
+    outputTokens: usage.outputTokens,
+    outputTokenDetails: {
+      textTokens: undefined,
+      reasoningTokens: usage.reasoningTokens
+    },
+    totalTokens: usage.totalTokens
   }
 }
 
@@ -629,7 +648,7 @@ export class AiService extends BaseService {
     this.requests.get(requestId)?.abort()
   }
 
-  // ── Non-streaming text generation (agent.generate) ──
+  // ── Non-streaming text generation (pi one-shot) ──
 
   /** Cancellable variant of {@link generateText}, paired with the `ai.text.abort` route. */
   async runTextRequest(requestId: string, request: AsInProcess<AiGenerateRequest>): Promise<AiGenerateResult> {
@@ -638,49 +657,64 @@ export class AiService extends BaseService {
     )
   }
 
-  async generateText(
-    request: AsInProcessChat<AiGenerateRequest>,
-    extraFeatures: readonly RequestFeature[] = []
-  ): Promise<AiGenerateResult> {
+  /**
+   * Non-streaming text generation on the pi one-shot lane (`runtime/pi/piOneShot.ts`):
+   * one provider round-trip — no session, no tools, no retry. Usage lands in the
+   * result and is recorded to the usage/analytics sinks the streaming lanes feed.
+   *
+   * The request must carry `prompt` (+ optional `system`); `AiGenerateRequest.messages`
+   * stays on the public type for the IPC wire but has no pi lane — a request that
+   * uses it fails loudly instead of being silently dropped.
+   */
+  async generateText(request: AsInProcessChat<AiGenerateRequest>): Promise<AiGenerateResult> {
     logger.info('generateText started', { assistantId: request.assistantId })
-    const signal = request.requestOptions?.signal
+    request.requestOptions?.signal?.throwIfAborted()
+    if (request.prompt === undefined) {
+      throw new Error('generateText requires `prompt` — message-list input has no pi one-shot lane')
+    }
 
-    const repairUsagePlugins: { current?: AiPlugin[] } = {}
-    const { sdkConfig, credentialReceipt, tools, plugins, system, options, provider, model, assistant, hookParts } =
-      await this.buildAgentParamsFor(request, signal, extraFeatures, () => repairUsagePlugins.current ?? [])
-    const usageContext = createRequestCaptureContext({
+    const { provider, model, assistant } = this.getProviderAndModel(request)
+    const systemPrompt = request.system ?? (await assembleSystemPrompt({ assistant, model }))
+
+    const result = await runPiOneShotText({
       provider,
       model,
-      sdkModelId: sdkConfig.modelId,
-      credentialReceipt,
+      ...(systemPrompt !== undefined && { systemPrompt }),
+      messages: [{ role: 'user', content: request.prompt }],
+      ...(request.requestOptions?.signal && { signal: request.requestOptions.signal }),
+      ...(request.apiKeyOverride && { apiKeyOverride: request.apiKeyOverride }),
+      sessionId: request.conversation.id,
+      ...(request.reasoningEffort && { reasoning: request.reasoningEffort })
+    })
+
+    // Same sinks the legacy engine's plugins fed: one language invocation per
+    // provider call (billing) plus the analytics token funnel.
+    const captureContext = createRequestCaptureContext({
+      provider,
+      model,
+      sdkModelId: result.injection.modelId,
+      credentialReceipt:
+        result.injection.usageCapture.owner === 'agent-sdk'
+          ? result.injection.usageCapture.credentialReceipt
+          : undefined,
       source: sourceSnapshotForAssistant(assistant),
       messageRef: null
     })
-    const usagePlugin = createAiUsagePlugin(usageContext)
-    repairUsagePlugins.current = [usagePlugin]
-
-    // Same media gating as the streaming path — `agent.generate` hands `ModelMessage[]` to the
-    // SDK as-is, so without these the structured tool-result media the converter produces would
-    // be JSON/base64-encoded or rejected on OpenAI-compatible wires, diverging from `stream`.
-    const mediaCapabilities = resolveMediaCapabilities(model)
-    const agent = new Agent({
-      providerId: sdkConfig.providerId,
-      providerSettings: sdkConfig.providerSettings,
-      modelId: sdkConfig.modelId,
-      plugins: [...plugins, usagePlugin],
-      tools,
-      system: request.system ?? system,
-      options,
-      hookParts: [this.analyticsHookPart(model, request.tokenUsageSource ?? 'chat'), ...hookParts],
-      mediaCapabilities,
-      toolResultMediaCapabilities: resolveToolResultMediaCapabilities(
-        mediaCapabilities,
-        resolveModelTokenDialect(provider, model)
-      )
+    aiUsageRecordService.recordInvocation({
+      requestId: `pi-one-shot:${provider.id}:${randomUUID()}`,
+      context: captureContext,
+      modality: 'language',
+      usage: result.usage,
+      metrics: { timeCompletionMs: result.timeCompletionMs },
+      completedAt: Date.now()
     })
+    this.trackUsage(
+      model,
+      { inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens },
+      request.tokenUsageSource ?? 'chat'
+    )
 
-    // prompt and messages are mutually exclusive in AI SDK; preserve that.
-    return agent.generate(request.prompt ? { prompt: request.prompt } : { messages: request.messages ?? [] }, signal)
+    return { text: result.text, usage: toLanguageModelUsage(result.usage) }
   }
 
   // ── Image generation ──

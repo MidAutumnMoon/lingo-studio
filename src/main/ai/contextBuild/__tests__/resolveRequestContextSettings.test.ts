@@ -1,4 +1,3 @@
-import { MockLanguageModelV3 } from 'ai/test'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockPrefGet = vi.fn()
@@ -8,8 +7,10 @@ vi.mock('@application', () => ({
 
 const CONVERSATION = { id: 'conversation-1' }
 const mockResolveCompressionModel = vi.fn(async (id: string) => ({
-  languageModel: new MockLanguageModelV3({ modelId: id }),
-  contextWindow: null
+  provider: { id: id.split('::')[0] },
+  model: { id },
+  contextWindow: null,
+  conversationId: CONVERSATION.id
 }))
 // Lazy wrapper so the hoisted vi.mock factory doesn't read the const before it initializes.
 vi.mock('../resolveCompressionModel', () => ({
@@ -53,13 +54,13 @@ describe('resolveRequestContextSettings — compression-model assembly', () => {
   it('falls back to the request model id when compress.model_id is null', async () => {
     setPrefs({ modelId: null })
     const { compressionModel } = await resolveRequestContextSettings(model, CONVERSATION)
-    expect(compressionModel?.languageModel.modelId).toBe('openai::gpt-4o')
+    expect(compressionModel?.model.id).toBe('openai::gpt-4o')
   })
 
   it('uses an explicit compress.model_id when set', async () => {
     setPrefs({ modelId: 'anthropic::claude-x' })
     const { compressionModel } = await resolveRequestContextSettings(model, CONVERSATION)
-    expect(compressionModel?.languageModel.modelId).toBe('anthropic::claude-x')
+    expect(compressionModel?.model.id).toBe('anthropic::claude-x')
   })
 
   // The assistant override's schema is `z.string().min(1)`, so clearing it there
@@ -71,7 +72,7 @@ describe('resolveRequestContextSettings — compression-model assembly', () => {
   it.each([[''], ['   ']])('treats a blank compress.model_id (%j) as "use the current model"', async (blank) => {
     setPrefs({ modelId: blank })
     const { compressionModel } = await resolveRequestContextSettings(model, CONVERSATION)
-    expect(compressionModel?.languageModel.modelId).toBe('openai::gpt-4o')
+    expect(compressionModel?.model.id).toBe('openai::gpt-4o')
   })
 
   it('does not resolve a compression model when compression is disabled', async () => {
@@ -99,7 +100,7 @@ describe('resolveRequestContextSettings — assistant override layer (P2-D)', ()
     const { compressionModel } = await resolveRequestContextSettings(model, CONVERSATION, {
       compress: { modelId: 'anthropic::assistant-compressor' }
     })
-    expect(compressionModel?.languageModel.modelId).toBe('anthropic::assistant-compressor')
+    expect(compressionModel?.model.id).toBe('anthropic::assistant-compressor')
   })
 
   it('lets an assistant disable compression while global keeps it on', async () => {
@@ -118,7 +119,7 @@ describe('resolveRequestContextSettings — assistant override layer (P2-D)', ()
       compress: { enabled: true }
     })
     expect(contextSettings.compress.enabled).toBe(true)
-    expect(compressionModel?.languageModel.modelId).toBe('openai::gpt-4o')
+    expect(compressionModel?.model.id).toBe('openai::gpt-4o')
   })
 
   it('applies an assistant truncateThreshold override', async () => {
@@ -142,7 +143,7 @@ describe('resolveRequestContextSettings — assistant override layer (P2-D)', ()
     const { compressionModel } = await resolveRequestContextSettings(model, CONVERSATION, {
       compress: { modelId: null }
     })
-    expect(compressionModel?.languageModel.modelId).toBe('openai::global-compressor')
+    expect(compressionModel?.model.id).toBe('openai::global-compressor')
   })
 
   it('reads the compaction trigger from the global preference, and lets an assistant override it', async () => {

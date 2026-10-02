@@ -352,11 +352,16 @@ export async function resolvePiProviderInjection(uniqueModelId: UniqueModelId): 
   return resolvePiProviderInjectionFromSnapshot(provider, model)
 }
 
-/** Select one credential for already-captured provider/model facts without re-reading either row. */
+/** Select one credential for already-captured provider/model facts without re-reading either row.
+ *
+ * `apiKeyOverride` replaces the rotated selection outright (health checks probe one explicit key);
+ * its receipt mirrors the legacy serving path — matched when the key is one of the provider's,
+ * `unknown` attribution otherwise. */
 export function resolvePiProviderInjectionFromSnapshot(
   provider: Provider,
   model: Model,
-  enabledApiKeys?: readonly ApiKeyEntry[]
+  enabledApiKeys?: readonly ApiKeyEntry[],
+  apiKeyOverride?: string
 ): PiDirectProviderInjection {
   // Transport-adapter providers hold no app-side key: the real OAuth token is
   // fetched per stream call by the adapter. Skip the round-robin key rotation.
@@ -364,14 +369,14 @@ export function resolvePiProviderInjectionFromSnapshot(
     return buildPiProviderInjection(provider, model, PI_PLACEHOLDER_API_KEY)
   }
 
-  const resolvedApiKey = providerService.resolveApiKey(provider.id)
+  const resolvedApiKey = providerService.resolveApiKey(provider.id, apiKeyOverride)
   if (!resolvedApiKey.value.trim()) {
     // Keyless local servers (registry authOptional) need no credential; the
     // placeholder keeps the pi-side auth storage non-empty.
     if (provider.authOptional !== true) throw new PiMissingApiKeyError(provider.id)
     return buildPiProviderInjection(provider, model, PI_PLACEHOLDER_API_KEY)
   }
-  if (enabledApiKeys && !enabledApiKeys.some((entry) => entry.key === resolvedApiKey.value)) {
+  if (!apiKeyOverride && enabledApiKeys && !enabledApiKeys.some((entry) => entry.key === resolvedApiKey.value)) {
     throw new Error(`Pi provider credentials changed during materialization: ${provider.id}`)
   }
   return buildPiProviderInjection(provider, model, resolvedApiKey.value, resolvedApiKey.apiKeySelection)
@@ -384,7 +389,23 @@ export async function resolvePiProviderInjectionForSession(
   model: Model,
   enabledApiKeys?: readonly ApiKeyEntry[]
 ): Promise<PiProviderInjection> {
-  const injection = resolvePiProviderInjectionFromSnapshot(provider, model, enabledApiKeys)
+  return withPiSessionHeader(
+    resolvePiProviderInjectionFromSnapshot(provider, model, enabledApiKeys),
+    provider,
+    sessionId
+  )
+}
+
+/**
+ * Stamp the OpenCode per-conversation session header onto an injection (preset-scoped:
+ * OpenCode Go/Zen requires `x-opencode-session` on every request). An explicit header
+ * the user already configured wins regardless of casing.
+ */
+export function withPiSessionHeader<T extends PiProviderInjection>(
+  injection: T,
+  provider: Provider,
+  sessionId: string
+): T {
   const headers = injection.providerConfig.headers
   if (
     matchesPreset(provider, SystemProviderIds.opencode) &&

@@ -67,17 +67,23 @@ export type {
   VFSStorageAdapter
 } from './core/context'
 export {
+  compactHistory,
   compactModelMessages,
   COMPRESSION_MAX_OUTPUT_TOKENS,
   COMPRESSION_MIN_OUTPUT_TOKENS,
   computeHeadTailExcerpt,
   ContextPrompts,
   createContextMiddleware,
+  fromModelMessages,
   groupIntoTurns,
   Offloader,
+  type PlanCompactionOptions,
   PERSISTED_OUTPUT_TAG,
   resolveCompressionOutputTokens,
-  summarizeModelMessages
+  summarizeHistory,
+  summarizeModelMessages,
+  type SummarizeHistoryOptions,
+  toModelMessages
 } from './core/context'
 
 // ==================== 错误处理 ====================

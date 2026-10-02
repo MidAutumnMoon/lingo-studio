@@ -8,11 +8,9 @@
  */
 
 import { MockMainPreferenceServiceUtils } from '@test-mocks/main/PreferenceService'
-import { MockLanguageModelV3 } from 'ai/test'
 import { estimateTokenCount } from 'tokenx'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type * as AiCore from '@cherrystudio/ai-core'
 import { DEFAULT_CONTEXT_SETTINGS } from '@shared/data/types/contextSettings'
 import { createUniqueModelId, type UniqueModelId } from '@shared/data/types/model'
 
@@ -29,8 +27,8 @@ const {
   mockGetPathToNode,
   mockSetCompactionSummary,
   mockResolveRequestContextSettings,
-  mockSummarizeModelMessages,
-  mockCompactModelMessages,
+  mockSummarizeCompaction,
+  mockCompactCompactionMessages,
   mockGetAssistantById,
   mockFindFileEntryById
 } = vi.hoisted(() => ({
@@ -39,8 +37,8 @@ const {
   mockGetPathToNode: vi.fn(),
   mockSetCompactionSummary: vi.fn(),
   mockResolveRequestContextSettings: vi.fn(),
-  mockSummarizeModelMessages: vi.fn(),
-  mockCompactModelMessages: vi.fn(),
+  mockSummarizeCompaction: vi.fn(),
+  mockCompactCompactionMessages: vi.fn(),
   mockGetAssistantById: vi.fn(),
   mockFindFileEntryById: vi.fn()
 }))
@@ -91,13 +89,13 @@ vi.mock('../../../contextBuild/resolveRequestContextSettings', () => ({
   resolveRequestContextSettings: mockResolveRequestContextSettings
 }))
 
-// Mock the context-module summarizers. summarizeModelMessages (turn-start fold) returns
-// 'SUMMARY_TEXT' by default; compactModelMessages (in-loop hook) is wired so the
+// Mock the compaction module (both lanes): summarizeCompaction is the
+// turn-start fold's LLM call (returns 'SUMMARY_TEXT' by default);
+// compactCompactionMessages is the in-loop hook's compact — wired so the
 // interaction test can assert it is NOT called at step 0 and IS called on growth.
-vi.mock('@cherrystudio/ai-core', async (importOriginal) => ({
-  ...(await importOriginal<typeof AiCore>()),
-  summarizeModelMessages: mockSummarizeModelMessages,
-  compactModelMessages: mockCompactModelMessages
+vi.mock('../../../contextBuild/summarizeCompaction', () => ({
+  summarizeCompaction: mockSummarizeCompaction,
+  compactCompactionMessages: mockCompactCompactionMessages
 }))
 
 // Override the global @application mock to also handle AiStreamManager lookups
@@ -216,7 +214,10 @@ function fakeMsgWithContextTokens(
   return { ...fakeMsg(id, role, text), stats: { contextTokens } }
 }
 
-function compressionOn(compressionModel: unknown = { languageModel: {}, contextWindow: null }, thresholdPercent = 80) {
+function compressionOn(
+  compressionModel: unknown = { provider: {}, model: {}, contextWindow: null },
+  thresholdPercent = 80
+) {
   mockResolveRequestContextSettings.mockResolvedValue({
     contextSettings: {
       enabled: true,
@@ -232,7 +233,7 @@ function compressionOn(compressionModel: unknown = { languageModel: {}, contextW
 function maxMessagesOn(maxMessages: number, enabled = true) {
   mockResolveRequestContextSettings.mockResolvedValue({
     contextSettings: { enabled, truncateThreshold: 0.9, maxMessages, compress: { enabled: true } },
-    compressionModel: { languageModel: {}, contextWindow: null }
+    compressionModel: { provider: {}, model: {}, contextWindow: null }
   })
 }
 
@@ -284,7 +285,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
   beforeEach(() => {
     vi.clearAllMocks()
     capturedChunks = []
-    mockSummarizeModelMessages.mockResolvedValue('SUMMARY_TEXT')
+    mockSummarizeCompaction.mockResolvedValue('SUMMARY_TEXT')
     // Default: an endpoint that sends no max_tokens, so the input room is the
     // whole window and every pre-existing trigger arithmetic below still holds.
     mockGetProviderById.mockReturnValue({ id: 'openai' })
@@ -309,7 +310,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
 
     const { messages } = await makeHistory('u2')
 
-    expect(mockSummarizeModelMessages).not.toHaveBeenCalled()
+    expect(mockSummarizeCompaction).not.toHaveBeenCalled()
     expect(mockSetCompactionSummary).not.toHaveBeenCalled()
     const ids = messages.map((m) => m.id)
     expect(ids).toContain('u1')
@@ -332,7 +333,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
 
     const { messages } = await makeHistory('u3')
 
-    expect(mockSummarizeModelMessages).not.toHaveBeenCalled()
+    expect(mockSummarizeCompaction).not.toHaveBeenCalled()
     expect(mockSetCompactionSummary).not.toHaveBeenCalled()
     expect(messages.map((m) => m.id)).toEqual(['u2', 'a2', 'u3'])
   })
@@ -349,7 +350,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
     const { messages } = await makeHistory('u2')
 
     expect(messages.map((m) => m.id)).toEqual(['u2'])
-    expect(mockSummarizeModelMessages).not.toHaveBeenCalled()
+    expect(mockSummarizeCompaction).not.toHaveBeenCalled()
   })
 
   it('1d. maxMessages still bounds the window when the context-management master switch is off', async () => {
@@ -366,7 +367,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
     const { messages } = await makeHistory('u2')
 
     expect(messages.map((m) => m.id)).toEqual(['u2'])
-    expect(mockSummarizeModelMessages).not.toHaveBeenCalled()
+    expect(mockSummarizeCompaction).not.toHaveBeenCalled()
   })
 
   it('1e. a maxMessages window revokes read_file/fs_read access to what slid out', async () => {
@@ -473,7 +474,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
 
     await makeHistory('u3', [DEFAULT_MODEL_ID], { maxOutputTokens: 2000 })
 
-    expect(mockSummarizeModelMessages).toHaveBeenCalled()
+    expect(mockSummarizeCompaction).toHaveBeenCalled()
   })
 
   // The trigger is configurable, and this lane must honour it — the in-loop hook
@@ -487,7 +488,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
 
     await makeHistory('u3')
 
-    expect(mockSummarizeModelMessages).toHaveBeenCalled()
+    expect(mockSummarizeCompaction).toHaveBeenCalled()
   })
 
   // The mirror of 2c: the same history under the default 80% trigger (3200)
@@ -501,7 +502,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
 
     await makeHistory('u3')
 
-    expect(mockSummarizeModelMessages).not.toHaveBeenCalled()
+    expect(mockSummarizeCompaction).not.toHaveBeenCalled()
   })
 
   // The keep budget is a fraction of the TRIGGER (0.375x), not of the window
@@ -523,7 +524,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
 
     await makeHistory('u3')
 
-    expect(mockSummarizeModelMessages).toHaveBeenCalled()
+    expect(mockSummarizeCompaction).toHaveBeenCalled()
     expect(mockSetCompactionSummary).toHaveBeenCalled()
   })
 
@@ -539,7 +540,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
 
     await makeHistory('u3', [DEFAULT_MODEL_ID], { maxOutputTokens: 2000 })
 
-    expect(mockSummarizeModelMessages).not.toHaveBeenCalled()
+    expect(mockSummarizeCompaction).not.toHaveBeenCalled()
   })
 
   it('2. over budget → summarize + persist on boundary + serve compacted view', async () => {
@@ -563,7 +564,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
     const { messages } = await makeHistory('u3')
 
     // summarizeModelMessages called once (compaction triggered)
-    expect(mockSummarizeModelMessages).toHaveBeenCalledTimes(1)
+    expect(mockSummarizeCompaction).toHaveBeenCalledTimes(1)
 
     // setCompactionSummary called on boundary row (a2, the row just before the kept user row u3)
     expect(mockSetCompactionSummary).toHaveBeenCalledTimes(1)
@@ -676,7 +677,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
 
     const { messages } = await makeHistory('u2', [DEFAULT_MODEL_ID], { contextWindow: undefined })
 
-    expect(mockSummarizeModelMessages).not.toHaveBeenCalled()
+    expect(mockSummarizeCompaction).not.toHaveBeenCalled()
     expect(mockSetCompactionSummary).not.toHaveBeenCalled()
     // Nothing folded — the whole path is still served.
     expect(messages.map((m) => m.id)).toEqual(['u1', 'a1', 'u2'])
@@ -695,12 +696,12 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
     mockGetPathToNode.mockReturnValue(path)
     // Explicit 8k compressor: the summarize request must fit ITS window.
     // Budgeting by the 20k chat window would allocate ~17.7k and overflow it.
-    compressionOn({ languageModel: {}, contextWindow: 8_000 })
+    compressionOn({ provider: {}, model: {}, contextWindow: 8_000 })
 
     await makeHistory('u3', [DEFAULT_MODEL_ID], { contextWindow: 20_000 })
 
-    expect(mockSummarizeModelMessages).toHaveBeenCalled()
-    const opts = mockSummarizeModelMessages.mock.calls[0][2]
+    expect(mockSummarizeCompaction).toHaveBeenCalled()
+    const opts = mockSummarizeCompaction.mock.calls[0][2]
     expect(opts.maxOutputTokens + opts.maxInputTokens).toBeLessThan(8_000)
   })
 
@@ -742,7 +743,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
   it('2i. settles the anchor as skipped when the summarizer returns nothing (no false marker)', async () => {
     fiveBigTurns()
     compressionOn()
-    mockSummarizeModelMessages.mockResolvedValueOnce('')
+    mockSummarizeCompaction.mockResolvedValueOnce('')
 
     await makeHistory('u3')
     const anchors = capturedChunks.filter((c) => c.type === 'data-compaction-anchor')
@@ -752,7 +753,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
   it('2i2. settles the anchor as skipped when the summarizer throws', async () => {
     fiveBigTurns()
     compressionOn()
-    mockSummarizeModelMessages.mockRejectedValueOnce(new Error('summarizer failed'))
+    mockSummarizeCompaction.mockRejectedValueOnce(new Error('summarizer failed'))
 
     await makeHistory('u3')
     const anchors = capturedChunks.filter((c) => c.type === 'data-compaction-anchor')
@@ -888,7 +889,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
     try {
       const { messages } = await makeHistory('u2')
       expect(messages.map((message) => message.id)).toEqual(['u1', 'a1', 'u2'])
-      expect(mockSummarizeModelMessages).not.toHaveBeenCalled()
+      expect(mockSummarizeCompaction).not.toHaveBeenCalled()
     } finally {
       MockMainPreferenceServiceUtils.resetMocks()
     }
@@ -909,7 +910,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
 
     const { messages } = await makeHistory('u3')
 
-    expect(mockSummarizeModelMessages).not.toHaveBeenCalled()
+    expect(mockSummarizeCompaction).not.toHaveBeenCalled()
     expect(mockSetCompactionSummary).not.toHaveBeenCalled()
 
     // First message is the synthetic summary row for a1
@@ -939,7 +940,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
 
     const { messages } = await makeHistory('u5')
 
-    expect(mockSummarizeModelMessages).not.toHaveBeenCalled()
+    expect(mockSummarizeCompaction).not.toHaveBeenCalled()
     expect(mockSetCompactionSummary).not.toHaveBeenCalled()
 
     // deepest marker is a3 → synthetic summary row uses its id
@@ -1064,7 +1065,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
     )
 
     // Anchor+tail exceeded threshold → compaction must have triggered
-    expect(mockSummarizeModelMessages).toHaveBeenCalledTimes(1)
+    expect(mockSummarizeCompaction).toHaveBeenCalledTimes(1)
   })
 
   it('6. no anchor → fallback to full tokenx; under budget → no compaction', async () => {
@@ -1076,7 +1077,7 @@ describe('PersistentChatContextProvider — durable compaction integration', () 
 
     const { messages } = await makeHistory('u2')
 
-    expect(mockSummarizeModelMessages).not.toHaveBeenCalled()
+    expect(mockSummarizeCompaction).not.toHaveBeenCalled()
     expect(mockSetCompactionSummary).not.toHaveBeenCalled()
     const ids = messages.map((m) => m.id)
     expect(ids).toContain('u1')
@@ -1126,7 +1127,12 @@ function inLoopScope(contextWindow: number): RequestScope {
     model: makeModel(DEFAULT_MODEL_ID, contextWindow),
     provider: makeProvider({ id: 'openai', defaultChatEndpoint: 'openai-chat-completions', endpointConfigs: {} }),
     contextSettings: DEFAULT_CONTEXT_SETTINGS,
-    compressionModel: { languageModel: new MockLanguageModelV3({ modelId: 'compression-model' }), contextWindow },
+    compressionModel: {
+      provider: makeProvider({ id: 'openai' }),
+      model: makeModel(DEFAULT_MODEL_ID, contextWindow),
+      contextWindow,
+      conversationId: 'topic-1'
+    },
     signal: undefined,
     registry: new ToolRegistry(),
     mcpToolIds: new Set(),
@@ -1148,10 +1154,10 @@ describe('in-loop vs turn-start compaction — no double-compact', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     capturedChunks = []
-    mockSummarizeModelMessages.mockResolvedValue('SUMMARY_TEXT')
+    mockSummarizeCompaction.mockResolvedValue('SUMMARY_TEXT')
     // Default: the compactor returns a DISTINCT compacted array (so the hook would emit an
     // override IF it fired). Assertion A asserts it is never called regardless.
-    mockCompactModelMessages.mockImplementation(async () => [{ role: 'user' as const, content: 'COMPACTED' }])
+    mockCompactCompactionMessages.mockImplementation(async () => [{ role: 'user' as const, content: 'COMPACTED' }])
   })
 
   /** Drive turn-start compaction once and return the served history as ModelMessage[]. */
@@ -1169,7 +1175,7 @@ describe('in-loop vs turn-start compaction — no double-compact', () => {
     const { messages: servedRows } = await makeHistory('u3')
 
     // Turn-start fired exactly once and served the compacted view: [summary(a2), u3].
-    expect(mockSummarizeModelMessages).toHaveBeenCalledTimes(1)
+    expect(mockSummarizeCompaction).toHaveBeenCalledTimes(1)
     expect(servedRows[0].id).toBe('compaction:a2')
     expect(servedRows[1].role).toBe('user')
 
@@ -1190,9 +1196,9 @@ describe('in-loop vs turn-start compaction — no double-compact', () => {
 
     // Hook is a no-op: no override, and the compactor was NOT invoked.
     expect(result).toBeUndefined()
-    expect(mockCompactModelMessages).not.toHaveBeenCalled()
+    expect(mockCompactCompactionMessages).not.toHaveBeenCalled()
     // Net across both layers: turn-start summarized once, in-loop compacted zero.
-    expect(mockSummarizeModelMessages).toHaveBeenCalledTimes(1)
+    expect(mockSummarizeCompaction).toHaveBeenCalledTimes(1)
   })
 
   it('B: in-loop fires only after mid-loop growth crosses 0.8×window', async () => {
@@ -1223,8 +1229,8 @@ describe('in-loop vs turn-start compaction — no double-compact', () => {
 
     // Now it fires: the compactor called exactly once with keepRecentTurns ≥ 1,
     // and the hook returns the override with the mocked compacted messages.
-    expect(mockCompactModelMessages).toHaveBeenCalledTimes(1)
-    const [passedMessages, , options] = mockCompactModelMessages.mock.calls[0]
+    expect(mockCompactCompactionMessages).toHaveBeenCalledTimes(1)
+    const [passedMessages, , options] = mockCompactCompactionMessages.mock.calls[0]
     expect(options.keepRecentTurns).toBeGreaterThanOrEqual(1)
     expect(result).toEqual({ messages: [{ role: 'user', content: 'COMPACTED' }] })
 
