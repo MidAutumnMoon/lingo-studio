@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { WindowType } from '../types'
 import { WINDOW_TYPE_REGISTRY } from '../windowRegistry'
 
 // On macOS, `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })` without
@@ -16,15 +15,6 @@ describe('WINDOW_TYPE_REGISTRY behavior invariants', () => {
       if (declaration?.visibleOnFullScreen) {
         expect(declaration.skipTransformProcessType, `WindowType '${entry.type}'`).toBe(true)
       }
-    }
-  })
-
-  it('QuickAssistant declares the flag (regression: fullscreen overlay windows hid the app)', () => {
-    for (const type of [WindowType.QuickAssistant] as const) {
-      expect(
-        WINDOW_TYPE_REGISTRY[type]?.behavior?.visibleOnAllWorkspaces?.skipTransformProcessType,
-        `WindowType '${type}'`
-      ).toBe(true)
     }
   })
 })

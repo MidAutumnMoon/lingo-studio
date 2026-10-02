@@ -32,13 +32,6 @@ export const REGRESSION_CASES = [
     task: 'translation'
   },
   {
-    id: 'C-02',
-    capabilities: ['desktopAutomation'],
-    phase: '05-desktop-assistants',
-    title: 'Ask a question using Quick Assistant',
-    task: 'quick-assistant'
-  },
-  {
     id: 'K-01',
     capabilities: ['desktopAutomation'],
     phase: '06-knowledge',

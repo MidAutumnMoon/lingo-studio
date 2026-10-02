@@ -121,6 +121,5 @@
   "settings.mcp.oauth.callback.title": "認証成功",
   "settings.title": "設定",
   "tray.quit": "終了",
-  "tray.show_quick_assistant": "クイックアシスタント",
   "tray.show_window": "ウィンドウを表示"
 }

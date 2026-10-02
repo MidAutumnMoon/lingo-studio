@@ -87,7 +87,7 @@ export default function OnboardingPage({
   const { syncProviderModels } = useProviderModelSync('cherryin')
   const { providers: enabledProviders, isLoading: isProvidersLoading } = useProviders({ enabled: true })
   const { models: enabledModels, isLoading: isModelsLoading } = useModels({ enabled: true })
-  const { defaultModel, quickModel, translateModel } = useDefaultModel()
+  const { defaultModel, translateModel } = useDefaultModel()
   const [step, setStep] = useState<OnboardingStep>('welcome')
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isCompleting, setIsCompleting] = useState(false)
@@ -112,7 +112,7 @@ export default function OnboardingPage({
   const eligibleProviderIds = new Set(
     enabledProviders.filter((provider) => !isManagedCherryProviderId(provider.id)).map((provider) => provider.id)
   )
-  const canCompleteModelSetup = [defaultModel, quickModel, translateModel].every(
+  const canCompleteModelSetup = [defaultModel, translateModel].every(
     (model) => model && eligibleProviderIds.has(model.providerId) && isOnboardingModel(model)
   )
   const hasEligibleProvider = eligibleProviderIds.size > 0

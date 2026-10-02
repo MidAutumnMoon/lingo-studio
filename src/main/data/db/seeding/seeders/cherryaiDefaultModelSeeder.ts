@@ -26,11 +26,7 @@ import { hashObject } from '../hashObject'
 const logger = loggerService.withContext('CherryAiDefaultModelSeeder')
 
 const DEFAULT_MODEL_PREFERENCE_SCOPE = 'default' as const
-export const DEFAULT_MODEL_PREFERENCE_KEYS = [
-  'chat.default_model_id',
-  'feature.quick_assistant.model_id',
-  'feature.translate.model_id'
-] as const
+export const DEFAULT_MODEL_PREFERENCE_KEYS = ['chat.default_model_id', 'feature.translate.model_id'] as const
 
 type TxLike = Pick<DbType, 'select' | 'insert' | 'update'>
 type ManagedCherryProviderRow = Omit<InsertUserProviderRow, 'orderKey'>

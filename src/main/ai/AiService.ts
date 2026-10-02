@@ -91,11 +91,7 @@ import { installProviderUserAgentInterceptor } from './utils/customFetch'
 import { type SplitImageParams, splitParamValues } from './utils/imageOptions'
 import { normalizeImageEditInputs } from './utils/normalizeImageEditInputs'
 import { routeToEndpoint } from './utils/provider'
-import {
-  createRequestCaptureContext,
-  resolveUsageAttribution,
-  sourceSnapshotForAssistant
-} from './utils/usageCapture'
+import { createRequestCaptureContext, resolveUsageAttribution, sourceSnapshotForAssistant } from './utils/usageCapture'
 
 const logger = loggerService.withContext('AiService')
 
@@ -650,18 +646,8 @@ export class AiService extends BaseService {
     const signal = request.requestOptions?.signal
 
     const repairUsagePlugins: { current?: AiPlugin[] } = {}
-    const {
-      sdkConfig,
-      credentialReceipt,
-      tools,
-      plugins,
-      system,
-      options,
-      provider,
-      model,
-      assistant,
-      hookParts
-    } = await this.buildAgentParamsFor(request, signal, extraFeatures, () => repairUsagePlugins.current ?? [])
+    const { sdkConfig, credentialReceipt, tools, plugins, system, options, provider, model, assistant, hookParts } =
+      await this.buildAgentParamsFor(request, signal, extraFeatures, () => repairUsagePlugins.current ?? [])
     const usageContext = createRequestCaptureContext({
       provider,
       model,

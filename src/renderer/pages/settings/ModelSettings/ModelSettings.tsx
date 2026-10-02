@@ -1,9 +1,9 @@
-import { ArrowRight, Languages, MessageSquareMore, Palette, Rocket, RotateCcw, Settings2 } from 'lucide-react'
+import { ArrowRight, Languages, MessageSquareMore, Palette, RotateCcw, Settings2 } from 'lucide-react'
 import type { FC, ReactNode, Ref } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Button, InfoTooltip, PageSidePanel, Tooltip } from '@cherrystudio/ui'
+import { Button, PageSidePanel, Tooltip } from '@cherrystudio/ui'
 import { usePreference } from '@data/hooks/usePreference'
 import { loggerService } from '@logger'
 import { DefaultModelSelector } from '@renderer/components/DefaultModelSelector'
@@ -105,7 +105,7 @@ const ModelSettingRow: FC<ModelSettingRowProps> = ({
   </div>
 )
 
-type ModelSettingsPanel = 'quick-model' | 'translate' | null
+type ModelSettingsPanel = 'topic-naming' | 'translate' | null
 
 const MODEL_SETTINGS_DRAWER_WIDTH_CLASS = '!w-[min(31.25rem,calc(100%-1rem))]'
 const TRANSLATE_DRAWER_WIDTH_CLASS = '!w-[min(31.25rem,calc(100%-1rem))]'
@@ -125,16 +125,8 @@ const ModelSettings: FC<ModelSettingsProps> = ({
   focus,
   className
 }) => {
-  const {
-    defaultModel,
-    quickModel,
-    translateModel,
-    paintingModel,
-    setDefaultModel,
-    setQuickModel,
-    setTranslateModel,
-    setPaintingModel
-  } = useDefaultModel()
+  const { defaultModel, translateModel, paintingModel, setDefaultModel, setTranslateModel, setPaintingModel } =
+    useDefaultModel()
   const { providers } = useProviders({ enabled: true })
   const [activePanel, setActivePanel] = useState<ModelSettingsPanel>(null)
   const { theme } = useTheme()
@@ -156,10 +148,8 @@ const ModelSettings: FC<ModelSettingsProps> = ({
   )
   const paintingModelFilter = useCallback((model: Model) => isGenerateImageModel(model), [])
   const selectableDefaultModel = defaultModel && chatModelFilter(defaultModel) ? defaultModel : undefined
-  const selectableQuickModel = quickModel && chatModelFilter(quickModel) ? quickModel : undefined
   const selectableTranslateModel = translateModel && translateModelFilter(translateModel) ? translateModel : undefined
-  const shouldAutoFillEmptyModels =
-    autoFillEmptyModels && !selectableDefaultModel && !selectableQuickModel && !selectableTranslateModel
+  const shouldAutoFillEmptyModels = autoFillEmptyModels && !selectableDefaultModel && !selectableTranslateModel
 
   const onSelectDefault = useCallback(
     (selected: Model | undefined) => {
@@ -176,14 +166,6 @@ const ModelSettings: FC<ModelSettingsProps> = ({
         })
     },
     [onDefaultModelSelected, setDefaultModel, shouldAutoFillEmptyModels, t]
-  )
-
-  const onSelectQuick = useCallback(
-    (selected: Model | undefined) => {
-      if (!selected) return
-      void setQuickModel(selected)
-    },
-    [setQuickModel]
   )
 
   const onSelectTranslate = useCallback(
@@ -253,32 +235,11 @@ const ModelSettings: FC<ModelSettingsProps> = ({
               onSelect={onSelectDefault}
               placeholder={t('settings.models.empty')}
             />
-          </ModelSettingRow>
-          {showDividers && <SettingDivider />}
-          <ModelSettingRow
-            compact={compact}
-            id={compact ? undefined : 'setting-model-quick-model'}
-            icon={<Rocket size={16} className="lucide-custom shrink-0 text-foreground" />}
-            title={
-              <>
-                {t('settings.models.quick_model.label')}
-                <InfoTooltip content={t('settings.models.quick_model.tooltip')} />
-              </>
-            }
-            description={showDescription ? t('settings.models.quick_model.description') : undefined}>
-            <DefaultModelSelector
-              model={selectableQuickModel}
-              providers={providers}
-              filter={chatModelFilter}
-              compact={compact}
-              onSelect={onSelectQuick}
-              placeholder={t('settings.models.empty')}
-            />
             {showSettingsButton && (
               <Button
                 aria-label={t('settings.models.quick_model.setting_title')}
                 className="shrink-0"
-                onClick={() => setActivePanel('quick-model')}
+                onClick={() => setActivePanel('topic-naming')}
                 size="icon-sm"
                 variant="outline">
                 <Settings2 size={16} />
@@ -347,7 +308,7 @@ const ModelSettings: FC<ModelSettingsProps> = ({
       {showSettingsButton && (
         <>
           <PageSidePanel
-            open={activePanel === 'quick-model'}
+            open={activePanel === 'topic-naming'}
             onClose={closePanel}
             closeLabel={t('common.close')}
             header={<h2 className={drawerTitleClassName}>{t('settings.models.quick_model.setting_title')}</h2>}

@@ -52,7 +52,7 @@ function resolveRendererPath(filePath: string): string | undefined {
  * Whether a URL belongs to the app's own renderer.
  *
  * Two consumers: {@link validateSender} asks it about a *sender frame* URL, and the
- * `will-navigate` guards (MainWindowService / QuickAssistantService) ask it about a
+ * `will-navigate` guards (MainWindowService) ask it about a
  * *navigation target* — both are the same question, so they share one definition of
  * "our own renderer" rather than each hand-rolling an origin check.
  *

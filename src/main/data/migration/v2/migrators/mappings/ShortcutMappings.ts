@@ -41,8 +41,7 @@ export const LEGACY_KEY_TO_TARGET_KEY: Record<string, string> = {
   search_message_in_chat: 'shortcut.chat.message.search',
   search_message: 'shortcut.app.search',
   select_model: 'shortcut.chat.model.select',
-  exit_fullscreen: 'shortcut.app.fullscreen.exit',
-  mini_window: 'shortcut.quick_assistant.toggle'
+  exit_fullscreen: 'shortcut.app.fullscreen.exit'
 }
 
 export const SHORTCUT_TARGET_KEYS: readonly string[] = [...new Set(Object.values(LEGACY_KEY_TO_TARGET_KEY))]

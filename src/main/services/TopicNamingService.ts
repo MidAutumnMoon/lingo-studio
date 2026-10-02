@@ -411,12 +411,11 @@ export class TopicNamingService {
   private resolveNamingModelId(): UniqueModelId {
     const preferenceService = application.get('PreferenceService')
 
-    const configured =
-      preferenceService.get('feature.quick_assistant.model_id') ?? preferenceService.get('chat.default_model_id')
-    const quickModelId = this.toUsableNamingModelId(configured)
-    if (quickModelId) return quickModelId
+    const configured = preferenceService.get('chat.default_model_id')
+    const usableModelId = this.toUsableNamingModelId(configured)
+    if (usableModelId) return usableModelId
     if (configured != null) {
-      logger.warn('Quick assistant model is not usable for topic naming; falling back to managed CherryAI default', {
+      logger.warn('Default chat model is not usable for topic naming; falling back to managed CherryAI default', {
         configured
       })
     }

@@ -97,12 +97,11 @@ function isPresetDeltaField(field: string): field is PresetDeltaField {
   return PRESET_DELTA_FIELD_SET.has(field)
 }
 
-/** Resolve the set of UniqueModelIds currently set as user defaults (chat / quick-assistant / translate). */
+/** Resolve the set of UniqueModelIds currently set as user defaults (chat / translate). */
 function getUserDefaultModelIds(): Set<string> {
   const preferenceService = application.get('PreferenceService')
   const ids = [
     preferenceService.get('chat.default_model_id'),
-    preferenceService.get('feature.quick_assistant.model_id'),
     preferenceService.get('feature.translate.model_id')
   ].filter((id): id is string => typeof id === 'string' && id.length > 0)
   return new Set(ids)

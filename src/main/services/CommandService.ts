@@ -85,10 +85,6 @@ export class CommandService extends BaseService {
       openSettingsInMainWindow()
     })
 
-    this.registerHandler('quick_assistant.toggle', () => {
-      application.get('QuickAssistantService').toggleQuickAssistant()
-    })
-
     this.registerHandler('app.zoom.in', (window) => {
       handleZoomFactor(getCommandTargetWindows(window), 0.1)
     })
@@ -103,9 +99,7 @@ export class CommandService extends BaseService {
   }
 
   private getDefaultContext(): ContextReader {
-    const preferenceService = application.get('PreferenceService')
     return {
-      'feature.quick_assistant.enabled': Boolean(preferenceService.get('feature.quick_assistant.enabled')),
       platform: process.platform
     }
   }

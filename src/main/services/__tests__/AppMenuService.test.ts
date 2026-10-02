@@ -194,7 +194,7 @@ describe('AppMenuService', () => {
     // through the BrowserWindow instance, never Electron's numeric window ID.
     windowManagerMock.getWindowId.mockImplementation((window: { id: number }) => `managed-${window.id}`)
     windowManagerMock.getWindowType.mockImplementation((id: string) =>
-      id === 'managed-2' ? WindowType.QuickAssistant : id === 'managed-1' ? WindowType.Main : undefined
+      id === 'managed-2' ? WindowType.Print : id === 'managed-1' ? WindowType.Main : undefined
     )
 
     focus({}, { id: 2 })

@@ -527,7 +527,7 @@ export class MainWindowService extends BaseService {
       const suppressShow = this.suppressInitialLaunchShow
       this.suppressInitialLaunchShow = false
       if (!suppressShow) {
-        //[mac]hacky-fix: quickAssistant set visibleOnFullScreen:true will cause dock icon disappeared
+        //[mac]hacky-fix: fullscreen-overlay windows can hide the dock icon; re-assert it before showing
         void app.dock?.show()
         mainWindow.show()
       }

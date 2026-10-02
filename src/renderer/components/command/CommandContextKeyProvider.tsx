@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
-import { usePreference } from '@data/hooks/usePreference'
 import {
   ContextKeyRegisterContext,
   ContextKeySnapshotContext,
@@ -34,13 +33,7 @@ const buildSnapshot = (
 }
 
 export function CommandContextKeyProvider({ children }: { children: React.ReactNode }) {
-  const [quickAssistantEnabled] = usePreference('feature.quick_assistant.enabled')
-  const baseValuesRef = useRef(
-    new Map<RendererCommandContextKey, ContextValue>([
-      ['platform', rendererPlatform],
-      ['feature.quick_assistant.enabled', quickAssistantEnabled]
-    ])
-  )
+  const baseValuesRef = useRef(new Map<RendererCommandContextKey, ContextValue>([['platform', rendererPlatform]]))
   const stacksRef = useRef(new Map<RendererCommandContextKey, ContextEntry[]>())
   const nextEntryIdRef = useRef(0)
   const [snapshot, setSnapshot] = useState(() => buildSnapshot(baseValuesRef.current, stacksRef.current))
@@ -51,9 +44,8 @@ export function CommandContextKeyProvider({ children }: { children: React.ReactN
 
   useEffect(() => {
     baseValuesRef.current.set('platform', rendererPlatform)
-    baseValuesRef.current.set('feature.quick_assistant.enabled', quickAssistantEnabled)
     publishSnapshot()
-  }, [publishSnapshot, quickAssistantEnabled])
+  }, [publishSnapshot])
 
   const register = useCallback(
     (key: RendererCommandContextKey, value: ContextValue) => {

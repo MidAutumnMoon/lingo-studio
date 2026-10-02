@@ -60,15 +60,7 @@ export class TrayService extends BaseService implements Activatable {
     })
 
     this.tray.on('click', () => {
-      const preferenceService = application.get('PreferenceService')
-      const quickAssistantEnabled = preferenceService.get('feature.quick_assistant.enabled')
-      const clickTrayToShowQuickAssistant = preferenceService.get('feature.quick_assistant.click_tray_to_show')
-
-      if (quickAssistantEnabled && clickTrayToShowQuickAssistant) {
-        application.get('QuickAssistantService').showQuickAssistant()
-      } else {
-        application.get('MainWindowService').showMainWindow()
-      }
+      application.get('MainWindowService').showMainWindow()
     })
   }
 
@@ -81,17 +73,10 @@ export class TrayService extends BaseService implements Activatable {
   }
 
   private updateContextMenu() {
-    const preferenceService = application.get('PreferenceService')
-    const quickAssistantEnabled = preferenceService.get('feature.quick_assistant.enabled')
-
     const template = [
       {
         label: t('tray.show_window'),
         click: () => application.get('MainWindowService').showMainWindow()
-      },
-      quickAssistantEnabled && {
-        label: t('tray.show_quick_assistant'),
-        click: () => application.get('QuickAssistantService').showQuickAssistant()
       },
       { type: 'separator' },
       {
@@ -113,11 +98,6 @@ export class TrayService extends BaseService implements Activatable {
     )
     this.registerDisposable(
       preferenceService.subscribeChange('app.language', () => {
-        if (this.isActivated) this.updateContextMenu()
-      })
-    )
-    this.registerDisposable(
-      preferenceService.subscribeChange('feature.quick_assistant.enabled', () => {
         if (this.isActivated) this.updateContextMenu()
       })
     )

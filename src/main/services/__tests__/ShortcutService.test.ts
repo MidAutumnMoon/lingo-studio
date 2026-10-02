@@ -17,35 +17,30 @@ vi.mock('@data/PreferenceService', async () => {
   return MockMainPreferenceServiceExport
 })
 
-const { windowServiceMock, windowManagerMock, quickAssistantServiceMock, commandServiceMock, globalShortcutMock } =
-  vi.hoisted(() => ({
-    windowServiceMock: {
-      onMainWindowCreated: vi.fn(),
-      showMainWindow: vi.fn(),
-      toggleMainWindow: vi.fn()
-    },
-    windowManagerMock: {
-      open: vi.fn(),
-      broadcastToType: vi.fn()
-    },
-    quickAssistantServiceMock: {
-      toggleQuickAssistant: vi.fn()
-    },
-    commandServiceMock: {
-      execute: vi.fn()
-    },
-    globalShortcutMock: {
-      register: vi.fn(),
-      unregister: vi.fn()
-    }
-  }))
+const { windowServiceMock, windowManagerMock, commandServiceMock, globalShortcutMock } = vi.hoisted(() => ({
+  windowServiceMock: {
+    onMainWindowCreated: vi.fn(),
+    showMainWindow: vi.fn(),
+    toggleMainWindow: vi.fn()
+  },
+  windowManagerMock: {
+    open: vi.fn(),
+    broadcastToType: vi.fn()
+  },
+  commandServiceMock: {
+    execute: vi.fn()
+  },
+  globalShortcutMock: {
+    register: vi.fn(),
+    unregister: vi.fn()
+  }
+}))
 
 vi.mock('@application', async () => {
   const { mockApplicationFactory } = await import('@test-mocks/main/application')
   return mockApplicationFactory({
     MainWindowService: windowServiceMock,
     WindowManager: windowManagerMock,
-    QuickAssistantService: quickAssistantServiceMock,
     CommandService: commandServiceMock
   } as any)
 })
@@ -330,23 +325,6 @@ describe('ShortcutService', () => {
     expect(commandServiceMock.execute).toHaveBeenCalledWith('app.zoom.in', mainWindow)
     expect(globalShortcutMock.register).not.toHaveBeenCalled()
     expect(globalShortcutMock.unregister).not.toHaveBeenCalled()
-  })
-
-  it('reacts to quick assistant enablement changes for quick assistant shortcut', async () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('shortcut.quick_assistant.toggle', {
-      binding: ['CommandOrControl', 'E'],
-      enabled: true
-    })
-    MockMainPreferenceServiceUtils.setPreferenceValue('feature.quick_assistant.enabled', false)
-
-    await (service as any).onInit()
-
-    expect(globalShortcutMock.register).not.toHaveBeenCalledWith('CommandOrControl+E', expect.any(Function))
-
-    globalShortcutMock.register.mockClear()
-    MockMainPreferenceServiceUtils.setPreferenceValue('feature.quick_assistant.enabled', true)
-
-    expect(globalShortcutMock.register).toHaveBeenCalledWith('CommandOrControl+E', expect.any(Function))
   })
 
   it('re-registers window-bound shortcuts when the main window instance changes', async () => {

@@ -36,18 +36,15 @@ function resolveChatModelPreference(preferenceKey: string, value: unknown): stri
 }
 
 /**
- * Transform 3 legacy LLM Model objects into UniqueModelId preference values.
+ * Transform legacy LLM Model objects into UniqueModelId preference values.
  *
- * Sources: llm.defaultModel, llm.quickModel, llm.translateModel
- * Targets: chat.default_model_id, feature.quick_assistant.model_id, feature.translate.model_id
+ * Sources: llm.defaultModel, llm.translateModel
+ * Targets: chat.default_model_id, feature.translate.model_id
+ * (the legacy quickModel had no surviving feature and is not migrated)
  */
 export function transformLlmModelIds(sources: Record<string, unknown>): TransformResult {
   return {
     'chat.default_model_id': resolveChatModelPreference('chat.default_model_id', sources.defaultModel),
-    'feature.quick_assistant.model_id': resolveChatModelPreference(
-      'feature.quick_assistant.model_id',
-      sources.quickModel
-    ),
     'feature.translate.model_id': resolveChatModelPreference('feature.translate.model_id', sources.translateModel)
   }
 }

@@ -60,39 +60,17 @@ describe('PreferencesMappings', () => {
     })
   })
 
-  describe('llm quickAssistantId simple mapping', () => {
-    it('maps quickAssistantId to feature.quick_assistant.assistant_id', () => {
-      expect(REDUX_STORE_MAPPINGS.llm).toContainEqual({
-        originalKey: 'quickAssistantId',
-        targetKey: 'feature.quick_assistant.assistant_id'
-      })
-    })
-
-    it('does not include model fields as simple mappings (handled by complex mapping)', () => {
-      const llmKeys = REDUX_STORE_MAPPINGS.llm.map((m) => m.originalKey)
-      expect(llmKeys).not.toContain('defaultModel.id')
-      expect(llmKeys).not.toContain('topicNamingModel.id')
-      expect(llmKeys).not.toContain('quickModel.id')
-      expect(llmKeys).not.toContain('translateModel.id')
-    })
-  })
-
   describe('llm model IDs complex mapping', () => {
     it('registers the llm_model_ids_to_unique complex mapping', () => {
       const mapping = getComplexMappingById('llm_model_ids_to_unique')
       expect(mapping).toBeDefined()
       expect(mapping!.sources).toHaveProperty('defaultModel')
-      expect(mapping!.sources).toHaveProperty('quickModel')
       expect(mapping!.sources).toHaveProperty('translateModel')
     })
 
-    it('targets 3 UniqueModelId preference keys', () => {
+    it('targets the UniqueModelId preference keys', () => {
       const mapping = getComplexMappingById('llm_model_ids_to_unique')
-      expect(mapping!.targetKeys).toEqual([
-        'chat.default_model_id',
-        'feature.quick_assistant.model_id',
-        'feature.translate.model_id'
-      ])
+      expect(mapping!.targetKeys).toEqual(['chat.default_model_id', 'feature.translate.model_id'])
     })
 
     it('does not conflict with simple mappings', () => {

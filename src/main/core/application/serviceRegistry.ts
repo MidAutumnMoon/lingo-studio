@@ -51,7 +51,6 @@ import { ProtocolService } from '@main/services/protocol/ProtocolService'
 import { ProviderRegistryUpdaterService } from '@main/services/ProviderRegistryUpdaterService'
 import { ProxyService } from '@main/services/proxy/ProxyService'
 import { PythonService } from '@main/services/PythonService'
-import { QuickAssistantService } from '@main/services/QuickAssistantService'
 import { SentryLogService } from '@main/services/SentryLogService'
 import { ShortcutService } from '@main/services/ShortcutService'
 import { StorageMonitorService } from '@main/services/StorageMonitorService'
@@ -130,7 +129,6 @@ export const services = {
   OAuthRuntimeService,
   MainWindowService,
   NotificationService,
-  QuickAssistantService,
   McpPackageService,
   McpRuntimeService,
   McpCatalogService,

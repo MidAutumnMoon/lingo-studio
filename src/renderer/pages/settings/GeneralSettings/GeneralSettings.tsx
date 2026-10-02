@@ -30,8 +30,7 @@ const defaultByPassRules = 'localhost,127.0.0.1,::1'
 const TRAY_PREFERENCE_KEYS = {
   enabled: 'app.tray.enabled',
   onClose: 'app.tray.on_close',
-  onLaunch: 'app.tray.on_launch',
-  clickTrayToShowQuickAssistant: 'feature.quick_assistant.click_tray_to_show'
+  onLaunch: 'app.tray.on_launch'
 } as const
 
 const GeneralSettings: FC = () => {
@@ -65,11 +64,7 @@ const GeneralSettings: FC = () => {
   ]
 
   const updateTray = (isShowTray: boolean) => {
-    void setTrayPreferences(
-      isShowTray
-        ? { enabled: true }
-        : { enabled: false, onClose: false, onLaunch: false, clickTrayToShowQuickAssistant: false }
-    )
+    void setTrayPreferences(isShowTray ? { enabled: true } : { enabled: false, onClose: false, onLaunch: false })
   }
 
   const updateTrayOnClose = (isTrayOnClose: boolean) => {

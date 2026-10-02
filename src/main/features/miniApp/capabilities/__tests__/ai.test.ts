@@ -494,7 +494,6 @@ describe('cherry.ai.chat — model slots', () => {
 
   afterEach(async () => {
     await preferences().set('chat.default_model_id', null)
-    await preferences().set('feature.quick_assistant.model_id', null)
   })
 
   it('runs `model: "quick"` on the app quick slot, and the default slot when `model` is omitted', async () => {
@@ -511,20 +510,11 @@ describe('cherry.ai.chat — model slots', () => {
     await call
   })
 
-  it('falls back from the app quick slot to the global quick model, then to the global default', async () => {
-    // The same cascade the user sees in Settings: the quick model follows the default
-    // model when unset, so an app never fails on `quick` while `default` would work.
+  it('falls back from the app quick slot to the global default', async () => {
     setSlots(null, null)
     await preferences().set('chat.default_model_id', 'openai::gpt-4o')
-    await preferences().set('feature.quick_assistant.model_id', 'openai::gpt-4o-mini')
 
-    let call = chat(A, { ...HI, model: 'quick' })
-    expect(lastCall().uniqueModelId).toBe('openai::gpt-4o-mini')
-    drive.done()
-    await call
-
-    await preferences().set('feature.quick_assistant.model_id', null)
-    call = chat(A, { ...HI, model: 'quick' })
+    const call = chat(A, { ...HI, model: 'quick' })
     expect(lastCall().uniqueModelId).toBe('openai::gpt-4o')
     drive.done()
     await call

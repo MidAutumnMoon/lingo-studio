@@ -4,11 +4,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const ROOT_DIR = resolve(__dirname, '..', '..')
-const CHAT_WINDOW_HTML_PATHS = [
-  'src/renderer/windows/main/index.html',
-  'src/renderer/windows/subWindow/index.html',
-  'src/renderer/windows/quickAssistant/index.html'
-]
+const CHAT_WINDOW_HTML_PATHS = ['src/renderer/windows/main/index.html', 'src/renderer/windows/subWindow/index.html']
 
 describe('chat window content security policies', () => {
   it.each(CHAT_WINDOW_HTML_PATHS)('%s permits remote media playback', (relativePath) => {

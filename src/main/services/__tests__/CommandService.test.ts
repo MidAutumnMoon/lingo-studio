@@ -17,7 +17,6 @@ vi.mock('@data/PreferenceService', async () => {
 const {
   windowServiceMock,
   openSettingsInMainWindowMock,
-  quickAssistantServiceMock,
   windowManagerMock,
   handleZoomFactorMock,
   showNativePopupMenuMock
@@ -26,9 +25,6 @@ const {
     toggleMainWindow: vi.fn()
   },
   openSettingsInMainWindowMock: vi.fn(),
-  quickAssistantServiceMock: {
-    toggleQuickAssistant: vi.fn()
-  },
   windowManagerMock: {
     getWindowsByType: vi.fn((): any[] => [])
   },
@@ -40,9 +36,8 @@ vi.mock('@application', async () => {
   const { mockApplicationFactory } = await import('@test-mocks/main/application')
   return mockApplicationFactory({
     MainWindowService: windowServiceMock,
-    QuickAssistantService: quickAssistantServiceMock,
     WindowManager: windowManagerMock
-  } as any)
+  })
 })
 
 vi.mock('@main/core/lifecycle', () => {
@@ -99,23 +94,6 @@ describe('CommandService', () => {
     expect(windowServiceMock.toggleMainWindow).toHaveBeenCalledTimes(1)
   })
 
-  it('blocks commands when enablement is not satisfied', () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('feature.quick_assistant.enabled', false)
-
-    expect(service.canExecute('quick_assistant.toggle')).toBe(false)
-    service.execute('quick_assistant.toggle')
-
-    expect(quickAssistantServiceMock.toggleQuickAssistant).not.toHaveBeenCalled()
-  })
-
-  it('executes enabled feature commands', () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('feature.quick_assistant.enabled', true)
-
-    service.execute('quick_assistant.toggle')
-
-    expect(quickAssistantServiceMock.toggleQuickAssistant).toHaveBeenCalledTimes(1)
-  })
-
   it('opens settings through the main-window settings helper', () => {
     service.execute('app.settings.open')
 
@@ -164,17 +142,6 @@ describe('CommandService', () => {
 
       expect(executed).toBe(true)
       expect(windowServiceMock.toggleMainWindow).toHaveBeenCalledTimes(1)
-    })
-
-    it('does not execute disabled commands and reports them as not handled', () => {
-      MockMainPreferenceServiceUtils.setPreferenceValue('feature.quick_assistant.enabled', false)
-      getHandler()({ sender: {} }, {}, undefined)
-      const executeCommand = showNativePopupMenuMock.mock.calls.at(-1)?.[3] as (command: any, window?: any) => boolean
-
-      const executed = executeCommand('quick_assistant.toggle')
-
-      expect(executed).toBe(false)
-      expect(quickAssistantServiceMock.toggleQuickAssistant).not.toHaveBeenCalled()
     })
   })
 })

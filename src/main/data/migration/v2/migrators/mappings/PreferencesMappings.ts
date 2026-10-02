@@ -1,6 +1,6 @@
 /**
  * Auto-generated preference mappings from classification.json
- * Generated at: 2026-10-02T07:34:21.988Z
+ * Generated at: 2026-10-02T07:43:20.256Z
  *
  * This file contains pure mapping relationships without default values.
  * Default values are managed in src/shared/data/preferences.ts
@@ -53,14 +53,6 @@ export const REDUX_STORE_MAPPINGS = {
     {
       "originalKey": "trayOnClose",
       "targetKey": "app.tray.on_close"
-    },
-    {
-      "originalKey": "clickTrayToShowQuickAssistant",
-      "targetKey": "feature.quick_assistant.click_tray_to_show"
-    },
-    {
-      "originalKey": "enableQuickAssistant",
-      "targetKey": "feature.quick_assistant.enabled"
     },
     {
       "originalKey": "enableDataCollection",
@@ -327,10 +319,6 @@ export const REDUX_STORE_MAPPINGS = {
       "targetKey": "chat.message.multi_model.style"
     },
     {
-      "originalKey": "readClipboardAtStartup",
-      "targetKey": "feature.quick_assistant.read_clipboard_at_startup"
-    },
-    {
       "originalKey": "notionDatabaseID",
       "targetKey": "data.integration.notion.database_id"
     },
@@ -587,12 +575,6 @@ export const REDUX_STORE_MAPPINGS = {
       "targetKey": "feature.api_gateway.api_key"
     }
   ],
-  "llm": [
-    {
-      "originalKey": "quickAssistantId",
-      "targetKey": "feature.quick_assistant.assistant_id"
-    }
-  ],
   "nutstore": [
     {
       "originalKey": "nutstoreToken",
@@ -741,11 +723,11 @@ export const LOCALSTORAGE_MAPPINGS: ReadonlyArray<{ originalKey: string; targetK
 /**
  * 映射统计:
  * - ElectronStore项: 2
- * - Redux Store项: 160
- * - Redux分类: settings, llm, nutstore, preprocess, translate, websearch, ocr, note
+ * - Redux Store项: 156
+ * - Redux分类: settings, nutstore, preprocess, translate, websearch, ocr, note
  * - DexieSettings项: 5
  * - localStorage项: 0
- * - 总配置项: 167
+ * - 总配置项: 163
  *
  * 使用说明:
  * 1. ElectronStore读取: configManager.get(mapping.originalKey)

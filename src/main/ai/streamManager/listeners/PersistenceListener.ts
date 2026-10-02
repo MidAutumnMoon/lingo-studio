@@ -15,7 +15,11 @@ import type {
 import type { UniqueModelId } from '@shared/data/types/model'
 import type { SerializedError } from '@shared/types/error'
 
-import { dropEmptyContentParts, finalizeInterruptedParts, type PersistenceBackend } from '../persistence/PersistenceBackend'
+import {
+  dropEmptyContentParts,
+  finalizeInterruptedParts,
+  type PersistenceBackend
+} from '../persistence/PersistenceBackend'
 import type { StreamDoneResult, StreamErrorResult, StreamListener, StreamPausedResult } from '../types'
 
 const logger = loggerService.withContext('PersistenceListener')

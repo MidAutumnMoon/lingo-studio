@@ -248,14 +248,6 @@
           ]
         },
         {
-          "originalKey": "quickAssistantId",
-          "type": "string",
-          "defaultValue": "",
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "feature.quick_assistant.assistant_id"
-        },
-        {
           "originalKey": "settings",
           "type": "unknown",
           "defaultValue": "{ ollama: { keepAliveTime: 0 }, lmstudio: { keepAliveTime: 0 }, gpustack: { keepAliveTime: 0 }, vertexai: { serviceAccount: { privateKey: '', clientEmail: '' }, projectId: '', location: '' }, awsBedrock: { authType: 'iam', accessKeyId: '', secretAccessKey: '', apiKey: '', region: '' } }",
@@ -1493,36 +1485,12 @@
           "targetKey": "chat.narrow_mode"
         },
         {
-          "originalKey": "enableQuickAssistant",
-          "type": "boolean",
-          "defaultValue": false,
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "feature.quick_assistant.enabled"
-        },
-        {
-          "originalKey": "clickTrayToShowQuickAssistant",
-          "type": "boolean",
-          "defaultValue": false,
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "feature.quick_assistant.click_tray_to_show"
-        },
-        {
           "originalKey": "multiModelMessageStyle",
           "type": "PreferenceTypes.MultiModelMessageStyle",
           "defaultValue": "horizontal",
           "status": "classified",
           "category": "preferences",
           "targetKey": "chat.message.multi_model.style"
-        },
-        {
-          "originalKey": "readClipboardAtStartup",
-          "type": "boolean",
-          "defaultValue": true,
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "feature.quick_assistant.read_clipboard_at_startup"
         },
         {
           "originalKey": "notionDatabaseID",
@@ -3058,26 +3026,8 @@
           "targetKey": "app.zoom_factor"
         }
       ],
-      "ClickTrayToShowQuickAssistant": [
-        {
-          "originalKey": "ClickTrayToShowQuickAssistant",
-          "type": "unknown",
-          "defaultValue": null,
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "feature.quick_assistant.click_tray_to_show"
-        }
-      ],
-      "EnableQuickAssistant": [
-        {
-          "originalKey": "EnableQuickAssistant",
-          "type": "unknown",
-          "defaultValue": null,
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "feature.quick_assistant.enabled"
-        }
-      ],
+      "ClickTrayToShowQuickAssistant": [],
+      "EnableQuickAssistant": [],
       "AutoUpdate": [
         {
           "originalKey": "AutoUpdate",

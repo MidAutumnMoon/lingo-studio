@@ -12,7 +12,6 @@ import {
   MonitorSmartphone,
   Package,
   Palette,
-  PictureInPicture2,
   Radio,
   ScanText,
   Search,
@@ -151,12 +150,6 @@ export const settingsMenu: readonly SettingsMenuEntry[] = [
     route: '/settings/shortcut',
     titleKey: 'settings.shortcuts.title',
     icon: createElement(Command),
-    groupKey: 'settings.menuGroups.automation'
-  },
-  {
-    route: '/settings/quick-assistant',
-    titleKey: 'settings.quickAssistant.title',
-    icon: createElement(PictureInPicture2),
     groupKey: 'settings.menuGroups.automation'
   },
   {

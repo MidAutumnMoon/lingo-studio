@@ -21,7 +21,7 @@ export const ATTACHMENT_TOOLBAR_MANIFEST: ComposerToolbarManifestDefinition = {
     icon: <Paperclip />
   },
   label: (t) => t('chat.input.upload.attachment'),
-  visibleInScopes: [TopicType.Chat, TopicType.Session, 'quick-assistant', 'painting']
+  visibleInScopes: [TopicType.Chat, TopicType.Session, 'painting']
 }
 
 export const GENERATE_IMAGE_TOOLBAR_MANIFEST: ComposerToolbarManifestDefinition = {

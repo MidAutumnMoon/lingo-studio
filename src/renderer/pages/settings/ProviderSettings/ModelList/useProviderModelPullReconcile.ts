@@ -80,7 +80,6 @@ export function useProviderModelPullReconcile(providerId: string) {
   const [loadErrorMessage, setLoadErrorMessage] = useState<string | null>(null)
   const loadModelsSequenceRef = useRef(0)
   const [defaultModelId] = usePreference('chat.default_model_id')
-  const [quickAssistantModelId] = usePreference('feature.quick_assistant.model_id')
   const [translateModelId] = usePreference('feature.translate.model_id')
   const { provider, enableProvider } = useProvider(providerId)
   const { models } = useModels({ providerId })
@@ -100,13 +99,8 @@ export function useProviderModelPullReconcile(providerId: string) {
     [catalogModels, fetchedModels]
   )
   const defaultModelIds = useMemo(
-    () =>
-      new Set(
-        [defaultModelId, quickAssistantModelId, translateModelId].filter(
-          (modelId): modelId is UniqueModelId => modelId != null
-        )
-      ),
-    [defaultModelId, quickAssistantModelId, translateModelId]
+    () => new Set([defaultModelId, translateModelId].filter((modelId): modelId is UniqueModelId => modelId != null)),
+    [defaultModelId, translateModelId]
   )
   const removableModelIds = useMemo(
     () =>

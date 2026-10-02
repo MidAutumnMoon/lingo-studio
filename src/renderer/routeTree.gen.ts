@@ -40,7 +40,6 @@ import { Route as SettingsModelRouteImport } from './routes/settings/model'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as SettingsOcrRouteImport } from './routes/settings/ocr'
 import { Route as SettingsProviderRouteImport } from './routes/settings/provider'
-import { Route as SettingsQuickAssistantRouteImport } from './routes/settings/quick-assistant'
 import { Route as SettingsScheduledTasksRouteImport } from './routes/settings/scheduled-tasks'
 import { Route as SettingsSearchRouteImport } from './routes/settings/search'
 import { Route as SettingsShortcutRouteImport } from './routes/settings/shortcut'
@@ -221,11 +220,6 @@ const SettingsProviderRoute = SettingsProviderRouteImport.update({
   path: '/provider',
   getParentRoute: () => SettingsRoute,
 } as any)
-const SettingsQuickAssistantRoute = SettingsQuickAssistantRouteImport.update({
-  id: '/quick-assistant',
-  path: '/quick-assistant',
-  getParentRoute: () => SettingsRoute,
-} as any)
 const SettingsScheduledTasksRoute = SettingsScheduledTasksRouteImport.update({
   id: '/scheduled-tasks',
   path: '/scheduled-tasks',
@@ -376,7 +370,6 @@ export interface FileRoutesByFullPath {
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/ocr': typeof SettingsOcrRoute
   '/settings/provider': typeof SettingsProviderRoute
-  '/settings/quick-assistant': typeof SettingsQuickAssistantRoute
   '/settings/scheduled-tasks': typeof SettingsScheduledTasksRouteWithChildren
   '/settings/search': typeof SettingsSearchRoute
   '/settings/shortcut': typeof SettingsShortcutRoute
@@ -431,7 +424,6 @@ export interface FileRoutesByTo {
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/ocr': typeof SettingsOcrRoute
   '/settings/provider': typeof SettingsProviderRoute
-  '/settings/quick-assistant': typeof SettingsQuickAssistantRoute
   '/settings/search': typeof SettingsSearchRoute
   '/settings/shortcut': typeof SettingsShortcutRoute
   '/settings/system': typeof SettingsSystemRoute
@@ -487,7 +479,6 @@ export interface FileRoutesById {
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/ocr': typeof SettingsOcrRoute
   '/settings/provider': typeof SettingsProviderRoute
-  '/settings/quick-assistant': typeof SettingsQuickAssistantRoute
   '/settings/scheduled-tasks': typeof SettingsScheduledTasksRouteWithChildren
   '/settings/search': typeof SettingsSearchRoute
   '/settings/shortcut': typeof SettingsShortcutRoute
@@ -546,7 +537,6 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/ocr'
     | '/settings/provider'
-    | '/settings/quick-assistant'
     | '/settings/scheduled-tasks'
     | '/settings/search'
     | '/settings/shortcut'
@@ -601,7 +591,6 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/ocr'
     | '/settings/provider'
-    | '/settings/quick-assistant'
     | '/settings/search'
     | '/settings/shortcut'
     | '/settings/system'
@@ -656,7 +645,6 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/ocr'
     | '/settings/provider'
-    | '/settings/quick-assistant'
     | '/settings/scheduled-tasks'
     | '/settings/search'
     | '/settings/shortcut'
@@ -905,13 +893,6 @@ declare module '@tanstack/react-router' {
       path: '/provider'
       fullPath: '/settings/provider'
       preLoaderRoute: typeof SettingsProviderRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/quick-assistant': {
-      id: '/settings/quick-assistant'
-      path: '/quick-assistant'
-      fullPath: '/settings/quick-assistant'
-      preLoaderRoute: typeof SettingsQuickAssistantRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/scheduled-tasks': {
@@ -1190,7 +1171,6 @@ interface SettingsRouteChildren {
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsOcrRoute: typeof SettingsOcrRoute
   SettingsProviderRoute: typeof SettingsProviderRoute
-  SettingsQuickAssistantRoute: typeof SettingsQuickAssistantRoute
   SettingsScheduledTasksRoute: typeof SettingsScheduledTasksRouteWithChildren
   SettingsSearchRoute: typeof SettingsSearchRoute
   SettingsShortcutRoute: typeof SettingsShortcutRoute
@@ -1219,7 +1199,6 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsOcrRoute: SettingsOcrRoute,
   SettingsProviderRoute: SettingsProviderRoute,
-  SettingsQuickAssistantRoute: SettingsQuickAssistantRoute,
   SettingsScheduledTasksRoute: SettingsScheduledTasksRouteWithChildren,
   SettingsSearchRoute: SettingsSearchRoute,
   SettingsShortcutRoute: SettingsShortcutRoute,

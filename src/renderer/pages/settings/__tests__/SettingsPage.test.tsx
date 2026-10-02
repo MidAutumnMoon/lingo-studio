@@ -87,7 +87,6 @@ vi.mock('react-i18next', () => ({
         'settings.menuGroups.quickAccess': '快捷入口',
         'settings.menuGroups.system': '系统',
         'settings.model': '默认模型',
-        'settings.quickAssistant.title': '快捷助手',
         'settings.scheduledTasks.title': '定时任务',
         'settings.shortcuts.title': '快捷键',
         'settings.skills.title': '技能',
@@ -210,7 +209,7 @@ describe('SettingsPage', () => {
     expect(screen.getByText('效率')).toBeInTheDocument()
     expect(screen.queryByText('快捷入口')).not.toBeInTheDocument()
 
-    const efficiencyItems = ['频道', '设备互联', '定时任务', '快捷键', '快捷助手'].map((name) =>
+    const efficiencyItems = ['频道', '设备互联', '定时任务', '快捷键'].map((name) =>
       screen.getByRole('button', { name })
     )
     const menuItems = screen.getAllByTestId('menu-item')

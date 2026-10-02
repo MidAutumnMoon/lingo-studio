@@ -121,6 +121,5 @@
   "settings.mcp.oauth.callback.title": "Authentication Successful",
   "settings.title": "Settings",
   "tray.quit": "Quit",
-  "tray.show_quick_assistant": "Quick Assistant",
   "tray.show_window": "Show Window"
 }

@@ -117,8 +117,7 @@ describe('GeneralSettings', () => {
     MockUsePreferenceUtils.setMultiplePreferenceValues({
       'app.tray.enabled': true,
       'app.tray.on_close': true,
-      'app.tray.on_launch': true,
-      'feature.quick_assistant.click_tray_to_show': true
+      'app.tray.on_launch': true
     })
   })
 
@@ -145,7 +144,6 @@ describe('GeneralSettings', () => {
       expect(MockUsePreferenceUtils.getPreferenceValue('app.tray.enabled')).toBe(false)
       expect(MockUsePreferenceUtils.getPreferenceValue('app.tray.on_close')).toBe(false)
       expect(MockUsePreferenceUtils.getPreferenceValue('app.tray.on_launch')).toBe(false)
-      expect(MockUsePreferenceUtils.getPreferenceValue('feature.quick_assistant.click_tray_to_show')).toBe(false)
     })
   })
 

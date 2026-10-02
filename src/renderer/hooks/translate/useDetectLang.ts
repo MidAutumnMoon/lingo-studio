@@ -186,7 +186,7 @@ export const detectLanguageOrUnknown = async (
 export const useDetectLang = () => {
   const [method] = usePreference('feature.translate.auto_detection_method')
   const { languages, status } = useLanguages()
-  const { quickModel } = useDefaultModel()
+  const { translateModel } = useDefaultModel()
 
   const toastedEmptyRef = useRef(false)
 
@@ -224,11 +224,11 @@ export const useDetectLang = () => {
 
       const langCodes = languages.map((l) => l.langCode)
       logger.info(`Auto detection method: ${method}`)
-      const result = await detectWithMethod(text, method, langCodes, quickModel)
+      const result = await detectWithMethod(text, method, langCodes, translateModel)
       logger.info(`Detected language: ${result}`)
       return result
     },
-    [method, languages, quickModel, status]
+    [method, languages, translateModel, status]
   )
 
   return detectLanguage

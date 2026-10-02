@@ -70,7 +70,6 @@ describe('composer tool visibility', () => {
 
     expect(getToolsForScope(TopicType.Chat, { model }).map((tool) => tool.key)).toContain('mcp_status')
     expect(getToolsForScope(TopicType.Session, { model }).map((tool) => tool.key)).toContain('mcp_status')
-    expect(getToolsForScope('quick-assistant', { model }).map((tool) => tool.key)).not.toContain('mcp_status')
   })
 
   it('makes knowledge selection discoverable in Agent Session scope', () => {

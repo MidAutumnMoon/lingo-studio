@@ -199,7 +199,6 @@ vi.mock('@main/data/services/AiUsageRecordService', async (importActual) => {
   }
 })
 
-
 const { listModels: listModelsFromProviderActual } =
   await vi.importActual<typeof ListModelsModule>('../provider/listModels')
 const { AiService, imageInputEntryParams, resolveRequiredNativeFileSupport } = await import('../AiService')

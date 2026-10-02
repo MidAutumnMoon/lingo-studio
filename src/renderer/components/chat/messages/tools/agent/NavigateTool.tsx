@@ -39,7 +39,6 @@ const ROUTE_LABELS: Record<string, { icon: string; labelKey: string }> = {
   },
   '/settings/ocr': { icon: '🔤', labelKey: 'settings.tool.file_processing.features.image_to_text.title' },
   '/settings/shortcut': { icon: '⌨️', labelKey: 'settings.shortcuts.title' },
-  '/settings/quick-assistant': { icon: '🪟', labelKey: 'settings.quickAssistant.title' },
   '/settings/about': { icon: 'ℹ️', labelKey: 'settings.about.label' },
   '/settings/channels': { icon: '📡', labelKey: 'settings.channels.title' },
   '/settings/code-execution': { icon: '⚙️', labelKey: 'chat.settings.code_execution.title' },

@@ -1586,9 +1586,9 @@ describe('MainWindowService', () => {
       expect(win.webContents.send).toHaveBeenCalledWith(IpcChannel.App_QuoteToMain, 'Selected text')
     })
 
-    it('routes quotes from a non-SubWindow helper window (quick assistant) to the main window', () => {
+    it('routes quotes from a non-SubWindow helper window (print window) to the main window', () => {
       windowManagerMock.getWindowIdByWebContents.mockReturnValue('helper-window-1')
-      windowManagerMock.getWindowType.mockReturnValue(WindowType.QuickAssistant)
+      windowManagerMock.getWindowType.mockReturnValue(WindowType.Print)
 
       svc.quoteToMainWindow('Selected text', { id: 500 } as any)
 

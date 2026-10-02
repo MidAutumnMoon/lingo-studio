@@ -151,12 +151,7 @@ function resolveModelFor(appId: string, slot: ModelSlot): UniqueModelId {
     .where(eq(miniAppInstallationTable.appId, appId))
     .all()
   const preferences = application.get('PreferenceService')
-  const id =
-    slot === 'quick'
-      ? (row?.aiQuickModelId ??
-        preferences.get('feature.quick_assistant.model_id') ??
-        preferences.get('chat.default_model_id'))
-      : (row?.aiModelId ?? preferences.get('chat.default_model_id'))
+  const id = row?.[slot === 'quick' ? 'aiQuickModelId' : 'aiModelId'] ?? preferences.get('chat.default_model_id')
   if (!id) {
     throw new MiniAppUnavailableError(`No ${slot} model configured for ${appId} and no global default is set`)
   }

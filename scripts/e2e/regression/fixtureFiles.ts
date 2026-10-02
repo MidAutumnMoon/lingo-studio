@@ -32,7 +32,7 @@ export async function createFixtures(paths: RunPaths): Promise<void> {
   )
   writeFileSync(knowledgeHtml, '<!doctype html><html><body><p>Cherry regression HTML fixture.</p></body></html>\n')
 
-  // External-text fixture consumed by openExternalText() (quick-assistant regression)
+  // External-text fixture consumed by the systemAutomation open/round-trip
   const selectionFile = join(paths.fixtures, 'selection.txt')
   const translationFile = join(paths.fixtures, 'translation.txt')
   writeFileSync(selectionFile, 'The validation label printed on this document is external text.\n')

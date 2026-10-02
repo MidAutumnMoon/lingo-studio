@@ -30,7 +30,7 @@ export interface ExecutionOverlayApi {
   disposeOverlay: (messageId: string) => void
   /** Drop settled overlay/snapshot entries (terminal handoff); live readers survive. */
   reset: () => void
-  /** Destructively drop every overlay/snapshot entry (quick-assistant clear()). */
+  /** Destructively drop every overlay/snapshot entry. */
   clear: () => void
 }
 

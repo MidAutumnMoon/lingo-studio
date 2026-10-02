@@ -91,7 +91,6 @@ export function useProviderModelList({ providerId, disabled = false }: UseProvid
   } = useModels({ providerId }, { swrOptions: PROVIDER_SETTINGS_MODEL_SWR_OPTIONS })
   const { deleteModel, deleteModels } = useModelMutations()
   const [defaultModelId] = usePreference('chat.default_model_id')
-  const [quickAssistantModelId] = usePreference('feature.quick_assistant.model_id')
   const [translateModelId] = usePreference('feature.translate.model_id')
   const [searchInputText, setSearchInputText] = useState('')
   const searchText = useDeferredValue(searchInputText)
@@ -100,13 +99,8 @@ export function useProviderModelList({ providerId, disabled = false }: UseProvid
   const [optimisticDeletedByModelId, setOptimisticDeletedByModelId] = useState<Record<string, true>>({})
   const [pendingModelIdMap, setPendingModelIdMap] = useState<Record<string, true>>({})
   const defaultModelIds = useMemo(
-    () =>
-      new Set(
-        [defaultModelId, quickAssistantModelId, translateModelId].filter(
-          (modelId): modelId is UniqueModelId => modelId != null
-        )
-      ),
-    [defaultModelId, quickAssistantModelId, translateModelId]
+    () => new Set([defaultModelId, translateModelId].filter((modelId): modelId is UniqueModelId => modelId != null)),
+    [defaultModelId, translateModelId]
   )
 
   const optimisticModels = useMemo(

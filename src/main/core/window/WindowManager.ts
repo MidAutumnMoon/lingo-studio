@@ -1500,8 +1500,8 @@ export class WindowManager extends BaseService {
   private destroyWindow(window: BrowserWindow): void {
     if (window.isDestroyed()) return
     // window.destroy() skips the 'close' event, so the singleton close-listener
-    // persist path never runs for programmatic destroys (e.g. QuickAssistant
-    // deactivate via wm.close → destroyWindow). Capture bounds here first, while
+    // persist path never runs for programmatic destroys (e.g. a singleton service
+    // deactivating via wm.close → destroyWindow). Capture bounds here first, while
     // the window is still alive. Gated, so non-remember windows (pool recycle,
     // trim, etc.) no-op.
     const managed = this.findManagedByWindow(window)

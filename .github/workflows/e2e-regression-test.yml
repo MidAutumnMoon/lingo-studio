@@ -22,7 +22,6 @@ on:
           - provider-model-scroll
           - custom-assistant
           - translation
-          - quick-assistant
           - knowledge
           - everything-mcp
           - skill-import
@@ -303,16 +302,6 @@ jobs:
           pnpm exec tsx scripts/e2e/regression/cli.ts run-phase
           --run-dir "$RUN_DIR"
           --phase 04-translation
-
-      - name: Phase 05 - Quick Assistant
-        if: "!cancelled() && steps.launch.outcome == 'success'"
-        continue-on-error: true
-        timeout-minutes: 25
-        shell: bash
-        run: >-
-          pnpm exec tsx scripts/e2e/regression/cli.ts run-phase
-          --run-dir "$RUN_DIR"
-          --phase 05-desktop-assistants
 
       - name: Phase 06 - Knowledge Base
         if: "!cancelled() && steps.launch.outcome == 'success'"

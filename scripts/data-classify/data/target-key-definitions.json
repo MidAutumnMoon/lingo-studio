@@ -363,13 +363,6 @@
       "description": "Agent session resource pane position (left/right), independent of the Home topic pane"
     },
     {
-      "targetKey": "feature.quick_assistant.model_id",
-      "type": "string",
-      "defaultValue": null,
-      "status": "classified",
-      "description": "Quick assistant model UniqueModelId (provider::modelId, from complex mapping llm_model_ids_to_unique)"
-    },
-    {
       "targetKey": "feature.translate.model_id",
       "type": "string",
       "defaultValue": null,
@@ -663,19 +656,6 @@
       },
       "status": "classified",
       "description": "Command shortcut: topic.clear_messages (unified command system)"
-    },
-    {
-      "targetKey": "shortcut.quick_assistant.toggle",
-      "type": "PreferenceTypes.PreferenceShortcutType",
-      "defaultValue": {
-        "binding": [
-          "CommandOrControl",
-          "E"
-        ],
-        "enabled": false
-      },
-      "status": "classified",
-      "description": "Command shortcut: quick_assistant.toggle (unified command system)"
     },
     {
       "targetKey": "shortcut.topic.create",

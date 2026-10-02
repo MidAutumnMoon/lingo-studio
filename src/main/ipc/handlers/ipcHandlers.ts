@@ -32,7 +32,6 @@ import { pdfjsHandlers } from './pdfjs'
 import { printHandlers } from './print'
 import { profileHandlers } from './profile'
 import { providerHandlers } from './provider'
-import { quickAssistantHandlers } from './quickAssistant'
 import { skillHandlers } from './skill'
 import { systemHandlers } from './system'
 import { tabHandlers } from './tab'
@@ -83,7 +82,6 @@ export const ipcHandlers: IpcHandlersFor<IpcRequestSchemas> = {
   ...printHandlers,
   ...profileHandlers,
   ...providerHandlers,
-  ...quickAssistantHandlers,
   ...skillHandlers,
   ...systemHandlers,
   ...tabHandlers,

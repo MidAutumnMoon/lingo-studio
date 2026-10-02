@@ -20,7 +20,7 @@ type RegistryEntry = WindowTypeMetadata
 // Inject test fixtures into the real registry (isolated by setting unique WindowType keys).
 // Using entries whose real config is asserted elsewhere in this file would couple
 // these tests to their current config. Instead, we swap them out for minimal fixtures per test.
-const fixtureKey = WindowType.QuickAssistant // reuse the enum value; we overwrite the entry below
+const fixtureKey = WindowType.McpBrowser // reuse the enum value; we overwrite the entry below
 
 function setFixture(entry: RegistryEntry): void {
   ;(WINDOW_TYPE_REGISTRY as Record<string, RegistryEntry>)[fixtureKey] = entry

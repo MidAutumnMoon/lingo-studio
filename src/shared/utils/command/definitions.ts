@@ -175,18 +175,6 @@ export const COMMAND_DEFINITIONS = [
     }
   }),
   defineCommand({
-    id: 'quick_assistant.toggle',
-    titleKey: 'settings.shortcuts.quick_assistant',
-    categoryKey: 'settings.shortcuts.feature.quick_assistant',
-    scope: 'main',
-    enablement: 'feature.quick_assistant.enabled',
-    keybinding: {
-      defaultBinding: ['CommandOrControl', 'E'],
-      global: true,
-      when: 'feature.quick_assistant.enabled'
-    }
-  }),
-  defineCommand({
     id: 'topic.clear_messages',
     titleKey: 'chat.topics.clear.title',
     categoryKey: 'settings.shortcuts.topic',

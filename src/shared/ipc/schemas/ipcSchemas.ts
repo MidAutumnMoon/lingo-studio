@@ -30,7 +30,6 @@ import { pdfjsRequestSchemas } from './pdfjs'
 import { printRequestSchemas } from './print'
 import { profileRequestSchemas } from './profile'
 import { providerRequestSchemas } from './provider'
-import { type QuickAssistantEventSchemas, quickAssistantRequestSchemas } from './quickAssistant'
 import { skillRequestSchemas } from './skill'
 import { type SystemEventSchemas, systemRequestSchemas } from './system'
 import { type TabEventSchemas, tabRequestSchemas } from './tab'
@@ -79,7 +78,6 @@ export const ipcRequestSchemas = {
   ...printRequestSchemas,
   ...profileRequestSchemas,
   ...providerRequestSchemas,
-  ...quickAssistantRequestSchemas,
   ...skillRequestSchemas,
   ...systemRequestSchemas,
   ...tabRequestSchemas,
@@ -110,7 +108,6 @@ export type IpcEventSchemas = AiEventSchemas &
   MiniAppEventSchemas &
   NavigationEventSchemas &
   NotificationEventSchemas &
-  QuickAssistantEventSchemas &
   SystemEventSchemas &
   TabEventSchemas &
   TranslateEventSchemas &

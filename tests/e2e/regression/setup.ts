@@ -8,8 +8,7 @@ export async function prepareScenario(page: Page): Promise<void> {
     await window.api.preference.setMultiple({
       'app.language': 'en-US',
       'app.onboarding.provider_setup.status': 'skipped',
-      'app.privacy.data_collection.enabled': false,
-      'feature.quick_assistant.enabled': false
+      'app.privacy.data_collection.enabled': false
     })
   })
   await selectSidebarApp(page, 'Chat')

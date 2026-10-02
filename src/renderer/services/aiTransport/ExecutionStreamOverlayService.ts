@@ -418,7 +418,7 @@ export class ExecutionStreamOverlayService {
   }
 
   /** Destructively drop every overlay/snapshot entry, including live readers'
-   *  future frames (quick-assistant clear()). Not for terminal handoff. */
+   *  future frames. Not for terminal handoff. */
   clear(topicId: string): void {
     const entry = this.#entries.get(topicId)
     if (!entry) return

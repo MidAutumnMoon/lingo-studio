@@ -67,13 +67,6 @@ describe('command definitions', () => {
   })
 
   it('preserves special keybinding metadata when deriving rules', () => {
-    expect(REGISTERED_KEYBINDINGS.find((rule) => rule.command === 'quick_assistant.toggle')).toMatchObject({
-      command: 'quick_assistant.toggle',
-      defaultBinding: ['CommandOrControl', 'E'],
-      global: true,
-      scope: 'main',
-      whenSource: 'feature.quick_assistant.enabled'
-    })
     expect(REGISTERED_KEYBINDINGS.find((rule) => rule.command === 'app.window.close')).toMatchObject({
       command: 'app.window.close',
       supportedPlatforms: ['darwin']
@@ -279,19 +272,15 @@ describe('resolveCommandKeybinding', () => {
   })
 
   it('filters by context and platform', () => {
-    expect(resolveCommandKeybinding({ command: 'quick_assistant.toggle', context: {} })).toBeUndefined()
+    expect(
+      resolveCommandKeybinding({ command: 'chat.input.focus', context: { 'webview.focused': true } })
+    ).toBeUndefined()
     expect(
       resolveCommandKeybinding({
-        command: 'quick_assistant.toggle',
-        context: { 'feature.quick_assistant.enabled': true }
+        command: 'chat.input.focus',
+        context: { 'webview.focused': false }
       })?.binding
-    ).toEqual(['CommandOrControl', 'E'])
-    expect(
-      resolveCommandKeybinding({
-        command: 'quick_assistant.toggle',
-        context: { 'feature.quick_assistant.enabled': true }
-      })?.enabled
-    ).toBe(false)
+    ).toEqual(['CommandOrControl', 'I'])
 
     expect(resolveCommandKeybinding({ command: 'app.window.close', context: {}, platform: 'linux' })).toBeUndefined()
     expect(
@@ -418,20 +407,20 @@ describe('resolveCommandByKeybinding', () => {
 
     expect(
       resolveCommandByKeybinding({
-        binding: ['CommandOrControl', 'E'],
-        context: { 'feature.quick_assistant.enabled': true },
+        binding: ['CommandOrControl', 'M'],
+        context: {},
         scope: 'main'
       })
     ).toBeUndefined()
 
     expect(
       resolveCommandByKeybinding({
-        binding: ['CommandOrControl', 'E'],
-        preferences: { 'quick_assistant.toggle': { binding: ['CommandOrControl', 'E'], enabled: true } },
-        context: { 'feature.quick_assistant.enabled': true },
+        binding: ['CommandOrControl', 'M'],
+        preferences: { 'app.window.show': { binding: ['CommandOrControl', 'M'], enabled: true } },
+        context: {},
         scope: 'main'
       })
-    ).toBe('quick_assistant.toggle')
+    ).toBe('app.window.show')
 
     expect(
       resolveCommandByKeybinding({

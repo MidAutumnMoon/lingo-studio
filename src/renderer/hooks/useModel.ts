@@ -21,22 +21,20 @@ const logger = loggerService.withContext('useModels')
 const EMPTY_MODELS: readonly Model[] = Object.freeze([])
 
 /**
- * Reactive read of the user's default / quick / translate / painting models.
- * Each id lives in Preference; the Model record lives in DataApi. Quick /
- * translate fall back to the default-model id when their dedicated preference
- * is unset; painting does not — it needs an image-generation model, which the
- * chat default is not, so it stays empty (and out of the cascade) until the
+ * Reactive read of the user's default / translate / painting models.
+ * Each id lives in Preference; the Model record lives in DataApi. Translate
+ * falls back to the default-model id when its dedicated preference is unset;
+ * painting does not — it needs an image-generation model, which the chat
+ * default is not, so it stays empty (and out of the cascade) until the
  * user picks one.
  */
 export function useDefaultModel(options: { enabled?: boolean } = {}) {
   const enabled = options.enabled ?? true
   const [defaultModelId, setDefaultModelId] = usePreference('chat.default_model_id')
-  const [quickModelId, setQuickModelId] = usePreference('feature.quick_assistant.model_id')
   const [translateModelId, setTranslateModelId] = usePreference('feature.translate.model_id')
   const [paintingModelId, setPaintingModelId] = usePreference('feature.paintings.default_model_id')
 
   const { model: defaultModel } = useModelById(enabled ? (defaultModelId as UniqueModelId) : null)
-  const { model: quickModel } = useModelById(enabled ? ((quickModelId as UniqueModelId) ?? defaultModelId) : null)
   const { model: translateModel } = useModelById(
     enabled ? ((translateModelId as UniqueModelId) ?? defaultModelId) : null
   )
@@ -44,18 +42,13 @@ export function useDefaultModel(options: { enabled?: boolean } = {}) {
 
   return {
     defaultModel,
-    quickModel,
     translateModel,
     paintingModel,
     // v2 Model.id is already the UniqueModelId — store it directly.
     setDefaultModel: async (next: { id: UniqueModelId }, options?: { forceCascade?: boolean }) => {
       await setDefaultModelId(next.id)
-      await Promise.all([
-        options?.forceCascade || !quickModelId ? setQuickModelId(next.id) : Promise.resolve(),
-        options?.forceCascade || !translateModelId ? setTranslateModelId(next.id) : Promise.resolve()
-      ])
+      if (options?.forceCascade || !translateModelId) await setTranslateModelId(next.id)
     },
-    setQuickModel: (next: { id: UniqueModelId }) => setQuickModelId(next.id),
     setTranslateModel: (next: { id: UniqueModelId }) => setTranslateModelId(next.id),
     setPaintingModel: (next: { id: UniqueModelId }) => setPaintingModelId(next.id)
   }
