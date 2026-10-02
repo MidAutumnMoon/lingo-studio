@@ -1,15 +1,18 @@
-import { Chat, useChat } from '@ai-sdk/react'
-import type { ChatRequestOptions, FileUIPart } from 'ai'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 
 import { loggerService } from '@logger'
 import { ipcApi } from '@renderer/ipc'
-import { ipcChatTransport } from '@renderer/services/aiTransport'
+import {
+  type ChatRequestOptions,
+  type ChatStatus,
+  ChatStreamStore,
+  ipcChatTransport
+} from '@renderer/services/aiTransport'
 import type { ActiveExecution } from '@shared/ai/transport'
+import type { FileUIPart } from '@shared/ai/uiDialect'
 import type { CherryUIMessage } from '@shared/data/types/message'
 
-import { useTopicDbRefreshOnAwaitingApproval } from './useTopicStreamStatus'
-import { useTopicStreamStatus } from './useTopicStreamStatus'
+import { useTopicDbRefreshOnAwaitingApproval, useTopicStreamStatus } from './useTopicStreamStatus'
 
 const logger = loggerService.withContext('useChatWithHistory')
 
@@ -22,10 +25,10 @@ export interface UseChatWithHistoryResult {
   regenerate: (options?: ChatRequestOptions & { messageId?: string }) => Promise<void>
   stop: () => Promise<void>
   error: Error | undefined
-  status: ReturnType<typeof useChat<CherryUIMessage>>['status']
+  status: ChatStatus
   setMessages: (messages: CherryUIMessage[] | ((messages: CherryUIMessage[]) => CherryUIMessage[])) => void
   activeExecutions: readonly ActiveExecution[]
-  chat: Chat<CherryUIMessage>
+  chat: ChatStreamStore
 }
 
 // ── Hook ──
@@ -36,11 +39,11 @@ export function useChatWithHistory(
   refresh: () => Promise<CherryUIMessage[]>
 ): UseChatWithHistoryResult {
   const enabled = Boolean(topicId)
-  // The topic id is the Chat instance identity. Initial messages seed only a
+  // The topic id is the store instance identity. Initial messages seed only a
   // newly selected topic; history updates flow through the explicit adapters.
   const chat = useMemo(
     () =>
-      new Chat<CherryUIMessage>({
+      new ChatStreamStore({
         id: topicId,
         transport: ipcChatTransport,
         messages: initialMessages,
@@ -48,31 +51,22 @@ export function useChatWithHistory(
           logger.error('AI stream error', { topicId, streamError })
         }
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- topic identity alone owns the Chat lifecycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- topic identity alone owns the store lifecycle.
     [topicId]
   )
 
-  const {
-    setMessages,
-    stop: sdkStop,
-    status,
-    error,
-    sendMessage,
-    regenerate,
-    resumeStream
-  } = useChat<CherryUIMessage>({
-    chat,
-    // Unthrottled (0) melts the renderer on long fast streams: every chunk re-notifies React
-    // and re-renders/re-parses the growing message. 100ms keeps streaming visually smooth.
-    experimental_throttle: 100
-  })
+  const subscribe = useCallback((listener: () => void) => chat.subscribe(listener), [chat])
+  const getSnapshot = useCallback(() => chat.getSnapshot(), [chat])
+  const { status, error } = useSyncExternalStore(subscribe, getSnapshot)
+
+  const { sendMessage, regenerate, resumeStream, setMessages } = chat
 
   const stop = useCallback(async () => {
     const mainAbort = enabled ? ipcApi.request('ai.stream.abort', { topicId }) : Promise.resolve()
-    const [mainAbortResult, sdkStopResult] = await Promise.allSettled([mainAbort, sdkStop()])
+    const [mainAbortResult, storeStopResult] = await Promise.allSettled([mainAbort, chat.stop()])
     if (mainAbortResult.status === 'rejected') throw mainAbortResult.reason
-    if (sdkStopResult.status === 'rejected') throw sdkStopResult.reason
-  }, [enabled, sdkStop, topicId])
+    if (storeStopResult.status === 'rejected') throw storeStopResult.reason
+  }, [chat, enabled, topicId])
 
   const refreshRef = useRef(refresh)
   refreshRef.current = refresh
@@ -87,7 +81,7 @@ export function useChatWithHistory(
 
   // `status` and `resumeStream` are read through refs so `resumeActiveStream`
   // keeps one identity per topic. With them in the deps, the "mount" effect
-  // below re-fired on every SDK status change; when a resumed stream
+  // below re-fired on every store status change; when a resumed stream
   // terminated (closed or errored) while main still reported the stream as
   // attachable, each ready/error edge immediately re-attached — a hot
   // resume loop (attach IPC + stream setup + status flap per cycle) that
