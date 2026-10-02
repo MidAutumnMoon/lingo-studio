@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto'
 
-import { isToolUIPart } from 'ai'
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, type SQL, sql } from 'drizzle-orm'
 import { v4 as uuidv4, v7 as uuidv7, validate as isUuid } from 'uuid'
 
@@ -40,6 +39,7 @@ import {
   type AgentSessionDeliveryStatus
 } from '@shared/ai/agentSessionDelivery'
 import { applyApprovalDecisions, type ApprovalDecision } from '@shared/ai/transport'
+import { isToolUIPart } from '@shared/ai/uiDialect'
 import { DataApiErrorFactory } from '@shared/data/api/errors'
 import type {
   AgentSessionMessageEntity,

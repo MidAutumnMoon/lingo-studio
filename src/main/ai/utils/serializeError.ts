@@ -1,6 +1,5 @@
-import { APICallError, RetryError } from 'ai'
-
 import { getSafeProviderErrorMessage, serializeNestedProviderError } from '@shared/ai/providerError'
+import { APICallError, RetryError } from '@shared/ai/uiDialect'
 import type { SerializedError } from '@shared/types/error'
 import type { Serializable } from '@shared/types/serializable'
 

@@ -8,7 +8,6 @@
  * - Cascade delete and reparenting
  */
 
-import { isToolUIPart } from 'ai'
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, ne, or, type SQL, sql } from 'drizzle-orm'
 
 import { application } from '@application'
@@ -21,6 +20,7 @@ import type { DbOrTx } from '@data/db/types'
 import { loggerService } from '@logger'
 import { buildSearchSnippet } from '@main/utils/searchSnippet'
 import { applyApprovalDecisions, type ApprovalDecision, blobRefsOf, isPersistedToolOutput } from '@shared/ai/transport'
+import { isToolUIPart } from '@shared/ai/uiDialect'
 import { DataApiErrorFactory } from '@shared/data/api/errors'
 import type {
   ActiveNodeStrategy,

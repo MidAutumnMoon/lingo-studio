@@ -19,7 +19,6 @@
  */
 
 import type { UIMessage } from 'ai'
-import { isToolUIPart } from 'ai'
 
 import { application } from '@application'
 import { ContextPrompts } from '@cherrystudio/ai-core'
@@ -32,6 +31,7 @@ import {
   type PersistedToolOutputBlobRef,
   type PersistedToolOutputRef
 } from '@shared/ai/transport'
+import { isToolUIPart } from '@shared/ai/uiDialect'
 
 const logger = loggerService.withContext('PersistedOutputRendering')
 

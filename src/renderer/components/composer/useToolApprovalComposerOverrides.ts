@@ -1,8 +1,8 @@
-import { getToolName, isToolUIPart } from 'ai'
 import { useEffect, useMemo } from 'react'
 
 import { isAskUserQuestionToolName } from '@renderer/components/chat/messages/tools/shared/agentToolTypes'
 import type { MessageStreamingLayers, MessageToolApprovalInput } from '@renderer/components/chat/messages/types'
+import { getToolName, isToolUIPart } from '@shared/ai/uiDialect'
 import type { CherryMessagePart } from '@shared/data/types/message'
 
 import type { ComposerOverride } from './ComposerContext'

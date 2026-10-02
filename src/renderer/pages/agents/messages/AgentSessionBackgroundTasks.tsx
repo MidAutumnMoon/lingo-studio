@@ -1,4 +1,3 @@
-import { isToolUIPart } from 'ai'
 import { Loader2, Workflow } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -7,6 +6,7 @@ import { useMessageParts, useMessagePartsScopeId } from '@renderer/components/ch
 import { useMessageListActions } from '@renderer/components/chat/messages/MessageListProvider'
 import HorizontalScrollContainer from '@renderer/components/HorizontalScrollContainer'
 import { useAgentSessionBackgroundTasks } from '@renderer/hooks/agent/useAgentSessionBackgroundTasks'
+import { isToolUIPart } from '@shared/ai/uiDialect'
 
 interface Props {
   sessionId: string

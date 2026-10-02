@@ -1,8 +1,7 @@
-import { isToolUIPart } from 'ai'
-
 import type { MessageExportView } from '@renderer/types/messageExport'
 import type { Model } from '@renderer/types/model'
 import { resolveUniqueModelId } from '@renderer/utils/message/modelIdentity'
+import { isToolUIPart } from '@shared/ai/uiDialect'
 import type { CherryMessagePart, CherryUIMessage, MessageStats } from '@shared/data/types/message'
 import {
   createUniqueModelId,

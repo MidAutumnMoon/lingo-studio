@@ -6,14 +6,31 @@
  * aiCore. Structural shapes are frozen: DB column, `ai.stream.*` IPC, gateway SSE all unchanged.
  */
 export { asSchema } from '@ai-sdk/provider-utils'
+// Same class objects / type identities `ai` re-exports — kept as re-exports, not copies.
+export type { DownloadError } from '@ai-sdk/provider-utils'
+export type { ModelMessage } from '@ai-sdk/provider-utils'
+export type {
+  InvalidPromptError,
+  JSONParseError,
+  TypeValidationError,
+  UnsupportedFunctionalityError
+} from '@ai-sdk/provider'
 
 export { convertToModelMessages } from './convertToModelMessages'
 export {
   AISDKError,
   APICallError,
+  InvalidArgumentError,
+  InvalidDataContentError,
+  InvalidMessageRoleError,
   InvalidToolInputError,
   MessageConversionError,
+  NoObjectGeneratedError,
+  NoSuchModelError,
+  NoSuchProviderError,
+  NoSuchToolError,
   RetryError,
+  ToolCallRepairError,
   UIMessageStreamError
 } from './errors'
 export { readUIMessageStream } from './readUIMessageStream'
@@ -22,6 +39,7 @@ export type {
   DataUIMessageChunk,
   DataUIPart,
   DynamicToolUIPart,
+  EmbeddingModelUsage,
   FileUIPart,
   FinishReason,
   InferUIMessageChunk,
@@ -30,6 +48,8 @@ export type {
   InferUIMessageTools,
   InferUITool,
   InferUITools,
+  LanguageModelResponseMetadata,
+  LanguageModelUsage,
   ProviderMetadata,
   ReasoningUIPart,
   SourceDocumentUIPart,

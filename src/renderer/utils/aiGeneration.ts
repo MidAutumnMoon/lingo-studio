@@ -1,4 +1,3 @@
-import { isFileUIPart } from 'ai'
 import { takeRight } from 'es-toolkit/compat'
 
 /**
@@ -19,6 +18,7 @@ import { getNamingTextContent } from '@renderer/utils/message/find'
 import { readDefaultModel } from '@renderer/utils/model'
 import { removeSpecialCharactersForTopicName } from '@renderer/utils/naming'
 import { containsSupportedVariables, replacePromptVariables } from '@renderer/utils/prompt'
+import { isFileUIPart } from '@shared/ai/uiDialect'
 import type { Model } from '@shared/data/types/model'
 
 const logger = loggerService.withContext('aiGeneration')

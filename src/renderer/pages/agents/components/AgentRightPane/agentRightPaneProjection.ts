@@ -1,5 +1,3 @@
-import { getToolName, isDataUIPart, isToolUIPart } from 'ai'
-
 import {
   getTaskActiveText,
   getTaskId,
@@ -21,6 +19,7 @@ import { getCanonicalToolName } from '@renderer/components/chat/messages/tools/t
 import type { AgentSessionTaskEvents } from '@shared/ai/agentSessionBackgroundTasks'
 import { REPORT_ARTIFACTS_TOOL_NAME, reportArtifactsInputSchema } from '@shared/ai/builtinTools'
 import { type DeferredToolResultRef, isDeferredToolOutput } from '@shared/ai/transport'
+import { getToolName, isDataUIPart, isToolUIPart } from '@shared/ai/uiDialect'
 import type { CherryMessagePart, CherryUIMessage } from '@shared/data/types/message'
 import type { AgentTaskEventPartData } from '@shared/data/types/uiParts'
 

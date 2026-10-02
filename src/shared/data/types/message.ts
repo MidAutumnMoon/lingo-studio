@@ -1,3 +1,8 @@
+import * as z from 'zod'
+
+import { CURRENCY, objectValues } from '@cherrystudio/provider-registry'
+import type { AgentSessionDelivery } from '@shared/ai/agentSessionDelivery'
+import type { AutonomousTurnOrigin } from '@shared/ai/agentSessionTurnOrigin'
 import type {
   DataUIPart,
   DynamicToolUIPart,
@@ -9,12 +14,7 @@ import type {
   UIMessage,
   UIMessagePart,
   UITools
-} from 'ai'
-import * as z from 'zod'
-
-import { CURRENCY, objectValues } from '@cherrystudio/provider-registry'
-import type { AgentSessionDelivery } from '@shared/ai/agentSessionDelivery'
-import type { AutonomousTurnOrigin } from '@shared/ai/agentSessionTurnOrigin'
+} from '@shared/ai/uiDialect'
 import type { CursorPaginationResponse } from '@shared/data/api/types'
 import { type ReasoningEffortOption, ReasoningEffortOptionSchema } from '@shared/types/aiSdk'
 

@@ -1,7 +1,6 @@
-import { getToolName, isToolUIPart } from 'ai'
-
 import { getDisplayComposerTokens } from '@renderer/utils/message/composerTokens'
 import { REPORT_ARTIFACTS_TOOL_NAME } from '@shared/ai/builtinTools'
+import { getToolName, isToolUIPart } from '@shared/ai/uiDialect'
 import type { CherryMessagePart } from '@shared/data/types/message'
 import { readCherryMeta } from '@shared/data/types/uiParts'
 

@@ -4,7 +4,6 @@
  */
 
 import type { UIMessageChunk } from 'ai'
-import { isToolUIPart } from 'ai'
 
 import {
   CITATION_SNIPPET_MAX_CHARS,
@@ -25,6 +24,7 @@ import {
   isDeferredToolOutput,
   isPersistedToolOutput
 } from '@shared/ai/transport'
+import { isToolUIPart } from '@shared/ai/uiDialect'
 import type { CherryMessagePart } from '@shared/data/types/message'
 
 /** Serialized UTF-8 size at or below which a result travels inline. */

@@ -654,3 +654,39 @@ export type { InferUITool, InferUITools }
  * A `ReadableStream` that is also an `AsyncIterable`.
  */
 export type AsyncIterableStream<T> = AsyncIterable<T> & ReadableStream<T>
+
+// ── ai@6 usage/metadata aliases (`ai` defines these V3-era names itself; the
+// provider packages only export the V2 shapes) ──
+
+export type LanguageModelUsage = {
+  inputTokens: number | undefined
+  inputTokenDetails: {
+    noCacheTokens: number | undefined
+    cacheReadTokens: number | undefined
+    cacheWriteTokens: number | undefined
+  }
+  outputTokens: number | undefined
+  outputTokenDetails: {
+    textTokens: number | undefined
+    reasoningTokens: number | undefined
+  }
+  totalTokens: number | undefined
+  /** @deprecated Use outputTokenDetails.reasoningTokens instead. */
+  reasoningTokens?: number | undefined
+  /** @deprecated Use inputTokenDetails.cacheReadTokens instead. */
+  cachedInputTokens?: number | undefined
+  /** Raw usage in the shape the provider returned. */
+  raw?: JSONObject
+}
+
+export type EmbeddingModelUsage = {
+  tokens: number
+}
+
+export type LanguageModelResponseMetadata = {
+  id: string
+  timestamp: Date
+  modelId: string
+  /** Response headers (available only for providers that use HTTP requests). */
+  headers?: Record<string, string>
+}

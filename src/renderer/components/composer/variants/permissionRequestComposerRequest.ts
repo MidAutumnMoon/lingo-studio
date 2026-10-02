@@ -1,5 +1,4 @@
 import type { UIMessagePart } from 'ai'
-import { isToolUIPart } from 'ai'
 
 import { AgentToolsType } from '@renderer/components/chat/messages/tools/shared/agentToolTypes'
 import {
@@ -8,6 +7,7 @@ import {
   type ToolResponseLike
 } from '@renderer/components/chat/messages/tools/toolResponse'
 import type { MessageToolApprovalMatch } from '@renderer/components/chat/messages/types'
+import { isToolUIPart } from '@shared/ai/uiDialect'
 import type { CherryMessagePart } from '@shared/data/types/message'
 
 export type PermissionRequestComposerRequest = {

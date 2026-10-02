@@ -1,5 +1,4 @@
-import { isToolUIPart } from 'ai'
-
+import { isToolUIPart } from '@shared/ai/uiDialect'
 import type { CherryMessagePart } from '@shared/data/types/message'
 
 import type { ApprovalDecision } from './stream'

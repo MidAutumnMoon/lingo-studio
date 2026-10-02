@@ -14,7 +14,6 @@
  * - data-video parts with same filePath → video block row
  */
 
-import { getToolName, isDataUIPart, isFileUIPart, isToolUIPart } from 'ai'
 import { Check, ChevronDown } from 'lucide-react'
 import { AnimatePresence, motion, type Variants } from 'motion/react'
 import React, { useMemo } from 'react'
@@ -41,6 +40,7 @@ import {
   convertReferencesToCitations
 } from '@renderer/utils/partsToBlocks'
 import type { CompactionAnchorData } from '@shared/ai/compaction'
+import { getToolName, isDataUIPart, isFileUIPart, isToolUIPart } from '@shared/ai/uiDialect'
 import type { FileHandle } from '@shared/data/types/file'
 import type { CherryMessagePart, ContentReference, ReasoningUIPart } from '@shared/data/types/message'
 import type { CherryProviderMetadata, ComposerMessageSnapshot, ComposerMessageToken } from '@shared/data/types/uiParts'

@@ -1,4 +1,3 @@
-import { getToolName, isToolUIPart } from 'ai'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
@@ -24,6 +23,7 @@ import { extractOutputMetadata } from '@renderer/utils/message/toolOutput'
 import { GENERATE_IMAGE_TOOL_NAME } from '@shared/ai/builtinTools'
 import { generateImageOutputSchema } from '@shared/ai/generateImageTool'
 import { isDeferredToolOutput } from '@shared/ai/transport'
+import { getToolName, isToolUIPart } from '@shared/ai/uiDialect'
 import type { FileUIPart } from '@shared/data/types/message'
 import { readCherryMeta } from '@shared/data/types/uiParts'
 import { type AbsoluteFilePath, AbsoluteFilePathSchema, type FileUrlString } from '@shared/types/file'

@@ -18,8 +18,7 @@ import type {
   ToolCallRepairError,
   TypeValidationError,
   UnsupportedFunctionalityError
-} from 'ai'
-
+} from '@shared/ai/uiDialect'
 import type { Serializable } from '@shared/types/serializable'
 
 import type { ProviderSpecificError } from './providerSpecificError'

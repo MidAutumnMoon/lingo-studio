@@ -1,6 +1,4 @@
 import type { McpError } from '@modelcontextprotocol/sdk/types.js'
-import { AISDKError, APICallError, type NoSuchToolError } from 'ai'
-import { InvalidToolInputError } from 'ai'
 import { type AxiosError, isAxiosError } from 'axios'
 import { t } from 'i18next'
 import type * as z from 'zod'
@@ -16,6 +14,7 @@ import type {
 } from '@renderer/types/error'
 import { isSerializedAiSdkApiCallError, isSerializedAiSdkRetryError } from '@renderer/types/error'
 import { getSafeProviderErrorMessage, serializeNestedProviderError } from '@shared/ai/providerError'
+import { AISDKError, APICallError, InvalidToolInputError, type NoSuchToolError } from '@shared/ai/uiDialect'
 import { aiErrorDetail, aiStreamAdmissionReason, isAgentSessionArchiveBusyError } from '@shared/ipc/errors/ai'
 import { safeSerialize } from '@shared/utils/serialize'
 

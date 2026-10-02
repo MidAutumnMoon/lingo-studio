@@ -1,4 +1,4 @@
-import { AISDKError, APICallError, RetryError } from 'ai'
+import { AISDKError, APICallError, RetryError } from '@shared/ai/uiDialect'
 
 import type { SerializedError } from '../types/error'
 import type { Serializable } from '../types/serializable'

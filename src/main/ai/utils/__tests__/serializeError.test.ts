@@ -1,5 +1,6 @@
-import { APICallError, NoSuchToolError, RetryError } from 'ai'
 import { describe, expect, it } from 'vitest'
+
+import { APICallError, NoSuchToolError, RetryError } from '@shared/ai/uiDialect'
 
 import { serializeError } from '../serializeError'
 

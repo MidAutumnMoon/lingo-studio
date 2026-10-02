@@ -1,7 +1,6 @@
-import { APICallError } from 'ai'
-
 import { application } from '@application'
 import { serializeError } from '@main/ai/utils/serializeError'
+import { APICallError } from '@shared/ai/uiDialect'
 import { createUniqueModelId, UniqueModelIdSchema } from '@shared/data/types/model'
 import { classifyErrorCategory, isErrorCategory } from '@shared/utils/errorCategory'
 import { redactUrlParams } from '@shared/utils/redaction'

@@ -1,14 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 
-import {
-  type EmbeddingModelUsage,
-  isToolUIPart,
-  type LanguageModelUsage,
-  type ModelMessage,
-  type UIMessageChunk
-} from 'ai'
-
 import { application } from '@application'
 import {
   type AiPlugin,
@@ -38,6 +30,13 @@ import { installBuiltinSkills } from '@main/utils/builtinSkills'
 import { downloadImageAsBase64 } from '@main/utils/downloadAsBase64'
 import type { CompactionSink } from '@shared/ai/compaction'
 import type { AiToolApprovalRespondRequest, AiToolApprovalRespondResponse } from '@shared/ai/transport'
+import {
+  type EmbeddingModelUsage,
+  type LanguageModelUsage,
+  isToolUIPart,
+  type ModelMessage,
+  type UIMessageChunk
+} from '@shared/ai/uiDialect'
 import { isDataApiNotFoundError } from '@shared/data/api/errors'
 import type { JobSnapshot } from '@shared/data/api/schemas/jobs'
 import { type Assistant } from '@shared/data/types/assistant'

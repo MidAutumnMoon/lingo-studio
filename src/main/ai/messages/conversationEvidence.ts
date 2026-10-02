@@ -1,7 +1,6 @@
 import { posix, win32 } from 'node:path'
 
-import { isToolUIPart } from 'ai'
-
+import { isToolUIPart } from '@shared/ai/uiDialect'
 import type { AgentSessionMessageEntity } from '@shared/data/api/schemas/agentSessionMessages'
 import type { CherryMessagePart, Message } from '@shared/data/types/message'
 

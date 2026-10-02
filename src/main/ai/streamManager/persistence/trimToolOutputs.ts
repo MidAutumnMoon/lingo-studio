@@ -20,8 +20,6 @@
  * saw in-flight.
  */
 
-import { getToolName, isToolUIPart } from 'ai'
-
 import { computeHeadTailExcerpt } from '@cherrystudio/ai-core'
 import { loggerService } from '@logger'
 import { resolveContextSettings } from '@main/ai/contextBuild/resolveContextSettings'
@@ -38,6 +36,7 @@ import {
   type PersistedToolOutputBlobRef,
   type PersistedToolOutputRef
 } from '@shared/ai/transport'
+import { getToolName, isToolUIPart } from '@shared/ai/uiDialect'
 import type { ContextSettingsOverride } from '@shared/data/types/contextSettings'
 import type { CherryMessagePart } from '@shared/data/types/message'
 

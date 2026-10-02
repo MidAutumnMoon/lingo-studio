@@ -10,7 +10,13 @@
 
 import { createHash } from 'node:crypto'
 
-import { convertToModelMessages, isToolUIPart, type ModelMessage, type ToolSet, type UIMessage } from 'ai'
+import {
+  convertToModelMessages,
+  isToolUIPart,
+  type ModelMessage,
+  type ToolSet,
+  type UIMessage
+} from '@shared/ai/uiDialect'
 
 import { ALL_MEDIA, type MediaCapabilities, routeToolResultMedia, stripUnsupportedMedia } from './messageCapabilities'
 import { renderPersistedToolOutputs } from './persistedOutputRendering'

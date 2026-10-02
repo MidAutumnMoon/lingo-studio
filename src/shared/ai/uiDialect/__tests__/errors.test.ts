@@ -1,9 +1,16 @@
 import {
   APICallError as AiAPICallError,
   AISDKError as AiAISDKError,
+  InvalidArgumentError as AiInvalidArgumentError,
+  InvalidDataContentError as AiInvalidDataContentError,
+  InvalidMessageRoleError as AiInvalidMessageRoleError,
   InvalidToolInputError as AiInvalidToolInputError,
   MessageConversionError as AiMessageConversionError,
+  NoObjectGeneratedError as AiNoObjectGeneratedError,
+  NoSuchProviderError as AiNoSuchProviderError,
+  NoSuchToolError as AiNoSuchToolError,
   RetryError as AiRetryError,
+  ToolCallRepairError as AiToolCallRepairError,
   UIMessageStreamError as AiUIMessageStreamError
 } from 'ai'
 import { describe, expect, it } from 'vitest'
@@ -11,9 +18,16 @@ import { describe, expect, it } from 'vitest'
 import {
   AISDKError,
   APICallError,
+  InvalidArgumentError,
+  InvalidDataContentError,
+  InvalidMessageRoleError,
   InvalidToolInputError,
   MessageConversionError,
+  NoObjectGeneratedError,
+  NoSuchProviderError,
+  NoSuchToolError,
   RetryError,
+  ToolCallRepairError,
   UIMessageStreamError
 } from '../index'
 
@@ -86,5 +100,101 @@ describe('uiDialect error taxonomy — marker interop with ai@6.0.185', () => {
     expect(
       AiAISDKError.isInstance(new InvalidToolInputError({ toolInput: '1', toolName: 't', cause: undefined }))
     ).toBe(true)
+  })
+
+  it('vendored InvalidArgumentError matches ai own class (provider re-declares a different shape)', () => {
+    const ours = new InvalidArgumentError({
+      parameter: 'temperature',
+      value: 'x',
+      message: 'Invalid argument for parameter temperature: x'
+    })
+    const theirs = new AiInvalidArgumentError({
+      parameter: 'temperature',
+      value: 'x',
+      message: 'Invalid argument for parameter temperature: x'
+    })
+
+    expect(InvalidArgumentError.isInstance(theirs)).toBe(true)
+    expect(AiInvalidArgumentError.isInstance(ours)).toBe(true)
+    expect(ours.parameter).toBe('temperature')
+    expect(ours.value).toBe('x')
+  })
+
+  it('vendored InvalidMessageRoleError and InvalidDataContentError cross-detect ai instances', () => {
+    const roleOurs = new InvalidMessageRoleError({ role: 'tool' })
+    const roleTheirs = new AiInvalidMessageRoleError({ role: 'tool' })
+    expect(InvalidMessageRoleError.isInstance(roleTheirs)).toBe(true)
+    expect(AiInvalidMessageRoleError.isInstance(roleOurs)).toBe(true)
+    expect(roleOurs.message).toBe(roleTheirs.message)
+
+    const dataOurs = new InvalidDataContentError({ content: 42 })
+    const dataTheirs = new AiInvalidDataContentError({ content: 42 })
+    expect(InvalidDataContentError.isInstance(dataTheirs)).toBe(true)
+    expect(AiInvalidDataContentError.isInstance(dataOurs)).toBe(true)
+    expect(dataOurs.content).toBe(42)
+  })
+
+  it('vendored NoSuchToolError and NoSuchProviderError cross-detect ai instances and carry discriminants', () => {
+    const toolOurs = new NoSuchToolError({ toolName: 'web_search', availableTools: ['kb_search'] })
+    const toolTheirs = new AiNoSuchToolError({ toolName: 'web_search', availableTools: ['kb_search'] })
+    expect(NoSuchToolError.isInstance(toolTheirs)).toBe(true)
+    expect(AiNoSuchToolError.isInstance(toolOurs)).toBe(true)
+    expect(toolOurs.message).toBe(toolTheirs.message)
+    expect(toolOurs.availableTools).toEqual(['kb_search'])
+
+    const provOurs = new NoSuchProviderError({
+      modelId: 'openai::gpt-4o',
+      modelType: 'languageModel',
+      providerId: 'nope',
+      availableProviders: ['openai', 'anthropic']
+    })
+    const provTheirs = new AiNoSuchProviderError({
+      modelId: 'openai::gpt-4o',
+      modelType: 'languageModel',
+      providerId: 'nope',
+      availableProviders: ['openai', 'anthropic']
+    })
+    expect(NoSuchProviderError.isInstance(provTheirs)).toBe(true)
+    expect(AiNoSuchProviderError.isInstance(provOurs)).toBe(true)
+    expect(provOurs.providerId).toBe('nope')
+    expect(provOurs.modelId).toBe('openai::gpt-4o')
+  })
+
+  it('vendored NoObjectGeneratedError and ToolCallRepairError cross-detect ai instances', () => {
+    const response = { id: 'resp-1', timestamp: new Date(0), modelId: 'openai::gpt-4o' }
+    const usage = {
+      inputTokens: 10,
+      inputTokenDetails: { noCacheTokens: 10, cacheReadTokens: undefined, cacheWriteTokens: undefined },
+      outputTokens: 5,
+      outputTokenDetails: { textTokens: 5, reasoningTokens: undefined },
+      totalTokens: 15
+    }
+    const objOurs = new NoObjectGeneratedError({
+      cause: new Error('parse'),
+      text: 'partial',
+      response,
+      usage,
+      finishReason: 'stop'
+    })
+    const objTheirs = new AiNoObjectGeneratedError({
+      cause: new Error('parse'),
+      text: 'partial',
+      response,
+      usage,
+      finishReason: 'stop'
+    })
+    expect(NoObjectGeneratedError.isInstance(objTheirs)).toBe(true)
+    expect(AiNoObjectGeneratedError.isInstance(objOurs)).toBe(true)
+    expect(objOurs.text).toBe('partial')
+    expect(objOurs.message).toBe('No object generated.')
+
+    const oursOriginal = new NoSuchToolError({ toolName: 't' })
+    const repairOurs = new ToolCallRepairError({ cause: new Error('bad json'), originalError: oursOriginal })
+    const theirsOriginal = new AiNoSuchToolError({ toolName: 't' })
+    const repairTheirs = new AiToolCallRepairError({ cause: new Error('bad json'), originalError: theirsOriginal })
+    expect(ToolCallRepairError.isInstance(repairTheirs)).toBe(true)
+    expect(AiToolCallRepairError.isInstance(repairOurs)).toBe(true)
+    expect(repairOurs.originalError).toBe(oursOriginal)
+    expect(repairTheirs.originalError).toBe(theirsOriginal)
   })
 })

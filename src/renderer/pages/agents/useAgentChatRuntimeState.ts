@@ -1,4 +1,3 @@
-import { isToolUIPart } from 'ai'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -35,6 +34,7 @@ import { mergeMessagesById } from '@renderer/utils/message/mergeMessagesById'
 import type { AgentSessionEditDraft, AgentSessionEditTarget } from '@shared/ai/agentSessionEdit'
 import { agentSessionEditFailureReasons } from '@shared/ai/agentSessionEdit'
 import type { AiStreamOpenRequest, AiToolApprovalRespondResponse } from '@shared/ai/transport'
+import { isToolUIPart } from '@shared/ai/uiDialect'
 import type { CherryMessagePart, CherryUIMessage } from '@shared/data/types/message'
 import { aiErrorCodes, agentSessionForkFailureReason } from '@shared/ipc/errors/ai'
 import { IpcError } from '@shared/ipc/errors/IpcError'

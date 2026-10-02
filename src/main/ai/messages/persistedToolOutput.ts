@@ -1,5 +1,3 @@
-import { isToolUIPart } from 'ai'
-
 import { application } from '@application'
 import { agentSessionMessageService } from '@data/services/AgentSessionMessageService'
 import { fileEntryService } from '@data/services/FileEntryService'
@@ -9,6 +7,7 @@ import { extractAgentSessionId, isAgentSessionTopic } from '@main/ai/agentSessio
 import { inflateEntities, isToolOutputBlobEntry, reconstructOutput } from '@main/ai/contextBuild/toolOutputStore'
 import type { AiToolResultResponse, PersistedToolOutput, PersistedToolOutputBlobRef } from '@shared/ai/transport'
 import { blobRefsOf, isPersistedToolOutput } from '@shared/ai/transport'
+import { isToolUIPart } from '@shared/ai/uiDialect'
 
 const logger = loggerService.withContext('ai:persistedToolOutput')
 

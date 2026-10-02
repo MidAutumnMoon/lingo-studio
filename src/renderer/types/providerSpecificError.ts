@@ -1,4 +1,4 @@
-import { AISDKError } from 'ai'
+import { AISDKError } from '@shared/ai/uiDialect'
 
 const name = 'AI_ProviderSpecificError'
 const marker = `vercel.ai.error.${name}`
