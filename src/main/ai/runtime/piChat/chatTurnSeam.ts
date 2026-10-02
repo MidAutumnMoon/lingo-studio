@@ -26,6 +26,7 @@ import { resolveChatTurnPlan, type ChatTurnPlan, type ChatTurnPlanRequest } from
 import { resolveTurnInFlightTruncateThreshold } from '@main/ai/contextBuild/inFlightTruncate'
 import type { NeutralTool } from '@main/ai/tools/neutralTool'
 import { assembleSystemPrompt } from '@main/ai/utils/assembleSystemPrompt'
+import { t } from '@main/i18n'
 import type { UIMessageChunk } from '@shared/ai/uiDialect'
 import type { Assistant } from '@shared/data/types/assistant'
 import type { CherryUIMessage } from '@shared/data/types/message'
@@ -77,11 +78,6 @@ export interface PiChatSeamInput {
   assistant: Assistant | undefined
 }
 
-/** Reads the (now inert) engine preference — kept only to log its state until the pref is removed. */
-function piChatEngineEnabled(): boolean {
-  return application.get('PreferenceService').get('chat.pi_engine.enabled') === true
-}
-
 /**
  * Pre-flight missing-credential failure. Carries the `i18nKey` + `providerId` the
  * renderer's ErrorBlock renders as the localized, provider-linked missing-key error
@@ -106,19 +102,13 @@ class PiMissingApiKeyTurnError extends Error {
 export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<ReadableStream<UIMessageChunk>> {
   const { request, signal, provider, model, assistant } = input
 
-  if (!piChatEngineEnabled()) {
-    logger.debug('pi chat engine preference is off; running pi anyway (the legacy engine no longer exists)')
-  }
-
   // Owner decision: the gateway serves tool-less clients only. A tool-carrying
   // request has no pi lane and no legacy fallback — fail loud at the seam.
   if (Object.keys(request.callOverrides?.tools ?? {}).length > 0) {
     logger.warn('pi chat engine: rejecting a tool-carrying gateway request', {
       topicId: request.conversation.topicId
     })
-    return errorTextStream(
-      'Client tools are not supported: this gateway serves tool-less clients only. Remove the tools parameter or execute tool calls in your own client.'
-    )
+    return errorTextStream(t('chat.errors.client_tools_not_supported'))
   }
 
   const exclusionError = resolvePiExclusionError(input)
@@ -145,9 +135,7 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
           providerId: error.providerId
         })
         return {
-          errorStream: errorTextStream(
-            `Provider "${error.providerId}" uses an endpoint protocol the chat engine does not speak. Switch to a provider with an OpenAI-compatible, Anthropic, or Google endpoint, or ask the app maintainer to add support.`
-          )
+          errorStream: errorTextStream(t('chat.errors.unsupported_endpoint_family', { provider: error.providerId }))
         }
       }
       if (error instanceof PiMissingApiKeyError) {
@@ -369,8 +357,7 @@ function resolvePiExclusionError(input: PiChatSeamInput): SeamExclusionError | u
   if (request.trigger === 'continue-conversation') {
     return {
       reason: 'continue-conversation dispatch',
-      errorText:
-        'This pending tool approval can no longer be resumed because its conversation turn is not active. Please resend your last message — rephrasing it if needed — to continue.'
+      errorText: t('chat.errors.approval_resume_gone')
     }
   }
 
@@ -379,8 +366,7 @@ function resolvePiExclusionError(input: PiChatSeamInput): SeamExclusionError | u
   if (!trailing || trailing.role !== 'user') {
     return {
       reason: 'served list does not end with a user message',
-      errorText:
-        'The conversation for this request has no pending user message to send. Please resend your last message — rephrasing it if needed — to continue.'
+      errorText: t('chat.errors.resend_user_message')
     }
   }
 

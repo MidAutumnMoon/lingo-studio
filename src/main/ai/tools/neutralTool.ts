@@ -1,15 +1,13 @@
 /**
  * SDK-neutral tool contract for the tool registry (Track B of the ai-sdk retirement).
  * `ToolEntry.tool` is a plain object of this shape: the pi chat engine
- * (`runtime/piChat/chatToolAdapter`) and the meta-tools consume it directly, and the
- * legacy engine wraps it back into AI SDK `Tool`s at its boundary
- * (`runtime/aiSdk/params/toSdkToolSet.ts`). Field-for-field it mirrors the subset of
- * the AI SDK `Tool` surface the registry actually uses, so the wrap is a faithful
- * pass-through and neither engine's behavior changes.
+ * (`runtime/piChat/chatToolAdapter`) and the meta-tools consume it directly.
+ * Field-for-field it mirrors the subset of the AI SDK `Tool` surface the registry
+ * actually used, so neither engine's behavior changes.
  *
  * Schemas convert ONCE, at tool-definition time: `zodToolSchema` delegates to the
  * vendored dialect's `asSchema` (same conversion the AI SDK applied inline —
- * `additionalProperties: false` on every object node included), so both engines and
+ * `additionalProperties: false` on every object node included), so the engine and
  * the meta-tools see byte-identical wire schemas.
  */
 import type { JSONSchema7 } from 'json-schema'

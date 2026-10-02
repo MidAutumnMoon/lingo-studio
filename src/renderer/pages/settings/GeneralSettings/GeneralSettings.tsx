@@ -50,7 +50,6 @@ const GeneralSettings: FC = () => {
   const [storeProxyBypassRules, _setProxyBypassRules] = usePreference('app.proxy.bypass_rules')
   const [storeProxyUrl, _setProxyUrl] = usePreference('app.proxy.url')
   const [enableDeveloperMode, setEnableDeveloperMode] = usePreference('app.developer_mode.enabled')
-  const [piEngineEnabled, setPiEngineEnabled] = usePreference('chat.pi_engine.enabled')
   const [clientId] = usePreference('app.user.id')
   const [agentLanguage, setAgentLanguage] = usePreference('agent.language')
 
@@ -261,18 +260,6 @@ const GeneralSettings: FC = () => {
                 </span>
                 <CopyButton textToCopy={clientId} successFeedback="icon" />
               </div>
-            </SettingRow>
-          </>
-        ) : null}
-        {enableDeveloperMode ? (
-          <>
-            <SettingDivider />
-            <SettingRow id="setting-general-enable-pi-engine" className="scroll-mt-6">
-              <Flex className="items-center gap-1">
-                <SettingRowTitle>{t('settings.developer.enable_pi_engine')}</SettingRowTitle>
-                <InfoTooltip content={t('settings.developer.pi_engine_help')} />
-              </Flex>
-              <Switch checked={piEngineEnabled} onCheckedChange={setPiEngineEnabled} />
             </SettingRow>
           </>
         ) : null}

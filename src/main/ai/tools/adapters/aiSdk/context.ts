@@ -4,8 +4,8 @@ import type { Assistant } from '@shared/data/types/assistant'
 import type { ToolExecuteOptions } from '../../neutralTool'
 
 /**
- * Per-request context constructed once in `buildAgentParams` and
- * threaded through AI SDK's `experimental_context`. Kept minimal — add
+ * Per-request context constructed once per turn by the chat engine and
+ * threaded through `experimental_context`. Kept minimal — add
  * fields only when a tool actually needs them.
  */
 export interface RequestContext {
@@ -42,7 +42,7 @@ export interface RequestContext {
 
   /**
    * Absolute paths of persisted tool-output blobs this conversation owns — the
-   * exact allow-list `fs_read` may serve. Seeded in `buildAgentParams` from
+   * exact allow-list `fs_read` may serve. Seeded by the chat engine from
    * `RetainedContext.persistedOutputPaths` (RAW path, so blobs of
    * compacted-away tool messages stay readable) as a per-model clone; the
    * in-flight offload adapter adds paths to that clone as it persists new
@@ -84,15 +84,14 @@ export interface ToolCallContext {
 }
 
 /**
- * Throws when `experimental_context` is missing — usually means
- * `buildAgentParams` didn't thread `RequestContext` through, or a test
- * forgot to mock it.
+ * Throws when `experimental_context` is missing — usually means the engine didn't
+ * thread `RequestContext` through, or a test forgot to mock it.
  */
 export function getToolCallContext(options: ToolExecuteOptions): ToolCallContext {
   const request = options.experimental_context
   if (!isRequestContext(request)) {
     throw new Error(
-      'Tool execute called without RequestContext. AiService.buildAgentParams must thread RequestContext through agentSettings.experimental_context.'
+      'Tool execute called without RequestContext. The chat engine must thread RequestContext through agentSettings.experimental_context.'
     )
   }
   return {

@@ -140,7 +140,8 @@ function seamInput(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockPreferenceGet.mockReturnValue(false)
+  // The seam no longer reads engine preferences; the resolver only needs a valid app language.
+  mockPreferenceGet.mockImplementation((key: string) => (key === 'app.language' ? 'en-US' : undefined))
   mockResolveInjection.mockReturnValue(INJECTION)
   mockMaterialize.mockResolvedValue(MATERIALIZED)
   mockResolvePlan.mockResolvedValue(makePlan())
@@ -160,7 +161,6 @@ describe('pi chat seam gate', () => {
   })
 
   it('serves an error turn on an unsupported provider family', async () => {
-    mockPreferenceGet.mockReturnValue(true)
     mockResolveInjection.mockImplementation(() => {
       throw new PiUnsupportedProviderError('vertexai')
     })
@@ -172,7 +172,6 @@ describe('pi chat seam gate', () => {
   })
 
   it('fails the turn with the localized missing-key error payload on a missing API key', async () => {
-    mockPreferenceGet.mockReturnValue(true)
     mockResolveInjection.mockImplementation(() => {
       throw new PiMissingApiKeyError('test-provider')
     })
@@ -187,7 +186,6 @@ describe('pi chat seam gate', () => {
   })
 
   it('serves an error turn for approval-resume dispatches (assistant-terminated history)', async () => {
-    mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({
       trigger: 'continue-conversation',
       messages: [{ id: 'a1', role: 'assistant', parts: [{ type: 'text', text: 'partial' }] }]
@@ -199,7 +197,6 @@ describe('pi chat seam gate', () => {
   })
 
   it('serves an error turn when the served list does not end with a user message', async () => {
-    mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({
       messages: [
         { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'q' }] },
@@ -213,7 +210,6 @@ describe('pi chat seam gate', () => {
   })
 
   it('errors explicitly for gateway client-tool requests', async () => {
-    mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({ callOverrides: { tools: { external: {} } } })
     const stream = await tryStreamPiChatTurn(input)
     const reader = stream.getReader()
@@ -225,7 +221,6 @@ describe('pi chat seam gate', () => {
   })
 
   it('serves an API-key override on pi, threaded into the injection', async () => {
-    mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({ apiKeyOverride: 'sk-override' })
     const stream = await tryStreamPiChatTurn(input)
     expect(stream).toBeDefined()
@@ -236,14 +231,12 @@ describe('pi chat seam gate', () => {
     // Recorded boundary: everything before the engine call is pre-provider-request, and
     // swallowing there would mask engine bugs. Nothing pins this — a broadened catch
     // would silently convert engine bugs into swallowed turns.
-    mockPreferenceGet.mockReturnValue(true)
     mockResolvePlan.mockRejectedValue(new Error('plan boom'))
     await expect(tryStreamPiChatTurn(seamInput())).rejects.toThrow('plan boom')
     expect(mockStreamPiChatTurn).not.toHaveBeenCalled()
   })
 
   it('fails the turn (no fallback) when the provider injection throws a non-matrix error', async () => {
-    mockPreferenceGet.mockReturnValue(true)
     mockResolveInjection.mockImplementation(() => {
       throw new Error('injection boom')
     })
@@ -254,9 +247,7 @@ describe('pi chat seam gate', () => {
 describe('pi chat seam preparation', () => {
   const entry = { name: 'web_search' }
 
-  beforeEach(() => {
-    mockPreferenceGet.mockReturnValue(true)
-  })
+  beforeEach(() => {})
 
   it('slices the trailing user message into the prompt and history', async () => {
     await tryStreamPiChatTurn(seamInput())
@@ -360,7 +351,6 @@ describe('pi chat seam preparation', () => {
   })
 
   it('passes the request-level output cap into the materialized config and the stream options', async () => {
-    mockPreferenceGet.mockReturnValue(true)
     mockResolvePlan.mockResolvedValue(makePlan({ requestedMaxOutputTokens: 4321 }))
     await tryStreamPiChatTurn(seamInput())
     const config = mockStreamPiChatTurn.mock.calls[0][0].provider.config
@@ -371,7 +361,6 @@ describe('pi chat seam preparation', () => {
   })
 
   it('derives the sampling tail with legacy precedence: shared gates, custom params override, wire aliases', async () => {
-    mockPreferenceGet.mockReturnValue(true)
     mockResolvePlan.mockResolvedValue(
       makePlan({
         reasoningInvocation: { kind: 'omit', selection: 'default', emissions: [] },
@@ -395,14 +384,12 @@ describe('pi chat seam preparation', () => {
   })
 
   it('hands no stream options when nothing was resolved', async () => {
-    mockPreferenceGet.mockReturnValue(true)
     mockResolvePlan.mockResolvedValue(makePlan())
     await tryStreamPiChatTurn(seamInput())
     expect(mockMaterialize.mock.calls[0][1]).toBeUndefined()
   })
 
   it('fails the turn when the output-cap patch finds no matching model entry', async () => {
-    mockPreferenceGet.mockReturnValue(true)
     mockResolvePlan.mockResolvedValue(makePlan({ requestedMaxOutputTokens: 4321 }))
     mockMaterialize.mockResolvedValue({
       ...MATERIALIZED,
