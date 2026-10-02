@@ -1,5 +1,5 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent'
-import { readUIMessageStream } from 'ai'
+import { readUIMessageStream } from '@shared/ai/uiDialect'
 import { describe, expect, it } from 'vitest'
 
 import { webSearchOutputSchema } from '@shared/ai/builtinTools'

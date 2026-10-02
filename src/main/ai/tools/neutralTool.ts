@@ -80,7 +80,7 @@ export interface ToolExecuteOptions {
   readonly experimental_context?: unknown
 }
 
-/** The registry's neutral tool. See the module doc — the legacy engine wraps this, nothing else. */
+/** The registry's neutral tool. See the module doc for the field-for-field SDK mirror rationale. */
 export interface NeutralTool {
   /**
    * `function` (default) for schema-defined input; `dynamic` marks a runtime-shaped

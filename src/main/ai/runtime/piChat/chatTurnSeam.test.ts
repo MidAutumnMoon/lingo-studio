@@ -153,7 +153,7 @@ beforeEach(() => {
 })
 
 describe('pi chat seam gate', () => {
-  it('runs pi anyway while the flag is off (inert preference, no legacy engine)', async () => {
+  it('streams a standard dispatch through the engine', async () => {
     const stream = await tryStreamPiChatTurn(seamInput())
     expect(stream).toBeDefined()
     expect(mockResolveInjection).toHaveBeenCalled()
