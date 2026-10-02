@@ -268,7 +268,7 @@ export class TopicNamingService {
    *
    * Mirrors {@link maybeRenameFromConversationSummary} but targets the agents
    * DB (`session.name`) rather than `topics.name`. Uses the shared topic
-   * quick-assistant model preference for summarization, matching normal chat
+   * explicitly configured naming model for summarization, matching normal chat
    * topic naming behavior. The agent id is deliberately
    * NOT passed to the generation request — that would attach the agent's tool
    * configuration (MCP tools, web search, knowledge bases) to the title.

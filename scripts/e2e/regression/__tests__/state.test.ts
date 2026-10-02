@@ -51,7 +51,7 @@ describe('Playwright run state', () => {
     )
 
     expect(run.cases['S-01'].status).toBe('blocked')
-    expect(run.cases['M-01'].status).toBe('blocked')
+    expect(run.cases['K-01'].status).toBe('blocked')
     expect(getRunVerdict(run)).toBe('development_blocked')
   })
 
@@ -67,7 +67,7 @@ describe('Playwright run state', () => {
     })
 
     expect(run.cases['S-01'].status).toBe('pending')
-    expect(run.cases['M-01']).toMatchObject({
+    expect(run.cases['K-01']).toMatchObject({
       status: 'not_applicable',
       summary: 'Not selected by task startup-smoke'
     })

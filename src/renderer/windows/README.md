@@ -26,7 +26,7 @@ Window-level side effects (subscriptions, DOM sync that must live for the window
 
 - **Full-chrome windows (main + subWindow)** call `useWindowRuntime()` — the shared window runtime (locale, dayjs, custom CSS, root background, app-path snapshot, fullscreen, topic/agent auto-rename). Its membership rule is strict: a concern belongs there **only** if both windows need it identically. It takes no config and holds no main-only behavior, so it can't hide a per-window difference — the line between it and the retired `useAppInit` grab-bag.
 - **Main-only** concerns stay in `MainWindowRuntime`, explicitly outside `useWindowRuntime`: the boot spinner + `init` timer teardown (paired with markup only `main/index.html` creates), `useStorageMonitorNotification`, `useTopicNamingErrorNotification` (main-window-targeted toasts that must not duplicate across windows).
-- **Light windows** (`quickAssistant` / `screenshot`) don't use `useWindowRuntime` (they render no localized dates, no chrome). They mount `useLanguageSync` + the same verbatim custom CSS used by the full windows. `useLanguageSync` / `useCustomCss` stay their own hooks precisely because the light windows reuse them. `screenshot` is the one exception to the custom CSS half: it is a pixel-aligned full-screen canvas, so a user rule that shifts layout would misalign the selection against the region actually captured.
+- **Light windows** (`screenshot`) don't use `useWindowRuntime` (they render no localized dates, no chrome). They mount `useLanguageSync` + the same verbatim custom CSS used by the full windows. `useLanguageSync` / `useCustomCss` stay their own hooks precisely because the light windows reuse them. `screenshot` is the one exception to the custom CSS half: it is a pixel-aligned full-screen canvas, so a user rule that shifts layout would misalign the selection against the region actually captured.
 
 Do **not** fold main-only behavior into `useWindowRuntime` (a per-window difference would need a config flag — the smell), and do not push non-first-frame work into `prepareWindow`.
 
@@ -46,7 +46,6 @@ Each window declares its logger source **declaratively** in its `index.html`, no
 |---|---|---|
 | `main` | `MainApp` | `components/layout/AppShell` (shared) |
 | `subWindow` | `SubWindowApp` | `SubWindowAppShell` |
-| `quickAssistant` | `QuickAssistantApp` | `HomeWindow` |
 | `migrationV2` | `MigrationApp` | in-component (`components/`) |
 | `userDataRelocation` | `RelocationApp` | in-component progress/recovery UI |
 | `screenshot` | `ScreenshotApp` | `CaptureOverlay` (one pooled window per display) |

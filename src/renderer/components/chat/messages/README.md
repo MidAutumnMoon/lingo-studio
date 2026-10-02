@@ -1,6 +1,6 @@
 # Message Components Design Rules
 
-This directory contains the shared message display component family for Home, Agents, History, Quick Assistant, and other chat-like surfaces.
+This directory contains the shared message display component family for Home, Agents, History, and other chat-like surfaces.
 
 The goal is one reusable message UI implementation with page-specific data and capabilities injected through adapters and providers.
 

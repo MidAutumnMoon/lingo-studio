@@ -104,7 +104,7 @@ export class RegressionApp {
     const transientPages = browser
       .contexts()
       .flatMap((context) => context.pages())
-      .filter((page) => /\/windows\/(quickassistant|selection)\//i.test(page.url()))
+      .filter((page) => /\/windows\/(selection)\//i.test(page.url()))
     await Promise.all(transientPages.map((page) => page.keyboard.press('Escape').catch(() => undefined)))
   }
 

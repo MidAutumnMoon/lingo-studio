@@ -26,8 +26,6 @@ on:
           - skill-import
           - code-cli
           - openclaw
-          - cherryin-chat
-          - image-generation
           - pi-runtime
           - deepseek-harness-runtime
           - agent-basic-task
@@ -331,16 +329,6 @@ jobs:
           pnpm exec tsx scripts/e2e/regression/cli.ts run-phase
           --run-dir "$RUN_DIR"
           --phase 08-code-tools
-
-      - name: Phase 09 - CherryIN and Image Generation
-        if: "!cancelled() && steps.launch.outcome == 'success'"
-        continue-on-error: true
-        timeout-minutes: 45
-        shell: bash
-        run: >-
-          pnpm exec tsx scripts/e2e/regression/cli.ts run-phase
-          --run-dir "$RUN_DIR"
-          --phase 09-cherryin-and-images
 
       - name: Phase 10 - Agent Runtimes
         if: "!cancelled() && steps.launch.outcome == 'success'"

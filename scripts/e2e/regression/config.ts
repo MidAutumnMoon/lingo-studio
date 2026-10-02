@@ -5,11 +5,7 @@ export const REQUIRED_CONFIG = [
   'CHERRY_TEST_CUSTOM_PROVIDER_CHAT_MODEL',
   'CHERRY_TEST_CUSTOM_PROVIDER_EMBEDDING_BASE_URL',
   'CHERRY_TEST_CUSTOM_PROVIDER_EMBEDDING_API_KEY',
-  'CHERRY_TEST_CUSTOM_PROVIDER_EMBEDDING_MODEL',
-  'CHERRY_TEST_CHERRYIN_CHAT_MODEL',
-  'CHERRY_TEST_CHERRYIN_IMAGE_MODEL',
-  'CHERRY_TEST_CHERRYIN_ACCOUNT',
-  'CHERRY_TEST_CHERRYIN_PASSWORD'
+  'CHERRY_TEST_CUSTOM_PROVIDER_EMBEDDING_MODEL'
 ] as const
 
 export type RequiredConfigName = (typeof REQUIRED_CONFIG)[number]
@@ -25,12 +21,6 @@ export interface RegressionTestConfig {
     baseUrl: string
     apiKey: string
     model: string
-  }
-  cherryIn: {
-    chatModel: string
-    imageModel: string
-    account: string
-    password: string
   }
 }
 
@@ -64,21 +54,10 @@ export function loadTestConfig(environment: Environment = process.env): Regressi
       baseUrl: absoluteUrl('CHERRY_TEST_CUSTOM_PROVIDER_EMBEDDING_BASE_URL'),
       apiKey: value('CHERRY_TEST_CUSTOM_PROVIDER_EMBEDDING_API_KEY'),
       model: value('CHERRY_TEST_CUSTOM_PROVIDER_EMBEDDING_MODEL')
-    },
-    cherryIn: {
-      chatModel: value('CHERRY_TEST_CHERRYIN_CHAT_MODEL'),
-      imageModel: value('CHERRY_TEST_CHERRYIN_IMAGE_MODEL'),
-      account: value('CHERRY_TEST_CHERRYIN_ACCOUNT'),
-      password: value('CHERRY_TEST_CHERRYIN_PASSWORD')
     }
   }
 }
 
 export function getSensitiveConfigValues(config: RegressionTestConfig): string[] {
-  return [
-    config.customProvider.apiKey,
-    config.customEmbeddingProvider.apiKey,
-    config.cherryIn.account,
-    config.cherryIn.password
-  ]
+  return [config.customProvider.apiKey, config.customEmbeddingProvider.apiKey]
 }

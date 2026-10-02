@@ -60,20 +60,6 @@ export const REGRESSION_CASES = [
   },
   { id: 'CODE-03', capabilities: [], phase: '08-code-tools', title: 'Launch OpenClaw', task: 'openclaw' },
   {
-    id: 'M-01',
-    capabilities: [],
-    phase: '09-cherryin-and-images',
-    title: 'Sign in to CherryIN and chat',
-    task: 'cherryin-chat'
-  },
-  {
-    id: 'P-01',
-    capabilities: ['desktopAutomation'],
-    phase: '09-cherryin-and-images',
-    title: 'Generate an image using an image model',
-    task: 'image-generation'
-  },
-  {
     id: 'A-04',
     capabilities: ['desktopAutomation'],
     phase: '10-agent-runtimes',

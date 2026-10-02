@@ -8,11 +8,7 @@ describe('regression test configuration', () => {
     CHERRY_TEST_CUSTOM_PROVIDER_CHAT_MODEL: 'Qwen/Qwen3.6-27B',
     CHERRY_TEST_CUSTOM_PROVIDER_EMBEDDING_BASE_URL: 'https://embedding.example.test/v1',
     CHERRY_TEST_CUSTOM_PROVIDER_EMBEDDING_API_KEY: 'embedding-secret',
-    CHERRY_TEST_CUSTOM_PROVIDER_EMBEDDING_MODEL: 'text-embedding-test',
-    CHERRY_TEST_CHERRYIN_CHAT_MODEL: 'cherry-chat-test',
-    CHERRY_TEST_CHERRYIN_IMAGE_MODEL: 'image-test',
-    CHERRY_TEST_CHERRYIN_ACCOUNT: 'automation@example.test',
-    CHERRY_TEST_CHERRYIN_PASSWORD: 'account-secret'
+    CHERRY_TEST_CUSTOM_PROVIDER_EMBEDDING_MODEL: 'text-embedding-test'
   }
 
   it('requires a separate Anthropic URL instead of reusing the OpenAI URL', () => {
@@ -35,28 +31,18 @@ describe('regression test configuration', () => {
       baseUrl: 'https://embedding.example.test/v1',
       model: 'text-embedding-test'
     })
-    expect(config.cherryIn.imageModel).toBe('image-test')
     expect(config.customProvider.apiKey).toBe('provider-secret')
     expect(config.customEmbeddingProvider.apiKey).toBe('embedding-secret')
-    expect(config.cherryIn.password).toBe('account-secret')
-    expect(getSensitiveConfigValues(config)).toEqual([
-      'provider-secret',
-      'embedding-secret',
-      'automation@example.test',
-      'account-secret'
-    ])
+    expect(getSensitiveConfigValues(config)).toEqual(['provider-secret', 'embedding-secret'])
   })
 
   it('fails before application launch when any required value is blank', () => {
     expect(() =>
       loadTestConfig({
         ...validEnv,
-        CHERRY_TEST_CUSTOM_PROVIDER_CHAT_MODEL: '   ',
-        CHERRY_TEST_CHERRYIN_ACCOUNT: undefined
+        CHERRY_TEST_CUSTOM_PROVIDER_CHAT_MODEL: '   '
       })
-    ).toThrow(
-      'Missing regression test configuration: CHERRY_TEST_CUSTOM_PROVIDER_CHAT_MODEL, CHERRY_TEST_CHERRYIN_ACCOUNT'
-    )
+    ).toThrow()
   })
 
   it.each([

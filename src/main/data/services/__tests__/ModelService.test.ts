@@ -2449,7 +2449,7 @@ describe('ModelService.reconcileForProvider', () => {
     warnSpy.mockRestore()
   })
 
-  it('does not remove models set as user defaults (chat / quick-assistant / translate)', async () => {
+  it('does not remove models set as user defaults (chat / translate / naming / diagnosis)', async () => {
     const modelId = 'openai::gpt-4o'
     await dbh.db.insert(userProviderTable).values(providerRow('openai', 'OpenAI'))
     await dbh.db.insert(userModelTable).values(modelRow('openai', 'gpt-4o', { id: modelId, name: 'gpt-4o' }))
