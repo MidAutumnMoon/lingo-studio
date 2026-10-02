@@ -574,13 +574,16 @@ describe('streamPiChatTurn', () => {
     expect(toolEnds[0].durationMs).toBeGreaterThanOrEqual(0)
   })
 
-  it('extracts inline <think> markup into reasoning parts on the openai-completions family', async () => {
+  /** openai-completions-shaped provider whose captured contexts record every request. */
+  async function openaiCompletionsFaux(
+    executionId: string
+  ): Promise<{ faux: Faux; provider: PiChatProviderSource; state: FauxState }> {
     const faux = await importFaux()
-    await fauxProviderSource(faux, 'exec-think')
-    const state = fauxStates.get('exec-think')!
-    // The extraction gate keys on the registered model's api family (faux defaults to
-    // 'faux'): register an openai-completions-shaped entry while the core keeps its own
-    // model for response synthesis.
+    await fauxProviderSource(faux, executionId)
+    const state = fauxStates.get(executionId)!
+    // The gates key on the registered model's api family (faux defaults to 'faux'):
+    // register an openai-completions-shaped entry while the core keeps its own model
+    // for response synthesis.
     const fauxModel = state.core.models[0]
     const provider: PiChatProviderSource = {
       name: 'faux-chat',
@@ -596,6 +599,11 @@ describe('streamPiChatTurn', () => {
         }
       }
     }
+    return { faux, provider, state }
+  }
+
+  it('extracts inline <think> markup into reasoning parts on the openai-completions family', async () => {
+    const { faux, provider, state } = await openaiCompletionsFaux('exec-think')
     state.core.setResponses([faux.fauxAssistantMessage([faux.fauxText('<think>hidden plan</think>visible answer')])])
 
     const chunks = await drain(
@@ -616,6 +624,92 @@ describe('streamPiChatTurn', () => {
     const text = message.parts.find((part) => part.type === 'text')
     expect((reasoning as { text?: string } | undefined)?.text).toBe('hidden plan')
     expect((text as { text?: string } | undefined)?.text).toBe('visible answer')
+  })
+
+  it('rewrites the settled message so a tool-loop continuation re-sends no raw tags', async () => {
+    // W5 register row's delta: the chunk-level twin cleans the UI dialect, but pi's
+    // settled AssistantMessage kept the raw tags — the continuation handed them back to
+    // the model as visible assistant text. The settled rewrite moves them into a native
+    // thinking block marked for the `reasoning_content` replay field (how legacy's
+    // rewritten settled message re-sent extracted reasoning); the UI dialect is untouched.
+    const { faux, provider, state } = await openaiCompletionsFaux('exec-think-settled')
+    state.core.setResponses([
+      faux.fauxAssistantMessage([
+        faux.fauxText('<think>plan the call</think>Let me check.'),
+        faux.fauxToolCall('echo', { q: 'x' })
+      ]),
+      faux.fauxAssistantMessage('All done')
+    ])
+    const execute = vi.fn(async () => ({ content: [{ type: 'text' as const, text: 'ok' }], details: { ok: 1 } }))
+
+    const chunks = await drain(
+      await streamPiChatTurn(
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: 'exec-think-settled',
+          provider,
+          history: [],
+          prompt: userTurn('hi'),
+          tools: [echoTool(execute)]
+        },
+        new AbortController().signal
+      )
+    )
+
+    // (a) UI dialect unchanged: reasoning still extracted, text tag-free.
+    const message = await accumulate(chunks)
+    const reasoning = message.parts.find((part) => part.type === 'reasoning')
+    expect((reasoning as { text?: string } | undefined)?.text).toBe('plan the call')
+    const textParts = message.parts
+      .filter((part) => part.type === 'text')
+      .map((part) => (part as { text?: string }).text)
+    expect(textParts).toEqual(['Let me check.', 'All done'])
+
+    // (b) The continuation context re-sent the settled message without raw tags, with
+    // the reasoning riding a thinking block and the tool call preserved.
+    expect(state.capturedContexts).toHaveLength(2)
+    const settled = state.capturedContexts[1].messages.find((m) => m.role === 'assistant')
+    const content = settled?.content ?? []
+    expect(JSON.stringify(content)).not.toContain('<think')
+    expect(content).toContainEqual({ type: 'thinking', thinking: 'plan the call', thinkingSignature: 'reasoning_content' })
+    expect(content).toContainEqual({ type: 'text', text: 'Let me check.' })
+    expect(content.some((block) => block.type === 'toolCall')).toBe(true)
+  })
+
+  it('settles an unclosed tag as a thinking block whose tail is all reasoning', async () => {
+    // R1-style templates emit no closing tag: the chunk twin streams everything after
+    // the opening tag as reasoning, so the settled rewrite must match — the whole tail
+    // becomes one thinking block and no empty text block is left behind.
+    const { faux, provider, state } = await openaiCompletionsFaux('exec-think-unclosed')
+    state.core.setResponses([
+      faux.fauxAssistantMessage([faux.fauxText('<think>reasoning without a close'), faux.fauxToolCall('echo', { q: 'y' })]),
+      faux.fauxAssistantMessage('done')
+    ])
+    const execute = vi.fn(async () => ({ content: [{ type: 'text' as const, text: 'ok' }], details: { ok: 1 } }))
+
+    await drain(
+      await streamPiChatTurn(
+        {
+          toolCallLimit: TEST_TOOL_CALL_LIMIT,
+          executionId: 'exec-think-unclosed',
+          provider,
+          history: [],
+          prompt: userTurn('hi'),
+          tools: [echoTool(execute)]
+        },
+        new AbortController().signal
+      )
+    )
+
+    const settled = state.capturedContexts[1].messages.find((m) => m.role === 'assistant')
+    const content = settled?.content ?? []
+    expect(JSON.stringify(content)).not.toContain('<think')
+    expect(content).toContainEqual({
+      type: 'thinking',
+      thinking: 'reasoning without a close',
+      thinkingSignature: 'reasoning_content'
+    })
+    expect(content.some((block) => block.type === 'text')).toBe(false)
   })
 
   it('keeps literal tags as content on the faux family (gate check)', async () => {

@@ -256,6 +256,124 @@ function createChatPromptExtension(systemPrompt: string): ExtensionFactory {
   }
 }
 
+/**
+ * Settled-message twin of the chunk-level think extraction (W5 register row's delta):
+ * pi records the assistant message with the raw tags still in its text blocks, so the
+ * within-turn tool loop would re-send them as visible assistant markup. Returning a
+ * replacement from `message_end` rewrites the message in place — pi keeps agent state,
+ * later events, and the session-manager persistence on the rewritten object, so the
+ * continuation's request projection carries tag-free text plus native thinking blocks.
+ */
+function createThinkSettledRewriteExtension(tagName: string): ExtensionFactory {
+  const openingTag = `<${tagName}>`
+  const closingTag = `</${tagName}>`
+  return (pi) => {
+    pi.on('message_end', (event) => {
+      if (event.message.role !== 'assistant') return undefined
+      const content = rewriteSettledThinkTags(event.message.content, openingTag, closingTag)
+      return content === undefined ? undefined : { message: { ...event.message, content } }
+    })
+  }
+}
+
+interface SettledThinkSegment {
+  reasoning: boolean
+  text: string
+}
+
+/** Longest trailing suffix of `text` that is a proper prefix of `tag` (0 when none). */
+function trailingTagPrefixLength(text: string, tag: string): number {
+  const max = Math.min(tag.length - 1, text.length)
+  for (let len = max; len > 0; len -= 1) {
+    if (tag.startsWith(text.slice(text.length - len))) return len
+  }
+  return 0
+}
+
+/**
+ * Split one settled text block at tag pairs, mirroring the chunk-level twin: toggles on
+ * every complete pair, an unclosed opening tag leaves the tail as reasoning, and a
+ * trailing partial of the next expected tag is dropped (the twin never publishes it).
+ * Text segments embed the twin's `"\n"` separator for their second+ occurrence; reasoning
+ * separation is left to pi's `"\n"` join of thinking blocks on the wire.
+ */
+function splitSettledThinkText(
+  text: string,
+  openingTag: string,
+  closingTag: string
+): { segments: SettledThinkSegment[]; sawTag: boolean } {
+  const segments: SettledThinkSegment[] = []
+  let reasoning = false
+  let sawTag = false
+  let publishedText = false
+  let rest = text
+
+  const emitText = (value: string): void => {
+    if (value === '') return
+    segments.push({ reasoning: false, text: publishedText ? `\n${value}` : value })
+    publishedText = true
+  }
+
+  for (;;) {
+    const tag = reasoning ? closingTag : openingTag
+    const index = rest.indexOf(tag)
+    if (index === -1) {
+      const held = trailingTagPrefixLength(rest, tag)
+      const body = rest.slice(0, rest.length - held)
+      if (reasoning && body !== '') segments.push({ reasoning: true, text: body })
+      else emitText(body)
+      break
+    }
+    sawTag = true
+    // An empty closed pair still yields a thinking block — the twin emits its (empty)
+    // reasoning part the same way.
+    if (reasoning) segments.push({ reasoning: true, text: rest.slice(0, index) })
+    else emitText(rest.slice(0, index))
+    rest = rest.slice(index + tag.length)
+    reasoning = !reasoning
+  }
+  return { segments, sawTag }
+}
+
+/**
+ * Rewrite a settled assistant message's text blocks into thinking/text block pairs.
+ * Returns undefined when no text block carries the tag — pi records the message as-is.
+ */
+function rewriteSettledThinkTags(
+  content: AssistantMessage['content'],
+  openingTag: string,
+  closingTag: string
+): AssistantMessage['content'] | undefined {
+  let sawTag = false
+  const next: AssistantMessage['content'] = []
+  for (const block of content) {
+    if (block.type !== 'text') {
+      next.push(block)
+      continue
+    }
+    const split = splitSettledThinkText(block.text, openingTag, closingTag)
+    if (!split.sawTag) {
+      next.push(block)
+      continue
+    }
+    sawTag = true
+    let firstTextSegment = true
+    for (const segment of split.segments) {
+      next.push(
+        segment.reasoning
+          ? // The signature names the wire field pi replays structured reasoning into
+            // (`reasoning_content`) — how legacy re-sent extracted reasoning after a tool call.
+            { type: 'thinking', thinking: segment.text, thinkingSignature: 'reasoning_content' }
+          : firstTextSegment
+            ? { ...block, text: segment.text }
+            : { type: 'text', text: segment.text }
+      )
+      if (!segment.reasoning) firstTextSegment = false
+    }
+  }
+  return sawTag ? next : undefined
+}
+
 type TurnVerdict = { finishReason: FinishReason } | { failure: Error }
 
 /**
@@ -449,13 +567,12 @@ export async function streamPiChatTurn(
   }
 
   // W5: openai-completions servers that emit reasoning as inline tags get it extracted
-  // into reasoning chunks (legacy's extractReasoningMiddleware, chunk-level twin). Every
-  // other family passes chunks through untouched — native-reasoning endpoints must keep
-  // literal tags as content, exactly like legacy's endpoint gate.
-  const emitChunk =
-    model.api === 'openai-completions'
-      ? createThinkExtractionSink(enqueueChunk, getReasoningTagName(model.id.toLowerCase()))
-      : enqueueChunk
+  // into reasoning chunks (legacy's extractReasoningMiddleware, chunk-level twin), and the
+  // settled message rewritten to match (`createThinkSettledRewriteExtension`). Every other
+  // family passes chunks through untouched — native-reasoning endpoints must keep literal
+  // tags as content, exactly like legacy's endpoint gate.
+  const inlineThinkTag = model.api === 'openai-completions' ? getReasoningTagName(model.id.toLowerCase()) : undefined
+  const emitChunk = inlineThinkTag ? createThinkExtractionSink(enqueueChunk, inlineThinkTag) : enqueueChunk
 
   // A denied call arrives from pi as an error result (the block reason); the trunk's
   // denial state is what the renderer card and the history converter expect.
@@ -499,6 +616,7 @@ export async function streamPiChatTurn(
     extensionFactories: [
       createPiProviderExtension(runtimeProviderName, capturedConfig),
       createChatPromptExtension(request.systemPrompt ?? ''),
+      ...(inlineThinkTag ? [createThinkSettledRewriteExtension(inlineThinkTag)] : []),
       ...(request.authorizer
         ? [
             createToolAuthorizationExtension(

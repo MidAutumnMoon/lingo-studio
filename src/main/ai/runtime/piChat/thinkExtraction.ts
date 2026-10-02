@@ -20,10 +20,10 @@
  *   id (`${textId}-reasoning-${n}`) — the SDK's bare `reasoning-${n}` restarts per text
  *   block, and pi messages genuinely carry multiple text blocks per message.
  *
- * Known delta (W5 review, recorded in the plan's register): this rewrites the UI dialect
- * only — pi's settled AssistantMessage keeps the raw tags, so a within-turn continuation
- * re-sends them as visible assistant text. Closing that needs a settled-message rewrite
- * (the DSML-row class of port); the chunk twin cannot.
+ * Known delta, closed (owner decision 2026-10-02): the settled AssistantMessage
+ * is rewritten by a sibling `message_end` extension in chatEngine.ts
+ * (createThinkSettledRewriteExtension) — within-turn continuation re-sends
+ * reasoning as structured thinking blocks, never raw tags.
  */
 import type { CherryUIMessageChunk } from '@shared/data/types/message'
 
