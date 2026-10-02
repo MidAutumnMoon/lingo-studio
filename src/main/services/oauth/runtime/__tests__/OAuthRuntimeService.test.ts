@@ -65,9 +65,9 @@ vi.mock('../providerDefinitions', () => ({
       createClient: (context?: { signal?: AbortSignal }) => h.createClientMock(context),
       extractAccountId: () => null
     },
-    cherryin: {
-      providerId: 'cherryin',
-      clientId: 'cherryin-client',
+    'keys-provider': {
+      providerId: 'keys-provider',
+      clientId: 'keys-provider-client',
       transport: { hosts: ['127.0.0.1'], port: 0, path: '/cb', redirectUri: 'http://127.0.0.1/cb' },
       createClient: () => h.clientMock,
       afterPersistTokens: (tokenData: unknown, context: unknown) => h.afterPersistMock(tokenData, context)
@@ -131,13 +131,11 @@ describe('OAuthRuntimeService', () => {
   it('returns provisioned API keys after loopback login without exposing OAuth tokens', async () => {
     h.clientMock.exchangeCode.mockResolvedValue({ access_token: 'private-token', refresh_token: 'private-refresh' })
     h.afterPersistMock.mockImplementation(async (_tokens, context) => {
-      expect(context.apiHost).toBe('https://open.cherryin.dev')
-      expect(h.providerStore.get('cherryin')?.authConfig).toMatchObject({ accessToken: 'private-token' })
+      expect(context.forceRefresh).toBe(true)
+      expect(h.providerStore.get('keys-provider')?.authConfig).toMatchObject({ accessToken: 'private-token' })
       return { apiKeys: 'provisioned-key' }
     })
-    await expect(
-      service.signIn('win-1', 'cherryin', 'http-login', { apiHost: 'https://open.cherryin.dev' })
-    ).resolves.toEqual({
+    await expect(service.signIn('win-1', 'keys-provider', 'http-login', { forceRefresh: true })).resolves.toEqual({
       accountId: null,
       apiKeys: 'provisioned-key'
     })
@@ -184,11 +182,11 @@ describe('OAuthRuntimeService', () => {
 
   // B1: the same terminal clear for a provider with a manual key must keep it enabled.
   it('clears but does NOT disable a provider that can hold a manual API key', async () => {
-    seedOAuth('cherryin', { accessToken: 'old', refreshToken: 'r', expiresAt: PAST() })
+    seedOAuth('keys-provider', { accessToken: 'old', refreshToken: 'r', expiresAt: PAST() })
     h.refreshMock.mockRejectedValue(new OAuthHttpError('bad', 400, '{}'))
 
-    expect(await service.getValidAccessToken('cherryin')).toBeNull()
-    const stored = h.providerStore.get('cherryin')
+    expect(await service.getValidAccessToken('keys-provider')).toBeNull()
+    const stored = h.providerStore.get('keys-provider')
     expect(stored?.authConfig).toEqual({ type: 'api-key' })
     expect(stored?.isEnabled).toBeUndefined()
   })
@@ -345,11 +343,11 @@ describe('OAuthRuntimeService', () => {
     expect(doFetch).toHaveBeenCalledTimes(1)
   })
 
-  // CherryIN path: still 401 after the forced-refresh retry → onUnauthorized fires
+  // Persistent 401 after the forced-refresh retry → onUnauthorized fires
   // once with the final response, and the 401 is returned (not thrown) for the
   // caller to surface. `context` is accepted and threaded into token refresh.
   it('authenticatedFetch reports a persistent 401 to onUnauthorized and returns it', async () => {
-    seedOAuth('cherryin', { accessToken: 'tok', refreshToken: 'r', expiresAt: FUTURE(), accountId: null })
+    seedOAuth('keys-provider', { accessToken: 'tok', refreshToken: 'r', expiresAt: FUTURE(), accountId: null })
     h.refreshMock.mockResolvedValue({ access_token: 'tok2', refresh_token: 'r2', expires_in: 3600 })
 
     const doFetch = vi
@@ -359,11 +357,10 @@ describe('OAuthRuntimeService', () => {
     const onUnauthorized = vi.fn()
 
     const res = await service.authenticatedFetch(
-      'cherryin',
+      'keys-provider',
       () => ({ input: 'http://example/api', init: {} }),
       doFetch,
       {
-        context: { apiHost: 'https://open.cherryin.ai' },
         onUnauthorized
       }
     )
@@ -374,15 +371,15 @@ describe('OAuthRuntimeService', () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1)
   })
 
-  // B1 via logout: codex disables, cherryin stays enabled.
+  // B1 via logout: codex disables, a manual-key provider stays enabled.
   it('logout disables an OAuth-only provider but not one with a manual key', async () => {
     seedOAuth('codex', { accessToken: 'tok' })
     await service.logout('codex')
     expect(h.providerStore.get('codex')?.isEnabled).toBe(false)
 
-    seedOAuth('cherryin', { accessToken: 'tok' })
-    await service.logout('cherryin')
-    expect(h.providerStore.get('cherryin')?.isEnabled).toBeUndefined()
+    seedOAuth('keys-provider', { accessToken: 'tok' })
+    await service.logout('keys-provider')
+    expect(h.providerStore.get('keys-provider')?.isEnabled).toBeUndefined()
   })
 
   // The loopback happy path: exchange the code, persist tokens, enable the

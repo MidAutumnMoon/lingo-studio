@@ -7,7 +7,6 @@
  * and pre-composed ID passthrough.
  */
 
-import { CHERRYAI_DEFAULT_UNIQUE_MODEL_ID, CHERRYAI_PROVIDER_ID } from '@shared/data/presets/cherryai'
 import {
   createUniqueModelId,
   isUniqueModelId,
@@ -93,26 +92,29 @@ export function legacyModelToUniqueId(
 }
 
 /**
+ * Managed v1 providers whose rows are never created in v2 (their funnel was
+ * removed; fresh installs start with no default model).
+ */
+const RETIRED_MANAGED_PROVIDER_IDS = new Set(['cherryai', 'cherryai-subscription'])
+
+/**
  * Opt-in chat/default-model migration rule.
  *
- * Legacy CherryAI model references are managed by the v2 seeded default model,
- * but this rule must not apply to every model reference type (for example,
+ * References to the retired managed providers cannot resolve to a v2 model row,
+ * so they migrate to null (no default model; onboarding asks the user) instead of
+ * dangling. This rule must not apply to every model reference type (for example,
  * embedding/rerank preferences keep their original domain semantics).
  */
 export function legacyChatModelToUniqueId(
   model: LegacyModelRef | null | undefined,
   fallback?: string | null
 ): UniqueModelId | null {
-  const providerId = typeof model?.provider === 'string' ? model.provider.trim() : ''
-  if (providerId === CHERRYAI_PROVIDER_ID) {
-    return CHERRYAI_DEFAULT_UNIQUE_MODEL_ID
-  }
-
   const modelId = legacyModelToUniqueId(model, fallback)
-  if (modelId?.startsWith(`${CHERRYAI_PROVIDER_ID}${UNIQUE_MODEL_ID_SEPARATOR}`)) {
-    return CHERRYAI_DEFAULT_UNIQUE_MODEL_ID
-  }
-  return modelId
+  if (modelId == null) return null
+
+  const separatorIndex = modelId.indexOf(UNIQUE_MODEL_ID_SEPARATOR)
+  const providerId = separatorIndex > 0 ? modelId.slice(0, separatorIndex) : modelId
+  return RETIRED_MANAGED_PROVIDER_IDS.has(providerId) ? null : modelId
 }
 
 export type ModelReferenceResolution =

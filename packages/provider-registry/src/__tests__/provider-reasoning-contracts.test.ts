@@ -121,29 +121,6 @@ describe('provider reasoning contracts', () => {
     ])
   })
 
-  it('binds CherryIN DeepSeek reasoning to a currently served API identity', () => {
-    const deepSeekOverrides = provider('cherryin').overrides?.filter(({ modelId }) => modelId?.startsWith('deepseek'))
-
-    expect(deepSeekOverrides?.map(({ apiModelId, modelId }) => ({ apiModelId, modelId }))).toEqual([
-      { apiModelId: 'deepseek/deepseek-v3.2', modelId: 'deepseek-v3-2' }
-    ])
-  })
-
-  it('uses CherryIN extra_body thinking controls for the served DeepSeek V3.2 model', () => {
-    const wire = provider('cherryin').overrides?.find(({ apiModelId }) => apiModelId === 'deepseek/deepseek-v3.2')
-      ?.reasoningContracts?.['openai-chat-completions']?.wire
-
-    expect(wire?.off?.operations).toEqual([
-      { target: 'extra_body.thinking.type', value: { source: 'literal', value: 'disabled' } }
-    ])
-    expect(wire?.auto?.operations).toEqual([
-      { target: 'extra_body.thinking.type', value: { source: 'literal', value: 'enabled' } }
-    ])
-    expect(wire?.effort?.operations).toEqual([
-      { target: 'extra_body.thinking.type', value: { source: 'literal', value: 'enabled' } }
-    ])
-  })
-
   // Bedrock keeps a hand-pinned contract: its budget wire is in bedrock's own
   // `reasoningConfig.*` namespace, so it isn't the shared anthropic dialect.
   // The first-party anthropic pin is gone — Opus 4.5 now reaches the same wire
@@ -216,15 +193,12 @@ describe('provider reasoning contracts', () => {
   // No provider hand-pins a Gemini dialect any more — it comes from the model's
   // declared `wireDialect`, so a new google-generate-content gateway cannot get
   // it wrong by omission. Coverage lives in reasoning-dialect.test.ts.
-  it.each(['gemini', 'cherryin', 'new-api', 'vertexai'])(
-    'declares no per-model Gemini dialect contract for %s',
-    (providerId) => {
-      const pinned = provider(providerId).overrides?.filter(
-        (entry) => entry.reasoningContracts?.['google-generate-content']
-      )
-      expect(pinned ?? []).toEqual([])
-    }
-  )
+  it.each(['gemini', 'new-api', 'vertexai'])('declares no per-model Gemini dialect contract for %s', (providerId) => {
+    const pinned = provider(providerId).overrides?.filter(
+      (entry) => entry.reasoningContracts?.['google-generate-content']
+    )
+    expect(pinned ?? []).toEqual([])
+  })
 
   // Poe serves Responses natively; Chat Completions remains fail-closed and
   // retains only audited per-model wire contracts.

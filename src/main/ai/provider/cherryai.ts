@@ -1,8 +1,9 @@
 /**
- * CherryAI API request signature module.
+ * CherryAI request signature module.
  *
- * De-obfuscated from index.js per @kangfenmao's request.
- * TODO: This file should be re-obfuscated before release.
+ * Retained for diagnostics upload only (POST /diagnostics, see
+ * CherryDiagnosticUploadClient.ts); the keyless chat-completions signing path
+ * was removed with the cherryai provider.
  */
 import { createHash, createHmac, randomUUID } from 'node:crypto'
 
@@ -22,19 +23,6 @@ function requireClientSecret(clientSecret: string): string {
     throw new Error('CherryAI client secret is not configured')
   }
   return clientSecret
-}
-
-export interface SignatureOptions {
-  method: string
-  path: string
-  query?: string
-  body?: string | Record<string, unknown>
-}
-
-export interface SignatureHeaders {
-  'X-Client-ID': string
-  'X-Timestamp': string
-  'X-Signature': string
 }
 
 export interface DiagnosticUploadSignatureOptions {
@@ -62,30 +50,7 @@ export class SignatureClient {
   constructor(clientId?: string, clientSecret?: string) {
     this.clientId = clientId || CLIENT_ID
     this.clientSecret = clientSecret === undefined ? getClientSecret() : requireClientSecret(clientSecret)
-    this.generateSignature = this.generateSignature.bind(this)
     this.generateDiagnosticUploadHeaders = this.generateDiagnosticUploadHeaders.bind(this)
-  }
-
-  generateSignature(options: SignatureOptions): SignatureHeaders {
-    const { method, path, query = '', body = '' } = options
-    const timestamp = Math.floor(Date.now() / 1000).toString()
-
-    let bodyString = ''
-    if (body) {
-      bodyString = typeof body === 'object' ? JSON.stringify(body) : body.toString()
-    }
-
-    const signatureString = [method.toUpperCase(), path, query, this.clientId, timestamp, bodyString].join('\n')
-
-    const hmac = createHmac('sha256', this.clientSecret)
-    hmac.update(signatureString)
-    const signature = hmac.digest('hex')
-
-    return {
-      'X-Client-ID': this.clientId,
-      'X-Timestamp': timestamp,
-      'X-Signature': signature
-    }
   }
 
   /**
@@ -136,13 +101,6 @@ export class SignatureClient {
 }
 
 let signatureClient: SignatureClient | null = null
-
-export function generateSignature(options: SignatureOptions): SignatureHeaders {
-  if (!signatureClient) {
-    signatureClient = new SignatureClient()
-  }
-  return signatureClient.generateSignature(options)
-}
 
 export function generateDiagnosticUploadHeaders(
   options: DiagnosticUploadSignatureOptions

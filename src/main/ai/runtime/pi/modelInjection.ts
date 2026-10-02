@@ -34,7 +34,6 @@ import {
 } from '@shared/data/types/model'
 import type { ApiKeyEntry, Provider } from '@shared/data/types/provider'
 import { formatApiHost, withoutTrailingApiVersion } from '@shared/utils/api'
-import { formatGatewayModelId } from '@shared/utils/apiGateway'
 import { getRawModelId, isQwenModel } from '@shared/utils/model'
 import {
   isLoginBasedProvider,
@@ -46,12 +45,10 @@ import { SystemProviderIds } from '@shared/utils/systemProviderId'
 
 import { resolveEffectiveEndpoint } from '../../provider/endpoint'
 import { getProviderTransportAdapter, type ProviderTransportAdapter } from '../../provider/runtimeTransport'
-import { requiresAgentGateway, resolveApiGatewayRuntime } from '../agentApiGateway'
 import { resolveAgentContextWindow } from '../agentContextWindow'
 import { toAgentProviderHeaders } from '../agentProviderHeaders'
 import type { AgentSessionUsageCapture } from '../types'
-import { loadPiAnthropicMessagesApi, loadPiApiStreamSimple, PI_API_SUPPORTS_CUSTOM_FETCH } from './piSdk'
-import { withCherryInThinkingReplay } from './piThinkingReplay'
+import { loadPiApiStreamSimple, PI_API_SUPPORTS_CUSTOM_FETCH } from './piSdk'
 import { loadPiAiStreamFns, withTransportStream } from './piTransportStream'
 
 /**
@@ -113,12 +110,7 @@ export interface PiDirectProviderInjection extends PiProviderInjectionBase {
   usageCapture: Extract<AgentSessionUsageCapture, { owner: 'agent-sdk' }>
 }
 
-/** Local gateway route whose provider calls are accounted for by gateway middleware. */
-export interface PiGatewayProviderInjection extends PiProviderInjectionBase {
-  usageCapture: Extract<AgentSessionUsageCapture, { owner: 'provider-calls' }>
-}
-
-export type PiProviderInjection = PiDirectProviderInjection | PiGatewayProviderInjection
+export type PiProviderInjection = PiDirectProviderInjection
 
 /**
  * Request-level stream options the host resolves per turn (assistant settings /
@@ -158,9 +150,7 @@ export async function materializePiProviderStream(
 }> {
   const providerConfig = injection.transportAdapter
     ? withTransportStream(injection.providerConfig, injection.transportAdapter, await loadPiAiStreamFns())
-    : injection.providerName === 'cherryin' && injection.api === 'anthropic-messages'
-      ? withCherryInThinkingReplay(injection.providerConfig, (await loadPiAnthropicMessagesApi()).streamSimple)
-      : injection.providerConfig
+    : injection.providerConfig
   const streamSimple = withStreamRequestOptions(
     withPiRequestEnvironment(
       providerConfig.streamSimple ?? (await loadPiApiStreamSimple(injection.api)),
@@ -332,54 +322,6 @@ function toPiHeaders(headers: Record<string, string> | undefined): Record<string
   )
 }
 
-/** Whether this provider declares that Pi must use Cherry's local Gateway route. */
-export function usesPiGateway(provider: Provider): boolean {
-  return requiresAgentGateway(provider.id)
-}
-
-/** Build a Pi route targeting Cherry's local Gateway while preserving the model's wire protocol. */
-export function buildPiGatewayInjection(
-  provider: Provider,
-  model: Model,
-  gateway: { baseUrl: string; apiKey: string; usageHeaders: Record<string, string> }
-): PiGatewayProviderInjection {
-  const resolvedEndpoint = resolvePiEndpoint(provider, model)
-  const adapterFamily = resolvedEndpoint.endpointType
-    ? provider.endpointConfigs?.[resolvedEndpoint.endpointType]?.adapterFamily
-    : undefined
-  const api = mapEndpointToPiApi(resolvedEndpoint.endpointType, adapterFamily)
-  if (!api) throw new PiUnsupportedProviderError(provider.id)
-
-  const modelId = formatGatewayModelId(provider.id, getRawModelId(model))
-  // Dialect input is the provider's own host: the local gateway URL says nothing about
-  // which upstream dialect the request will reach.
-  const modelConfig = buildPiModelConfig(
-    provider,
-    model,
-    modelId,
-    api,
-    resolvedEndpoint.endpointType,
-    resolvedEndpoint.baseUrl
-  )
-  const headers = Object.keys(gateway.usageHeaders).length ? gateway.usageHeaders : undefined
-
-  return {
-    providerName: provider.id,
-    api,
-    providerConfig: {
-      name: provider.name,
-      baseUrl: formatPiBaseUrl(gateway.baseUrl, api),
-      apiKey: PI_PLACEHOLDER_API_KEY,
-      api,
-      ...(headers ? { headers } : {}),
-      models: [modelConfig]
-    },
-    apiKey: gateway.apiKey,
-    modelId,
-    usageCapture: { owner: 'provider-calls' }
-  }
-}
-
 function formatPiBaseUrl(baseUrl: string, api: PiApi): string {
   switch (api) {
     case 'openai-completions':
@@ -435,27 +377,22 @@ export function resolvePiProviderInjectionFromSnapshot(
   return buildPiProviderInjection(provider, model, resolvedApiKey.value, resolvedApiKey.apiKeySelection)
 }
 
-/** Resolve a session-bound Pi route, including provider-declared local Gateway transport. */
+/** Resolve a session-bound Pi route. */
 export async function resolvePiProviderInjectionForSession(
   sessionId: string,
   provider: Provider,
   model: Model,
   enabledApiKeys?: readonly ApiKeyEntry[]
 ): Promise<PiProviderInjection> {
-  if (!usesPiGateway(provider)) {
-    const injection = resolvePiProviderInjectionFromSnapshot(provider, model, enabledApiKeys)
-    const headers = injection.providerConfig.headers
-    if (
-      matchesPreset(provider, SystemProviderIds.opencode) &&
-      !Object.keys(headers ?? {}).some((name) => name.toLowerCase() === 'x-opencode-session')
-    ) {
-      injection.providerConfig.headers = { ...headers, ...toPiHeaders({ 'x-opencode-session': sessionId }) }
-    }
-    return injection
+  const injection = resolvePiProviderInjectionFromSnapshot(provider, model, enabledApiKeys)
+  const headers = injection.providerConfig.headers
+  if (
+    matchesPreset(provider, SystemProviderIds.opencode) &&
+    !Object.keys(headers ?? {}).some((name) => name.toLowerCase() === 'x-opencode-session')
+  ) {
+    injection.providerConfig.headers = { ...headers, ...toPiHeaders({ 'x-opencode-session': sessionId }) }
   }
-
-  const gateway = await resolveApiGatewayRuntime(sessionId)
-  return buildPiGatewayInjection(provider, model, gateway)
+  return injection
 }
 
 /**
@@ -467,18 +404,6 @@ export async function assertPiProviderUsable(uniqueModelId: UniqueModelId): Prom
   const { providerId, modelId } = parseUniqueModelId(uniqueModelId)
   const provider = providerService.getByProviderId(providerId)
   const model = modelService.getByKey(providerId, modelId)
-
-  // Provider-declared Gateway routes authenticate at materialization time, not with a provider key.
-  if (usesPiGateway(provider)) {
-    const resolvedEndpoint = resolvePiEndpoint(provider, model)
-    const adapterFamily = resolvedEndpoint.endpointType
-      ? provider.endpointConfigs?.[resolvedEndpoint.endpointType]?.adapterFamily
-      : undefined
-    if (!mapEndpointToPiApi(resolvedEndpoint.endpointType, adapterFamily)) {
-      throw new PiUnsupportedProviderError(providerId)
-    }
-    return
-  }
 
   // Unsupported beats missing-credential (parity with buildPiProviderInjection):
   // a login-based provider with no adapter has no key by design, and reporting
@@ -599,17 +524,15 @@ function buildPiModelConfig(
     input.push('image')
   }
   const thinkingLevelMap = buildThinkingLevelMap(model)
-  // Compat overrides stack: endpoint dialect first, then provider dialects, then the
-  // CherryIN signature replay flag — all touch disjoint keys.
+  // Compat overrides stack: endpoint dialect first, then provider dialects —
+  // all touch disjoint keys.
   const compat = {
     ...(api === 'openai-completions' || api === 'openai-responses'
       ? // Cherry's provider capability is the source of truth; pi otherwise infers
         // developer-role support from the endpoint URL.
         { supportsDeveloperRole: resolveEndpointDialect(provider, endpointType).developerRole }
       : {}),
-    ...piDialectCompat(provider, model, api, baseUrl),
-    // CherryIN requires replaying its thinking block even when the compatible endpoint omits a signature delta.
-    ...(provider.id === 'cherryin' && api === 'anthropic-messages' ? { allowEmptySignature: true } : {})
+    ...piDialectCompat(provider, model, api, baseUrl)
   }
 
   return {

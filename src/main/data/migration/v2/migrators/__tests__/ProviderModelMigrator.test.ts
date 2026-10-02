@@ -18,12 +18,6 @@ import { userProviderTable } from '@data/db/schemas/userProvider'
 import { modelService } from '@data/services/ModelService'
 import { providerService } from '@data/services/ProviderService'
 import { generateOrderKeyBetween } from '@data/services/utils/orderKey'
-import {
-  CHERRY_CLOUD_PROVIDER_ID,
-  CHERRYAI_DEFAULT_UNIQUE_MODEL_ID,
-  CHERRYAI_PROVIDER_ID,
-  isManagedCherryProviderId
-} from '@shared/data/presets/cherryai'
 import { createUniqueModelId, MODEL_CAPABILITY } from '@shared/data/types/model'
 
 /** A valid 1×1 PNG so `sharp` can transcode it to WebP during migration. */
@@ -154,10 +148,10 @@ describe('ProviderModelMigrator', () => {
       expect(result.warnings?.some((w) => w.includes('duplicate'))).toBe(true)
     })
 
-    it('skips legacy CherryAI provider rows because CherryAI is seeded', async () => {
+    it('skips legacy CherryAI provider rows (retired, no v2 rows are created)', async () => {
       const migrationContext = createContext(dbh.db, {
         llm: {
-          providers: [makeProvider(CHERRYAI_PROVIDER_ID, [{ id: 'qwen' }]), makeProvider('openai', [{ id: 'gpt-4o' }])]
+          providers: [makeProvider('cherryai', [{ id: 'qwen' }]), makeProvider('openai', [{ id: 'gpt-4o' }])]
         }
       })
 
@@ -165,7 +159,7 @@ describe('ProviderModelMigrator', () => {
 
       expect(result.success).toBe(true)
       expect(result.itemCount).toBe(1)
-      expect(result.warnings?.some((w) => w.includes('managed CherryAI'))).toBe(true)
+      expect(result.warnings).toContain('Skipped 1 retired provider(s)')
     })
 
     it.each(['github', 'yi'])('skips retired %s providers and preset-derived copies', async (providerId) => {
@@ -236,14 +230,12 @@ describe('ProviderModelMigrator', () => {
 
       const providers = await dbh.db.select().from(userProviderTable)
       const models = await dbh.db.select().from(userModelTable)
-      const migratedProviders = providers.filter((provider) => !isManagedCherryProviderId(provider.providerId))
-      const migratedModels = models.filter((model) => !isManagedCherryProviderId(model.providerId))
-      expect(migratedProviders).toHaveLength(1)
-      expect(migratedModels).toHaveLength(2)
-      expect(migratedProviders[0].providerId).toBe('openai')
+      expect(providers).toHaveLength(1)
+      expect(models).toHaveLength(2)
+      expect(providers[0].providerId).toBe('openai')
     })
 
-    it('assigns migrated provider order keys after the seeded CherryAI provider', async () => {
+    it('assigns migrated provider order keys in sequence', async () => {
       const migrationContext = createContext(dbh.db, {
         llm: {
           providers: [makeProvider('openai'), makeProvider('anthropic')]
@@ -255,12 +247,7 @@ describe('ProviderModelMigrator', () => {
 
       expect(result.success).toBe(true)
       const providers = await dbh.db.select().from(userProviderTable).orderBy(asc(userProviderTable.orderKey))
-      expect(providers.map((provider) => provider.providerId)).toEqual([
-        CHERRYAI_PROVIDER_ID,
-        CHERRY_CLOUD_PROVIDER_ID,
-        'openai',
-        'anthropic'
-      ])
+      expect(providers.map((provider) => provider.providerId)).toEqual(['openai', 'anthropic'])
       expect(new Set(providers.map((provider) => provider.orderKey)).size).toBe(providers.length)
     })
 
@@ -277,7 +264,7 @@ describe('ProviderModelMigrator', () => {
       expect(result.success).toBe(true)
 
       const models = await dbh.db.select().from(userModelTable)
-      expect(models.filter((model) => !isManagedCherryProviderId(model.providerId))).toHaveLength(1)
+      expect(models).toHaveLength(1)
     })
 
     it('skips route-unsafe model ids without blocking the remaining provider migration', async () => {
@@ -367,20 +354,17 @@ describe('ProviderModelMigrator', () => {
       expect(pinRows[0].orderKey < pinRows[1].orderKey).toBe(true)
     })
 
-    it('keeps legacy CherryAI default model pins pointed at the seeded Qwen model', async () => {
+    it('drops legacy CherryAI model pins (their provider rows are never created)', async () => {
       const migrationContext = createContext(
         dbh.db,
         {
           llm: {
-            providers: [
-              makeProvider(CHERRYAI_PROVIDER_ID, [{ id: 'qwen' }]),
-              makeProvider('openai', [{ id: 'gpt-4o' }])
-            ]
+            providers: [makeProvider('openai', [{ id: 'gpt-4o' }])]
           }
         },
         {
           'pinned:models': [
-            { id: 'qwen', provider: CHERRYAI_PROVIDER_ID },
+            { id: 'qwen', provider: 'cherryai' },
             { id: 'gpt-4o', provider: 'openai' }
           ]
         }
@@ -391,29 +375,24 @@ describe('ProviderModelMigrator', () => {
 
       expect(result.success).toBe(true)
       const pinRows = await dbh.db.select().from(pinTable).where(eq(pinTable.entityType, 'model'))
-      expect(pinRows.map((row) => row.entityId)).toEqual([CHERRYAI_DEFAULT_UNIQUE_MODEL_ID, 'openai::gpt-4o'])
+      expect(pinRows.map((row) => row.entityId)).toEqual(['openai::gpt-4o'])
       const cherryAiProviderRows = await dbh.db
         .select()
         .from(userProviderTable)
-        .where(eq(userProviderTable.providerId, CHERRYAI_PROVIDER_ID))
-      expect(cherryAiProviderRows).toHaveLength(1)
-      const cherryAiModelRows = await dbh.db
-        .select()
-        .from(userModelTable)
-        .where(eq(userModelTable.id, CHERRYAI_DEFAULT_UNIQUE_MODEL_ID))
-      expect(cherryAiModelRows).toHaveLength(1)
+        .where(eq(userProviderTable.providerId, 'cherryai'))
+      expect(cherryAiProviderRows).toHaveLength(0)
     })
 
-    it('migrates legacy CherryAI pins even when all providers are managed', async () => {
+    it('migrates no rows when all legacy providers are managed', async () => {
       const migrationContext = createContext(
         dbh.db,
         {
           llm: {
-            providers: [makeProvider(CHERRYAI_PROVIDER_ID, [{ id: 'qwen' }])]
+            providers: [makeProvider('cherryai', [{ id: 'qwen' }])]
           }
         },
         {
-          'pinned:models': [{ id: 'qwen', provider: CHERRYAI_PROVIDER_ID }]
+          'pinned:models': [{ id: 'qwen', provider: 'cherryai' }]
         }
       )
       await migrator.prepare(migrationContext)
@@ -423,25 +402,20 @@ describe('ProviderModelMigrator', () => {
       expect(result.success).toBe(true)
       expect(result.processedCount).toBe(0)
       const pinRows = await dbh.db.select().from(pinTable).where(eq(pinTable.entityType, 'model'))
-      expect(pinRows.map((row) => row.entityId)).toEqual([CHERRYAI_DEFAULT_UNIQUE_MODEL_ID])
-      const cherryAiModelRows = await dbh.db
-        .select()
-        .from(userModelTable)
-        .where(eq(userModelTable.id, CHERRYAI_DEFAULT_UNIQUE_MODEL_ID))
-      expect(cherryAiModelRows).toHaveLength(1)
+      expect(pinRows).toHaveLength(0)
     })
 
-    it('keeps migrated assistants pointed at the managed CherryAI default model', async () => {
+    it('migrates assistants whose model points at the retired managed provider to no model', async () => {
       const migrationContext = createContext(dbh.db, {
         llm: {
-          providers: [makeProvider(CHERRYAI_PROVIDER_ID, [{ id: 'qwen' }])]
+          providers: [makeProvider('openai', [{ id: 'gpt-4o' }])]
         },
         assistants: {
           assistants: [
             {
               id: 'ast-cherryai',
               name: 'CherryAI Assistant',
-              model: { id: 'qwen', provider: CHERRYAI_PROVIDER_ID }
+              model: { id: 'qwen', provider: 'cherryai' }
             }
           ],
           presets: []
@@ -462,7 +436,7 @@ describe('ProviderModelMigrator', () => {
         .from(assistantTable)
         .where(eq(assistantTable.id, 'ast-cherryai'))
         .limit(1)
-      expect(assistant?.modelId).toBe(CHERRYAI_DEFAULT_UNIQUE_MODEL_ID)
+      expect(assistant?.modelId).toBeNull()
     })
 
     it('projects system provider rows against the pinned final-v1 baseline', async () => {
@@ -1103,14 +1077,6 @@ describe('ProviderModelMigrator', () => {
 
     it.each([
       {
-        providerId: 'cherryin',
-        providerName: 'CherryIN',
-        providerType: 'openai',
-        modelId: 'anthropic/claude-sonnet-5',
-        endpointType: 'anthropic',
-        expectedEndpointType: ENDPOINT_TYPE.ANTHROPIC_MESSAGES
-      },
-      {
         providerId: 'new-api',
         providerName: 'New API',
         providerType: 'new-api',
@@ -1165,42 +1131,6 @@ describe('ProviderModelMigrator', () => {
         expect(modelRow.endpointTypes).toEqual([expectedEndpointType])
       }
     )
-
-    it('restores CherryIN prefix routing when the legacy model omitted endpoint metadata', async () => {
-      registryFixtures.providers = [{ id: 'cherryin', name: 'CherryIN', endpointConfigs: {} }]
-      registryFixtures.models.set('google/gemini-3.1-pro-preview', {
-        id: 'google/gemini-3.1-pro-preview',
-        name: 'Gemini 3.1 Pro Preview'
-      })
-      const migrationContext = createContext(dbh.db, {
-        llm: {
-          providers: [
-            {
-              id: 'cherryin',
-              name: 'CherryIN',
-              type: 'openai',
-              enabled: true,
-              models: [
-                {
-                  id: 'google/gemini-3.1-pro-preview',
-                  name: 'Gemini 3.1 Pro Preview'
-                }
-              ]
-            }
-          ]
-        }
-      })
-      await migrator.prepare(migrationContext)
-
-      const result = await migrator.execute(migrationContext)
-
-      expect(result.success).toBe(true)
-      const [modelRow] = await dbh.db
-        .select()
-        .from(userModelTable)
-        .where(eq(userModelTable.id, 'cherryin::google/gemini-3.1-pro-preview'))
-      expect(modelRow.endpointTypes).toEqual([ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT])
-    })
 
     it('stores genuine legacy model deltas directly in sparse columns', async () => {
       registryFixtures.providers = [{ id: 'aihubmix', name: 'AiHubMix', endpointConfigs: {} }]
@@ -1395,14 +1325,9 @@ describe('ProviderModelMigrator', () => {
 
       expect(result.success).toBe(true)
       const providers = await dbh.db.select().from(userProviderTable)
-      expect(
-        providers
-          .map((p) => p.providerId)
-          .filter((providerId) => !isManagedCherryProviderId(providerId))
-          .sort()
-      ).toEqual(['no-models-null', 'no-models-undef'])
+      expect(providers.map((p) => p.providerId).sort()).toEqual(['no-models-null', 'no-models-undef'])
       const models = await dbh.db.select().from(userModelTable)
-      expect(models.filter((model) => !isManagedCherryProviderId(model.providerId))).toEqual([])
+      expect(models).toEqual([])
     })
 
     it('filters providers with missing or empty id and reports a warning', async () => {
@@ -1428,9 +1353,7 @@ describe('ProviderModelMigrator', () => {
       expect(result.success).toBe(true)
 
       const providers = await dbh.db.select().from(userProviderTable)
-      expect(providers.map((p) => p.providerId).filter((providerId) => !isManagedCherryProviderId(providerId))).toEqual(
-        ['openai']
-      )
+      expect(providers.map((p) => p.providerId)).toEqual(['openai'])
       const emptyIdRows = await dbh.db.select().from(userProviderTable).where(eq(userProviderTable.providerId, ''))
       expect(emptyIdRows).toEqual([])
     })

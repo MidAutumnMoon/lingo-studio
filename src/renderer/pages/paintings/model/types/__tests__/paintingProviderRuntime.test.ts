@@ -7,8 +7,8 @@ import { resolvePaintingApiHost } from '../paintingProviderRuntime'
 
 function provider(overrides: Partial<Provider> = {}): Provider {
   return {
-    id: 'cherryin',
-    name: 'CherryIN',
+    id: 'new-api',
+    name: 'New API',
     apiKeys: [],
     authType: 'api-key',
     reportsActualCost: false,
@@ -29,7 +29,7 @@ describe('resolvePaintingApiHost', () => {
           }
         }),
         {
-          [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://open.cherryin.net/' }
+          [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://relay.example/' }
         }
       )
     ).toBe('https://proxy.example/v1')
@@ -38,9 +38,9 @@ describe('resolvePaintingApiHost', () => {
   it('uses registry preset endpoint configs for an OpenAI-compatible painting provider', () => {
     expect(
       resolvePaintingApiHost(provider({ defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS }), {
-        [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://open.cherryin.net/' }
+        [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://relay.example/' }
       })
-    ).toBe('https://open.cherryin.net')
+    ).toBe('https://relay.example')
   })
 
   it('does not apply the OpenAI-compatible fallback to unrelated providers', () => {

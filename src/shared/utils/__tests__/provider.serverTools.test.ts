@@ -76,17 +76,17 @@ describe('server-tool model eligibility', () => {
 
   // Gateways serve namespaced ids (`google/gemini-3-1-pro-preview`). VENDOR_PATTERNS are anchored, so
   // an unstripped namespace matches nothing and `vendors` narrowing withheld the tool from every
-  // model whose vendor slug differs from its namespace — cherryin's Gemini and Claude lines both.
+  // model whose vendor slug differs from its namespace — the gateways' Gemini and Claude lines both.
   it('narrows by vendor through a gateway namespace prefix', () => {
-    const cherryin = {
-      id: 'cherryin',
+    const gateway = {
+      id: 'aihubmix',
       serverTools: [{ id: SERVER_TOOL.WEB_SEARCH, modelScope: 'model-dependent', vendors: ['gemini', 'openai'] }]
     } as unknown as Provider
 
-    expect(isBuiltinWebSearchAvailable(model('google/gemini-3-1-pro-preview'), cherryin)).toBe(true)
-    expect(isBuiltinWebSearchAvailable(model('openai/gpt-5.5'), cherryin)).toBe(true)
+    expect(isBuiltinWebSearchAvailable(model('google/gemini-3-1-pro-preview'), gateway)).toBe(true)
+    expect(isBuiltinWebSearchAvailable(model('openai/gpt-5.5'), gateway)).toBe(true)
     // Still excluded: its vendor is simply not on the declaration.
-    expect(isBuiltinWebSearchAvailable(model('deepseek/deepseek-v3.2'), cherryin)).toBe(false)
+    expect(isBuiltinWebSearchAvailable(model('deepseek/deepseek-v3.2'), gateway)).toBe(false)
   })
 
   // Ark's wire ids are dated snapshots (`doubao-seed-2-1-pro-260628`), while the catalog keys the
@@ -167,7 +167,7 @@ describe('web-tool routing', () => {
         clientSearchAvailable: true,
         clientFetchAvailable: true
       })
-    ).toEqual({ webSearch: 'none', webFetch: 'none' })
+    ).toMatchObject({ webSearch: 'none', webFetch: 'none' })
   })
 })
 

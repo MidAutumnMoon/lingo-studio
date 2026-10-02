@@ -94,7 +94,6 @@ type AssistantEditFormValues = {
   enableTopP: boolean
   maxTokens: number
   enableMaxTokens: boolean
-  streamOutput: boolean
   maxToolCalls: number
   enableMaxToolCalls: boolean
   customParameters: AssistantFormState['customParameters']
@@ -136,7 +135,6 @@ function defaultValuesForAssistant(resource: AssistantEditDialogResource): Assis
     enableTopP: form.enableTopP,
     maxTokens: form.maxTokens,
     enableMaxTokens: form.enableMaxTokens,
-    streamOutput: form.streamOutput,
     maxToolCalls: form.maxToolCalls,
     enableMaxToolCalls: form.enableMaxToolCalls,
     customParameters: form.customParameters.map((parameter) => ({ ...parameter })),
@@ -177,7 +175,6 @@ function buildAssistantFormState(baseline: AssistantFormState, values: Assistant
     enableTopP: values.enableTopP,
     maxTokens: values.maxTokens,
     enableMaxTokens: values.enableMaxTokens,
-    streamOutput: values.streamOutput,
     maxToolCalls: values.maxToolCalls,
     enableMaxToolCalls: values.enableMaxToolCalls,
     customParameters: values.customParameters,
@@ -807,32 +804,6 @@ function AssistantAdvancedFields({
             )}
           />
         }
-      />
-
-      <FormField
-        control={form.control}
-        name="streamOutput"
-        render={({ field }) => (
-          <FormItem>
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <FieldLabelWithHelp
-                  label={t('library.config.basic.stream_output')}
-                  help={t('library.config.basic.field.stream_output.hint')}
-                />
-              </div>
-              <FormControl>
-                <Switch
-                  size="sm"
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  aria-label={t('library.config.basic.stream_output')}
-                />
-              </FormControl>
-            </div>
-            <FormMessage />
-          </FormItem>
-        )}
       />
 
       <ToggleFieldGroup

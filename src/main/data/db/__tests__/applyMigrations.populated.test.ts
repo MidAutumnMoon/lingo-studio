@@ -1243,4 +1243,93 @@ describe('applyMigrations over a populated database', () => {
     expect(sqlite.pragma('foreign_key_check')).toEqual([])
     expect(String(sqlite.pragma('integrity_check', { simple: true }))).toBe('ok')
   })
+
+  it('removes the cherryai managed providers, their models, and references (0031)', () => {
+    applyMigrations(db, baselineMigrationsFolder(join(tempDir, 'baseline'), '0031_remove_cherryai_default_model'))
+    const now = Date.now()
+    const insertProvider = sqlite.prepare(
+      `INSERT INTO user_provider (provider_id, name, order_key, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    insertProvider.run('cherryai', 'CherryAI', 'a0', now, now)
+    insertProvider.run('cherryai-subscription', 'Cherry Cloud', 'a1', now, now)
+    insertProvider.run('openai', 'OpenAI', 'a2', now, now)
+
+    const insertModel = sqlite.prepare(
+      `INSERT INTO user_model (id, provider_id, model_id, name, capabilities, supports_streaming, is_enabled, is_hidden,
+                               is_deprecated, order_key, created_at, updated_at)
+       VALUES (?, ?, ?, ?, '[]', 1, 1, 0, 0, ?, ?, ?)`
+    )
+    insertModel.run('cherryai::qwen', 'cherryai', 'qwen', 'Qwen', 'a0', now, now)
+    insertModel.run('cherryai-subscription::glm', 'cherryai-subscription', 'glm', 'GLM', 'a1', now, now)
+    insertModel.run('openai::gpt-4o', 'openai', 'gpt-4o', 'GPT-4o', 'a2', now, now)
+
+    const insertPreference = sqlite.prepare(
+      `INSERT INTO preference (scope, key, value, created_at, updated_at) VALUES ('default', ?, ?, ?, ?)`
+    )
+    insertPreference.run('chat.default_model_id', JSON.stringify('cherryai::qwen'), now, now)
+    insertPreference.run('feature.translate.model_id', JSON.stringify('cherryai::qwen'), now, now)
+    insertPreference.run('feature.other', JSON.stringify('cherryai::qwen'), now, now)
+    insertPreference.run('feature.paintings.default_model_id', JSON.stringify('openai::gpt-4o'), now, now)
+
+    sqlite
+      .prepare(
+        `INSERT INTO pin (id, entity_type, entity_id, order_key, created_at, updated_at) VALUES (?, 'model', ?, ?, ?, ?)`
+      )
+      .run('pin-cherry', 'cherryai::qwen', 'a0', now, now)
+    sqlite
+      .prepare(
+        `INSERT INTO pin (id, entity_type, entity_id, order_key, created_at, updated_at) VALUES (?, 'model', ?, ?, ?, ?)`
+      )
+      .run('pin-openai', 'openai::gpt-4o', 'a1', now, now)
+
+    sqlite
+      .prepare(
+        `INSERT INTO assistant (id, name, emoji, model_id, settings, order_key, created_at, updated_at) VALUES (?, 'A', 'x', ?, '{}', 'a0', ?, ?)`
+      )
+      .run('assistant-1', 'cherryai::qwen', now, now)
+    sqlite
+      .prepare(
+        `INSERT INTO topic (id, name, order_key, last_activity_at, created_at, updated_at)
+         VALUES ('topic-1', 'Topic', 'a0', ?, ?, ?)`
+      )
+      .run(now, now, now)
+    sqlite
+      .prepare(
+        `INSERT INTO message (id, parent_id, topic_id, role, data, status, siblings_group_id, model_id, created_at, updated_at)
+         VALUES ('message-root', NULL, 'topic-1', 'root', '{"parts":[]}', 'success', 0, NULL, ?, ?)`
+      )
+      .run(now, now)
+    sqlite
+      .prepare(
+        `INSERT INTO message (id, parent_id, topic_id, role, data, status, siblings_group_id, model_id, created_at, updated_at)
+         VALUES ('message-1', 'message-root', 'topic-1', 'user', '{"parts":[]}', 'success', 0, ?, ?, ?)`
+      )
+      .run('cherryai-subscription::glm', now, now)
+
+    applyMigrations(db, resolveMigrationsPath())
+
+    // Managed providers and their model rows are gone; other providers survive.
+    expect(sqlite.prepare(`SELECT provider_id FROM user_provider ORDER BY provider_id`).all()).toEqual([
+      { provider_id: 'openai' }
+    ])
+    expect(sqlite.prepare(`SELECT id FROM user_model`).all()).toEqual([{ id: 'openai::gpt-4o' }])
+    // Default-model preferences pointing at removed models reset to JSON null;
+    // other keys (even with the same value shape) are untouched.
+    expect(sqlite.prepare(`SELECT key, value FROM preference ORDER BY key`).all()).toEqual([
+      { key: 'chat.default_model_id', value: 'null' },
+      { key: 'feature.other', value: JSON.stringify('cherryai::qwen') },
+      { key: 'feature.paintings.default_model_id', value: JSON.stringify('openai::gpt-4o') },
+      { key: 'feature.translate.model_id', value: 'null' }
+    ])
+    // FK references are nulled (migrations run with FKs off, so the SQL owns it)
+    // and pins referencing removed models are deleted.
+    expect(sqlite.prepare(`SELECT model_id FROM assistant WHERE id = 'assistant-1'`).get()).toEqual({ model_id: null })
+    expect(sqlite.prepare(`SELECT model_id FROM message WHERE id = 'message-1'`).get()).toEqual({ model_id: null })
+    expect(sqlite.prepare(`SELECT entity_id FROM pin ORDER BY entity_id`).all()).toEqual([
+      { entity_id: 'openai::gpt-4o' }
+    ])
+    expect(sqlite.pragma('foreign_key_check')).toEqual([])
+    expect(String(sqlite.pragma('integrity_check', { simple: true }))).toBe('ok')
+  })
 })

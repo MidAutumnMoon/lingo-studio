@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { CHERRYAI_DEFAULT_MODEL_ID, CHERRYAI_PROVIDER_ID } from '@shared/data/presets/cherryai'
 import { ANTIGRAVITY_MODEL_PATH_SEPARATOR, formatGatewayModelId, gatewayClientOrigin } from '@shared/utils/apiGateway'
 
 /** The gateway proxy's parse side (proxyStream.ts): split on the FIRST ':'. */
@@ -34,10 +33,6 @@ describe('formatGatewayModelId', () => {
   it('rejects a provider id containing ":" — the first-colon split would route it to the wrong provider', () => {
     // "corp:west" + "model" would format to "corp:west:model" and parse back as provider "corp".
     expect(() => formatGatewayModelId('corp:west', 'model')).toThrow(/cannot be addressed/)
-  })
-
-  it('rejects the CherryAI managed default model (mirrors the gateway guard)', () => {
-    expect(() => formatGatewayModelId(CHERRYAI_PROVIDER_ID, CHERRYAI_DEFAULT_MODEL_ID)).toThrow(/CherryAI/)
   })
 
   it('formats a colon address for a provider id containing the Antigravity separator', () => {

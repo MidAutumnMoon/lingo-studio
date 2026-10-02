@@ -8,20 +8,20 @@ import { userProviderTable } from '@data/db/schemas/userProvider'
 import { providerService } from '@data/services/ProviderService'
 import { ENDPOINT_TYPE } from '@shared/data/types/model'
 
-// Stub the registry loader so the preset lookup returns a minimal CherryIN row
-// (its anthropic / gemini / OpenAI endpoints tagged `cherryin`) without
+// Stub the registry loader so the preset lookup returns a minimal Relay row
+// (its anthropic / gemini / OpenAI endpoints tagged `newapi`) without
 // reading the shipped providers.json, whose path is mocked away in the harness.
 vi.mock('@cherrystudio/provider-registry/node', () => {
   class RegistryLoader {
     loadProviders() {
       return [
         {
-          id: 'cherryin',
+          id: 'relay-hub',
           endpointConfigs: {
-            'anthropic-messages': { adapterFamily: 'cherryin', baseUrl: 'https://open.cherryin.net' },
-            'google-generate-content': { adapterFamily: 'cherryin', baseUrl: 'https://open.cherryin.net' },
-            'openai-responses': { adapterFamily: 'cherryin', baseUrl: 'https://open.cherryin.net' },
-            'openai-chat-completions': { adapterFamily: 'cherryin', baseUrl: 'https://open.cherryin.net' }
+            'anthropic-messages': { adapterFamily: 'newapi', baseUrl: 'https://open.relay-hub.net' },
+            'google-generate-content': { adapterFamily: 'newapi', baseUrl: 'https://open.relay-hub.net' },
+            'openai-responses': { adapterFamily: 'newapi', baseUrl: 'https://open.relay-hub.net' },
+            'openai-chat-completions': { adapterFamily: 'newapi', baseUrl: 'https://open.relay-hub.net' }
           }
         }
       ]
@@ -70,45 +70,45 @@ describe('ProviderService.update — endpoint config overrides', () => {
   })
 
   it('persists a { baseUrl }-only override when a settings PATCH adds an endpoint', async () => {
-    // A correctly-created preset-derived instance (openai-chat tagged `cherryin`).
+    // A correctly-created preset-derived instance (openai-chat tagged `newapi`).
     providerService.create({
-      providerId: 'cherryin-express',
-      presetProviderId: 'cherryin',
+      providerId: 'relay-hub-express',
+      presetProviderId: 'relay-hub',
       name: 'CherryIn Express',
       defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
       endpointConfigs: {
-        [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://express-ent-admin.cherryin.ai' }
+        [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://express-ent-admin.relay-hub.ai' }
       }
     })
 
     // The "add endpoint" drawer PATCHes the public baseUrl-only shape.
-    providerService.update('cherryin-express', {
+    providerService.update('relay-hub-express', {
       endpointConfigs: {
         [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: {
-          baseUrl: 'https://express-ent-admin.cherryin.ai'
+          baseUrl: 'https://express-ent-admin.relay-hub.ai'
         },
-        [ENDPOINT_TYPE.ANTHROPIC_MESSAGES]: { baseUrl: 'https://express-ent-admin.cherryin.ai/v1' }
+        [ENDPOINT_TYPE.ANTHROPIC_MESSAGES]: { baseUrl: 'https://express-ent-admin.relay-hub.ai/v1' }
       }
     })
 
     const [row] = await dbh.db
       .select()
       .from(userProviderTable)
-      .where(eq(userProviderTable.providerId, 'cherryin-express'))
+      .where(eq(userProviderTable.providerId, 'relay-hub-express'))
 
     // Rows persist only the user-owned override shape — the echoed
     // adapterFamily is stripped for preset-linked providers.
     expect(row.endpointConfigs?.[ENDPOINT_TYPE.ANTHROPIC_MESSAGES]).toEqual({
-      baseUrl: 'https://express-ent-admin.cherryin.ai/v1'
+      baseUrl: 'https://express-ent-admin.relay-hub.ai/v1'
     })
     expect(row.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]).toEqual({
-      baseUrl: 'https://express-ent-admin.cherryin.ai'
+      baseUrl: 'https://express-ent-admin.relay-hub.ai'
     })
     // The runtime read supplies the preset family for the newly-added
     // endpoint instead of the openai-compatible fallback.
-    const runtime = providerService.getByProviderId('cherryin-express')
-    expect(runtime.endpointConfigs?.[ENDPOINT_TYPE.ANTHROPIC_MESSAGES]?.adapterFamily).toBe('cherryin')
-    expect(runtime.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]?.adapterFamily).toBe('cherryin')
+    const runtime = providerService.getByProviderId('relay-hub-express')
+    expect(runtime.endpointConfigs?.[ENDPOINT_TYPE.ANTHROPIC_MESSAGES]?.adapterFamily).toBe('newapi')
+    expect(runtime.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]?.adapterFamily).toBe('newapi')
   })
 
   it('preserves a main-only legacy adapterFamily when a custom provider baseUrl is updated', async () => {
@@ -142,31 +142,31 @@ describe('ProviderService.update — endpoint config overrides', () => {
     expect(runtime.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]?.adapterFamily).toBe('newapi')
   })
 
-  it('uses the preset adapter family when adding the CherryIN Responses endpoint', async () => {
+  it('uses the preset adapter family when adding the Relay Responses endpoint', async () => {
     providerService.create({
-      providerId: 'cherryin-express-2',
-      presetProviderId: 'cherryin',
+      providerId: 'relay-hub-express-2',
+      presetProviderId: 'relay-hub',
       name: 'CherryIn Express 2',
       defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
       endpointConfigs: {
-        [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://express-ent-admin.cherryin.ai' }
+        [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://express-ent-admin.relay-hub.ai' }
       }
     })
 
-    providerService.update('cherryin-express-2', {
+    providerService.update('relay-hub-express-2', {
       endpointConfigs: {
-        [ENDPOINT_TYPE.OPENAI_RESPONSES]: { baseUrl: 'https://express-ent-admin.cherryin.ai' }
+        [ENDPOINT_TYPE.OPENAI_RESPONSES]: { baseUrl: 'https://express-ent-admin.relay-hub.ai' }
       }
     })
 
     const [row] = await dbh.db
       .select()
       .from(userProviderTable)
-      .where(eq(userProviderTable.providerId, 'cherryin-express-2'))
+      .where(eq(userProviderTable.providerId, 'relay-hub-express-2'))
     expect(row.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_RESPONSES]).toEqual({
-      baseUrl: 'https://express-ent-admin.cherryin.ai'
+      baseUrl: 'https://express-ent-admin.relay-hub.ai'
     })
-    const runtime = providerService.getByProviderId('cherryin-express-2')
-    expect(runtime.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_RESPONSES]?.adapterFamily).toBe('cherryin')
+    const runtime = providerService.getByProviderId('relay-hub-express-2')
+    expect(runtime.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_RESPONSES]?.adapterFamily).toBe('newapi')
   })
 })

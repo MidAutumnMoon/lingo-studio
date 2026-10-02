@@ -24,5 +24,17 @@ export const entries: SettingsSearchEntry[] = [
     titleKey: 'settings.models.painting_model',
     groupKey: 'settings.model',
     descriptionKey: 'settings.models.painting_model_description'
+  },
+  {
+    anchorId: 'topic-naming-model',
+    titleKey: 'settings.models.topic_naming_model',
+    groupKey: 'settings.model',
+    descriptionKey: 'settings.models.topic_naming_model_description'
+  },
+  {
+    anchorId: 'error-diagnosis-model',
+    titleKey: 'settings.models.diagnosis_model',
+    groupKey: 'settings.model',
+    descriptionKey: 'settings.models.diagnosis_model_description'
   }
 ]

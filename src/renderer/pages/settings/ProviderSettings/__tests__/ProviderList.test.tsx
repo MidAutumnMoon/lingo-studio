@@ -246,27 +246,6 @@ describe('ProviderList', () => {
     expect(onSelectProvider).toHaveBeenCalledWith('anthropic')
   })
 
-  it('hides CherryAI from the provider list', () => {
-    useProvidersMock.mockReturnValue({
-      providers: [
-        ...providers,
-        {
-          id: 'cherryai',
-          name: 'CherryAI',
-          defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
-          isEnabled: true
-        }
-      ],
-      createProvider: vi.fn()
-    })
-
-    render(<ProviderList selectedProviderId="openai" onSelectProvider={vi.fn()} />)
-
-    expect(screen.getByText('OpenAI')).toBeInTheDocument()
-    expect(screen.queryByText('CherryAI')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('provider-list-item-cherryai')).not.toBeInTheDocument()
-  })
-
   it('offers only safe canonical preset sources to the custom provider editor', async () => {
     const user = userEvent.setup()
     const canonicalOpenAI = {

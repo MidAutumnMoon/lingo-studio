@@ -16,18 +16,15 @@ export const ENDPOINT_TYPE = {
   ANTHROPIC_MESSAGES: 'anthropic-messages',
   GOOGLE_GENERATE_CONTENT: 'google-generate-content',
   JINA_RERANK: 'jina-rerank',
+  // Ollama endpoints: kept only for v1-migrated providers (legacy `type:'ollama'`
+  // maps to them) — no preset declares them anymore.
   OLLAMA_CHAT: 'ollama-chat',
   OLLAMA_GENERATE: 'ollama-generate',
-  OPENAI_AUDIO_TRANSCRIPTION: 'openai-audio-transcription',
-  OPENAI_AUDIO_TRANSLATION: 'openai-audio-translation',
   OPENAI_CHAT_COMPLETIONS: 'openai-chat-completions',
   OPENAI_EMBEDDINGS: 'openai-embeddings',
   OPENAI_IMAGE_EDIT: 'openai-image-edit',
   OPENAI_IMAGE_GENERATION: 'openai-image-generation',
-  OPENAI_RESPONSES: 'openai-responses',
-  OPENAI_TEXT_COMPLETIONS: 'openai-text-completions',
-  OPENAI_TEXT_TO_SPEECH: 'openai-text-to-speech',
-  OPENAI_VIDEO_GENERATION: 'openai-video-generation'
+  OPENAI_RESPONSES: 'openai-responses'
 } as const
 export type EndpointType = (typeof ENDPOINT_TYPE)[keyof typeof ENDPOINT_TYPE]
 

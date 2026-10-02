@@ -10,18 +10,18 @@ import { ErrorCode } from '@shared/data/api/errors'
 import { ENDPOINT_TYPE } from '@shared/data/types/model'
 
 // Stub the registry loader so the preset lookup returns a minimal CherryIN row
-// (its gemini / OpenAI endpoints tagged `cherryin`) without reading the
+// (its gemini / OpenAI endpoints tagged ) without reading the
 // shipped providers.json, whose path is mocked away in the test harness.
 vi.mock('@cherrystudio/provider-registry/node', () => {
   class RegistryLoader {
     loadProviders() {
       return [
         {
-          id: 'cherryin',
+          id: 'relay-hub',
           endpointConfigs: {
-            'google-generate-content': { adapterFamily: 'cherryin', baseUrl: 'https://open.cherryin.net' },
-            'openai-responses': { adapterFamily: 'cherryin', baseUrl: 'https://open.cherryin.net' },
-            'openai-chat-completions': { adapterFamily: 'cherryin', baseUrl: 'https://open.cherryin.net' }
+            'google-generate-content': { adapterFamily: 'newapi', baseUrl: 'https://open.relay-hub.net' },
+            'openai-responses': { adapterFamily: 'newapi', baseUrl: 'https://open.relay-hub.net' },
+            'openai-chat-completions': { adapterFamily: 'newapi', baseUrl: 'https://open.relay-hub.net' }
           },
           defaultChatEndpoint: 'openai-chat-completions'
         }
@@ -66,33 +66,33 @@ describe('ProviderService.create — endpoint config overrides', () => {
     // adapterFamily. Without read-time resolution the gemini endpoint resolves
     // to openai-compatible and image generation POSTs to /v1/images/generations.
     const created = providerService.create({
-      providerId: 'cherryin-express',
-      presetProviderId: 'cherryin',
-      name: 'CherryIn Express',
+      providerId: 'relay-hub-express',
+      presetProviderId: 'relay-hub',
+      name: 'Relay Express',
       defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
       endpointConfigs: {
-        [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://express-ent-admin.cherryin.ai' },
-        [ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT]: { baseUrl: 'https://express-ent-admin.cherryin.ai/v1beta' },
-        [ENDPOINT_TYPE.OPENAI_RESPONSES]: { baseUrl: 'https://express-ent-admin.cherryin.ai' }
+        [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://express-ent-admin.relay-hub.ai' },
+        [ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT]: { baseUrl: 'https://express-ent-admin.relay-hub.ai/v1beta' },
+        [ENDPOINT_TYPE.OPENAI_RESPONSES]: { baseUrl: 'https://express-ent-admin.relay-hub.ai' }
       }
     })
 
     // baseUrls are preserved; adapterFamily is derived.
     expect(created.endpointConfigs?.[ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT]).toEqual({
-      baseUrl: 'https://express-ent-admin.cherryin.ai/v1beta',
-      adapterFamily: 'cherryin'
+      baseUrl: 'https://express-ent-admin.relay-hub.ai/v1beta',
+      adapterFamily: 'newapi'
     })
-    expect(created.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]?.adapterFamily).toBe('cherryin')
-    expect(created.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_RESPONSES]?.adapterFamily).toBe('cherryin')
+    expect(created.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]?.adapterFamily).toBe('newapi')
+    expect(created.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_RESPONSES]?.adapterFamily).toBe('newapi')
 
     // The row persists only the user-owned override shape — adapterFamily is
     // registry-owned and supplied at read time, never frozen into the row.
     const [row] = await dbh.db
       .select()
       .from(userProviderTable)
-      .where(eq(userProviderTable.providerId, 'cherryin-express'))
+      .where(eq(userProviderTable.providerId, 'relay-hub-express'))
     expect(row.endpointConfigs?.[ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT]).toEqual({
-      baseUrl: 'https://express-ent-admin.cherryin.ai/v1beta'
+      baseUrl: 'https://express-ent-admin.relay-hub.ai/v1beta'
     })
     expect(row.defaultChatEndpoint).toBeNull()
   })

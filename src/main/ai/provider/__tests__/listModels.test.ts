@@ -1002,13 +1002,13 @@ describe('listModels — newApiFetcher endpoint-implied capabilities', () => {
     ])
   })
 
-  it('normalizes NewAPI embedding/video aliases and canonical media endpoints', async () => {
+  it('normalizes NewAPI embedding aliases and drops unknown endpoint kinds', async () => {
     aiSdkGetFromApiMock.mockResolvedValue({
       value: {
         data: [
           { id: 'embed-model', supported_endpoint_types: ['embeddings'] },
           { id: 'video-model', supported_endpoint_types: ['openai-video'] },
-          { id: 'speech-model', supported_endpoint_types: [ENDPOINT_TYPE.OPENAI_TEXT_TO_SPEECH] }
+          { id: 'speech-model', supported_endpoint_types: ['openai-text-to-speech'] }
         ]
       }
     })
@@ -1022,15 +1022,17 @@ describe('listModels — newApiFetcher endpoint-implied capabilities', () => {
           endpointTypes: [ENDPOINT_TYPE.OPENAI_EMBEDDINGS],
           capabilities: [MODEL_CAPABILITY.EMBEDDING]
         }),
+        // Endpoint kinds removed from ENDPOINT_TYPE ('openai-video', audio/speech)
+        // are filtered out instead of being stored or implying a capability.
         expect.objectContaining({
           apiModelId: 'video-model',
-          endpointTypes: [ENDPOINT_TYPE.OPENAI_VIDEO_GENERATION],
-          capabilities: [MODEL_CAPABILITY.VIDEO_GENERATION]
+          endpointTypes: undefined,
+          capabilities: []
         }),
         expect.objectContaining({
           apiModelId: 'speech-model',
-          endpointTypes: [ENDPOINT_TYPE.OPENAI_TEXT_TO_SPEECH],
-          capabilities: [MODEL_CAPABILITY.AUDIO_GENERATION]
+          endpointTypes: undefined,
+          capabilities: []
         })
       ])
     )

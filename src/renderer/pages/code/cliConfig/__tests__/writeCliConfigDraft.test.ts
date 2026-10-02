@@ -55,13 +55,6 @@ const cherryinProvider = {
   }
 } as unknown as Provider
 
-const ollamaProvider = {
-  id: 'ollama',
-  name: 'Ollama',
-  endpointConfigs: { 'anthropic-messages': { baseUrl: 'http://localhost:11434' } },
-  defaultChatEndpoint: 'ollama-chat'
-} as unknown as Provider
-
 /** Keyless local server (authOptional) exposing both Anthropic and chat endpoints. */
 const omlxProvider = {
   id: 'omlx',
@@ -453,27 +446,6 @@ describe('writeCliConfigDraft', () => {
       })
     })
 
-    it('injects a placeholder auth token for Ollama, which needs no real API key', async () => {
-      mockGet({
-        '/providers/ollama': () => ollamaProvider,
-        '/providers/ollama/api-keys': () => ({ keys: [] }),
-        '/models/': () => null
-      })
-
-      await writeCliConfigDraft({
-        cliTool: CodeCli.CLAUDE_CODE,
-        modelId: 'ollama::llama3'
-      })
-
-      expect(written).not.toBeNull()
-      const parsed = JSON.parse(written!.content)
-      expect(parsed.env).toEqual({
-        ANTHROPIC_BASE_URL: 'http://localhost:11434',
-        ANTHROPIC_AUTH_TOKEN: 'ollama',
-        ANTHROPIC_MODEL: 'llama3'
-      })
-    })
-
     it('injects a per-provider placeholder auth token for a keyless local provider', async () => {
       mockGet({
         '/providers/omlx': () => omlxProvider,
@@ -508,26 +480,6 @@ describe('writeCliConfigDraft', () => {
       })
 
       expect(written).not.toBeNull()
-    })
-
-    it('accepts a keyless Ollama provider and injects the placeholder token', async () => {
-      mockGet({
-        '/providers/ollama': () => ollamaProvider,
-        '/providers/ollama/api-keys': () => ({ keys: [] }),
-        '/models/': () => null
-      })
-
-      await writeCliConfigDraft({ cliTool: CodeCli.MINIMAX_CODE, modelId: 'ollama::llama3' })
-
-      const files = vi.mocked(mocks.request).mock.calls.at(-1)?.[1].files as CliConfigWriteFile[]
-      const config = files[0]
-      if (!config || typeof config.content !== 'string') throw new Error('Expected MiniMax config file')
-      const parsed = parseYaml(config.content)
-      expect(parsed.custom_provider['cherry-Ollama']).toMatchObject({
-        api: 'anthropic-messages',
-        options: { apiKey: 'ollama', baseURL: 'http://localhost:11434' }
-      })
-      expect(parsed.defaultModel).toBe('custom_provider:cherry-Ollama/llama3')
     })
 
     it('omits ANTHROPIC_MODEL for detailed Claude model config', async () => {
@@ -1063,25 +1015,6 @@ describe('writeCliConfigDraft', () => {
       expect(model.options.thinking).toEqual({ budgetTokens: 10000, type: 'enabled' })
     })
 
-    it('injects a placeholder auth token for Ollama, which needs no real API key', async () => {
-      mockGet({
-        '/providers/ollama': () => ollamaProvider,
-        '/providers/ollama/api-keys': () => ({ keys: [] }),
-        '/models/': () => null
-      })
-
-      await writeCliConfigDraft({
-        cliTool: CodeCli.OPEN_CODE,
-        modelId: 'ollama::llama3'
-      })
-
-      const parsed = JSON.parse(opencodeWrite().content)
-      const provider = parsed.provider['cherry-Ollama']
-      expect(provider.npm).toBe('@ai-sdk/anthropic')
-      expect(provider.options.apiKey).toBe('ollama')
-      expect(provider.options.baseURL).toBe('http://localhost:11434/v1')
-    })
-
     it('uses reasoningEffort for openai-compatible models that support it', async () => {
       mockGet({
         '/providers/deepseek': () => openaiCompatProvider,
@@ -1578,11 +1511,11 @@ describe('writeCliConfigDraft', () => {
       expect(dataApiService.get).not.toHaveBeenCalledWith('/providers/deepseek')
     })
 
-    it('rejects the CherryAI managed default model and writes nothing', async () => {
+    it('rejects a non-routable model address and writes nothing', async () => {
       mockGet({ '/models/': () => ({ id: 'qwen' }) })
 
       await expect(
-        writeCliConfigDraft({ cliTool: CodeCli.CLAUDE_CODE, modelId: 'cherryai::qwen', gateway })
+        writeCliConfigDraft({ cliTool: CodeCli.CLAUDE_CODE, modelId: 'corp:west::qwen', gateway })
       ).rejects.toThrow(/gateway/)
       expect(writes).toEqual([])
     })

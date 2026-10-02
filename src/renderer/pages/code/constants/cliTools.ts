@@ -15,7 +15,7 @@ export const PROVIDERLESS_CLI_TOOLS: ReadonlySet<CodeCli> = new Set([CodeCli.QOD
 
 /** Aggregators fronting Gemini behind a non-Gemini provider type, surfaced
  * here so Gemini-compatible CLIs can select them despite lacking a Gemini endpoint. */
-const GEMINI_AGGREGATOR_PROVIDERS = new Set(['aihubmix', 'dmxapi', 'new-api', 'cherryin'])
+const GEMINI_AGGREGATOR_PROVIDERS = new Set(['aihubmix', 'dmxapi', 'new-api'])
 
 const hasEndpoint = (p: Provider, type: string): boolean =>
   Boolean(p.endpointConfigs?.[type as 'anthropic-messages']?.baseUrl)

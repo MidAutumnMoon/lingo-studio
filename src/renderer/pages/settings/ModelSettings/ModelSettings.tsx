@@ -1,4 +1,4 @@
-import { ArrowRight, Languages, MessageSquareMore, Palette, RotateCcw, Settings2 } from 'lucide-react'
+import { ArrowRight, Languages, MessageSquareMore, Palette, RotateCcw, Settings2, Stethoscope, Tag } from 'lucide-react'
 import type { FC, ReactNode, Ref } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -17,7 +17,7 @@ import {
   SettingsContentColumn,
   SettingTitle
 } from '@renderer/components/SettingsPrimitives'
-import { useDefaultModel } from '@renderer/hooks/useModel'
+import { useDefaultModel, useModelById } from '@renderer/hooks/useModel'
 import { useProviders } from '@renderer/hooks/useProvider'
 import { useTheme } from '@renderer/hooks/useTheme'
 import { useTimer } from '@renderer/hooks/useTimer'
@@ -26,7 +26,7 @@ import { toast } from '@renderer/services/toast'
 import { scrollIntoView } from '@renderer/utils/dom'
 import { cn } from '@renderer/utils/style'
 import { TRANSLATE_PROMPT } from '@shared/ai/prompts'
-import type { Model } from '@shared/data/types/model'
+import type { Model, UniqueModelId } from '@shared/data/types/model'
 import { isGenerateImageModel, isNonChatModel } from '@shared/utils/model'
 
 import { TopicNamingSettings } from './TopicNamingSettings'
@@ -137,6 +137,10 @@ const ModelSettings: FC<ModelSettingsProps> = ({
   const { setTimeoutTimer } = useTimer()
 
   const [translateModelPrompt, setTranslateModelPrompt] = usePreference('feature.translate.model_prompt')
+  const [namingModelId, setNamingModelId] = usePreference('feature.topic_naming.model_id')
+  const [diagnosisModelId, setDiagnosisModelId] = usePreference('feature.error_diagnosis.model_id')
+  const { model: namingModel } = useModelById((namingModelId as UniqueModelId | null) ?? null)
+  const { model: diagnosisModel } = useModelById((diagnosisModelId as UniqueModelId | null) ?? null)
 
   const chatModelFilter = useCallback(
     (model: Model) => !isNonChatModel(model) && (modelFilter?.(model) ?? true),
@@ -235,16 +239,6 @@ const ModelSettings: FC<ModelSettingsProps> = ({
               onSelect={onSelectDefault}
               placeholder={t('settings.models.empty')}
             />
-            {showSettingsButton && (
-              <Button
-                aria-label={t('settings.models.topic_naming.setting_title')}
-                className="shrink-0"
-                onClick={() => setActivePanel('topic-naming')}
-                size="icon-sm"
-                variant="outline">
-                <Settings2 size={16} />
-              </Button>
-            )}
           </ModelSettingRow>
           {showDividers && <SettingDivider />}
           <ModelSettingRow
@@ -303,6 +297,48 @@ const ModelSettings: FC<ModelSettingsProps> = ({
               </ModelSettingRow>
             </>
           )}
+          <SettingDivider />
+          <ModelSettingRow
+            compact={compact}
+            id={compact ? undefined : 'setting-model-topic-naming-model'}
+            icon={<Tag size={16} className="lucide-custom shrink-0 text-foreground" />}
+            title={t('settings.models.topic_naming_model')}
+            description={showDescription ? t('settings.models.topic_naming_model_description') : undefined}>
+            <DefaultModelSelector
+              model={namingModel}
+              providers={providers}
+              filter={chatModelFilter}
+              compact={compact}
+              onSelect={(selected) => void setNamingModelId(selected?.id ?? null)}
+              placeholder={t('settings.models.topic_naming_unset')}
+            />
+            {showSettingsButton && (
+              <Button
+                aria-label={t('settings.models.topic_naming.setting_title')}
+                className="shrink-0"
+                onClick={() => setActivePanel('topic-naming')}
+                size="icon-sm"
+                variant="outline">
+                <Settings2 size={16} />
+              </Button>
+            )}
+          </ModelSettingRow>
+          <SettingDivider />
+          <ModelSettingRow
+            compact={compact}
+            id={compact ? undefined : 'setting-model-error-diagnosis-model'}
+            icon={<Stethoscope size={16} className="lucide-custom shrink-0 text-foreground" />}
+            title={t('settings.models.diagnosis_model')}
+            description={showDescription ? t('settings.models.diagnosis_model_description') : undefined}>
+            <DefaultModelSelector
+              model={diagnosisModel}
+              providers={providers}
+              filter={chatModelFilter}
+              compact={compact}
+              onSelect={(selected) => void setDiagnosisModelId(selected?.id ?? null)}
+              placeholder={t('settings.models.topic_naming_unset')}
+            />
+          </ModelSettingRow>
         </SettingGroup>
       </ContainerComponent>
       {showSettingsButton && (

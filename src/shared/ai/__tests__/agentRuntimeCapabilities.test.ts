@@ -2,12 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import { MODALITY } from '@cherrystudio/provider-registry'
 import { getDshRuntimeBuiltinTools } from '@shared/ai/dshBuiltinTools'
-import {
-  CHERRY_CLOUD_MODEL_GROUP,
-  CHERRY_CLOUD_PROVIDER_ID,
-  CHERRYAI_DEFAULT_MODEL_ID,
-  CHERRYAI_PROVIDER_ID
-} from '@shared/data/presets/cherryai'
 import type { Model } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
 
@@ -55,52 +49,24 @@ describe('AGENT_RUNTIME_CAPABILITIES', () => {
     expect(AGENT_RUNTIME_CAPABILITIES.dsh.createDefaults.permissionMode).toBe('acceptEdits')
   })
 
-  describe('isModelCompatible — managed CherryAI default model', () => {
+  describe('isModelCompatible — basic gating', () => {
     const piIsCompatible = AGENT_RUNTIME_CAPABILITIES.pi.isModelCompatible
 
-    // A CherryAI provider whose endpoint pi can drive, hosting the managed free-quota default model.
-    const cherryProvider = makeProvider({ id: CHERRYAI_PROVIDER_ID })
-    const managedDefaultModel = makeModel({
-      providerId: CHERRYAI_PROVIDER_ID,
-      apiModelId: CHERRYAI_DEFAULT_MODEL_ID
-    })
-
-    it('pi rejects the managed CherryAI default model even though the provider is drivable', () => {
-      expect(piIsCompatible(cherryProvider, managedDefaultModel)).toBe(false)
-    })
-
-    it('pi still accepts a normal pi-compatible model', () => {
+    it('pi accepts a normal pi-compatible model', () => {
       const provider = makeProvider({})
       expect(piIsCompatible(provider, makeModel({}))).toBe(true)
     })
 
-    it('dsh rejects the managed CherryAI default model and accepts a normal compatible model', () => {
+    it('dsh accepts a normal compatible model', () => {
       const dshIsCompatible = AGENT_RUNTIME_CAPABILITIES.dsh.isModelCompatible
-      expect(dshIsCompatible(cherryProvider, managedDefaultModel)).toBe(false)
       expect(dshIsCompatible(makeProvider({}), makeModel({}))).toBe(true)
     })
   })
 
-  it('offers synchronized Cherry Cloud models to every Work runtime', () => {
-    const provider = makeProvider({ id: CHERRY_CLOUD_PROVIDER_ID })
-    const cloudModel = makeModel({
-      id: `${CHERRY_CLOUD_PROVIDER_ID}::deepseek-free`,
-      providerId: CHERRY_CLOUD_PROVIDER_ID,
-      apiModelId: 'deepseek-free',
-      group: CHERRY_CLOUD_MODEL_GROUP,
-      contextWindow: 128_000,
-      maxOutputTokens: 8_192
-    })
-
-    expect(AGENT_RUNTIME_CAPABILITIES.pi.isModelCompatible(provider, cloudModel)).toBe(true)
-    expect(AGENT_RUNTIME_CAPABILITIES.dsh.isModelCompatible(provider, cloudModel)).toBe(true)
-  })
-
-  it('does not grant Cloud compatibility from the display group alone', () => {
-    const provider = makeProvider({ id: CHERRYAI_PROVIDER_ID, authMethods: ['external-cli'] })
+  it('does not grant compatibility from a display group alone — capabilities still gate', () => {
+    const provider = makeProvider({ authMethods: ['external-cli'] })
     const model = makeModel({
-      providerId: CHERRYAI_PROVIDER_ID,
-      group: CHERRY_CLOUD_MODEL_GROUP,
+      group: 'Qwen',
       capabilities: ['embedding']
     })
 

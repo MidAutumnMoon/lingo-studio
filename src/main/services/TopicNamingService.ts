@@ -8,7 +8,6 @@ import type { AiGenerateRequest, AsInProcessChat } from '@main/ai/AiService'
 import { WindowType } from '@main/core/window/types'
 import { messageService } from '@main/data/services/MessageService'
 import { getAppLanguage } from '@main/i18n'
-import { CHERRYAI_DEFAULT_UNIQUE_MODEL_ID } from '@shared/data/presets/cherryai'
 import type { Message, MessageData, UIMessage } from '@shared/data/types/message'
 import { parseUniqueModelId, type UniqueModelId, UniqueModelIdSchema } from '@shared/data/types/model'
 import type { Topic } from '@shared/data/types/topic'
@@ -208,6 +207,9 @@ export class TopicNamingService {
       ]
 
       const uniqueModelId = this.resolveNamingModelId()
+      // No usable naming model (no default chat model configured) — skip AI naming.
+      if (!uniqueModelId) return
+
       const title = await this.generateSummaryTitle(
         uniqueModelId,
         topicId,
@@ -305,6 +307,8 @@ export class TopicNamingService {
       if (session.isNameManuallyEdited) return
       if (!canAutoRenameAgentSessionName(session.name, userText)) return
       const uniqueModelId = this.resolveNamingModelId()
+      // No usable naming model (no default chat model configured) — skip AI naming.
+      if (!uniqueModelId) return
 
       const structuredConversation: StructuredMessage[] = [
         { role: 'user', mainText: cleanMarkdownImages(userText) },
@@ -408,19 +412,22 @@ export class TopicNamingService {
     return (configuredPrompt || FALLBACK_PROMPT).replaceAll('{{language}}', language)
   }
 
-  private resolveNamingModelId(): UniqueModelId {
+  /**
+   * Resolve the model used for topic naming. The setting is explicit: there is
+   * no fallback to the default chat model, and AI naming is skipped while the
+   * preference is unset or points at an unusable model.
+   */
+  private resolveNamingModelId(): UniqueModelId | null {
     const preferenceService = application.get('PreferenceService')
 
-    const configured = preferenceService.get('chat.default_model_id')
+    const configured = preferenceService.get('feature.topic_naming.model_id')
     const usableModelId = this.toUsableNamingModelId(configured)
     if (usableModelId) return usableModelId
     if (configured != null) {
-      logger.warn('Default chat model is not usable for topic naming; falling back to managed CherryAI default', {
-        configured
-      })
+      logger.warn('Configured topic naming model is not usable; skipping AI naming', { configured })
     }
 
-    return CHERRYAI_DEFAULT_UNIQUE_MODEL_ID
+    return null
   }
 
   /**

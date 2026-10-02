@@ -33,7 +33,7 @@ const ok = (data?: unknown) => ({ status: 'ok', durationMs: 3, data })
 const skipped = (why: string) => ({ status: 'skipped', durationMs: 0, skippedBecause: why })
 const failed = (kind: string, code: string, data?: unknown) => ({ status: 'failed', durationMs: 3, kind, code, data })
 const direct = { effective: 'DIRECT', configuredMode: 'none' }
-const ENDPOINT_IDS = ['registry', 'cloud', 'diagnostics'] as const
+const ENDPOINT_IDS = ['registry', 'diagnostics'] as const
 const diagnosis = (endpointId: string, over: Record<string, unknown> = {}) => ({
   endpointId,
   host: `${endpointId}.example`,
@@ -62,15 +62,19 @@ beforeEach(() => {
 
 describe('network-dns-resolution', () => {
   it('fails with the count of unresolved hosts, keeping the hosts out of the params', async () => {
-    only('cloud', { dns: failed('dns', 'ENOTFOUND') })
+    only('diagnostics', { dns: failed('dns', 'ENOTFOUND') })
     const result = await checks.dnsResolution.run({ ...ctx(), subject: null })
     expect(result).toMatchObject({
       status: 'fail',
       detail: { variant: 'unresolved', params: { count: 1 } },
       actions: [{ kind: 'navigate', target: '/settings/general' }]
     })
-    expect(JSON.stringify(result.detail)).not.toContain('cloud.example')
-    expect(result.evidence).toContainEqual({ key: 'cloud:cloud.example', value: 'ENOTFOUND', dataClass: 'local_only' })
+    expect(JSON.stringify(result.detail)).not.toContain('diagnostics.example')
+    expect(result.evidence).toContainEqual({
+      key: 'diagnostics:diagnostics.example',
+      value: 'ENOTFOUND',
+      dataClass: 'local_only'
+    })
   })
 
   it('reports no_response when every failure is a timeout', async () => {
@@ -105,7 +109,7 @@ describe('network-tls-handshake', () => {
   })
 
   it('reports non-certificate handshake failures as unreachable with a count', async () => {
-    only('cloud', { tls: failed('refused', 'ECONNREFUSED') })
+    only('diagnostics', { tls: failed('refused', 'ECONNREFUSED') })
     await expect(checks.tlsHandshake.run({ ...ctx(), subject: null })).resolves.toMatchObject({
       status: 'fail',
       detail: { variant: 'unreachable', params: { count: 1 } }
@@ -140,9 +144,9 @@ describe('network-proxy-applied', () => {
 
 describe('network-endpoint-*', () => {
   it('reports healthy endpoints even when another host fails DNS', async () => {
-    only('cloud', { dns: failed('dns', 'ENOTFOUND'), http: skipped('dns_failed'), verdict: 'unreachable' })
+    only('diagnostics', { dns: failed('dns', 'ENOTFOUND'), http: skipped('dns_failed'), verdict: 'unreachable' })
     const results = await runDoctorChecks<DoctorCheckId, DoctorProbeOutcome<DoctorCheckId>>({
-      checks: [checks.online, checks.dnsResolution, checks.endpointCloud].map((check) => ({
+      checks: [checks.online, checks.dnsResolution, checks.endpointDiagnostics].map((check) => ({
         id: check.id,
         requires: DOCTOR_CHECK_CATALOG[check.id].requires,
         timeoutMs: 1000,
@@ -153,14 +157,13 @@ describe('network-endpoint-*', () => {
     expect(results).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'network-dns-resolution', status: 'fail' }),
-        expect.objectContaining({ id: 'network-endpoint-cloud', status: 'fail' })
+        expect.objectContaining({ id: 'network-endpoint-diagnostics', status: 'fail' })
       ])
     )
   })
 
   it.each([
     ['registry', checks.endpointRegistry],
-    ['cloud', checks.endpointCloud],
     ['diagnostics', checks.endpointDiagnostics]
   ] as const)('%s reports its own endpoint only', async (id, check) => {
     only(id, { http: failed('timeout', 'ERR_TIMED_OUT'), verdict: 'unreachable' })
@@ -186,7 +189,7 @@ describe('network-endpoint-*', () => {
       status: 'fail',
       detail: { variant: 'proxy_auth' }
     })
-    await expect(checks.endpointCloud.run(ctx())).resolves.toMatchObject({
+    await expect(checks.endpointDiagnostics.run(ctx())).resolves.toMatchObject({
       status: 'warn',
       attribution: 'transient',
       detail: { variant: 'server_error' }
@@ -355,13 +358,13 @@ it('skips contextual network probes for a deleted provider while global network 
   }
 })
 
-it('keeps a reachable cloud check running when the unrelated registry host cannot resolve', async () => {
+it('keeps a reachable endpoint check running when the unrelated registry host cannot resolve', async () => {
   network.isOnline.mockReturnValue(true)
   only('registry', { dns: failed('dns', 'ENOTFOUND'), http: skipped('dns_failed') })
   const definitions = [
     { id: 'network-online' as const, run: () => checks.online.run(ctx()) },
     { id: 'network-dns-resolution' as const, run: () => checks.dnsResolution.run({ ...ctx(), subject: null }) },
-    { id: 'network-endpoint-cloud' as const, run: () => checks.endpointCloud.run(ctx()) }
+    { id: 'network-endpoint-diagnostics' as const, run: () => checks.endpointDiagnostics.run(ctx()) }
   ]
   const results = await runDoctorChecks<DoctorCheckId, DoctorProbeOutcome<DoctorCheckId>>({
     checks: definitions.map((definition) => ({
@@ -372,5 +375,5 @@ it('keeps a reachable cloud check running when the unrelated registry host canno
     }))
   })
   expect(results.find(({ id }) => id === 'network-dns-resolution')?.status).toBe('fail')
-  expect(results.find(({ id }) => id === 'network-endpoint-cloud')?.status).toBe('pass')
+  expect(results.find(({ id }) => id === 'network-endpoint-diagnostics')?.status).toBe('pass')
 })

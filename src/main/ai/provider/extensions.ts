@@ -8,7 +8,6 @@ import type { GoogleVertexAnthropicProvider } from '@ai-sdk/google-vertex/anthro
 import type { GoogleVertexProvider, GoogleVertexProviderSettings } from '@ai-sdk/google-vertex/edge'
 import type { GoogleVertexMaasProvider, GoogleVertexMaasProviderSettings } from '@ai-sdk/google-vertex/maas/edge'
 import type { GroqProviderSettings } from '@ai-sdk/groq'
-import type { HuggingFaceProviderSettings } from '@ai-sdk/huggingface'
 import type { MistralProviderSettings } from '@ai-sdk/mistral'
 import type { PerplexityProviderSettings } from '@ai-sdk/perplexity'
 import type { ProviderV3 } from '@ai-sdk/provider'
@@ -151,13 +150,6 @@ export const OpenResponsesExtension = ProviderExtension.create({
   create: async (options?: OpenResponsesProviderSettings): Promise<ProviderV3> =>
     (await import('@ai-sdk/open-responses')).createOpenResponses(options!)
 } as const satisfies ProviderExtensionConfig<OpenResponsesProviderSettings, ProviderV3, 'open-responses'>)
-
-export const HuggingFaceExtension = ProviderExtension.create({
-  name: 'huggingface',
-  aliases: ['hf', 'hugging-face'] as const,
-  supportsImageGeneration: true,
-  create: async (settings) => (await import('@ai-sdk/huggingface')).createHuggingFace(settings)
-} as const satisfies ProviderExtensionConfig<HuggingFaceProviderSettings, ProviderV3, 'huggingface'>)
 
 export const GatewayExtension = ProviderExtension.create({
   name: 'gateway',
@@ -361,7 +353,6 @@ export const extensions = [
   PerplexityExtension,
   MistralExtension,
   OpenResponsesExtension,
-  HuggingFaceExtension,
   GatewayExtension,
   CerebrasExtension,
   MinimaxExtension,

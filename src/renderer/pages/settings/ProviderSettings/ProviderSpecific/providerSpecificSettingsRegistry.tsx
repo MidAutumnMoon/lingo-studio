@@ -8,7 +8,6 @@ import { isAwsBedrockProvider, isProviderSupportAuth, isVertexProvider, matchesP
 import type { useProviderMeta } from '../hooks/providerSetting/useProviderMeta'
 
 const AwsBedrockSettings = lazy(() => import('./AwsBedrockSettings'))
-const CherryInOauth = lazy(() => import('./CherryInOauth'))
 const DmxapiSettings = lazy(() => import('./DmxapiSettings'))
 const GpuStackSettings = lazy(() => import('./GpuStackSettings'))
 const LmStudioSettings = lazy(() => import('./LmStudioSettings'))
@@ -37,11 +36,6 @@ export const PROVIDER_SPECIFIC_SETTINGS_REGISTRY: Record<ProviderSpecificPlaceme
       key: 'oauth',
       when: ({ provider }) => isProviderSupportAuth(provider),
       render: (providerId) => <ProviderOauth providerId={providerId} />
-    },
-    {
-      key: 'cherryin-oauth',
-      when: ({ meta }) => meta.isCherryIN,
-      render: (providerId) => <CherryInOauth providerId={providerId} />
     },
     {
       key: 'ovms-settings',

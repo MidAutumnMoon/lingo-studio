@@ -883,18 +883,18 @@ describe('Model drawers', () => {
 
   it('shows and preserves the image-edit endpoint when adding another endpoint type', async () => {
     useProviderMock.mockReturnValue({
-      provider: { id: 'cherryin', name: 'CherryIN' }
+      provider: { id: 'new-api', name: 'New API' }
     })
 
     render(
       <EditModelDrawer
-        providerId="cherryin"
+        providerId="new-api"
         open
         onClose={vi.fn()}
         model={
           {
-            id: 'cherryin::qwen-image-edit',
-            providerId: 'cherryin',
+            id: 'new-api::qwen-image-edit',
+            providerId: 'new-api',
             name: 'qwen-image-edit',
             group: 'Image',
             capabilities: [],
@@ -917,7 +917,7 @@ describe('Model drawers', () => {
     })
 
     expect(updateModelMock).toHaveBeenCalledWith(
-      'cherryin',
+      'new-api',
       'qwen-image-edit',
       expect.objectContaining({
         endpointTypes: [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS, ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]
@@ -927,18 +927,18 @@ describe('Model drawers', () => {
 
   it('allows clearing the last endpoint type from the edit drawer', async () => {
     useProviderMock.mockReturnValue({
-      provider: { id: 'cherryin', name: 'CherryIN' }
+      provider: { id: 'new-api', name: 'New API' }
     })
 
     render(
       <EditModelDrawer
-        providerId="cherryin"
+        providerId="new-api"
         open
         onClose={vi.fn()}
         model={
           {
-            id: 'cherryin::claude-4-sonnet',
-            providerId: 'cherryin',
+            id: 'new-api::claude-4-sonnet',
+            providerId: 'new-api',
             name: 'claude-4-sonnet',
             group: 'Anthropic',
             capabilities: [],
@@ -964,7 +964,7 @@ describe('Model drawers', () => {
     })
 
     expect(updateModelMock).toHaveBeenCalledWith(
-      'cherryin',
+      'new-api',
       'claude-4-sonnet',
       expect.objectContaining({ endpointTypes: [] })
     )

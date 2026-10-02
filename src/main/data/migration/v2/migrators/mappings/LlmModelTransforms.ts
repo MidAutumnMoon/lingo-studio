@@ -1,5 +1,4 @@
 import { loggerService } from '@logger'
-import { CHERRYAI_DEFAULT_UNIQUE_MODEL_ID } from '@shared/data/presets/cherryai'
 
 import { legacyChatModelToUniqueId, type LegacyModelRef } from '../transformers/ModelTransformers'
 import type { TransformResult } from './ComplexPreferenceMappings'
@@ -19,20 +18,22 @@ function describeLegacyModelRef(value: unknown): Record<string, unknown> {
   }
 }
 
-function resolveChatModelPreference(preferenceKey: string, value: unknown): string {
+function resolveChatModelPreference(preferenceKey: string, value: unknown): string | null {
   const modelId = legacyChatModelToUniqueId(value as LegacyModelRef | null | undefined)
   if (modelId) {
     return modelId
   }
 
   if (value != null) {
-    logger.warn('Legacy model preference could not be parsed; falling back to managed CherryAI default model', {
+    // No bundled default model exists to fall back to: an unresolvable legacy
+    // reference migrates to null (no default model) and onboarding asks the user.
+    logger.warn('Legacy model preference could not be parsed; migrating to no default model', {
       preferenceKey,
       ...describeLegacyModelRef(value)
     })
   }
 
-  return CHERRYAI_DEFAULT_UNIQUE_MODEL_ID
+  return null
 }
 
 /**

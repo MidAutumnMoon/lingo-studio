@@ -146,7 +146,7 @@ export async function processMessage(config: MessageConfig): Promise<Response> {
     application.get('ApiGatewayService').isInternalAgentRequest(config.requestHeaders)
   let resolvedAddress: ReturnType<typeof resolveGatewayModelAddress>
   try {
-    resolvedAddress = resolveGatewayModelAddress(modelString, isInternalAgentRequest)
+    resolvedAddress = resolveGatewayModelAddress(modelString)
   } catch (error) {
     throw asClientError(error)
   }

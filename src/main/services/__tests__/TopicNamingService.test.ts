@@ -7,7 +7,6 @@ import { app } from 'electron'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { WindowType } from '@main/core/window/types'
-import { CHERRYAI_DEFAULT_UNIQUE_MODEL_ID } from '@shared/data/presets/cherryai'
 
 const mocks = vi.hoisted(() => ({
   generateText: vi.fn(),
@@ -116,7 +115,7 @@ describe('TopicNamingService', () => {
     mockMainLoggerService.warn.mockClear()
     mockMainLoggerService.debug.mockClear()
     MockMainPreferenceServiceUtils.setPreferenceValue('topic.naming.enabled', true)
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.default_model_id', 'openai::gpt-4o-mini')
+    MockMainPreferenceServiceUtils.setPreferenceValue('feature.topic_naming.model_id', 'openai::gpt-4o-mini')
     mocks.getModelByKey.mockReturnValue({ id: 'openai::gpt-4o-mini' })
     mocks.getProviderByProviderId.mockReturnValue({ authMethods: ['api-key'] })
     mockRenameInputs()
@@ -190,9 +189,8 @@ describe('TopicNamingService', () => {
     })
   })
 
-  it('uses the chat default model when the quick model preference is empty', async () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.default_model_id', null)
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.default_model_id', 'anthropic::claude-3-haiku')
+  it('uses the explicitly configured naming model', async () => {
+    MockMainPreferenceServiceUtils.setPreferenceValue('feature.topic_naming.model_id', 'anthropic::claude-3-haiku')
 
     await createService().maybeRenameFromConversationSummary('topic-1', undefined, 'message-1', {
       role: 'assistant',
@@ -207,43 +205,34 @@ describe('TopicNamingService', () => {
     expect(mocks.generateText.mock.calls[0][0]).not.toHaveProperty('assistantId')
   })
 
-  it('falls back to the managed CherryAI default when the quick and chat default models are empty', async () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.default_model_id', null)
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.default_model_id', null)
+  it('skips AI naming when no naming model is configured', async () => {
+    MockMainPreferenceServiceUtils.setPreferenceValue('feature.topic_naming.model_id', null)
 
     await createService().maybeRenameFromConversationSummary('topic-1', undefined, 'message-1', {
       role: 'assistant',
       parts: [{ type: 'text', text: 'Assistant response' }]
     } as never)
 
-    expect(mocks.generateText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        uniqueModelId: CHERRYAI_DEFAULT_UNIQUE_MODEL_ID
-      })
-    )
+    expect(mocks.generateText).not.toHaveBeenCalled()
   })
 
-  it('falls back to the managed CherryAI default when the default model preference is invalid', async () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.default_model_id', 'bad-value')
+  it('skips AI naming when the naming model preference is invalid', async () => {
+    MockMainPreferenceServiceUtils.setPreferenceValue('feature.topic_naming.model_id', 'bad-value')
 
     await createService().maybeRenameFromConversationSummary('topic-1', undefined, 'message-1', {
       role: 'assistant',
       parts: [{ type: 'text', text: 'Assistant response' }]
     } as never)
 
-    expect(mocks.generateText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        uniqueModelId: CHERRYAI_DEFAULT_UNIQUE_MODEL_ID
-      })
-    )
+    expect(mocks.generateText).not.toHaveBeenCalled()
     expect(mockMainLoggerService.warn).toHaveBeenCalledWith(
-      'Default chat model is not usable for topic naming; falling back to managed CherryAI default',
+      'Configured topic naming model is not usable; skipping AI naming',
       { configured: 'bad-value' }
     )
   })
 
-  it('falls back to the managed CherryAI default when the default model no longer exists', async () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.default_model_id', 'ghost::missing')
+  it('skips AI naming when the naming model no longer exists', async () => {
+    MockMainPreferenceServiceUtils.setPreferenceValue('feature.topic_naming.model_id', 'ghost::missing')
     mocks.getModelByKey.mockImplementation(() => {
       throw new Error('missing model')
     })
@@ -254,13 +243,9 @@ describe('TopicNamingService', () => {
     } as never)
 
     expect(mocks.getModelByKey).toHaveBeenCalledWith('ghost', 'missing')
-    expect(mocks.generateText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        uniqueModelId: CHERRYAI_DEFAULT_UNIQUE_MODEL_ID
-      })
-    )
+    expect(mocks.generateText).not.toHaveBeenCalled()
     expect(mockMainLoggerService.warn).toHaveBeenCalledWith(
-      'Default chat model is not usable for topic naming; falling back to managed CherryAI default',
+      'Configured topic naming model is not usable; skipping AI naming',
       { configured: 'ghost::missing' }
     )
   })
@@ -658,8 +643,8 @@ describe('TopicNamingService', () => {
     expect(mocks.broadcast).not.toHaveBeenCalled()
   })
 
-  it('falls back when the default model points to an external-CLI (agent-only) provider', async () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.default_model_id', 'cli-login::haiku')
+  it('skips AI naming when the naming model points to an external-CLI (agent-only) provider', async () => {
+    MockMainPreferenceServiceUtils.setPreferenceValue('feature.topic_naming.model_id', 'cli-login::haiku')
     mocks.getProviderByProviderId.mockReturnValue({ authMethods: ['external-cli'] })
     mocks.getSession.mockReturnValue({
       id: 'session-1',
@@ -674,19 +659,15 @@ describe('TopicNamingService', () => {
     } as never)
 
     expect(mocks.getModelByKey).not.toHaveBeenCalledWith('cli-login', 'haiku')
-    expect(mocks.generateText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        uniqueModelId: CHERRYAI_DEFAULT_UNIQUE_MODEL_ID
-      })
-    )
+    expect(mocks.generateText).not.toHaveBeenCalled()
     expect(mockMainLoggerService.warn).toHaveBeenCalledWith(
-      'Default chat model is not usable for topic naming; falling back to managed CherryAI default',
+      'Configured topic naming model is not usable; skipping AI naming',
       { configured: 'cli-login::haiku' }
     )
   })
 
   it('uses an oauth login-based quick model (e.g. Codex/Grok) for topic naming', async () => {
-    MockMainPreferenceServiceUtils.setPreferenceValue('chat.default_model_id', 'openai-codex::gpt-5')
+    MockMainPreferenceServiceUtils.setPreferenceValue('feature.topic_naming.model_id', 'openai-codex::gpt-5')
     mocks.getProviderByProviderId.mockReturnValue({ authMethods: ['oauth'] })
 
     await createService().maybeRenameFromConversationSummary('topic-1', 'assistant-1', 'message-1', {

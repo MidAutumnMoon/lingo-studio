@@ -15,8 +15,6 @@ import type { XaiProvider, XaiProviderSettings } from '@ai-sdk/xai'
 import type { OpenRouterProvider, OpenRouterProviderSettings } from '@openrouter/ai-sdk-provider'
 import { customProvider, type LanguageModel } from 'ai'
 
-import type { CherryInProvider, CherryInProviderSettings } from '@cherrystudio/ai-sdk-provider'
-
 import type {
   ExtensionConfigToIdResolutionMap,
   ExtractExtensionIds,
@@ -135,26 +133,6 @@ const AzureExtension = ProviderExtension.create({
     } satisfies ProviderVariant<AzureOpenAIProviderSettings, AzureOpenAIProvider, AnthropicProvider>
   ] as const
 } as const satisfies ProviderExtensionConfig<AzureOpenAIProviderSettings, AzureOpenAIProvider, 'azure'>)
-
-const CherryInExtension = ProviderExtension.create({
-  name: 'cherryin',
-  supportsImageGeneration: true,
-  create: async (settings) => (await import('@cherrystudio/ai-sdk-provider')).createCherryIn(settings),
-
-  variants: [
-    {
-      suffix: 'chat',
-      name: 'CherryIN Chat',
-      transform: (provider): ProviderV3 =>
-        customProvider({
-          fallbackProvider: {
-            ...provider,
-            languageModel: (modelId: string) => provider.chat(modelId)
-          }
-        })
-    }
-  ] as const
-} as const satisfies ProviderExtensionConfig<CherryInProviderSettings, CherryInProvider, 'cherryin'>)
 
 const DeepSeekExtension = ProviderExtension.create({
   name: 'deepseek',
@@ -289,8 +267,7 @@ type CoreExtensions = readonly [
   typeof XaiExtension,
   typeof DeepSeekExtension,
   typeof OpenRouterExtension,
-  typeof OpenAICompatibleExtension,
-  typeof CherryInExtension
+  typeof OpenAICompatibleExtension
 ]
 
 export const coreExtensions: CoreExtensions = [
@@ -301,8 +278,7 @@ export const coreExtensions: CoreExtensions = [
   XaiExtension,
   DeepSeekExtension,
   OpenRouterExtension,
-  OpenAICompatibleExtension,
-  CherryInExtension
+  OpenAICompatibleExtension
 ]
 
 /**

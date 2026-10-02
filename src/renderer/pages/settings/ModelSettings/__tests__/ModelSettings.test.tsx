@@ -89,7 +89,8 @@ vi.mock('@renderer/hooks/useModel', () => ({
     setDefaultModel: harness.setDefaultModel,
     setTranslateModel: harness.setTranslateModel,
     setPaintingModel: harness.setPaintingModel
-  })
+  }),
+  useModelById: () => ({ model: undefined })
 }))
 
 vi.mock('@renderer/hooks/useProvider', () => ({

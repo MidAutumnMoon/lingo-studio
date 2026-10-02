@@ -48,7 +48,7 @@ export type PiApi =
  * registry endpoint member without classifying it here is a typecheck failure,
  * the same guarantee `loadPiApiStreamSimple`'s family switch gives in the main
  * process. `undefined` means "not a chat protocol pi drives" — rerank,
- * embeddings, audio, image, video, ollama, and text-completions endpoints.
+ * embeddings, image, and ollama endpoints.
  */
 export const ENDPOINT_PI_API: Readonly<Record<EndpointType, PiApi | undefined>> = {
   [ENDPOINT_TYPE.ANTHROPIC_MESSAGES]: 'anthropic-messages',
@@ -58,14 +58,9 @@ export const ENDPOINT_PI_API: Readonly<Record<EndpointType, PiApi | undefined>> 
   [ENDPOINT_TYPE.JINA_RERANK]: undefined,
   [ENDPOINT_TYPE.OLLAMA_CHAT]: undefined,
   [ENDPOINT_TYPE.OLLAMA_GENERATE]: undefined,
-  [ENDPOINT_TYPE.OPENAI_AUDIO_TRANSCRIPTION]: undefined,
-  [ENDPOINT_TYPE.OPENAI_AUDIO_TRANSLATION]: undefined,
   [ENDPOINT_TYPE.OPENAI_EMBEDDINGS]: undefined,
   [ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]: undefined,
-  [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: undefined,
-  [ENDPOINT_TYPE.OPENAI_TEXT_COMPLETIONS]: undefined,
-  [ENDPOINT_TYPE.OPENAI_TEXT_TO_SPEECH]: undefined,
-  [ENDPOINT_TYPE.OPENAI_VIDEO_GENERATION]: undefined
+  [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: undefined
 }
 
 /**

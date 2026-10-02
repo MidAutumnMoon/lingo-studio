@@ -7,7 +7,6 @@ import { Alert, Button, Spinner } from '@cherrystudio/ui'
 import { usePersistCache } from '@data/hooks/useCache'
 import { useProviders } from '@renderer/hooks/useProvider'
 import type { AppRouter } from '@renderer/types/router'
-import { isProviderSettingsListVisibleProvider } from '@renderer/utils/providerSettings'
 import type { Provider } from '@shared/data/types/provider'
 
 import type { ProviderApiSetupInitialStep } from './ConnectionSettings/ProviderApiSetupDialog'
@@ -37,7 +36,7 @@ function ProviderSettingsContent({ rawProviders }: ProviderSettingsContentProps)
   const setLastSelectedProviderIdRef = useRef(setLastSelectedProviderId)
 
   const providers = useMemo(() => (Array.isArray(rawProviders) ? rawProviders : []), [rawProviders])
-  const visibleProviders = useMemo(() => providers.filter(isProviderSettingsListVisibleProvider), [providers])
+  const visibleProviders = providers
   const filterModeHint = search.filter === 'agent' ? 'agent' : undefined
 
   useEffect(() => {

@@ -35,11 +35,6 @@ import { insertManyWithOrderKey } from '@data/services/utils/orderKey'
 import { loggerService } from '@logger'
 import { DataApiErrorFactory } from '@shared/data/api/errors'
 import type { CreateModelDto, ListModelsQuery, UpdateModelDto } from '@shared/data/api/schemas/models'
-import {
-  CHERRYAI_DEFAULT_UNIQUE_MODEL_ID,
-  CHERRYAI_PROVIDER_ID,
-  isManagedCherryAiDefaultModel
-} from '@shared/data/presets/cherryai'
 import type {
   EndpointType,
   Modality,
@@ -97,12 +92,14 @@ function isPresetDeltaField(field: string): field is PresetDeltaField {
   return PRESET_DELTA_FIELD_SET.has(field)
 }
 
-/** Resolve the set of UniqueModelIds currently set as user defaults (chat / translate). */
+/** Resolve the set of UniqueModelIds currently set as user defaults (chat / translate / naming / diagnosis). */
 function getUserDefaultModelIds(): Set<string> {
   const preferenceService = application.get('PreferenceService')
   const ids = [
     preferenceService.get('chat.default_model_id'),
-    preferenceService.get('feature.translate.model_id')
+    preferenceService.get('feature.translate.model_id'),
+    preferenceService.get('feature.topic_naming.model_id'),
+    preferenceService.get('feature.error_diagnosis.model_id')
   ].filter((id): id is string => typeof id === 'string' && id.length > 0)
   return new Set(ids)
 }
@@ -112,26 +109,6 @@ function assertModelNotUsedAsDefaultModel(uniqueModelId: string, operation: stri
   if (getUserDefaultModelIds().has(uniqueModelId)) {
     throw DataApiErrorFactory.invalidOperation(operation, MODEL_IN_USE_AS_DEFAULT_REASON)
   }
-}
-
-function assertManagedCherryAiDefaultModelPatchAllowed(providerId: string, modelId: string, dto: UpdateModelDto): void {
-  if (!isManagedCherryAiDefaultModel(providerId, modelId) || Object.keys(dto).length === 0) {
-    return
-  }
-
-  assertManagedCherryAiDefaultModelMutationAllowed(providerId, modelId, `update model ${providerId}/${modelId}`)
-}
-
-function assertManagedCherryAiDefaultModelMutationAllowed(
-  providerId: string,
-  modelId: string,
-  operation: string
-): void {
-  if (!isManagedCherryAiDefaultModel(providerId, modelId)) {
-    return
-  }
-
-  throw DataApiErrorFactory.invalidOperation(operation, 'managed CherryAI default model cannot be modified')
 }
 
 function assertProvidersAvailable(providerIds: Iterable<string>): void {
@@ -593,20 +570,17 @@ class ModelService {
       )
     }
 
-    const managedDefaultIds = new Set<string>()
     const presetBackedRemovalIds = new Set<string>()
     const customModelIds = new Set<string>()
     for (const row of rows) {
-      if (providerId === CHERRYAI_PROVIDER_ID && row.id === CHERRYAI_DEFAULT_UNIQUE_MODEL_ID) {
-        managedDefaultIds.add(row.id)
-      } else if (row.presetModelId != null && row.presetModelId !== '') {
+      if (row.presetModelId != null && row.presetModelId !== '') {
         presetBackedRemovalIds.add(row.id)
       } else {
         customModelIds.add(row.id)
       }
     }
 
-    // Protect models currently set as user defaults (chat / quick-assistant / translate)
+    // Protect models currently set as user defaults (chat / translate / naming / diagnosis)
     // from being deleted during pull-reconcile. Deleting the user's chosen model while
     // the preference still points to it causes 404s on every readDefaultModel() call.
     const userDefaultIds = new Set<string>()
@@ -626,14 +600,6 @@ class ModelService {
 
     const removableCustomModelIds = new Set([...customModelIds].filter((id) => !userDefaultIds.has(id)))
 
-    if (managedDefaultIds.size > 0) {
-      logger.warn('Skipped managed CherryAI default model removal during reconcile', {
-        providerId,
-        skippedCount: managedDefaultIds.size,
-        skippedIds: [...managedDefaultIds]
-      })
-    }
-
     if (removableCustomModelIds.size > 0) {
       logger.warn('Skipped custom model removal during reconcile', {
         providerId,
@@ -643,9 +609,7 @@ class ModelService {
     }
 
     return {
-      toRemove: toRemove.filter(
-        (id) => !managedDefaultIds.has(id) && !userDefaultIds.has(id) && !removableCustomModelIds.has(id)
-      ),
+      toRemove: toRemove.filter((id) => !userDefaultIds.has(id) && !removableCustomModelIds.has(id)),
       presetBackedRemovalIds
     }
   }
@@ -917,13 +881,6 @@ class ModelService {
   create(items: CreateModelInput[]): Model[] {
     if (items.length === 0) return []
     assertProvidersAvailable(items.map(({ dto }) => dto.providerId))
-    for (const { dto } of items) {
-      assertManagedCherryAiDefaultModelMutationAllowed(
-        dto.providerId,
-        dto.modelId,
-        `create model ${dto.providerId}/${dto.modelId}`
-      )
-    }
 
     const db = application.get('DbService').getDb()
     const values = items.map(({ dto, registryData }) => this.buildCreateValues(dto, registryData))
@@ -976,7 +933,6 @@ class ModelService {
    */
   update(providerId: string, modelId: string, dto: UpdateModelDto): Model {
     providerService.assertAvailable(providerId)
-    assertManagedCherryAiDefaultModelPatchAllowed(providerId, modelId, dto)
 
     const db = application.get('DbService').getDb()
 
@@ -1026,10 +982,6 @@ class ModelService {
     assertProvidersAvailable(items.map((item) => item.providerId))
 
     const db = application.get('DbService').getDb()
-
-    for (const { providerId, modelId, patch } of items) {
-      assertManagedCherryAiDefaultModelPatchAllowed(providerId, modelId, patch)
-    }
 
     const rows = db.transaction((tx) => {
       const results: UserModelRow[] = []
@@ -1184,7 +1136,6 @@ class ModelService {
    */
   delete(providerId: string, modelId: string): void {
     providerService.assertAvailable(providerId)
-    assertManagedCherryAiDefaultModelMutationAllowed(providerId, modelId, `delete model ${providerId}/${modelId}`)
 
     const uniqueModelId = createUniqueModelId(providerId, modelId)
     assertModelNotUsedAsDefaultModel(uniqueModelId, `delete model ${uniqueModelId}`)
@@ -1221,11 +1172,6 @@ class ModelService {
     const uniqueItems = new Map<string, { providerId: string; modelId: string }>()
 
     for (const item of items) {
-      assertManagedCherryAiDefaultModelMutationAllowed(
-        item.providerId,
-        item.modelId,
-        `delete model ${item.providerId}/${item.modelId}`
-      )
       uniqueItems.set(createUniqueModelId(item.providerId, item.modelId), item)
     }
 

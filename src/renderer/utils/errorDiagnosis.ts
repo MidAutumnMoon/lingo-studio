@@ -1,10 +1,10 @@
 import { dataApiService } from '@data/DataApiService'
+import { preferenceService } from '@data/PreferenceService'
 import { loggerService } from '@logger'
 import i18n from '@renderer/i18n/resolver'
 import type { SerializedError } from '@renderer/types/error'
 import { fetchGenerate } from '@renderer/utils/aiGeneration'
-import { CHERRYAI_DEFAULT_UNIQUE_MODEL_ID } from '@shared/data/presets/cherryai'
-import type { Model } from '@shared/data/types/model'
+import type { Model, UniqueModelId } from '@shared/data/types/model'
 import type { DiagnosisResult } from '@shared/data/types/uiParts'
 import { isMcpErrorMessage, isProxyErrorMessage, isQuotaErrorMessage } from '@shared/utils/errorCategory'
 
@@ -20,10 +20,14 @@ export interface DiagnosisContext {
   modelId?: string
 }
 
-async function getCherryAiDefaultFreeModel(): Promise<Model> {
-  const model = await dataApiService.get(`/models/${CHERRYAI_DEFAULT_UNIQUE_MODEL_ID}`)
+async function getDiagnosisModel(): Promise<Model> {
+  const modelId = (await preferenceService.get('feature.error_diagnosis.model_id')) as UniqueModelId | null
+  if (!modelId) {
+    throw new Error('Diagnosis model not configured')
+  }
+  const model = await dataApiService.get(`/models/${modelId}`)
   if (!model) {
-    throw new Error(`Diagnosis model not found: ${CHERRYAI_DEFAULT_UNIQUE_MODEL_ID}`)
+    throw new Error(`Diagnosis model not found: ${modelId}`)
   }
   return model
 }
@@ -271,15 +275,15 @@ The examples above demonstrate structure only. Write all four diagnosis fields i
   const content = JSON.stringify(errorInfo)
 
   try {
-    const model = await getCherryAiDefaultFreeModel()
+    const model = await getDiagnosisModel()
     const response = await fetchGenerate({ prompt, content, model, throwOnError: true })
     if (!response) {
       throw new Error(`Empty response from model: ${model.id}`)
     }
     return parseResponse(response)
   } catch (error) {
-    logger.error('Free diagnosis model unavailable', error as Error)
-    throw new Error(i18n.t('error.diagnosis.free_model_unavailable'))
+    logger.error('Diagnosis model unavailable', error as Error)
+    throw new Error(i18n.t('error.diagnosis.model_unavailable'))
   }
 }
 
@@ -292,11 +296,11 @@ export async function classifyErrorByAI(error: SerializedError, language: string
   const content = `Error: ${error.name}: ${error.message}`
 
   try {
-    const model = await getCherryAiDefaultFreeModel()
+    const model = await getDiagnosisModel()
     const response = await fetchGenerate({ prompt, content, model, throwOnError: true })
     return response?.trim() || ''
   } catch (error) {
-    logger.warn('Free diagnosis model unavailable for error classification', error as Error)
+    logger.warn('Diagnosis model unavailable for error classification', error as Error)
     return ''
   }
 }

@@ -121,7 +121,7 @@ export async function buildAgentParams(input: BuildAgentParamsInput): Promise<Bu
   const aiSdkProviderId = resolveAiSdkProviderId(provider, endpointType)
   const serviceTierControl = providerRegistryService.resolveServiceTierControl(provider, model, endpointType)
   const capabilities = assistant
-    ? resolveCapabilities(model, provider, assistant, {
+    ? resolveCapabilities(model, provider, {
         webToolRoutes: plan.webToolRoutes,
         runtimeProviderId: sdkConfig.providerId,
         serving: sdkConfig.providerSettings

@@ -11,7 +11,6 @@
 
 import { application } from '@application'
 import { extensionRegistry } from '@cherrystudio/ai-core/provider'
-import type { Assistant } from '@shared/data/types/assistant'
 import type { Model } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
 import {
@@ -37,7 +36,6 @@ export interface ResolvedCapabilities {
   enableReasoning: boolean
   enableGenerateImage: boolean
   isSupportedToolUse: boolean
-  streamOutput: boolean
   webSearchPluginConfig?: AppWebSearchPluginConfig
 }
 
@@ -71,7 +69,6 @@ function mapVertexAIGatewayModelToProviderId(model: Model): AppProviderId | unde
 export function resolveCapabilities(
   model: Model,
   provider: Provider,
-  assistant: Assistant,
   options: ResolveCapabilitiesOptions = {}
 ): ResolvedCapabilities {
   // This flag means the model exposes reasoning behavior, not that the persisted assistant setting
@@ -86,8 +83,6 @@ export function resolveCapabilities(
   const enableGenerateImage = isGenerateImageModel(model) && false
 
   const isSupportedToolUse = isFunctionCallingModel(model)
-
-  const streamOutput = assistant.settings?.streamOutput !== false
 
   // Build provider-builtin web search config when the plan routed search to the server side
   let webSearchPluginConfig: AppWebSearchPluginConfig | undefined
@@ -124,7 +119,6 @@ export function resolveCapabilities(
     enableReasoning,
     enableGenerateImage,
     isSupportedToolUse,
-    streamOutput,
     webSearchPluginConfig
   }
 }

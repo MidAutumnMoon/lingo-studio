@@ -7,15 +7,8 @@ import {
   type ServerToolConfig,
   supportsServerToolFunctionMixing
 } from '@cherrystudio/provider-registry'
-import {
-  CHERRY_CLOUD_AUDIENCE,
-  CHERRYAI_PROVIDER_ID,
-  isManagedCherryCloudModel,
-  isManagedCherryProviderId
-} from '@shared/data/presets/cherryai'
 import { ENDPOINT_TYPE, type EndpointType, type Model } from '@shared/data/types/model'
 import type { EndpointDialect, Provider } from '@shared/data/types/provider'
-import type { AppEdition } from '@shared/types/appEdition'
 
 import { getLowerBaseModelName, getRawModelId, isFunctionCallingModel, isGeminiModel, isNonChatModel } from './model'
 import { getProviderHostTopology } from './providerTopology'
@@ -34,21 +27,6 @@ export function isAzureOpenAIProvider(provider: Provider): boolean {
 export function isAwsBedrockProvider(provider: Provider): boolean {
   return provider.authType === 'iam-aws' || provider.authType === 'api-key-aws'
 }
-
-export function isOllamaProvider(provider: Pick<Provider, 'id' | 'presetProviderId' | 'defaultChatEndpoint'>): boolean {
-  return (
-    provider.id === 'ollama' ||
-    provider.presetProviderId === 'ollama' ||
-    provider.defaultChatEndpoint === ENDPOINT_TYPE.OLLAMA_CHAT
-  )
-}
-
-/**
- * Ollama's local server does not validate credentials, but the SDKs backing
- * Claude Code and OpenCode still require a non-empty auth token string — used
- * as a stand-in wherever an Ollama provider has no configured API key.
- */
-export const OLLAMA_PLACEHOLDER_AUTH_TOKEN = 'ollama'
 
 // `&& !iam-gcp` excludes Vertex, which the seeder gives the same
 // google-generate-content endpoint as Gemini.
@@ -95,12 +73,8 @@ export function isPerplexityProvider(provider: Provider): boolean {
   return provider.id === 'perplexity' || provider.presetProviderId === 'perplexity'
 }
 
-export function isCherryAIProvider(provider: Provider): boolean {
-  return isManagedCherryProviderId(provider.id) || provider.presetProviderId === CHERRYAI_PROVIDER_ID
-}
-
 export function isNewApiProvider(provider: Provider): boolean {
-  return matchesPreset(provider, 'new-api') || matchesPreset(provider, 'cherryin') || matchesPreset(provider, 'aionly')
+  return matchesPreset(provider, 'new-api') || matchesPreset(provider, 'aionly')
 }
 
 export function isAIGatewayProvider(provider: Provider): boolean {
@@ -182,12 +156,11 @@ export function isExternalCliProvider(provider: Pick<Provider, 'authMethods'>): 
 /**
  * Agent-only providers are surfaced only to Agent pickers / runtimes — never to
  * general chat selectors or the public gateway catalog. External-CLI providers are
- * always agent-only (no app-side credential); Cherry Cloud follows `CHERRY_CLOUD_AUDIENCE`.
+ * always agent-only: they reuse a CLI's own stored login and hold no app-side
+ * credential.
  */
-export function isAgentOnlyProvider(provider: Pick<Provider, 'id' | 'authMethods'>, edition: AppEdition): boolean {
-  if (isExternalCliProvider(provider)) return true
-  if (isManagedCherryCloudModel(provider.id)) return CHERRY_CLOUD_AUDIENCE[edition] === 'agent'
-  return false
+export function isAgentOnlyProvider(provider: Pick<Provider, 'id' | 'authMethods'>): boolean {
+  return isExternalCliProvider(provider)
 }
 
 export function isAnthropicSupportedProvider(provider: Provider): boolean {
@@ -382,7 +355,7 @@ export function finalizeWebToolRoutes(
   return next
 }
 
-const NOT_SUPPORT_QWEN3_ENABLE_THINKING_PROVIDERS = ['ollama', 'lmstudio', 'nvidia', 'gpustack'] as const
+const NOT_SUPPORT_QWEN3_ENABLE_THINKING_PROVIDERS = ['lmstudio', 'nvidia', 'gpustack'] as const
 
 export function isSupportEnableThinkingProvider(provider: Provider): boolean {
   return !NOT_SUPPORT_QWEN3_ENABLE_THINKING_PROVIDERS.some((id) => id === provider.id)

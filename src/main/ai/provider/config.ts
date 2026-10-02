@@ -8,7 +8,6 @@ import { application } from '@application'
 import { formatPrivateKey, hasProviderConfig, type StringKeys } from '@cherrystudio/ai-core/provider'
 import type { CherryInProviderSettings } from '@cherrystudio/ai-sdk-provider'
 import { providerService, type ResolvedProviderApiKey } from '@main/data/services/ProviderService'
-import { CHERRYAI_PROVIDER_ID, isManagedCherryCloudModel } from '@shared/data/presets/cherryai'
 import { OPENAI_CODEX_PROVIDER_ID } from '@shared/data/presets/codex'
 import { GROK_CLI_PROVIDER_ID } from '@shared/data/presets/grokCli'
 import type { EndpointType, Model } from '@shared/data/types/model'
@@ -30,8 +29,6 @@ import { type AppProviderId, appProviderIds, type AppProviderSettingsMap } from 
 import { customFetch } from '../utils/customFetch'
 import { getBaseUrl, getExtraHeaders, getProviderAppHeaders, routeToEndpoint } from '../utils/provider'
 import { normalizeArkResponsesResponse, stripArkUnsupportedIncludes } from './ark'
-import { generateSignature } from './cherryai'
-import { buildCherryCloudProviderConfig } from './cherryCloud'
 import { buildCodexRequestHeaders, coerceCodexRequestBody } from './codex'
 import type { ServingAuthMethod, ServingCredentialReceipt } from './credential'
 import { appendDashScopeWebExtractor } from './custom/dashscope/dashscopeWebExtractor'
@@ -93,7 +90,7 @@ function formatBaseURL(baseURL: string, provider: Provider, endpointType?: Endpo
   if (isGeminiProvider(provider)) return formatApiHost(baseURL, appendApiVersion, 'v1beta')
 
   // Providers that don't append API version
-  const noVersionProviders = [CHERRYAI_PROVIDER_ID, 'perplexity', 'newapi', 'new-api', 'azure-openai']
+  const noVersionProviders = ['perplexity', 'newapi', 'new-api', 'azure-openai']
   if (noVersionProviders.includes(provider.id) || noVersionProviders.includes(provider.presetProviderId ?? '')) {
     return formatApiHost(baseURL, false)
   }
@@ -151,13 +148,6 @@ function withProviderAuth(method: ServingAuthMethod, build: ProviderConfigBuilde
   })
 }
 
-function withoutCredential(build: ProviderConfigBuilder): ConfigBuilderEntry['build'] {
-  return async (ctx) => ({
-    config: await build(ctx),
-    credentialReceipt: { attribution: 'unknown' }
-  })
-}
-
 /** Endpoint priority: `model.endpointTypes[0]` > `provider.defaultChatEndpoint` > fallback. */
 export async function providerToAiSdkConfig(
   provider: Provider,
@@ -201,11 +191,6 @@ export async function resolveProviderAiSdkConfig(
     },
     { match: (p) => p.id === OPENAI_CODEX_PROVIDER_ID, build: withProviderAuth('oauth', buildCodexConfig) },
     { match: (p) => p.id === GROK_CLI_PROVIDER_ID, build: withProviderAuth('oauth', buildGrokCliConfig) },
-    {
-      match: (p) => isManagedCherryCloudModel(p.id),
-      build: withoutCredential((ctx) => buildCherryCloudProviderConfig(ctx.endpointType, ctx.endpoint))
-    },
-    { match: (p) => p.id === CHERRYAI_PROVIDER_ID, build: withSelectedApiKey(buildCherryAIConfig) },
     { match: (p) => isAzureOpenAIProvider(p), build: withSelectedApiKey(buildAzureConfig) },
     // DashScope chat is OpenAI-compatible, but Bailian rerank uses a provider-specific URL.
     // Only replace the OpenAI-compatible branch so other DashScope endpoint families stay routed normally.
@@ -284,7 +269,7 @@ export async function resolveProviderAiSdkConfig(
         return config
       })
     },
-    // Subset Responses servers (HuggingFace router today) speak the spec-neutral dialect: the
+    // Subset Responses servers speak the spec-neutral dialect: the
     // minimal body only, no OpenAI-only extras they would reject.
     { match: (_, id) => id === 'open-responses', build: withSelectedApiKey(buildOpenResponsesConfig) },
     // modelscope / ppio / doubao / dmxapi / tokenhub: chat & embedding are OpenAI-compatible, but IMAGE
@@ -333,10 +318,6 @@ export async function resolveProviderAiSdkConfig(
       match: (_, id) => id === 'google-vertex' || id === 'google-vertex-anthropic',
       build: withProviderAuth('iam-gcp', buildVertexConfig)
     },
-    {
-      match: (p) => matchesPreset(p, SystemProviderIds.cherryin),
-      build: withSelectedApiKey(buildCherryinConfig)
-    },
     { match: (_, id) => id === 'newapi', build: withSelectedApiKey(buildNewApiConfig) },
     { match: (_, id) => id === 'aihubmix', build: withSelectedApiKey(buildAiHubMixConfig) },
     { match: (_, id) => id === 'dmxapi', build: withSelectedApiKey(buildDmxapiConfig) }
@@ -355,8 +336,8 @@ export async function resolveProviderAiSdkConfig(
   const { config } = resolved
   // Default every provider to the proxy-aware net.fetch base so the app proxy
   // (ProxyService → session.setProxy) applies to provider HTTP traffic. Builders
-  // that install their own fetch wrapper (e.g. CherryAI request signing) compose
-  // on top of customFetch; `??=` preserves them rather than clobbering them.
+  // that install their own fetch wrapper compose on top of customFetch; `??=`
+  // preserves them rather than clobbering them.
   config.providerSettings.fetch ??= customFetch
 
   return {
@@ -495,28 +476,6 @@ function buildGrokCliFetch() {
   }
 }
 
-async function buildCherryAIConfig(ctx: BuilderContext): Promise<ProviderConfig<'openai-compatible'>> {
-  return {
-    providerId: 'openai-compatible',
-    endpoint: ctx.endpoint,
-    providerSettings: {
-      ...ctx.baseConfig,
-      name: ctx.actualProvider.id,
-      includeUsage: resolveEndpointDialect(ctx.actualProvider, ctx.endpointType).streamOptions,
-      headers: { ...getProviderAppHeaders(ctx.actualProvider), ...getExtraHeaders(ctx.actualProvider) },
-      fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
-        const signature = generateSignature({
-          method: 'POST',
-          path: '/chat/completions',
-          query: '',
-          body: init?.body && typeof init.body === 'string' ? JSON.parse(init.body) : undefined
-        })
-        return customFetch(input, { ...init, headers: { ...init?.headers, ...signature } })
-      }
-    }
-  }
-}
-
 function buildCommonOptions(ctx: BuilderContext) {
   const options: Record<string, any> = {
     headers: {
@@ -625,6 +584,11 @@ function buildVertexConfig(
   } as ProviderConfig<'google-vertex'>
 }
 
+/**
+ * Maps a registry endpoint type onto the `endpointType` union shared by the
+ * new-api provider family in `@cherrystudio/ai-sdk-provider` (the family the
+ * removed CherryIN preset introduced it for; new-api still consumes it).
+ */
 function mapCherryinEndpointType(epType: string | undefined): CherryInProviderSettings['endpointType'] {
   if (!epType) return undefined
 
@@ -644,26 +608,6 @@ function mapCherryinEndpointType(epType: string | undefined): CherryInProviderSe
       return 'embedding'
     default:
       return 'openai'
-  }
-}
-
-function buildCherryinConfig(ctx: BuilderContext): ProviderConfig {
-  const provider = ctx.actualProvider
-  const anthropicBaseURL = formatApiHost(provider.endpointConfigs?.[ENDPOINT_TYPE.ANTHROPIC_MESSAGES]?.baseUrl)
-  const geminiBaseURL = formatApiHost(getBaseUrl(provider, ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT), true, 'v1beta')
-
-  const cherryinEndpointType = mapCherryinEndpointType(ctx.endpointType)
-
-  return {
-    providerId: ctx.aiSdkProviderId,
-    endpoint: ctx.endpoint,
-    providerSettings: {
-      ...ctx.baseConfig,
-      endpointType: cherryinEndpointType,
-      anthropicBaseURL,
-      geminiBaseURL,
-      headers: { ...getProviderAppHeaders(ctx.actualProvider), ...getExtraHeaders(ctx.actualProvider) }
-    }
   }
 }
 

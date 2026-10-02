@@ -1,5 +1,3 @@
-import { isManagedCherryAiDefaultModel } from '@shared/data/presets/cherryai'
-
 /**
  * Separator in the custom-model path Antigravity CLI carries (`gemini-api://<providerId>/models/<apiModelId>`).
  * The producer (`main/services/codeCli/antigravity.ts`) and the gateway route that parses it back
@@ -22,8 +20,7 @@ export function gatewayClientOrigin(host: string, port: number): string {
  * (single colon, `apiModelId` — NOT the `::`-separated internal `UniqueModelId`). The gateway
  * splits on the first `:` (see `apiGateway/proxyStream.ts`) and advertises the same shape from
  * `/v1/models` (see `apiGateway/utils/models.ts`), so both the CLI-config writer and the in-app
- * agent runtimes must format ids identically. CherryAI managed default models are not
- * routable through the gateway and throw, mirroring the gateway's own guard.
+ * agent runtimes must format ids identically.
  */
 export function formatGatewayModelId(providerId: string, apiModelId: string): string {
   // The single-colon format cannot round-trip a provider id that itself contains ':' —
@@ -31,9 +28,6 @@ export function formatGatewayModelId(providerId: string, apiModelId: string): st
   // Fail loudly rather than emit an address that silently targets the wrong provider.
   if (providerId.includes(':')) {
     throw new Error(`Provider id "${providerId}" contains ":" and cannot be addressed through the API gateway`)
-  }
-  if (isManagedCherryAiDefaultModel(providerId, apiModelId)) {
-    throw new Error('CherryAI managed default model is not available through the API gateway')
   }
   return `${providerId}:${apiModelId}`
 }

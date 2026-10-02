@@ -83,6 +83,7 @@ function getCleanupPaths() {
     legacyAgents: application.getPath('app.userdata.data', 'agents.db'),
     rootLegacyAgents: application.getPath('app.userdata', 'agents.db'),
     customMiniApps: application.getPath('feature.files.data', 'custom-minapps.json'),
+    cherryAccountCredentials: application.getPath('app.userdata', 'Credentials/cherry-account.json'),
     rootLegacyMemory: application.getPath('app.userdata', 'memories.db')
   }
 }
@@ -400,6 +401,7 @@ async function collectLegacyCleanupPlan(): Promise<LegacyCleanupPlan> {
       })
     ),
     { item: 'legacy_custom_mini_apps', path: paths.customMiniApps, kind: 'file' },
+    { item: 'legacy_cherry_account_credentials', path: paths.cherryAccountCredentials, kind: 'file' },
     { item: 'legacy_migration_temp', path: paths.migrationTemp, kind: 'directory' },
     { item: 'legacy_cli_install', path: paths.legacyCliInstall, kind: 'directory' },
     { item: 'legacy_database', path: paths.legacyDatabase, kind: 'file' },

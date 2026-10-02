@@ -8,7 +8,6 @@ import { application } from '@application'
 import { userProviderTable } from '@data/db/schemas/userProvider'
 import { providerService } from '@data/services/ProviderService'
 import { ErrorCode } from '@shared/data/api/errors'
-import { CHERRY_CLOUD_PROVIDER_ID, CHERRYAI_PROVIDER_ID } from '@shared/data/presets/cherryai'
 
 describe('ProviderService.update', () => {
   const dbh = setupTestDatabase()
@@ -145,32 +144,6 @@ describe('ProviderService.update', () => {
       err = e
     }
     expect(err).toMatchObject({ code: ErrorCode.NOT_FOUND })
-  })
-
-  it.each([
-    ['CherryAI', CHERRYAI_PROVIDER_ID],
-    ['Cherry Cloud', CHERRY_CLOUD_PROVIDER_ID]
-  ])('rejects PATCHes for the managed %s provider', async (_name, providerId) => {
-    await dbh.db.insert(userProviderTable).values({
-      providerId,
-      name: _name,
-      orderKey: 'a0',
-      isEnabled: true
-    })
-
-    let err: unknown
-    try {
-      providerService.update(providerId, { isEnabled: false })
-    } catch (e) {
-      err = e
-    }
-    expect(err).toMatchObject({
-      code: ErrorCode.INVALID_OPERATION,
-      status: 400
-    })
-
-    const [row] = await dbh.db.select().from(userProviderTable).where(eq(userProviderTable.providerId, providerId))
-    expect(row.isEnabled).toBe(true)
   })
 
   it('serializes concurrent PATCHes so neither clobbers the other (read-merge-write inside the tx)', async () => {

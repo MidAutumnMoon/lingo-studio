@@ -138,7 +138,6 @@ export function buildCapabilityProviderOptions(
     case 'openai-chat':
     case 'azure':
     case 'azure-responses':
-    case 'huggingface':
       providerSpecificOptions = buildOpenAIProviderOptions(model, capabilities, reasoningOptions.options)
       break
     case 'open-responses':
@@ -164,8 +163,6 @@ export function buildCapabilityProviderOptions(
     case 'bedrock':
       providerSpecificOptions = buildBedrockProviderOptions(model, reasoningOptions.options)
       break
-    case 'cherryin':
-    case 'cherryin-chat':
     case 'newapi':
     case 'aihubmix':
     case SystemProviderIds.dmxapi:

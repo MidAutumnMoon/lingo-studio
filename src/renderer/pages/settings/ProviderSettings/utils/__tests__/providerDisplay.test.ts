@@ -6,15 +6,10 @@ import type { Provider } from '@shared/data/types/provider'
 vi.mock('@renderer/i18n', () => ({ default: { t: (k: string) => k } }))
 vi.mock('@renderer/i18n/label', () => ({ getProviderLabelKey: (id: string) => id }))
 vi.mock('@shared/utils/provider', () => ({
-  isCherryAIProvider: (p: Provider) => p.id === 'cherryai',
   isLoginBasedProvider: (p: Provider) =>
     p.authMethods !== undefined && p.authMethods.length > 0 && !p.authMethods.includes('api-key')
 }))
 
-const { isProviderPresetInstanceSource } = await import('../providerDisplay')
-const { isProviderSettingsListVisibleProvider } = await import('@renderer/utils/providerSettings')
-
-const provider = (id: string): Provider => ({ id }) as Provider
 const presetSource = (overrides: Partial<Provider> = {}): Provider =>
   ({
     id: 'openai',
@@ -28,16 +23,7 @@ const presetSource = (overrides: Partial<Provider> = {}): Provider =>
     ...overrides
   }) as Provider
 
-describe('isProviderSettingsListVisibleProvider', () => {
-  it('hides the CherryAI provider', () => {
-    expect(isProviderSettingsListVisibleProvider(provider('cherryai'))).toBe(false)
-  })
-
-  it('keeps a normal provider visible', () => {
-    expect(isProviderSettingsListVisibleProvider(provider('openai'))).toBe(true)
-  })
-})
-
+const { isProviderPresetInstanceSource } = await import('../providerDisplay')
 describe('isProviderPresetInstanceSource', () => {
   it('accepts a canonical URL-based preset with a configured primary endpoint', () => {
     expect(isProviderPresetInstanceSource(presetSource())).toBe(true)

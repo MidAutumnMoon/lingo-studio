@@ -38,7 +38,6 @@ const RECOGNIZED_STEMS: ReadonlySet<string> = new Set([
   'bailian',
   'burncloud',
   'cerebras',
-  'cherryin',
   'deepseek',
   'dmxapi',
   'fireworks',

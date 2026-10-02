@@ -4,14 +4,12 @@ import { providerService } from '@data/services/ProviderService'
 import { loggerService } from '@logger'
 import { BaseService, Injectable, Phase, ServicePhase } from '@main/core/lifecycle'
 import type { WindowId } from '@shared/ipc/types'
-import type { SystemProviderIds } from '@shared/utils/systemProviderId'
 
 import { describeOAuthError, OAuthServiceError, OAuthSignInCancelledError, OAuthTransientError } from '../errors'
 import { LoopbackCallbackTransport } from './LoopbackCallbackTransport'
 import { ProviderAuthConfigOAuthTokenStore } from './OAuthTokenStore'
 import { OAuthHttpError } from './PkceOAuthClient'
 import { oauthProviderDefinitions } from './providerDefinitions'
-import type { CherryInOAuthContext, CherryInSignInResult } from './providers/cherryin'
 import type {
   OAuthAccount,
   OAuthRuntimeProviderContext,
@@ -200,18 +198,6 @@ export class OAuthRuntimeService extends BaseService {
 
   public signIn(
     initiatorWindowId: WindowId | null,
-    providerId: typeof SystemProviderIds.cherryin,
-    requestId: string,
-    context?: CherryInOAuthContext
-  ): Promise<CherryInSignInResult>
-  public signIn(
-    initiatorWindowId: WindowId | null,
-    providerId: string,
-    requestId: string,
-    context?: OAuthRuntimeProviderContext
-  ): Promise<OAuthAccount>
-  public signIn(
-    initiatorWindowId: WindowId | null,
     providerId: string,
     requestId: string,
     context: OAuthRuntimeProviderContext = {}
@@ -327,14 +313,6 @@ export class OAuthRuntimeService extends BaseService {
     this.logger.info(`Cleared ${providerId} OAuth tokens`)
   }
 
-  public getValidAccessToken(
-    providerId: typeof SystemProviderIds.cherryin,
-    context?: CherryInOAuthContext
-  ): Promise<OAuthTokenCredentials | null>
-  public getValidAccessToken(
-    providerId: string,
-    context?: OAuthRuntimeProviderContext
-  ): Promise<OAuthTokenCredentials | null>
   public async getValidAccessToken(
     providerId: string,
     context: OAuthRuntimeProviderContext = {}
@@ -387,22 +365,10 @@ export class OAuthRuntimeService extends BaseService {
    * fresh token; this owns token fetch, the not-signed-in guard, and the retry —
    * keeping that logic in one place instead of per-provider fetch wrappers.
    *
-   * `options.context` is threaded into token fetch/refresh (CherryIN needs its
-   * `apiHost`); `options.onUnauthorized` runs when the request is still 401 after
-   * the retry, for the caller's diagnostic logging.
+   * `options.context` is threaded into token fetch/refresh;
+   * `options.onUnauthorized` runs when the request is still 401 after the
+   * retry, for the caller's diagnostic logging.
    */
-  public authenticatedFetch(
-    providerId: typeof SystemProviderIds.cherryin,
-    buildRequest: (creds: OAuthTokenCredentials) => { input: RequestInfo | URL; init: RequestInit },
-    doFetch: (input: RequestInfo | URL, init: RequestInit) => Promise<Response>,
-    options?: OAuthFetchOptions<CherryInOAuthContext>
-  ): Promise<Response>
-  public authenticatedFetch(
-    providerId: string,
-    buildRequest: (creds: OAuthTokenCredentials) => { input: RequestInfo | URL; init: RequestInit },
-    doFetch: (input: RequestInfo | URL, init: RequestInit) => Promise<Response>,
-    options?: OAuthFetchOptions
-  ): Promise<Response>
   public async authenticatedFetch(
     providerId: string,
     buildRequest: (creds: OAuthTokenCredentials) => { input: RequestInfo | URL; init: RequestInit },

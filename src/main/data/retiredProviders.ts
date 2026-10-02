@@ -1,4 +1,15 @@
-const RETIRED_PROVIDER_IDS = new Set(['cephalon', 'copilot', 'github', 'ollama', 'tokenflux', 'yi'])
+const RETIRED_PROVIDER_IDS = new Set([
+  'cephalon',
+  'cherryai',
+  'cherryai-subscription',
+  'cherryin',
+  'copilot',
+  'github',
+  'huggingface',
+  'ollama',
+  'tokenflux',
+  'yi'
+])
 
 /** Providers whose upstream services are no longer available. */
 export function isRetiredProvider(providerId: string | null | undefined, presetProviderId?: string | null): boolean {

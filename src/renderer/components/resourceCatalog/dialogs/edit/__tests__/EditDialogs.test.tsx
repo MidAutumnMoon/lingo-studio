@@ -369,7 +369,6 @@ vi.mock('react-i18next', async (importOriginal) => {
           'library.config.basic.field.custom_params.hint': 'Extra provider parameters.',
           'library.config.basic.field.max_tokens.hint': 'Caps response length.',
           'library.config.basic.field.max_tool_calls.hint': 'Caps tool-call rounds at 1000.',
-          'library.config.basic.field.stream_output.hint': 'Stream responses.',
           'library.config.basic.field.temperature.hint': 'Controls randomness.',
           'library.config.basic.field.top_p.hint': 'Controls nucleus sampling.',
           'library.config.basic.creative': 'Creative',
@@ -381,7 +380,6 @@ vi.mock('react-i18next', async (importOriginal) => {
           'library.config.basic.model_pick': 'Pick model',
           'library.config.basic.model_not_found': 'Model {{id}} is unavailable.',
           'library.config.basic.precise': 'Precise',
-          'library.config.basic.stream_output': 'Stream output',
           'library.config.basic.group': 'Group',
           'library.config.basic.group_empty': 'No groups',
           'library.config.basic.group_placeholder': 'Select group',
@@ -483,7 +481,6 @@ const ASSISTANT: Assistant = {
     enableTopP: false,
     maxTokens: 4096,
     enableMaxTokens: false,
-    streamOutput: true,
     reasoning_effort: 'default',
     mcpMode: 'auto',
     maxToolCalls: 20,
@@ -1081,7 +1078,6 @@ describe('edit dialogs', () => {
     expectHelpTrigger('Temperature', 'Controls randomness.')
     expectHelpTrigger('Top-P', 'Controls nucleus sampling.')
     expectHelpTrigger('Max tokens', 'Caps response length.')
-    expectHelpTrigger('Stream output', 'Stream responses.')
     expectHelpTrigger('Max tool call rounds', 'Caps tool-call rounds at 100.')
     expectHelpTrigger('Custom parameters', 'Extra provider parameters.')
     fireEvent.click(screen.getByRole('switch', { name: 'Temperature' }))

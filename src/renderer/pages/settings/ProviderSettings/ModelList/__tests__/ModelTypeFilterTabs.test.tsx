@@ -76,7 +76,7 @@ describe('ModelTypeFilterTabs', () => {
       <ModelTypeFilterTabs
         value="all"
         onValueChange={vi.fn()}
-        counts={{ all: 9, text: 1, image: 1, embedding: 1, audio: 1, video: 1, rerank: 1, speech: 1, transcription: 1 }}
+        counts={{ all: 9, text: 1, image: 1, embedding: 1, audio: 1, video: 1, rerank: 1, transcription: 1 }}
       />
     )
 
@@ -103,7 +103,6 @@ describe('ModelTypeFilterTabs', () => {
       audio: 0,
       video: 0,
       rerank: 0,
-      speech: 0,
       transcription: 0
     }
     const { rerender } = render(

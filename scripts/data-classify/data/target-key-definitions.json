@@ -356,6 +356,20 @@
       "description": "Translate model UniqueModelId (provider::modelId, from complex mapping llm_model_ids_to_unique)"
     },
     {
+      "targetKey": "feature.topic_naming.model_id",
+      "type": "string",
+      "defaultValue": null,
+      "status": "classified",
+      "description": "Topic auto-naming model UniqueModelId; feature skips AI naming while unset"
+    },
+    {
+      "targetKey": "feature.error_diagnosis.model_id",
+      "type": "string",
+      "defaultValue": null,
+      "status": "classified",
+      "description": "Error diagnosis model UniqueModelId; AI diagnosis is unavailable while unset"
+    },
+    {
       "targetKey": "feature.paintings.default_model_id",
       "type": "string",
       "defaultValue": null,

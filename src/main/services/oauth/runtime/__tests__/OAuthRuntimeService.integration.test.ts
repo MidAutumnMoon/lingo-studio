@@ -11,16 +11,56 @@ import { BaseService } from '@main/core/lifecycle'
 import { OAuthSignInCancelledError } from '../../errors'
 import { LoopbackCallbackTransport } from '../LoopbackCallbackTransport'
 import { OAuthRuntimeService } from '../OAuthRuntimeService'
+import { PkceOAuthClient } from '../PkceOAuthClient'
 import type * as ProviderDefinitions from '../providerDefinitions'
+
+/**
+ * Synthetic login-based provider exercising the runtime's full surface the way
+ * the removed CherryIN definition did: PKCE client, loopback callback on an
+ * ephemeral port, and API keys provisioned after token persistence.
+ */
+const TEST_AUTH_SERVER = 'https://auth.test'
 
 vi.mock('../providerDefinitions', async (importOriginal) => {
   const actual = await importOriginal<typeof ProviderDefinitions>()
-  const cherryin = actual.oauthProviderDefinitions.cherryin
+  const testProvider = {
+    providerId: 'oauth-test',
+    clientId: 'test-client',
+    transport: {
+      hosts: ['127.0.0.1'],
+      port: 0,
+      path: '/oauth/callback',
+      redirectUri: 'http://127.0.0.1/oauth/callback'
+    },
+    matchesSignInContext: (current: { server?: string }, requested: { server?: string }) =>
+      (current.server ?? TEST_AUTH_SERVER) === (requested.server ?? TEST_AUTH_SERVER),
+    createClient: (context?: { server?: string }) => {
+      const server = context?.server ?? TEST_AUTH_SERVER
+      return new PkceOAuthClient({
+        clientId: 'test-client',
+        authorizeUrl: `${server}/oauth2/auth`,
+        tokenUrl: `${server}/oauth2/token`,
+        redirectUri: 'http://127.0.0.1/oauth/callback',
+        scope: 'openid offline_access'
+      })
+    },
+    afterPersistTokens: async (tokenData: { access_token: string }) => {
+      const response = await net.fetch(`${TEST_AUTH_SERVER}/api/v1/oauth/tokens`, {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        signal: AbortSignal.timeout(30_000)
+      })
+      if (!response.ok) throw new Error(`Failed to fetch API keys: ${response.status}`)
+      const keys = (await response.json()) as string[]
+      const apiKeys = keys.filter(Boolean).join(',')
+      if (!apiKeys) throw new Error('No API keys received')
+      return { apiKeys }
+    }
+  }
   return {
     ...actual,
     oauthProviderDefinitions: {
       ...actual.oauthProviderDefinitions,
-      cherryin: { ...cherryin, transport: { ...cherryin.transport, port: 0 } }
+      ['oauth-test']: testProvider
     }
   }
 })
@@ -40,7 +80,7 @@ describe('OAuth login with a real callback server and token store', () => {
   beforeEach(() => {
     BaseService.resetInstances()
     service = new TestOAuthRuntimeService()
-    dbh.db.insert(userProviderTable).values({ providerId: 'cherryin', name: 'CherryIN', orderKey: 'a0' }).run()
+    dbh.db.insert(userProviderTable).values({ providerId: 'oauth-test', name: 'Test', orderKey: 'a0' }).run()
     vi.mocked(shell.openExternal).mockReset().mockResolvedValue()
     vi.mocked(net.fetch)
       .mockReset()
@@ -73,12 +113,12 @@ describe('OAuth login with a real callback server and token store', () => {
   }
 
   it('delivers API keys only to the initiating window and account information to observers', async () => {
-    const login = service.signIn('window-a', 'cherryin', 'owner')
+    const login = service.signIn('window-a', 'oauth-test', 'owner')
     void login.catch(() => {})
-    const repeated = service.signIn('window-a', 'cherryin', 'repeated')
-    const observer = service.joinActiveSignIn('window-b', 'cherryin', 'observer')
+    const repeated = service.signIn('window-a', 'oauth-test', 'repeated')
+    const observer = service.joinActiveSignIn('window-b', 'oauth-test', 'observer')
     void observer.catch(() => {})
-    await expect(service.signIn('window-b', 'cherryin', 'other')).rejects.toThrow(/another window/)
+    await expect(service.signIn('window-b', 'oauth-test', 'other')).rejects.toThrow(/another window/)
 
     await authorize()
 
@@ -91,13 +131,13 @@ describe('OAuth login with a real callback server and token store', () => {
     })
   })
 
-  it('rejects a second CherryIN login to a different server without interrupting the first', async () => {
-    const login = service.signIn('window-a', 'cherryin', 'owner', { apiHost: 'https://open.cherryin.ai' })
+  it('rejects a second login for a different server without interrupting the first', async () => {
+    const login = service.signIn('window-a', 'oauth-test', 'owner')
     void login.catch(() => {})
     await vi.waitFor(() => expect(shell.openExternal).toHaveBeenCalledOnce())
 
     await expect(
-      service.signIn('window-a', 'cherryin', 'other', { apiHost: 'https://open.cherryin.dev' })
+      service.signIn('window-a', 'oauth-test', 'other', { server: 'https://other.test' } as never)
     ).rejects.toThrow(/another server/)
 
     await authorize()
@@ -105,9 +145,9 @@ describe('OAuth login with a real callback server and token store', () => {
   })
 
   it('rejects callers without a managed window before starting or observing a login', async () => {
-    await expect(service.signIn(null, 'cherryin', 'unknown')).rejects.toThrow(/managed window/)
-    await expect(service.joinActiveSignIn(null, 'cherryin', 'unknown')).rejects.toThrow(/managed window/)
-    await expect(service.cancelSignIn(null, 'cherryin', 'unknown')).rejects.toThrow(/managed window/)
+    await expect(service.signIn(null, 'oauth-test', 'unknown')).rejects.toThrow(/managed window/)
+    await expect(service.joinActiveSignIn(null, 'oauth-test', 'unknown')).rejects.toThrow(/managed window/)
+    await expect(service.cancelSignIn(null, 'oauth-test', 'unknown')).rejects.toThrow(/managed window/)
     expect(shell.openExternal).not.toHaveBeenCalled()
     expect(dbh.db.select().from(userProviderTable).get()?.authConfig).toBeNull()
   })
@@ -116,24 +156,24 @@ describe('OAuth login with a real callback server and token store', () => {
     'allows a registered %s to cancel without trusting another window’s request id',
     async (windowId) => {
       let outcome: unknown = 'pending'
-      const login = service.signIn('window-a', 'cherryin', 'owner').catch((error: unknown) => {
+      const login = service.signIn('window-a', 'oauth-test', 'owner').catch((error: unknown) => {
         outcome = error
         return error
       })
       await vi.waitFor(() => expect(shell.openExternal).toHaveBeenCalledOnce())
-      await service.cancelSignIn('window-b', 'cherryin', 'owner')
+      await service.cancelSignIn('window-b', 'oauth-test', 'owner')
       expect(outcome).toBe('pending')
 
-      const remounted = service.joinActiveSignIn('window-a', 'cherryin', 'remounted').catch((error: unknown) => error)
-      const observer = service.joinActiveSignIn('window-b', 'cherryin', 'owner').catch((error: unknown) => error)
-      await service.cancelSignIn(windowId, 'cherryin', windowId === 'window-a' ? 'remounted' : 'owner')
+      const remounted = service.joinActiveSignIn('window-a', 'oauth-test', 'remounted').catch((error: unknown) => error)
+      const observer = service.joinActiveSignIn('window-b', 'oauth-test', 'owner').catch((error: unknown) => error)
+      await service.cancelSignIn(windowId, 'oauth-test', windowId === 'window-a' ? 'remounted' : 'owner')
       for (const result of await Promise.all([login, remounted, observer])) {
         expect(result).toBeInstanceOf(OAuthSignInCancelledError)
       }
 
-      const retry = service.signIn('window-a', 'cherryin', 'retry')
+      const retry = service.signIn('window-a', 'oauth-test', 'retry')
       void retry.catch(() => {})
-      await service.cancelSignIn('window-a', 'cherryin', 'owner')
+      await service.cancelSignIn('window-a', 'oauth-test', 'owner')
       await authorize(1)
       await expect(retry).resolves.toEqual({ accountId: null, apiKeys: 'private-key' })
     }
@@ -144,9 +184,9 @@ describe('OAuth login with a real callback server and token store', () => {
     vi.spyOn(AbortSignal, 'timeout').mockReturnValueOnce(staleTimeout.signal)
     const browserError = new Error('Browser launch failed')
     vi.mocked(shell.openExternal).mockRejectedValueOnce(browserError)
-    await expect(service.signIn('window-a', 'cherryin', 'failed')).rejects.toHaveProperty('cause', browserError)
+    await expect(service.signIn('window-a', 'oauth-test', 'failed')).rejects.toHaveProperty('cause', browserError)
 
-    const retry = service.signIn('window-a', 'cherryin', 'retry')
+    const retry = service.signIn('window-a', 'oauth-test', 'retry')
     void retry.catch(() => {})
     await vi.waitFor(() => expect(shell.openExternal).toHaveBeenCalledTimes(2))
     staleTimeout.abort()
@@ -172,7 +212,7 @@ describe('OAuth login with a real callback server and token store', () => {
             signal?.addEventListener('abort', () => reject(signal.reason), { once: true })
           })
       )
-    const login = service.signIn('window-a', 'cherryin', 'timeout')
+    const login = service.signIn('window-a', 'oauth-test', 'timeout')
     void login.catch(() => {})
     await authorize()
     await vi.waitFor(() => expect(keyTimeout).toBeDefined())
@@ -185,7 +225,7 @@ describe('OAuth login with a real callback server and token store', () => {
       refreshToken: 'private-refresh'
     })
 
-    const retry = service.signIn('window-a', 'cherryin', 'retry')
+    const retry = service.signIn('window-a', 'oauth-test', 'retry')
     void retry.catch(() => {})
     await authorize(1)
     await expect(retry).resolves.toEqual({ accountId: null, apiKeys: 'private-key' })

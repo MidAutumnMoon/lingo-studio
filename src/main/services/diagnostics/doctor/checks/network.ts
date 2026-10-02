@@ -195,7 +195,6 @@ function endpointCheck<Id extends Extract<DoctorCheckId, `network-endpoint-${str
 }
 
 export const endpointRegistry = endpointCheck('network-endpoint-registry', 'registry')
-export const endpointCloud = endpointCheck('network-endpoint-cloud', 'cloud')
 export const endpointDiagnostics = endpointCheck('network-endpoint-diagnostics', 'diagnostics')
 
 function diagnoseProvider(ctx: DoctorContextBase, providerId: string): Promise<EndpointDiagnosis | null> {

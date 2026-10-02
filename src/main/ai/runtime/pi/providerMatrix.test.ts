@@ -28,7 +28,7 @@ import { ENDPOINT_PI_API, resolvePiApi, type PiApi } from '@shared/ai/piModelCom
 import type { Model } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
 
-import { buildPiGatewayInjection, materializePiProviderStream, type PiProviderInjection } from './modelInjection'
+import { materializePiProviderStream, type PiProviderInjection } from './modelInjection'
 import { loadPiApiStreamSimple } from './piSdk'
 
 /** The chat protocols pi drives, each with its pi api family — the production table, filtered. */
@@ -194,49 +194,5 @@ describe('pi provider matrix — family stream materialization', () => {
     // fetch, so the prepared stream must not attach one (proxy gap recorded in W5).
     const options = (inner.mock.calls[0] as unknown[])[2] as Record<string, unknown>
     expect(options).not.toHaveProperty('fetch')
-  })
-})
-
-describe('pi provider matrix — gateway routing parity', () => {
-  /** Cherry Cloud rides the local gateway while preserving the model's wire protocol. */
-  const gateway = { baseUrl: 'http://127.0.0.1:23333/v1', apiKey: 'gateway-key', usageHeaders: { 'x-session': 's1' } }
-
-  function providerWithChatEndpoint(endpointType: EndpointType, adapterFamily?: string): Provider {
-    return {
-      id: 'cherry-cloud',
-      name: 'Cherry Cloud',
-      endpointConfigs: { [endpointType]: { adapterFamily, baseUrl: 'https://probe.invalid' } }
-    } as unknown as Provider
-  }
-
-  it('routes every chat family through the gateway with its own wire protocol', () => {
-    const cases: Array<[EndpointType, PiApi, string?]> = [
-      [ENDPOINT_TYPE.ANTHROPIC_MESSAGES, 'anthropic-messages'],
-      [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS, 'openai-completions'],
-      [ENDPOINT_TYPE.OPENAI_RESPONSES, 'openai-responses'],
-      [ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT, 'google-generative-ai'],
-      [ENDPOINT_TYPE.OPENAI_RESPONSES, 'azure-openai-responses', 'azure-responses']
-    ]
-    for (const [endpointType, expectedApi, family] of cases) {
-      const injection = buildPiGatewayInjection(
-        providerWithChatEndpoint(endpointType, family),
-        modelOn(endpointType),
-        gateway
-      )
-      expect(injection.api, `${endpointType} via gateway`).toBe(expectedApi)
-      expect(injection.providerConfig.api).toBe(expectedApi)
-      expect(injection.providerConfig.baseUrl).toContain('127.0.0.1:23333')
-      expect(injection.modelId).toContain('cherry-cloud:probe-model')
-      expect(injection.usageCapture).toEqual({ owner: 'provider-calls' })
-    }
-  })
-
-  it('carries the gateway usage headers onto the provider config', () => {
-    const injection = buildPiGatewayInjection(
-      providerWithChatEndpoint(ENDPOINT_TYPE.ANTHROPIC_MESSAGES),
-      modelOn(ENDPOINT_TYPE.ANTHROPIC_MESSAGES),
-      gateway
-    )
-    expect(injection.providerConfig.headers).toEqual(gateway.usageHeaders)
   })
 })

@@ -178,8 +178,8 @@ const api = {
       return shell.openExternal(url, options)
     }
   },
-  // CherryIN OAuth + Codex / Grok CLI OAuth migrated to IpcApi — see
-  // `ipcApi.request('oauth.*' | 'cherryin.*')`.
+  // Codex / Grok CLI OAuth migrated to IpcApi — see
+  // `ipcApi.request('oauth.*')`.
   // Tool snapshots were migrated to IpcApi — see `window.api.ipcApi` / `ipcApi.request('binary.*')`.
   nutstore: {
     getSSOUrl: () => ipcRenderer.invoke(IpcChannel.Nutstore_GetSsoUrl),

@@ -52,10 +52,6 @@ export function loadPiOpenAiResponsesApi() {
   return import('@earendil-works/pi-ai/api/openai-responses')
 }
 
-export function loadPiAnthropicMessagesApi() {
-  return import('@earendil-works/pi-ai/api/anthropic-messages')
-}
-
 type PiStreamSimple = NonNullable<ProviderConfig['streamSimple']>
 
 /**

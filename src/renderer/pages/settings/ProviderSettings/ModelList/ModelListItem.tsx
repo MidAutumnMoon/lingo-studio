@@ -10,7 +10,6 @@ import { getModelLogoRef } from '@renderer/utils/model'
 import type { Model } from '@shared/data/types/model'
 import type { ApiKeyEntry, Provider } from '@shared/data/types/provider'
 
-import { FreeTrialModelTag } from '../components/FreeTrialModelTag'
 import ModelTagsWithLabel from '../components/ModelTagsWithLabel'
 import { modelListClasses } from '../primitives/ProviderSettingsPrimitives'
 import { getModelOperationErrorMessage } from './errorMessage'
@@ -93,7 +92,6 @@ const ModelListItem: React.FC<ModelListItemProps> = ({
             <div className={modelListClasses.rowCapabilityTagCluster}>
               <ModelTagsWithLabel model={model} provider={provider} size={12} style={{ flexWrap: 'nowrap' }} />
             </div>
-            <FreeTrialModelTag modelId={model.id} providerId={model.providerId} />
           </div>
           <div className={modelListClasses.rowInlineActions}>
             {modelStatus && onToggleApiKey ? (

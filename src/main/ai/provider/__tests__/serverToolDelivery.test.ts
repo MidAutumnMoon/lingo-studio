@@ -74,7 +74,6 @@ const DELIVERY: Record<string, Partial<Record<string, Delivery>>> = {
   moonshot: { 'web-search': factories('moonshot') },
   'moonshot-global': { 'web-search': factories('moonshot') },
   poe: { 'web-search': { kind: 'provider-options' } },
-  cherryin: { 'web-search': { kind: 'gateway-mapped' }, 'url-context': { kind: 'gateway-mapped' } },
   'new-api': { 'web-search': { kind: 'gateway-mapped' }, 'url-context': { kind: 'gateway-mapped' } },
   // Native vendor endpoints behind `aihubmix.<vendor>` model provider strings.
   aihubmix: { 'web-search': { kind: 'gateway-mapped' }, 'url-context': { kind: 'gateway-mapped' } }

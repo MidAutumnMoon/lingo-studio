@@ -30,8 +30,6 @@ import type { Model } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
 import type { ReasoningEffortOption } from '@shared/types/aiSdk'
 import { isVisionModel } from '@shared/utils/model'
-import { matchesPreset } from '@shared/utils/provider'
-import { SystemProviderIds } from '@shared/utils/systemProviderId'
 
 import { resolveAttachmentBudget } from '../../messages/attachmentBudget'
 import { prepareChatMessages } from '../../messages/attachmentRouting'
@@ -48,8 +46,7 @@ import {
   piPreferredEndpointType,
   type PiStreamRequestOptions,
   PiUnsupportedProviderError,
-  resolvePiProviderInjectionFromSnapshot,
-  usesPiGateway
+  resolvePiProviderInjectionFromSnapshot
 } from '../pi/modelInjection'
 import { streamPiChatTurn, type PiChatProviderSource, type PiChatRuntimeTimingSink } from './chatEngine'
 import { toPiChatToolSurface } from './chatToolSurface'
@@ -319,10 +316,7 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
  *  Pure checks only — the provider-injection try/catch lives in the main flow so the
  *  credential rotation is consumed at most once. */
 function resolvePiExclusion(input: PiChatSeamInput): string | undefined {
-  const { request, provider, assistant } = input
-
-  // `streamSimple` is SSE-only: a non-streaming (simulate-streaming) request has no pi surface.
-  if (assistant?.settings.streamOutput === false) return 'non-streaming assistant (streamOutput=false)'
+  const { request } = input
 
   // Approval-resume dispatches serve a list that ENDS with the assistant anchor —
   // there is no trailing user message to slice into the prompt, and pi holds its
@@ -343,15 +337,6 @@ function resolvePiExclusion(input: PiChatSeamInput): string | undefined {
   // The API-key override is an AI-SDK serving concern; the pi injection resolves
   // its own credential and would silently ignore the override.
   if (request.apiKeyOverride) return 'apiKeyOverride (not represented in the pi injection)'
-
-  // HF's router hard-400s any reasoning input item — a pi-written same-model turn
-  // replayed on HF fails the request outright (both of HF's protocols route
-  // through the same reasoning-stripping router).
-  if (matchesPreset(provider, SystemProviderIds.huggingface)) return 'huggingface reasoning-replay 400'
-
-  // Provider-declared gateway routes resolve their injection session-side; the
-  // chat seam uses the direct snapshot resolver, so those stay legacy for now.
-  if (usesPiGateway(provider)) return 'gateway-routed provider (cherry cloud)'
 
   return undefined
 }

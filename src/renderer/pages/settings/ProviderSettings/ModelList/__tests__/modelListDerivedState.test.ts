@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { ModelWithStatus } from '@renderer/pages/settings/ProviderSettings/types/healthCheck'
 import { HealthStatus } from '@renderer/pages/settings/ProviderSettings/types/healthCheck'
-import { ENDPOINT_TYPE, MODEL_CAPABILITY } from '@shared/data/types/model'
+import { MODEL_CAPABILITY } from '@shared/data/types/model'
 
 import {
   applyModelFilters,
@@ -133,7 +133,7 @@ describe('modelListDerivedState', () => {
     ])
   })
 
-  it('separates generated audio from text-to-speech via the TTS endpoint', () => {
+  it('groups every audio-generation model under the audio tab', () => {
     const audioModels = [
       {
         id: 'x::musicgen',
@@ -148,13 +148,12 @@ describe('modelListDerivedState', () => {
         name: 'TTS',
         providerId: 'x',
         capabilities: [MODEL_CAPABILITY.AUDIO_GENERATION],
-        endpointTypes: [ENDPOINT_TYPE.OPENAI_TEXT_TO_SPEECH],
+        endpointTypes: [],
         isEnabled: true
       }
     ] as any[]
 
-    expect(applyModelFilters(audioModels, '', 'audio').map((model) => model.id)).toEqual(['x::musicgen'])
-    expect(applyModelFilters(audioModels, '', 'speech').map((model) => model.id)).toEqual(['x::tts'])
+    expect(applyModelFilters(audioModels, '', 'audio').map((model) => model.id)).toEqual(['x::musicgen', 'x::tts'])
   })
 
   it('matches separator-insensitive model ids in provider settings search', () => {
@@ -260,7 +259,6 @@ describe('modelListDerivedState', () => {
       audio: 0,
       video: 0,
       rerank: 1,
-      speech: 0,
       transcription: 0
     })
     expect(derivedState.duplicateModelNames.has('Alpha')).toBe(true)
@@ -284,7 +282,6 @@ describe('modelListDerivedState', () => {
       audio: 0,
       video: 0,
       rerank: 0,
-      speech: 0,
       transcription: 0
     })
   })
@@ -309,7 +306,6 @@ describe('modelListDerivedState', () => {
       audio: 0,
       video: 0,
       rerank: 0,
-      speech: 0,
       transcription: 0
     })
   })

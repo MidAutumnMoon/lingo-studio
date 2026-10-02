@@ -18,7 +18,6 @@ function createAssistant(overrides: Partial<Assistant> = {}): Assistant {
       enableTopP: false,
       maxTokens: 4096,
       enableMaxTokens: false,
-      streamOutput: true,
       reasoning_effort: 'default',
       mcpMode: 'auto',
       maxToolCalls: 20,

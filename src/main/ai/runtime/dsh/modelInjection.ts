@@ -27,7 +27,7 @@ import { isLoginBasedProvider, matchesPreset } from '@shared/utils/provider'
 import { SystemProviderIds } from '@shared/utils/systemProviderId'
 
 import { resolveEffectiveEndpoint } from '../../provider/endpoint'
-import { ApiGatewayNotRunningError, requiresAgentGateway, resolveApiGatewayRuntime } from '../agentApiGateway'
+import { ApiGatewayNotRunningError, resolveApiGatewayRuntime } from '../agentApiGateway'
 import { resolveAgentContextWindow } from '../agentContextWindow'
 import { toAgentProviderHeaders } from '../agentProviderHeaders'
 import type { AgentSessionUsageCapture } from '../types'
@@ -166,9 +166,9 @@ export function resolveDshInjectionApi(provider: Provider, model: Model): DshApi
   return mapEndpointToDshApi(resolvedEndpoint.endpointType, adapterFamily)
 }
 
-/** Whether DSH must use the local Gateway by provider policy or protocol fallback. */
+/** Whether DSH must use the local Gateway because the model has no native dsh wire family. */
 export function usesDshGateway(provider: Provider, model: Model): boolean {
-  return requiresAgentGateway(provider.id) || resolveDshInjectionApi(provider, model) === undefined
+  return resolveDshInjectionApi(provider, model) === undefined
 }
 
 /**
@@ -248,8 +248,8 @@ export function buildDshProviderInjection(
 }
 
 /**
- * Gateway-route counterpart of {@link buildDshProviderInjection}: provider policy
- * or a missing native dsh wire family routes the model through the local API Gateway.
+ * Gateway-route counterpart of {@link buildDshProviderInjection}: a missing native
+ * dsh wire family routes the model through the local API Gateway.
  * The gateway key is a secret like any native key — it reaches the child only
  * through `CHERRY_DSH_API_KEY`, never the YAML. The session usage headers ride
  * the route's `headers` so the gateway can attach provider usage to the owning
@@ -353,12 +353,6 @@ export async function assertDshProviderUsable(uniqueModelId: UniqueModelId): Pro
   const { providerId, modelId } = parseUniqueModelId(uniqueModelId)
   const provider = providerService.getByProviderId(providerId)
   const model = modelService.getByKey(providerId, modelId)
-
-  // Provider-declared Gateway routes authenticate at materialization time, not with a provider key.
-  if (requiresAgentGateway(provider.id)) {
-    if (!isGatewayRoutableModel(model)) throw new DshUnsupportedProviderError(providerId)
-    return
-  }
 
   // Unsupported beats missing-credential (parity with buildDshProviderInjection).
   if (resolveDshInjectionApi(provider, model) === undefined) {

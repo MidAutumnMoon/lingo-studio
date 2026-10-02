@@ -122,7 +122,6 @@ export function resolveProviderOptionsKey(
     case 'openai-chat':
     case 'azure':
     case 'azure-responses':
-    case 'huggingface':
     case 'open-responses':
       return 'openai'
     case 'anthropic':
@@ -141,8 +140,6 @@ export function resolveProviderOptionsKey(
       return 'bedrock'
     case 'openai-compatible':
       return context?.actualProviderId ?? providerId
-    case 'cherryin':
-    case 'cherryin-chat':
     case 'newapi':
     case 'aihubmix':
     case SystemProviderIds.dmxapi:

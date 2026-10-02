@@ -2,7 +2,7 @@ import { sortBy, toPairs } from 'es-toolkit/compat'
 
 import type { ModelWithStatus } from '@renderer/pages/settings/ProviderSettings/types/healthCheck'
 import type { Model } from '@shared/data/types/model'
-import { ENDPOINT_TYPE, parseUniqueModelId } from '@shared/data/types/model'
+import { parseUniqueModelId } from '@shared/data/types/model'
 import {
   deriveModelGroupName,
   isEmbeddingModel,
@@ -32,7 +32,6 @@ export const MODEL_LIST_CAPABILITY_FILTERS = [
   'audio',
   'video',
   'rerank',
-  'speech',
   'transcription'
 ] as const
 
@@ -93,12 +92,6 @@ export const groupModels = (
   }, {} as ModelGroups)
 }
 
-// Text-to-speech is the only audio-output sub-kind we can single out from
-// generic audio generation today (the `AUDIO_GENERATION` capability backs
-// both); the dedicated endpoint is the distinguishing signal.
-const isTextToSpeechModel = (model: Model): boolean =>
-  model.endpointTypes?.includes(ENDPOINT_TYPE.OPENAI_TEXT_TO_SPEECH) ?? false
-
 export const matchesCapabilityFilter = (model: Model, selectedCapabilityFilter: ModelListCapabilityFilter): boolean => {
   switch (selectedCapabilityFilter) {
     case 'text':
@@ -108,14 +101,11 @@ export const matchesCapabilityFilter = (model: Model, selectedCapabilityFilter: 
     case 'embedding':
       return isEmbeddingModel(model)
     case 'audio':
-      // "Generate audio", excluding text-to-speech (which has its own tab).
-      return isGenerateAudioModel(model) && !isTextToSpeechModel(model)
+      return isGenerateAudioModel(model)
     case 'video':
       return isGenerateVideoModel(model)
     case 'rerank':
       return isRerankModel(model)
-    case 'speech':
-      return isTextToSpeechModel(model)
     case 'transcription':
       return isSpeechToTextModel(model)
     default:

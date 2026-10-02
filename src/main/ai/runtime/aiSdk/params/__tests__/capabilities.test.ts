@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { Assistant } from '@shared/data/types/assistant'
 import type { Model } from '@shared/data/types/model'
 import type { Provider } from '@shared/data/types/provider'
 
@@ -18,8 +17,6 @@ vi.mock('@application', () => ({
 }))
 
 const { resolveCapabilities } = await import('../capabilities')
-
-const assistant = { id: 'a1', settings: {} } as unknown as Assistant
 
 /**
  * `providerToolPlugin` reads its config by the id the runtime instantiated, which `config.ts` may
@@ -41,7 +38,7 @@ describe('resolveCapabilities — provider-builtin web search config key', () =>
   } as unknown as Provider
 
   it('keys the config off the runtime provider id and carries the serving credential', () => {
-    const capabilities = resolveCapabilities(model, provider, assistant, {
+    const capabilities = resolveCapabilities(model, provider, {
       webToolRoutes: { webSearch: 'server', webFetch: 'none' },
       runtimeProviderId: 'moonshot',
       serving: { apiKey: 'sk-live', baseURL: 'https://api.moonshot.cn/v1' }
@@ -53,7 +50,7 @@ describe('resolveCapabilities — provider-builtin web search config key', () =>
   })
 
   it('builds nothing when the plan did not route search to the server side', () => {
-    const capabilities = resolveCapabilities(model, provider, assistant, {
+    const capabilities = resolveCapabilities(model, provider, {
       webToolRoutes: { webSearch: 'client', webFetch: 'none' },
       runtimeProviderId: 'moonshot',
       serving: { apiKey: 'sk-live' }

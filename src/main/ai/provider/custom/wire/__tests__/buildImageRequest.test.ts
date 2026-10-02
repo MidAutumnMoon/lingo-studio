@@ -90,7 +90,7 @@ describe('buildVendorProviderOptions — diffusion family (passthrough)', () => 
 })
 
 describe('buildVendorProviderOptions — OpenAI image family (dual-keyed)', () => {
-  const OPENAI_FAMILY = ['openai', 'openai-chat', 'azure', 'azure-responses', 'huggingface', 'cherryin', 'newapi']
+  const OPENAI_FAMILY = ['openai', 'openai-chat', 'azure', 'azure-responses', 'newapi']
 
   it.each(OPENAI_FAMILY)('dual-keys the openai body under openai + %s, dropping seed', (providerId) => {
     const paramValues = {
@@ -112,27 +112,6 @@ describe('buildVendorProviderOptions — OpenAI image family (dual-keyed)', () =
     const paramValues = { quality: 'auto', background: '', numInferenceSteps: 20, cfg: 7.5 }
     expect(engine('openai', paramValues)).toEqual({})
   })
-})
-
-describe('buildVendorProviderOptions — cherryin-chat (delivers under the cherryin key, not its own id)', () => {
-  it('routes the openai body under openai + cherryin (not cherryin-chat) — the AI SDK provider id AiService actually resolves for CherryIn is cherryin-chat, but its Google-image wrapper reads providerOptions.cherryin', () => {
-    const paramValues = { quality: 'high', background: 'transparent', moderation: 'low', style: 'vivid' }
-    expect(engine('cherryin-chat', paramValues)).toEqual({
-      openai: { quality: 'high', background: 'transparent', moderation: 'low', style: 'vivid' },
-      cherryin: { quality: 'high', background: 'transparent', moderation: 'low', style: 'vivid' }
-    })
-  })
-
-  it.each(['cherryin', 'cherryin-chat'])(
-    'forwards personGeneration/imageResolution (not OpenAI-profile fields) under cherryin via passthrough, for %s',
-    (providerId) => {
-      const paramValues = { personGeneration: 'allow_adult', imageResolution: '2K', quality: 'high' }
-      expect(engine(providerId, paramValues)).toEqual({
-        openai: { quality: 'high' },
-        cherryin: { quality: 'high', personGeneration: 'allow_adult', imageResolution: '2K' }
-      })
-    }
-  )
 })
 
 describe('buildVendorProviderOptions — Google native image family (contribute / nested imageConfig)', () => {

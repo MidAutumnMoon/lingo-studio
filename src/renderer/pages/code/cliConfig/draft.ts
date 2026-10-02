@@ -3,10 +3,8 @@ import { loggerService } from '@logger'
 import { ipcApi } from '@renderer/ipc'
 import { isUniqueModelId, type Model, parseUniqueModelId, type UniqueModelId } from '@shared/data/types/model'
 import type { ApiKeyEntry, Provider } from '@shared/data/types/provider'
-import { CodeCli } from '@shared/types/codeCli'
 import { formatGatewayModelId } from '@shared/utils/apiGateway'
 import { FILE_CONFIGURED_CLI_TOOLS, getCliConfigTargets, isFileConfiguredCli } from '@shared/utils/cliConfig'
-import { isOllamaProvider, OLLAMA_PLACEHOLDER_AUTH_TOKEN } from '@shared/utils/provider'
 
 import { getAdapter, sanitizeCliConfigBlob } from './adapters'
 import { makeDraftFile, readDraftFileText, validateCliConfigDraftForWrite } from './draftFiles'
@@ -32,13 +30,6 @@ const logger = loggerService.withContext('writeCliConfigDraft')
  * terminal-only. OpenClaw config is handled by the main-process
  * OpenClawService, so this module is a no-op for it.
  */
-
-/**
- * File-configured tools Ollama can actually be selected for — it only exposes
- * an anthropic-messages endpoint (see CLI_TOOL_PROVIDER_MAP), so Codex/Gemini
- * CLI/Qwen Code/Kimi CLI never offer it as a provider option.
- */
-const OLLAMA_FALLBACK_TOOLS: string[] = [CodeCli.CLAUDE_CODE, CodeCli.OPEN_CODE, CodeCli.PI, CodeCli.MINIMAX_CODE]
 
 async function resolveContext(args: CliConfigWriteArgs): Promise<ResolvedCliConfigContext | null> {
   if (!FILE_CONFIGURED_CLI_TOOLS.has(args.cliTool)) return null
@@ -87,17 +78,10 @@ async function resolveContext(args: CliConfigWriteArgs): Promise<ResolvedCliConf
   }
 
   const apiKey = firstApiKey(apiKeysRes?.keys)
-  // Keyless local servers (authOptional, e.g. Ollama, oMLX) need no real credential,
+  // Keyless local servers (authOptional, e.g. oMLX) need no real credential,
   // but the CLI SDKs still require a non-empty auth token — same per-provider
-  // stand-in OpenClaw injects. Ollama-endpoint custom providers keep the
-  // agentSessionWarmup fallback.
-  const effectiveApiKey =
-    apiKey ||
-    (provider.authOptional === true
-      ? (provider.presetProviderId ?? provider.id)
-      : OLLAMA_FALLBACK_TOOLS.includes(args.cliTool) && isOllamaProvider(provider)
-        ? OLLAMA_PLACEHOLDER_AUTH_TOKEN
-        : '')
+  // stand-in OpenClaw injects.
+  const effectiveApiKey = apiKey || (provider.authOptional === true ? (provider.presetProviderId ?? provider.id) : '')
 
   return {
     provider,

@@ -27,7 +27,6 @@ import { AnalyticsService } from '@main/services/AnalyticsService'
 import { AppMenuService } from '@main/services/AppMenuService'
 import { AppService } from '@main/services/AppService'
 import { AutoBackupService } from '@main/services/AutoBackupService'
-import { CherryCloudService } from '@main/services/cherryCloud/CherryCloudService'
 import { CitationPreviewService } from '@main/services/CitationPreviewService'
 import { CodeCliService } from '@main/services/codeCli'
 import { CommandService } from '@main/services/CommandService'
@@ -101,7 +100,6 @@ export const services = {
   CommandService,
   ConversationNavigationService,
   CitationPreviewService,
-  CherryCloudService,
   DeepSeekHarnessService,
   HermesDashboardService,
   LanTransferService,

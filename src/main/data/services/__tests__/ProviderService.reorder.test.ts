@@ -8,7 +8,6 @@ import { userProviderTable } from '@data/db/schemas/userProvider'
 import { providerService } from '@data/services/ProviderService'
 import { generateOrderKeySequence } from '@data/services/utils/orderKey'
 import { ErrorCode } from '@shared/data/api/errors'
-import { CHERRYAI_PROVIDER_ID } from '@shared/data/presets/cherryai'
 
 describe('ProviderService reorder', () => {
   const dbh = setupTestDatabase()
@@ -168,35 +167,5 @@ describe('ProviderService reorder', () => {
       code: ErrorCode.NOT_FOUND,
       details: { resource: 'Provider', id: 'missing' }
     })
-  })
-
-  it('rejects moving the managed CherryAI provider', async () => {
-    await seedProviders()
-    await dbh.db.insert(userProviderTable).values({
-      providerId: CHERRYAI_PROVIDER_ID,
-      name: 'CherryAI',
-      orderKey: 'z0',
-      isEnabled: true
-    })
-
-    let moveErr: unknown
-    try {
-      providerService.move(CHERRYAI_PROVIDER_ID, { position: 'first' })
-    } catch (e) {
-      moveErr = e
-    }
-    expect(moveErr).toMatchObject({
-      code: ErrorCode.INVALID_OPERATION
-    })
-    let reorderErr: unknown
-    try {
-      providerService.reorder([{ id: CHERRYAI_PROVIDER_ID, anchor: { position: 'last' } }])
-    } catch (e) {
-      reorderErr = e
-    }
-    expect(reorderErr).toMatchObject({
-      code: ErrorCode.INVALID_OPERATION
-    })
-    expect(await readOrder()).toEqual(['openai', 'anthropic', 'gemini', CHERRYAI_PROVIDER_ID])
   })
 })

@@ -9,7 +9,6 @@ import p_baichuan from './baichuan'
 import p_baidu_cloud from './baidu-cloud'
 import p_burncloud from './burncloud'
 import p_cerebras from './cerebras'
-import p_cherryin from './cherryin'
 import p_dashscope from './dashscope'
 import p_deepseek from './deepseek'
 import p_dmxapi from './dmxapi'
@@ -21,7 +20,6 @@ import p_gpustack from './gpustack'
 import p_grok from './grok'
 import p_grok_cli from './grok-cli'
 import p_groq from './groq'
-import p_huggingface from './huggingface'
 import p_jina from './jina'
 import p_lanyun from './lanyun'
 import p_lmstudio from './lmstudio'
@@ -63,7 +61,6 @@ import p_zhipu from './zhipu'
 
 /** Every provider, in registry order. Source of truth for data/providers.json + data/provider-models.json. */
 export const PROVIDERS: Provider[] = [
-  p_cherryin,
   p_silicon,
   p_aihubmix,
   p_ovms,
@@ -118,7 +115,6 @@ export const PROVIDERS: Provider[] = [
   p_aws_bedrock,
   p_poe,
   p_longcat,
-  p_huggingface,
   p_gateway,
   p_cerebras,
   p_mimo,

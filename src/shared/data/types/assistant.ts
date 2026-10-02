@@ -57,8 +57,6 @@ export const AssistantSettingsSchema = z.object({
   maxTokens: z.number().int().positive(),
   /** disabled = use model's own default */
   enableMaxTokens: z.boolean(),
-  /** streaming provides better UX */
-  streamOutput: z.boolean(),
   /** Canonical reasoning selection; endpoint profiles own provider-specific wire values. */
   reasoning_effort: ReasoningEffortOptionSchema,
   /** Summary verbosity, where the endpoint carries one. Absent = the endpoint's own default. */
@@ -108,7 +106,6 @@ export const DEFAULT_ASSISTANT_SETTINGS: AssistantSettings = {
   enableTopP: false,
   maxTokens: 4096,
   enableMaxTokens: false,
-  streamOutput: true,
   reasoning_effort: 'default',
   mcpMode: DEFAULT_MCP_MODE,
   maxToolCalls: 100,

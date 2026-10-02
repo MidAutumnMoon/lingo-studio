@@ -373,7 +373,7 @@ async function resolveRequestWebToolRoutes(model: Model, assistant: Assistant | 
       return Boolean(resolveReadyWebSearchProvider([clientProvider, ...fallbackProviders], clientProvider, capability))
     } catch (error) {
       if (!isPermanentWebSearchConfigError(error)) {
-        logger.warn(`Failed to resolve the client ${capability} provider; falling back to the server tool`, { error })
+        logger.warn(`Failed to resolve the client ${capability} provider; treating as unavailable`, { error })
       }
       return false
     }

@@ -1,4 +1,4 @@
-import { ArrowUpDown, AudioLines, Boxes, Image, type LucideIcon, Mic, Speech, Type, Video } from 'lucide-react'
+import { ArrowUpDown, AudioLines, Boxes, Image, type LucideIcon, Mic, Type, Video } from 'lucide-react'
 import { useEffect, useState, useTransition } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -18,7 +18,6 @@ const MODEL_TYPE_FILTERS: ModelTypeFilter[] = [
   'audio',
   'video',
   'rerank',
-  'speech',
   'transcription'
 ]
 
@@ -29,7 +28,6 @@ const CAPABILITY_FILTER_LABEL_KEYS: Record<ModelTypeFilter, string> = {
   audio: 'models.type.audio',
   video: 'models.type.video',
   rerank: 'models.type.rerank',
-  speech: 'models.type.speech',
   transcription: 'models.type.transcription'
 }
 
@@ -42,7 +40,6 @@ const CAPABILITY_FILTER_ICONS: Record<ModelTypeFilter, LucideIcon> = {
   audio: AudioLines,
   video: Video,
   rerank: ArrowUpDown,
-  speech: Speech,
   transcription: Mic
 }
 

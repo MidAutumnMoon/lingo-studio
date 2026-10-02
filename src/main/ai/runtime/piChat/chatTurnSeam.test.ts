@@ -35,7 +35,6 @@ const {
   mockStreamPiChatTurn,
   mockResolveInjection,
   mockMaterialize,
-  mockUsesPiGateway,
   mockResolvePlan,
   mockAssembleSystemPrompt,
   mockToolSurface,
@@ -44,7 +43,6 @@ const {
   mockStreamPiChatTurn: vi.fn(),
   mockResolveInjection: vi.fn(),
   mockMaterialize: vi.fn(),
-  mockUsesPiGateway: vi.fn(),
   mockResolvePlan: vi.fn(),
   mockAssembleSystemPrompt: vi.fn(),
   mockToolSurface: vi.fn(),
@@ -61,8 +59,7 @@ vi.mock('../pi/modelInjection', async (importOriginal) => {
   return {
     ...actual,
     resolvePiProviderInjectionFromSnapshot: mockResolveInjection,
-    materializePiProviderStream: mockMaterialize,
-    usesPiGateway: mockUsesPiGateway
+    materializePiProviderStream: mockMaterialize
   }
 })
 
@@ -144,7 +141,6 @@ function seamInput(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   mockPreferenceGet.mockReturnValue(false)
-  mockUsesPiGateway.mockReturnValue(false)
   mockResolveInjection.mockReturnValue(INJECTION)
   mockMaterialize.mockResolvedValue(MATERIALIZED)
   mockResolvePlan.mockResolvedValue(makePlan())
@@ -179,14 +175,6 @@ describe('pi chat seam gate', () => {
     expect(await tryStreamPiChatTurn(seamInput())).toBeNull()
   })
 
-  it('falls back to legacy for a non-streaming assistant', async () => {
-    mockPreferenceGet.mockReturnValue(true)
-    const input = seamInput()
-    input.assistant = makeAssistant({ settings: { streamOutput: false } })
-    expect(await tryStreamPiChatTurn(input)).toBeNull()
-    expect(mockResolveInjection).not.toHaveBeenCalled()
-  })
-
   it('falls back to legacy for approval-resume dispatches (assistant-terminated history)', async () => {
     mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({
@@ -217,19 +205,6 @@ describe('pi chat seam gate', () => {
     mockPreferenceGet.mockReturnValue(true)
     const input = seamInput({ apiKeyOverride: 'sk-override' })
     expect(await tryStreamPiChatTurn(input)).toBeNull()
-  })
-
-  it('falls back to legacy on huggingface (reasoning-replay hard 400)', async () => {
-    mockPreferenceGet.mockReturnValue(true)
-    const input = seamInput()
-    input.provider = makeProvider({ id: 'huggingface' })
-    expect(await tryStreamPiChatTurn(input)).toBeNull()
-  })
-
-  it('falls back to legacy on gateway-routed providers', async () => {
-    mockPreferenceGet.mockReturnValue(true)
-    mockUsesPiGateway.mockReturnValue(true)
-    expect(await tryStreamPiChatTurn(seamInput())).toBeNull()
   })
 
   it('fails the turn (no fallback) when the shared plan rejects', async () => {

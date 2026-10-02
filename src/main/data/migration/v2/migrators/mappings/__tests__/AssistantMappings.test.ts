@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { resolveContextSettings } from '@main/ai/contextBuild/resolveContextSettings'
-import { CHERRYAI_DEFAULT_UNIQUE_MODEL_ID, CHERRYAI_PROVIDER_ID } from '@shared/data/presets/cherryai'
 import { DEFAULT_ASSISTANT_SETTINGS } from '@shared/data/types/assistant'
 import { DEFAULT_CONTEXT_SETTINGS } from '@shared/data/types/contextSettings'
 
@@ -91,12 +90,12 @@ describe('AssistantMappings', () => {
       expect(result.assistant.modelId).toBe('openai::gpt-3.5')
     })
 
-    it('should map legacy CherryAI model refs to the seeded Qwen model', () => {
+    it('should map legacy managed CherryAI model refs to no model (provider retired)', () => {
       const result = transformAssistant({
         id: 'ast-4c',
-        model: { id: 'legacy-qwen', provider: CHERRYAI_PROVIDER_ID }
+        model: { id: 'legacy-qwen', provider: 'cherryai' }
       })
-      expect(result.assistant.modelId).toBe(CHERRYAI_DEFAULT_UNIQUE_MODEL_ID)
+      expect(result.assistant.modelId).toBeNull()
     })
 
     it('should set modelId to null when model provider is not a string', () => {

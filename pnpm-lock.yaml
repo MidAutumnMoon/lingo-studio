@@ -393,9 +393,6 @@ importers:
       '@ai-sdk/groq':
         specifier: ^3.0.35
         version: 3.0.35(zod@4.4.3)
-      '@ai-sdk/huggingface':
-        specifier: ^1.0.74
-        version: 1.0.74(zod@4.4.3)
       '@ai-sdk/mistral':
         specifier: ^3.0.30
         version: 3.0.30(zod@4.4.3)
@@ -2272,12 +2269,6 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/huggingface@1.0.74':
-    resolution: {integrity: sha512-JmHarKzSn4uCLUfDZ18hUl+wv5cz/KbJSkJA9ED0+6coNdKde1F/pB3VkemKoPoI8adX2YVyMzwjwzkFf/vb/g==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4
 
   '@ai-sdk/mistral@3.0.30':
     resolution: {integrity: sha512-+j4IXRSk9E661cFSafmIr+XHOzwjFagawwzMOlSqwL6U4Sq4PCFLDF+oHbX5NUqNjUL7FD1zi/9lBIfa41pUvw==}
@@ -16615,13 +16606,6 @@ snapshots:
 
   '@ai-sdk/groq@3.0.35(zod@4.4.3)':
     dependencies:
-      '@ai-sdk/provider': 3.0.18
-      '@ai-sdk/provider-utils': 4.0.56(zod@4.4.3)
-      zod: 4.4.3
-
-  '@ai-sdk/huggingface@1.0.74(zod@4.4.3)':
-    dependencies:
-      '@ai-sdk/openai-compatible': 2.0.72(patch_hash=e1c53c511799253d3cc69a6a2bdcba7cb2ea5792b27b243fd82cb8f086d50480)(zod@4.4.3)
       '@ai-sdk/provider': 3.0.18
       '@ai-sdk/provider-utils': 4.0.56(zod@4.4.3)
       zod: 4.4.3

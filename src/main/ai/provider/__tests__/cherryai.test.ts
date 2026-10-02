@@ -26,22 +26,6 @@ describe('SignatureClient', () => {
     vi.resetModules()
   })
 
-  it('keeps the v1 chat completion signature stable', () => {
-    const client = new SignatureClient('test-client', 'test-secret')
-
-    expect(
-      client.generateSignature({
-        method: 'POST',
-        path: '/chat/completions',
-        body: { model: 'test' }
-      })
-    ).toEqual({
-      'X-Client-ID': 'test-client',
-      'X-Timestamp': '1750000000',
-      'X-Signature': '89fdf838e8f1504e1af28c33f8b64c0699e61d14405d9f946c9cdb89138a2992'
-    })
-  })
-
   it('generates the v2 diagnostic upload golden headers', () => {
     const client = new SignatureClient('test-client', 'test-secret')
 

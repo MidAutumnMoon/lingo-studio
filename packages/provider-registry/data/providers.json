@@ -3,54 +3,6 @@
     {
       "availableInEditions": ["global", "cn"],
       "defaultChatEndpoint": "openai-chat-completions",
-      "description": "CherryIN - AI model provider",
-      "endpointConfigs": {
-        "anthropic-messages": {
-          "adapterFamily": "cherryin",
-          "baseUrl": "https://open.cherryin.net"
-        },
-        "google-generate-content": {
-          "adapterFamily": "cherryin",
-          "baseUrl": "https://open.cherryin.net"
-        },
-        "openai-chat-completions": {
-          "adapterFamily": "cherryin",
-          "baseUrl": "https://open.cherryin.net",
-          "reasoningFormat": {
-            "type": "openai-chat"
-          }
-        },
-        "openai-responses": {
-          "adapterFamily": "cherryin",
-          "baseUrl": "https://open.cherryin.net"
-        }
-      },
-      "id": "cherryin",
-      "metadata": {
-        "website": {
-          "apiKey": "https://open.cherryin.ai/console/token",
-          "docs": "https://open.cherryin.ai",
-          "models": "https://open.cherryin.ai/pricing",
-          "official": "https://open.cherryin.ai"
-        }
-      },
-      "name": "CherryIN",
-      "serverTools": [
-        {
-          "id": "web-search",
-          "modelScope": "model-dependent",
-          "vendors": ["anthropic", "gemini", "openai"]
-        },
-        {
-          "id": "url-context",
-          "modelScope": "model-dependent",
-          "vendors": ["anthropic", "gemini"]
-        }
-      ]
-    },
-    {
-      "availableInEditions": ["global", "cn"],
-      "defaultChatEndpoint": "openai-chat-completions",
       "description": "Silicon - AI model provider",
       "endpointConfigs": {
         "anthropic-messages": {
@@ -2389,31 +2341,6 @@
     },
     {
       "availableInEditions": ["global"],
-      "defaultChatEndpoint": "openai-responses",
-      "description": "Hugging Face - AI model provider",
-      "endpointConfigs": {
-        "anthropic-messages": {
-          "adapterFamily": "anthropic",
-          "baseUrl": "https://router.huggingface.co/v1/"
-        },
-        "openai-responses": {
-          "adapterFamily": "open-responses",
-          "baseUrl": "https://router.huggingface.co/v1/"
-        }
-      },
-      "id": "huggingface",
-      "metadata": {
-        "website": {
-          "apiKey": "https://huggingface.co/settings/tokens",
-          "docs": "https://huggingface.co/docs",
-          "models": "https://huggingface.co/models",
-          "official": "https://huggingface.co/"
-        }
-      },
-      "name": "Hugging Face"
-    },
-    {
-      "availableInEditions": ["global"],
       "defaultChatEndpoint": "openai-chat-completions",
       "description": "Vercel AI Gateway - AI model provider",
       "endpointConfigs": {
@@ -2561,5 +2488,5 @@
       "presetProviderId": "minimax"
     }
   ],
-  "version": "78e467caf613fde1"
+  "version": "ef22b541dc85a674"
 }

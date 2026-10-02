@@ -402,8 +402,7 @@ const ENDPOINT_TYPE_ALIASES: Record<string, EndpointType> = {
   'openai:image-generations': ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION,
   'openai:responses': ENDPOINT_TYPE.OPENAI_RESPONSES,
   'openai-response': ENDPOINT_TYPE.OPENAI_RESPONSES,
-  'openai-response-compact': ENDPOINT_TYPE.OPENAI_RESPONSES,
-  'openai-video': ENDPOINT_TYPE.OPENAI_VIDEO_GENERATION
+  'openai-response-compact': ENDPOINT_TYPE.OPENAI_RESPONSES
 }
 const ENDPOINT_TYPE_VALUES = new Set<string>(Object.values(ENDPOINT_TYPE))
 
@@ -437,10 +436,7 @@ function normalizeEndpointTypes(values: string[] | undefined): EndpointType[] | 
 
 const newApiFetcher: ModelFetcher = {
   match: (p) =>
-    p.id === SystemProviderIds['new-api'] ||
-    p.presetProviderId === 'new-api' ||
-    p.id === SystemProviderIds.cherryin ||
-    p.id === SystemProviderIds.aionly,
+    p.id === SystemProviderIds['new-api'] || p.presetProviderId === 'new-api' || p.id === SystemProviderIds.aionly,
   fetch: async (provider, signal) => {
     const baseUrl = formatApiHost(getBaseUrl(provider))
     const response = await getFromApi({

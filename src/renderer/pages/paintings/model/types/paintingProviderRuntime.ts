@@ -16,7 +16,7 @@ export interface PaintingProviderRuntime {
  * Providers whose painting pipeline speaks the OpenAI images HTTP shape (`/v1/images/generations` et al.)
  * but may arrive without a populated `endpointConfigs` row.
  */
-const OPENAI_COMPAT_IMAGE_PROVIDER_IDS = new Set(['new-api', 'cherryin', 'aionly'])
+const OPENAI_COMPAT_IMAGE_PROVIDER_IDS = new Set(['new-api', 'aionly'])
 
 export function isPaintingNewApiProvider(provider: Pick<Provider, 'id' | 'presetProviderId'>) {
   return (

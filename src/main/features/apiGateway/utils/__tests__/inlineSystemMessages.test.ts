@@ -30,8 +30,7 @@ const ENDPOINT_CHAT_TARGETS: EndpointType[] = [
   ENDPOINT_TYPE.OLLAMA_CHAT,
   ENDPOINT_TYPE.OLLAMA_GENERATE,
   ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
-  ENDPOINT_TYPE.OPENAI_RESPONSES,
-  ENDPOINT_TYPE.OPENAI_TEXT_COMPLETIONS
+  ENDPOINT_TYPE.OPENAI_RESPONSES
 ]
 
 const msg = (role: CherryUIMessage['role'], text: string, id: string = role): CherryUIMessage => ({
@@ -90,7 +89,6 @@ describe('keepsSystemMessagesInPlace', () => {
 
   it('folds for Gemini and for the completion endpoints whose converters throw', () => {
     expect(keepsSystemMessagesInPlace(ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT)).toBe(false)
-    expect(keepsSystemMessagesInPlace(ENDPOINT_TYPE.OPENAI_TEXT_COMPLETIONS)).toBe(false)
     expect(keepsSystemMessagesInPlace(ENDPOINT_TYPE.OLLAMA_GENERATE)).toBe(false)
   })
 

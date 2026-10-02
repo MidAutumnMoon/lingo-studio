@@ -150,15 +150,6 @@ describe('INTERNAL_FEATURES — decision matrix', () => {
     ).not.toContain('reasoning-extraction')
   })
 
-  it('simulate-streaming activates only when capabilities.streamOutput is false', () => {
-    expect(activeNames(makeScope({ provider: {}, model: {}, capabilities: { streamOutput: false } }))).toContain(
-      'simulate-streaming'
-    )
-    expect(activeNames(makeScope({ provider: {}, model: {}, capabilities: { streamOutput: true } }))).not.toContain(
-      'simulate-streaming'
-    )
-  })
-
   it('anthropic-cache activates by default on anthropic-messages and respects explicit opt-out', () => {
     expect(
       activeNames(
@@ -279,38 +270,6 @@ describe('INTERNAL_FEATURES — decision matrix', () => {
     expect(await qwenUserText(makeScope(base))).toBe('hello /no_think')
     // Without the explicit request selection, assistant-less scopes stay inactive.
     expect(activeNames(makeScope({ ...base, request: undefined }))).not.toContain('qwen-thinking')
-  })
-
-  // params-core-2: the documented hard invariant `reasoning-extraction` < `simulate-streaming`.
-  // Both gate predicates hold for the OpenAI chat wire with streamOutput === false; a
-  // reorder of INTERNAL_FEATURES would otherwise pass unnoticed.
-  it('orders reasoning-extraction before simulate-streaming (OpenAI chat wire, non-streaming)', () => {
-    const names = activeNames(
-      makeScope({
-        provider: { id: 'openai' },
-        model: {},
-        aiSdkProviderId: 'openai-chat',
-        endpointType: 'openai-chat-completions',
-        capabilities: { streamOutput: false }
-      })
-    )
-    const reasoning = names.indexOf('reasoning-extraction')
-    const simulate = names.indexOf('simulate-streaming')
-    expect(reasoning).toBeGreaterThanOrEqual(0)
-    expect(simulate).toBeGreaterThan(reasoning)
-  })
-
-  // params-core-2: the hard invariant `reasoning-extraction` < `simulate-streaming` asserted as a
-  // STATIC contract over the declaration order of INTERNAL_FEATURES — by feature `name`,
-  // independent of any activation predicate.
-  it('declares reasoning-extraction before simulate-streaming', () => {
-    const indexOfName = (name: string) => INTERNAL_FEATURES.findIndex((f) => f.name === name)
-
-    const reasoning = indexOfName('reasoning-extraction')
-    const simulate = indexOfName('simulate-streaming')
-    expect(reasoning).toBeGreaterThanOrEqual(0)
-    expect(simulate).toBeGreaterThanOrEqual(0)
-    expect(reasoning).toBeLessThan(simulate)
   })
 
   // The documented hard invariant `context-build` < `anthropic-cache`:

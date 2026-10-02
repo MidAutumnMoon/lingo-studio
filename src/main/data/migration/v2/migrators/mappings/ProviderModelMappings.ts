@@ -43,10 +43,6 @@ export interface OldLlmSettings {
     apiKey?: string
     region?: string
   }
-  cherryIn?: {
-    accessToken?: string
-    refreshToken?: string
-  }
 }
 
 const CAPABILITY_MAP: Partial<Record<ModelType, ModelCapability | undefined>> = {
@@ -93,7 +89,6 @@ const LEGACY_TYPE_TO_ADAPTER_FAMILY: Partial<Record<LegacyProvider['type'], stri
 }
 
 const SYSTEM_PROVIDER_IDS = new Set([
-  'cherryin',
   'silicon',
   'aihubmix',
   'ocoolai',
@@ -318,19 +313,6 @@ function buildAuthConfig(legacy: LegacyProvider, settings: OldLlmSettings): Auth
     return {
       type: 'iam-azure',
       apiVersion: legacy.apiVersion ?? ''
-    }
-  }
-
-  if (
-    legacy.id === 'cherryin' &&
-    settings.cherryIn &&
-    (settings.cherryIn.accessToken || settings.cherryIn.refreshToken)
-  ) {
-    return {
-      type: 'oauth',
-      clientId: '',
-      accessToken: settings.cherryIn.accessToken,
-      refreshToken: settings.cherryIn.refreshToken
     }
   }
 

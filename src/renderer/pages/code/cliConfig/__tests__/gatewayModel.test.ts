@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { CHERRYAI_DEFAULT_MODEL_ID, CHERRYAI_PROVIDER_ID } from '@shared/data/presets/cherryai'
 import { formatGatewayModelId } from '@shared/utils/apiGateway'
 
 import { gatewayExpectedModel } from '../gatewayModel'
@@ -14,14 +13,6 @@ describe('formatGatewayModelId', () => {
   it('joins providerId and apiModelId with a single colon (never the "::" internal separator)', () => {
     expect(formatGatewayModelId('deepseek', 'deepseek-chat')).toBe('deepseek:deepseek-chat')
     expect(formatGatewayModelId('openai', 'gpt-4o')).not.toContain('::')
-  })
-
-  it('throws for the CherryAI managed default model (not routable through the gateway)', () => {
-    expect(() => formatGatewayModelId(CHERRYAI_PROVIDER_ID, CHERRYAI_DEFAULT_MODEL_ID)).toThrow(/gateway/)
-  })
-
-  it('routes other CherryAI models normally (only the managed default is blocked)', () => {
-    expect(formatGatewayModelId(CHERRYAI_PROVIDER_ID, 'some-other-model')).toBe('cherryai:some-other-model')
   })
 })
 
@@ -40,9 +31,5 @@ describe('gatewayExpectedModel', () => {
     expect(gatewayExpectedModel(null)).toBeUndefined()
     expect(gatewayExpectedModel(undefined)).toBeUndefined()
     expect(gatewayExpectedModel('not-a-unique-id')).toBeUndefined()
-  })
-
-  it('returns undefined (rather than throwing) for a non-routable managed model', () => {
-    expect(gatewayExpectedModel(`${CHERRYAI_PROVIDER_ID}::${CHERRYAI_DEFAULT_MODEL_ID}`)).toBeUndefined()
   })
 })

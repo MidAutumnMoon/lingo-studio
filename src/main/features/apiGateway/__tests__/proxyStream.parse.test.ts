@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { StreamListener } from '@main/ai/streamManager/types'
-import { CHERRY_CLOUD_MODEL_GROUP, CHERRY_CLOUD_PROVIDER_ID } from '@shared/data/presets/cherryai'
 import { createUniqueModelId } from '@shared/data/types/model'
 
 /**
@@ -240,27 +239,13 @@ describe('processMessage model-id parsing', () => {
     expect(await resolveValid('sophnet:DeepSeek-v3')).toBe(createUniqueModelId('sophnet', 'deepseek-v3'))
   })
 
-  it('does not resolve Cherry Cloud models for external requests', async () => {
-    mockAvailableModel(CHERRY_CLOUD_PROVIDER_ID, 'deepseek-free', 'deepseek-free', CHERRY_CLOUD_MODEL_GROUP)
-
-    await expect(
-      processMessage({
-        params: { model: `${CHERRY_CLOUD_PROVIDER_ID}:deepseek-free`, messages: [] },
-        inputFormat: 'anthropic',
-        outputFormat: 'anthropic'
-      })
-    ).rejects.toMatchObject({ status: 400 })
-    expect(mockListModels).not.toHaveBeenCalled()
-    expect(mockStreamPrompt).not.toHaveBeenCalled()
-  })
-
-  it('routes Cherry Cloud messages authorized by the production usage-token gate', async () => {
-    mockAvailableModel(CHERRY_CLOUD_PROVIDER_ID, 'deepseek-free', 'deepseek-free', CHERRY_CLOUD_MODEL_GROUP)
+  it('routes messages authorized by the production usage-token gate', async () => {
+    mockAvailableModel('deepseek', 'deepseek-chat', 'deepseek-chat')
     const gatewayService = new ApiGatewayService()
     mockIsInternalAgentRequest.mockImplementation((headers) => gatewayService.isInternalAgentRequest(headers))
     const responsePromise = processMessage({
       params: {
-        model: `${CHERRY_CLOUD_PROVIDER_ID}:deepseek-free`,
+        model: 'deepseek:deepseek-chat',
         max_tokens: 64,
         messages: [{ role: 'user', content: 'hello' }]
       },
@@ -270,8 +255,8 @@ describe('processMessage model-id parsing', () => {
     })
 
     await vi.waitFor(() => expect(captured.opts).toBeDefined())
-    expect(captured.opts?.uniqueModelId).toBe(createUniqueModelId(CHERRY_CLOUD_PROVIDER_ID, 'deepseek-free'))
-    expect(mockListModels).toHaveBeenCalledWith({ providerId: CHERRY_CLOUD_PROVIDER_ID, enabled: true })
+    expect(captured.opts?.uniqueModelId).toBe(createUniqueModelId('deepseek', 'deepseek-chat'))
+    expect(mockListModels).toHaveBeenCalledWith({ providerId: 'deepseek', enabled: true })
     void captured.opts!.listener!.onDone({} as any)
 
     await expect(responsePromise.then((response) => response.json())).resolves.toEqual({ ok: true })

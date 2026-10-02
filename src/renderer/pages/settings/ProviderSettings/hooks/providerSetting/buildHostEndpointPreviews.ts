@@ -1,13 +1,7 @@
 import { formatApiHost, formatVertexApiHost, isWithTrailingSharp } from '@renderer/utils/api'
 import { ENDPOINT_TYPE, type EndpointType } from '@shared/data/types/model'
 import type { AuthConfig, Provider } from '@shared/data/types/provider'
-import {
-  isAzureOpenAIProvider,
-  isCherryAIProvider,
-  isNewApiProvider,
-  isPerplexityProvider,
-  isVertexProvider
-} from '@shared/utils/provider'
+import { isAzureOpenAIProvider, isNewApiProvider, isPerplexityProvider, isVertexProvider } from '@shared/utils/provider'
 
 export function buildHostEndpointPreviews(params: {
   provider: Provider
@@ -24,12 +18,7 @@ export function buildHostEndpointPreviews(params: {
 
   if (primaryEndpoint === ENDPOINT_TYPE.ANTHROPIC_MESSAGES) {
     formattedHost = formatApiHost(anthropicApiHost || apiHost, appendVersion)
-  } else if (
-    isCherryAIProvider(provider) ||
-    isPerplexityProvider(provider) ||
-    isNewApiProvider(provider) ||
-    isAzureOpenAIProvider(provider)
-  ) {
+  } else if (isPerplexityProvider(provider) || isNewApiProvider(provider) || isAzureOpenAIProvider(provider)) {
     formattedHost = formatApiHost(apiHost, false)
   } else if (isVertexProvider(provider)) {
     // Ahead of the generic google-generate-content rule, mirroring the request

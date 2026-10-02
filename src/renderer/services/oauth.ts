@@ -180,27 +180,6 @@ export const oauthWithAiOnly = async (setKey) => {
   window.addEventListener('message', messageHandler)
 }
 
-export interface NewApiOAuthConfig {
-  oauthServer: string
-  apiHost?: string
-  requestId?: string
-}
-
-/** CherryIN authorization and HTTP callback are handled in the main process. */
-export const oauthWithCherryIn = async (
-  setKey: (key: string) => void | Promise<void>,
-  config: NewApiOAuthConfig
-): Promise<string> => {
-  const result = await ipcApi.request('cherryin.sign_in', {
-    requestId: config.requestId ?? crypto.randomUUID(),
-    oauthServer: config.oauthServer,
-    apiHost: config.apiHost
-  })
-  if (!result.apiKeys) throw new Error('No API keys received')
-  await setKey(result.apiKeys)
-  return result.apiKeys
-}
-
 export const oauthWithTokenDance = async (setKey) => {
   try {
     const apiKey = await ipcApi.request('oauth.tokendance.authorize_api_key')

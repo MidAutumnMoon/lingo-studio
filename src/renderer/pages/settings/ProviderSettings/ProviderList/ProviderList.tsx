@@ -13,7 +13,6 @@ import {
   matchKeywordsInProvider
 } from '@renderer/pages/settings/ProviderSettings/utils/providerDisplay'
 import { toast } from '@renderer/services/toast'
-import { isProviderSettingsListVisibleProvider } from '@renderer/utils/providerSettings'
 import type { Provider } from '@shared/data/types/provider'
 import { canManageProvider } from '@shared/utils/provider'
 
@@ -151,9 +150,6 @@ export default function ProviderList({
   const filteredProviders = useMemo(() => {
     const keywords = searchText.toLowerCase().split(/\s+/).filter(Boolean)
     return providers.filter((provider) => {
-      if (!isProviderSettingsListVisibleProvider(provider)) {
-        return false
-      }
       if (provider.id === 'ovms' && !isOvmsSupported) {
         return false
       }
@@ -178,10 +174,7 @@ export default function ProviderList({
 
   const groupedPresetIds = useMemo(() => getGroupedPresetIds(filteredProviders), [filteredProviders])
   const presetSources = useMemo(
-    () =>
-      providers.filter(
-        (provider) => isProviderPresetInstanceSource(provider) && isProviderSettingsListVisibleProvider(provider)
-      ),
+    () => providers.filter((provider) => isProviderPresetInstanceSource(provider)),
     [providers]
   )
 
