@@ -70,36 +70,6 @@ export class Fetcher {
     }
   }
 
-  static async txt(requestPayload: RequestPayload) {
-    try {
-      const html = await this._fetchText(requestPayload)
-
-      // Delayed loading: jsdom costs tens of MB of RSS, so it must load on first tool call, not at boot.
-      const { JSDOM } = await import('jsdom')
-      const dom = new JSDOM(html)
-      const document = dom.window.document
-
-      const scripts = document.getElementsByTagName('script')
-      const styles = document.getElementsByTagName('style')
-      Array.from(scripts).forEach((script: any) => script.remove())
-      Array.from(styles).forEach((style: any) => style.remove())
-
-      const text = document.body.textContent || ''
-
-      const normalizedText = text.replace(/\s+/g, ' ').trim()
-
-      return {
-        content: [{ type: 'text', text: normalizedText }],
-        isError: false
-      }
-    } catch (error) {
-      return {
-        content: [{ type: 'text', text: (error as Error).message }],
-        isError: true
-      }
-    }
-  }
-
   static async markdown(requestPayload: RequestPayload) {
     try {
       const html = await this._fetchText(requestPayload)
@@ -169,24 +139,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: 'fetch_txt',
-        description: 'Fetch a website, return the content as plain text (no HTML)',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            url: {
-              type: 'string',
-              description: 'URL of the website to fetch'
-            },
-            headers: {
-              type: 'object',
-              description: 'Optional headers to include in the request'
-            }
-          },
-          required: ['url']
-        }
-      },
-      {
         name: 'fetch_json',
         description: 'Fetch a JSON file from a URL',
         inputSchema: {
@@ -218,9 +170,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
   if (request.params.name === 'fetch_json') {
     return await Fetcher.json(validatedArgs)
-  }
-  if (request.params.name === 'fetch_txt') {
-    return await Fetcher.txt(validatedArgs)
   }
   if (request.params.name === 'fetch_markdown') {
     return await Fetcher.markdown(validatedArgs)
