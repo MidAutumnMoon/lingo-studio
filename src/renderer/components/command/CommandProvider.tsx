@@ -46,7 +46,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
     return true
   }
   // `isContentEditable` reflects the inherited editing state in real browsers;
-  // the attribute fallback covers environments (jsdom) that don't compute it.
+  // the attribute fallback covers DOM test environments that don't compute it.
   return target.isContentEditable || target.getAttribute('contenteditable') === 'true'
 }
 

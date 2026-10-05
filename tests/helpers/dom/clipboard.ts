@@ -1,5 +1,5 @@
 // happy-dom defines navigator.clipboard as a getter-only prototype accessor, so
-// defineProperty (jsdom-compatible) replaces it instead of Object.assign.
+// defineProperty works across DOM environments; Object.assign does not.
 export function stubNavigatorClipboard(clipboard: unknown): void {
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard })
 }

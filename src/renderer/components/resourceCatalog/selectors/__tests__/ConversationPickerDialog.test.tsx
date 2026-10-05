@@ -381,7 +381,7 @@ describe('ConversationPickerDialog', () => {
     expect(screen.getByText('Item 4')).toBeInTheDocument()
     expect(screen.queryByText('Item 5')).not.toBeInTheDocument()
 
-    // jsdom reports zero layout metrics, so a scroll event always crosses the bottom threshold.
+    // the DOM test environment reports zero layout metrics, so a scroll event always crosses the bottom threshold.
     const scroller = screen.getByText('Item 0').closest('[data-scrolling]') as HTMLElement
     fireEvent.scroll(scroller)
 

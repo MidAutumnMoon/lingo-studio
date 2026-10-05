@@ -1,11 +1,11 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Avatar, AvatarFallback, AvatarImage } from '../avatar'
 
-// Radix decides an image is `loaded` via `image.complete && image.naturalWidth > 0`. jsdom never
+// Radix decides an image is `loaded` via `image.complete && image.naturalWidth > 0`. the DOM test environment never
 // actually loads images, so stub `window.Image` to report a successful load the moment `src` is
 // set — that drives Avatar.Root into the `loaded` status that triggered the original bug.
 class StubImage {

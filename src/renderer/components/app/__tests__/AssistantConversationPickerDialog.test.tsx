@@ -86,7 +86,7 @@ beforeAll(() => {
     unobserve() {}
     disconnect() {}
   }
-  // Radix Popover needs these in jsdom to open.
+  // Radix Popover needs these in the DOM test environment to open.
   if (!HTMLElement.prototype.hasPointerCapture) HTMLElement.prototype.hasPointerCapture = () => false
   if (!HTMLElement.prototype.releasePointerCapture) HTMLElement.prototype.releasePointerCapture = () => {}
   if (!HTMLElement.prototype.setPointerCapture) HTMLElement.prototype.setPointerCapture = () => {}

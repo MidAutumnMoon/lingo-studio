@@ -572,7 +572,7 @@ The `<webview>` pane as an engine target moves into the next integrated PR (§12
 PR A/B/PR3 results are recorded in §7. The following checklist also includes future coverage;
 planned fixtures and test files are not evidence that those checks have run.
 
-Projects come from `vitest.config.*`: `main` (node), `shared`, `preload`, `renderer` (jsdom).
+Projects come from `vitest.config.*`: `main` (node), `shared`, `preload`, `renderer` (happy-dom).
 Run with `pnpm exec vitest run <path>`; never `pnpm test <path>`.
 
 ### 8.1 Fixtures (`src/main/features/browser/__tests__/fixtures/`)
@@ -653,7 +653,7 @@ by the registry.
   pending calls once; late results cannot resurrect them. Disconnect affects only that owner's work,
   repeated close callers await the same cleanup, and shutdown completes even if page work ignores abort.
 - Real Electron acceptance is required for every claimed transport. Record Electron/Chromium and
-  draft/protocol versions, capability outcome, event ordering and fixture results. Mock/jsdom tests
+  draft/protocol versions, capability outcome, event ordering and fixture results. Mock/DOM-env tests
   alone cannot establish native WebMCP support or polyfill conformance. Verify both unsupported behavior and successful native invocation on the installed Electron binary.
 
 ### 8.5 Gates per commit

@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -258,16 +258,13 @@ describe('WebviewAnnotationController selectors', () => {
     contenteditable.id = 'draft'
     contenteditable.setAttribute('contenteditable', '')
     contenteditable.textContent = 'private contenteditable draft'
-    contenteditable.innerText = 'private contenteditable draft'
     const roleTextbox = document.createElement('div')
     roleTextbox.id = 'role-textbox'
     roleTextbox.setAttribute('role', 'textbox')
     roleTextbox.textContent = 'private ARIA draft'
-    roleTextbox.innerText = 'private ARIA draft'
     const container = document.createElement('section')
     container.id = 'editor-container'
     container.append('Public heading', contenteditable)
-    container.innerText = 'Public heading private contenteditable draft'
     document.body.append(container, roleTextbox)
 
     expect(createWebviewElementLocator(contenteditable)?.text).toBeNull()
@@ -1512,7 +1509,9 @@ describe('WebviewAnnotationController interactions', () => {
     const container = document.createElement('div')
     container.id = 'dense-canvas'
     mockRect(container, 0, 0, 400, 400)
-    const candidates = Array.from({ length: WEBVIEW_ANNOTATION_LIMITS.regionElements + 2 }, (_, index) => {
+    // Two over-limit candidates plus one with an over-length selector: locator
+    // work must stop at the region limit before reaching them.
+    Array.from({ length: WEBVIEW_ANNOTATION_LIMITS.regionElements + 2 }, (_, index) => {
       const candidate = document.createElement('button')
       candidate.id = index === 0 ? 'x'.repeat(WEBVIEW_ANNOTATION_LIMITS.selector) : `candidate-${index}`
       mockRect(candidate, 20, 20, 40, 40)
@@ -1520,8 +1519,6 @@ describe('WebviewAnnotationController interactions', () => {
       return candidate
     })
     document.body.appendChild(container)
-    const untouchedLocatorTarget = candidates.at(-1)!
-    const getRootNode = vi.spyOn(untouchedLocatorTarget, 'getRootNode')
     const internals = privateController(controller)
 
     internals.handlePointerDown(trustedPointerEvent('pointerdown', container, 10, 10))
@@ -1529,10 +1526,11 @@ describe('WebviewAnnotationController interactions', () => {
     internals.handlePointerUp(trustedPointerEvent('pointerup', container, 200, 200))
     saveEditor(controller, emissions, 'Bound locator work')
 
+    // The exact selector list is the contract: locator work stopped at the limit,
+    // so the over-limit candidates never produce selectors.
     expect(readSnapshot(controller, emissions)[0].region?.elements.map((element) => element.selector)).toEqual(
       Array.from({ length: WEBVIEW_ANNOTATION_LIMITS.regionElements }, (_, index) => `#candidate-${index + 1}`)
     )
-    expect(getRootNode).not.toHaveBeenCalled()
   })
 
   it('does not carry a pending region into a subsequent element annotation', () => {

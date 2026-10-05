@@ -390,7 +390,7 @@ const deferred = <T,>() => {
   return { promise, resolve, reject }
 }
 
-// jsdom's Blob has no text().
+// the DOM test environment's Blob has no text().
 const readBlobText = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader()

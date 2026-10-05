@@ -11,7 +11,7 @@ import { useRichEditor } from '../useRichEditor'
 
 const CONTENT = 'hello world'
 
-// focus('end') dispatches a selection transaction even when jsdom cannot deliver real DOM focus,
+// focus('end') dispatches a selection transaction even when the DOM test environment cannot deliver real DOM focus,
 // so the selection position is the reliable observable for the autoFocus gating.
 const isSelectionAtEnd = (editor: Editor): boolean => editor.state.selection.eq(Selection.atEnd(editor.state.doc))
 
@@ -70,7 +70,7 @@ const countImageNodes = (editor: Editor): number => {
 }
 
 // Mirrors ProseMirror's external-drag path: with no `view.dragging` the slice is parsed from the
-// drag event's `text/html`. `posAtCoords` needs stubbing because jsdom reports no layout.
+// drag event's `text/html`. `posAtCoords` needs stubbing because the DOM test environment reports no layout.
 const dropHtml = (editor: Editor, html: string) => {
   editor.view.posAtCoords = () => ({ pos: editor.state.doc.content.size, inside: -1 })
   const event = new Event('drop', { bubbles: true, cancelable: true })
@@ -296,7 +296,7 @@ describe('useRichEditor markdown paste', () => {
     })
     let event: Event | undefined
     await act(async () => {
-      // A screenshot clipboard is `image/png` alone — no HTML, no text. jsdom cannot run the
+      // A screenshot clipboard is `image/png` alone — no HTML, no text. the DOM test environment cannot run the
       // browser's native paste, so consuming the event is the only observable of the thing that
       // stops it from dropping a blob-URL <img> over the selection.
       event = pasteImage(result.current.editor)

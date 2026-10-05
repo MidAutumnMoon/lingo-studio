@@ -603,7 +603,7 @@ describe('HtmlArtifactView', () => {
     // Element measurement stops at the <task-notification> box (91px); the bare text node after it
     // reaches 127px. Without the whole-body range the surface flips 99↔135 under the observer.
     vi.spyOn(notice, 'getBoundingClientRect').mockReturnValue({ bottom: 91, height: 40, width: 300 } as DOMRect)
-    // jsdom keeps each iframe in its own realm, so the frame's Range constructor differs from the
+    // the DOM test environment keeps each iframe in its own realm, so the frame's Range constructor differs from the
     // host global; mock the one getIframeContentHeight actually calls createRange() on.
     const frameRange = (iframe.contentWindow as unknown as { Range: typeof Range }).Range
     const rangePrototype = frameRange.prototype as Range & { getBoundingClientRect?: unknown }

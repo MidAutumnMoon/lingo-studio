@@ -5,8 +5,8 @@ import type { ChartModel } from '../renderModel'
 /**
  * EchartsChartRenderer lifecycle tests.
  *
- * When jsdom does not have the `canvas` npm package, echarts CanvasRenderer cannot create a real 2D context.
- * HTMLCanvasElement.getContext('2d') throws "Not implemented" in jsdom. That is an environment limit, not a bug here.
+ * When the DOM test environment does not have the `canvas` npm package, echarts CanvasRenderer cannot create a real 2D context.
+ * HTMLCanvasElement.getContext('2d') throws "Not implemented" in the DOM test environment. That is an environment limit, not a bug here.
  * Per 04-wp-charts.md, this uses vi.mock replacements to verify the renderer wiring itself: init/setOption calls,
  * ResizeObserver handling when the first non-zero size appears, and dispose cleanup.
  * The actual ChartModel -> option mapping is covered by chart.buildChartOption.test.ts.

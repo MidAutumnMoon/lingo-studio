@@ -32,7 +32,7 @@ vi.mock('@data/hooks/useDataApi', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args)
 }))
 
-// The real DynamicVirtualList renders nothing under jsdom (no layout to measure),
+// The real DynamicVirtualList renders nothing under the DOM test environment (no layout to measure),
 // so stub it with a plain pass-through that renders every row.
 vi.mock('@renderer/components/VirtualList', () => ({
   DynamicVirtualList: <T,>({ list, children }: { list: T[]; children: (item: T) => ReactNode }) => (

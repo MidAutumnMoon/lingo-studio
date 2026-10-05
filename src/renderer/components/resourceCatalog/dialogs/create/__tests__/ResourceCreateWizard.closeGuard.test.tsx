@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // Capture the close-control props the wizard hands to the UI dialog so the test can
 // drive overlay / Esc / pointer-down-outside deterministically (radix's real Esc
-// wiring doesn't fire onOpenChange reliably under jsdom).
+// wiring doesn't fire onOpenChange reliably under the DOM test environment).
 const dialog = vi.hoisted(() => ({
   onOpenChange: undefined as ((open: boolean) => void) | undefined,
   closeOnOverlayClick: undefined as boolean | undefined,

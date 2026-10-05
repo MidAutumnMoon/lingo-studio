@@ -118,7 +118,7 @@ describe('BasicDataSettings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'settings.data.clear_cache.button' }))
     await waitFor(() => expect(clearCacheShowMock).toHaveBeenCalledOnce())
     // Instance-level spy: happy-dom's global localStorage binding does not resolve
-    // setItem through Storage.prototype after prior storage use (jsdom is fine either way).
+    // setItem through Storage.prototype after prior storage use (the DOM test environment is fine either way).
     vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => {
       throw new DOMException('quota exceeded', 'QuotaExceededError')
     })

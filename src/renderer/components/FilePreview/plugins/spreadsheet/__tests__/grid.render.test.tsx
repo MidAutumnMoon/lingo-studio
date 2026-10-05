@@ -6,7 +6,7 @@ import { createMockWorkbookModel } from '../mockModel'
 import type { ChartModel, SheetRenderModel } from '../renderModel'
 import type { SelectedCellInfo, XlsxGridProps } from '../XlsxGrid'
 
-// jsdom has no real layout, so — matching the existing convention in
+// the DOM test environment has no real layout, so — matching the existing convention in
 // src/renderer/components/VirtualList/__tests__/DynamicVirtualList.test.tsx — we mock
 // @tanstack/react-virtual's useVirtualizer and assert on "what was passed in" / "what
 // virtual items were rendered" rather than pixel-perfect layout.
@@ -70,7 +70,7 @@ const virtualizerImpl = (options: any) => {
 }
 
 /**
- * jsdom ships neither PointerEvent nor pointer capture, so range dragging would have no event to fire.
+ * the DOM test environment ships neither PointerEvent nor pointer capture, so range dragging would have no event to fire.
  * A MouseEvent subclass carrying pointerId covers everything the grid reads: clientX/clientY/button/pointerId.
  */
 class TestPointerEvent extends MouseEvent {
@@ -111,7 +111,7 @@ const showHeaderRange = () => {
 }
 
 /**
- * jsdom always reports clientWidth/clientHeight as 0, so the merge layer (which derives its
+ * the DOM test environment always reports clientWidth/clientHeight as 0, so the merge layer (which derives its
  * viewport from the real scroll container's scrollTop/scrollLeft/clientWidth/clientHeight,
  * independent of the mocked row/col virtualizers) would never see a non-empty viewport unless we
  * stub the container's client size and fire a scroll event, matching what a real browser would
@@ -515,7 +515,7 @@ const ROW_HEADER_WIDTH = 44
 const COL_HEADER_HEIGHT = 22
 
 /**
- * Pointer event init for a zoom=1 content coordinate. The sticky headers offset the content layer, and jsdom's
+ * Pointer event init for a zoom=1 content coordinate. The sticky headers offset the content layer, and the DOM test environment's
  * zeroed getBoundingClientRect leaves the scroll container's origin at (0, 0) with no scroll offset.
  */
 const pointerAt = (contentX: number, contentY: number, init: MouseEventInit = {}) => ({

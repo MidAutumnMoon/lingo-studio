@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 
 /**
  * Smoke tests for `<StreamingMarkdown>`. Load-bearing behaviour: appended

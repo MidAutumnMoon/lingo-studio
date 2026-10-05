@@ -53,7 +53,7 @@ beforeEach(() => {
   )
 })
 
-// jsdom's Blob has neither arrayBuffer() nor text().
+// the DOM test environment's Blob has neither arrayBuffer() nor text().
 const readBlobBytes = (blob: Blob) =>
   new Promise<Uint8Array>((resolve, reject) => {
     const reader = new FileReader()
@@ -570,7 +570,7 @@ describe('utils/image', () => {
       return div
     }
 
-    // jsdom never decodes images, so the settle wait would ride its timeout cap;
+    // the DOM test environment never decodes images, so the settle wait would ride its timeout cap;
     // settle each swapped-in src on the next macrotask the way a browser decode would.
     const armJsdomImageSettle = (root: HTMLElement) => {
       for (const img of root.querySelectorAll('img')) {
@@ -673,9 +673,9 @@ describe('utils/image', () => {
         'https://cdn.example.com/photo-small.jpg 480w, https://cdn.example.com/photo-large.jpg 1200w'
       )
       img.setAttribute('sizes', '800px')
-      // jsdom performs no srcset/sizes candidate selection; pin the browser's pick.
+      // the DOM test environment performs no srcset/sizes candidate selection; pin the browser's pick.
       Object.defineProperty(img, 'currentSrc', { value: 'https://cdn.example.com/photo-large.jpg' })
-      // Mark loaded so waitForCaptureAssets settles without jsdom's never-firing load.
+      // Mark loaded so waitForCaptureAssets settles without the DOM test environment's never-firing load.
       Object.defineProperty(img, 'complete', { value: true, configurable: true })
       const root = makeRoot(img)
 
@@ -752,7 +752,7 @@ describe('utils/image', () => {
       srcs.forEach((src) => {
         const img = document.createElement('img')
         img.setAttribute('src', src)
-        // Mark loaded so waitForCaptureAssets settles without jsdom's never-firing load.
+        // Mark loaded so waitForCaptureAssets settles without the DOM test environment's never-firing load.
         Object.defineProperty(img, 'complete', { value: true, configurable: true })
         root.appendChild(img)
       })
@@ -806,7 +806,7 @@ describe('utils/image', () => {
       Array.from({ length: 6 }).forEach((_, index) => {
         const img = document.createElement('img')
         img.setAttribute('src', `https://cdn.example.com/${index}.png`)
-        // Mark loaded so waitForCaptureAssets settles without jsdom's never-firing load.
+        // Mark loaded so waitForCaptureAssets settles without the DOM test environment's never-firing load.
         Object.defineProperty(img, 'complete', { value: true, configurable: true })
         root.appendChild(img)
       })
@@ -837,7 +837,7 @@ describe('utils/image', () => {
       stubFetch('image/png', PNG_BYTES)
       const img = document.createElement('img')
       img.setAttribute('src', 'https://icon.horse/icon/example.com')
-      // Mark loaded so waitForCaptureAssets settles without jsdom's never-firing load.
+      // Mark loaded so waitForCaptureAssets settles without the DOM test environment's never-firing load.
       Object.defineProperty(img, 'complete', { value: true, configurable: true })
       const root = makeRoot(img)
 
@@ -863,7 +863,7 @@ describe('utils/image', () => {
       stubFetch('text/html; charset=utf-8', new TextEncoder().encode('<!DOCTYPE html><html>Too Many Requests</html>'))
       const img = document.createElement('img')
       img.setAttribute('src', 'https://example.com/figure.png')
-      // Mark loaded so waitForCaptureAssets settles without jsdom's never-firing load.
+      // Mark loaded so waitForCaptureAssets settles without the DOM test environment's never-firing load.
       Object.defineProperty(img, 'complete', { value: true, configurable: true })
       const root = document.createElement('div')
       root.appendChild(img)
@@ -949,7 +949,7 @@ describe('utils/image', () => {
   describe('waitForCaptureAssets', () => {
     const makeImage = (complete: boolean): HTMLImageElement => {
       const img = document.createElement('img')
-      // jsdom never loads resources; drive `complete` explicitly per case.
+      // the DOM test environment never loads resources; drive `complete` explicitly per case.
       Object.defineProperty(img, 'complete', { value: complete, configurable: true })
       return img
     }
@@ -1054,7 +1054,7 @@ describe('utils/image', () => {
       return svgElement
     }
 
-    // Mock document.body.appendChild to avoid errors in jsdom
+    // Mock document.body.appendChild to avoid errors in the DOM test environment
     beforeEach(() => {
       vi.spyOn(document.body, 'appendChild').mockImplementation(() => ({}) as Node)
       vi.spyOn(document.body, 'removeChild').mockImplementation(() => ({}) as Node)

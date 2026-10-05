@@ -1,4 +1,4 @@
-import { JSDOM } from 'jsdom'
+import { Window } from 'happy-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { selectOption } from '../actions/forms'
@@ -9,7 +9,10 @@ import { settleAction } from '../actions/settle'
 import { GuestSession } from '../session/GuestSession'
 import { createGuest } from './guestFixture'
 
-let dom: JSDOM
+let dom: Window
+// happy-dom's typed elements are structurally incompatible with the DOM-lib
+// Element this suite is written against; funnel queries through one cast.
+const query = (selector: string) => dom.document.querySelector(selector) as unknown as Element | null
 let session: GuestSession
 let mock: ReturnType<typeof createGuest>['mock']
 let target: Element
@@ -18,10 +21,15 @@ let quads: number[][]
 let commands: Array<{ method: string; params: any }>
 let rejectFirstInput = false
 beforeEach(() => {
-  dom = new JSDOM(
-    '<button id="button">Save <span>now</span></button><input id="text" value="old"><select><option value="a">Alpha</option><option value="b">Beta</option></select>',
-    { runScripts: 'outside-only' }
+  dom = new Window()
+  dom.document.write(
+    '<button id="button">Save <span>now</span></button><input id="text" value="old"><select><option value="a">Alpha</option><option value="b">Beta</option></select>'
   )
+  // happy-dom does not implement HTMLOptionElement.label (always undefined); seed
+  // labels so the production by-label matching path is exercised.
+  for (const option of dom.document.querySelectorAll('option')) {
+    Object.defineProperty(option, 'label', { value: option.textContent ?? '' })
+  }
   const fixture = createGuest()
   mock = fixture.mock
   session = new GuestSession(fixture.guest, 'managed')
@@ -29,7 +37,7 @@ beforeEach(() => {
     if (ref !== 'e1') throw new Error('stale_ref')
     return 1
   })
-  target = dom.window.document.querySelector('button')!
+  target = query('button')!
   hit = target
   quads = [
     [10, 10, 110, 10, 110, 50, 10, 50],
@@ -45,7 +53,7 @@ beforeEach(() => {
     if (method === 'Page.getLayoutMetrics') return { cssLayoutViewport: { pageX: 0, pageY: 0 } }
     if (method === 'DOM.getNodeForLocation') return { backendNodeId: hit === target ? 1 : 2 }
     if (method === 'Runtime.callFunctionOn') {
-      const fn = dom.window.eval(`(${params.functionDeclaration})`)
+      const fn = dom.eval(`(${params.functionDeclaration})`)
       const args = (params.arguments ?? []).map((arg: any) => (arg.objectId ? hit : arg.value))
       return { result: { value: fn.apply(params.objectId === 'target' ? target : hit, args) } }
     }
@@ -62,7 +70,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   session.dispose()
-  dom.window.close()
+  dom.close()
   vi.useRealTimers()
 })
 
@@ -184,7 +192,7 @@ describe('Browser actions', () => {
   })
 
   it('reports a synthetic covered click and never hovers an occluding sibling', async () => {
-    hit = dom.window.document.querySelector('input')!
+    hit = query('input')!
     let clicked = 0
     target.addEventListener('click', () => clicked++)
     expect(await click(session, 'e1', 'left', 1, {})).toEqual({ occluded: true, synthetic: true })
@@ -194,7 +202,7 @@ describe('Browser actions', () => {
   })
 
   it('selects by label and rejects unknown values atomically', async () => {
-    target = dom.window.document.querySelector('select')!
+    target = query('select')!
     const events: string[] = []
     target.addEventListener('input', () => events.push('input'))
     target.addEventListener('change', () => events.push('change'))
@@ -207,7 +215,7 @@ describe('Browser actions', () => {
   })
 
   it('clears and verifies text, retrying rejected insertion without duplicating the old value', async () => {
-    target = dom.window.document.querySelector('input')!
+    target = query('input')!
     rejectFirstInput = true
     await typeText(session, 'e1', 'new', true, false, {})
     expect((target as HTMLInputElement).value).toBe('new')
@@ -219,7 +227,7 @@ describe('Browser actions', () => {
   })
 
   it('appends to email fields whose selection range API is unavailable', async () => {
-    target = dom.window.document.querySelector('input')!
+    target = query('input')!
     target.setAttribute('type', 'email')
     ;(target as HTMLInputElement).value = 'user@example'
     await typeText(session, 'e1', '.com', false, false, {})
@@ -227,7 +235,7 @@ describe('Browser actions', () => {
   })
 
   it('never retries rejected line breaks as form-submit key presses', async () => {
-    target = dom.window.document.querySelector('input')!
+    target = query('input')!
     rejectFirstInput = true
     await expect(typeText(session, 'e1', 'a\nb', true, false, {})).rejects.toThrow('not_found')
     expect(commands.filter((c) => c.method === 'Input.dispatchKeyEvent' && c.params.key === 'Enter')).toEqual([])

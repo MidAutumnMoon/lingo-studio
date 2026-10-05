@@ -45,7 +45,7 @@ describe('PersistentRightPaneHost width (real Motion)', () => {
       }))
     )
     // happy-dom ships no HTMLElement.prototype.offsetParent; define an own accessor
-    // (jsdom's null-returning getter is shadowed identically).
+    // (the DOM test environment's null-returning getter is shadowed identically).
     Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
       configurable: true,
       get(this: HTMLElement) {

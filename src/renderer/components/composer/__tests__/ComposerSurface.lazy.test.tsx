@@ -64,7 +64,7 @@ vi.mock('../ComposerSurfaceRuntime', () => {
   }
 })
 
-/** jsdom ships none of the transfer APIs the fallback uses to snapshot a payload. */
+/** the DOM test environment ships none of the transfer APIs the fallback uses to snapshot a payload. */
 class FakeDataTransfer {
   private data = new Map<string, string>()
   readonly items = { add: (file: File) => this.fileList.push(file) }

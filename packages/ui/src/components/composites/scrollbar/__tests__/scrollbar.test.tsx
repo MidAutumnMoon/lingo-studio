@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -23,7 +23,8 @@ describe('Scrollbar', () => {
     const scrollbar = screen.getByTestId('scrollbar')
 
     // scrollbar visibility is a maintained visual contract for callers that need a discoverable position indicator.
-    expect(scrollbar).toHaveStyle({ scrollbarColor: 'var(--scrollbar-thumb) transparent' })
+    // Inline readback: happy-dom's computed style drops var()-valued colors.
+    expect(scrollbar.style.scrollbarColor).toBe('var(--scrollbar-thumb) transparent')
     expect(scrollbar).toHaveClass('[&::-webkit-scrollbar-thumb]:bg-[var(--scrollbar-thumb)]')
 
     fireEvent.scroll(scrollbar)
@@ -31,7 +32,7 @@ describe('Scrollbar', () => {
       vi.advanceTimersByTime(2000)
     })
 
-    expect(scrollbar).toHaveStyle({ scrollbarColor: 'var(--scrollbar-thumb) transparent' })
+    expect(scrollbar.style.scrollbarColor).toBe('var(--scrollbar-thumb) transparent')
     expect(scrollbar).toHaveClass('[&::-webkit-scrollbar-thumb]:bg-[var(--scrollbar-thumb)]')
   })
 
@@ -41,15 +42,15 @@ describe('Scrollbar', () => {
     render(<Scrollbar data-testid="scrollbar">Content</Scrollbar>)
 
     const scrollbar = screen.getByTestId('scrollbar')
-    expect(scrollbar).toHaveStyle({ scrollbarColor: 'transparent transparent' })
+    expect(scrollbar.style.scrollbarColor).toBe('transparent transparent')
 
     fireEvent.scroll(scrollbar)
-    expect(scrollbar).toHaveStyle({ scrollbarColor: 'var(--scrollbar-thumb) transparent' })
+    expect(scrollbar.style.scrollbarColor).toBe('var(--scrollbar-thumb) transparent')
 
     act(() => {
       vi.advanceTimersByTime(1500)
     })
 
-    expect(scrollbar).toHaveStyle({ scrollbarColor: 'transparent transparent' })
+    expect(scrollbar.style.scrollbarColor).toBe('transparent transparent')
   })
 })

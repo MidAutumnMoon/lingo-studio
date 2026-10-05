@@ -28,7 +28,7 @@ vi.mock('@cherrystudio/ui/icons', () => {
 
 import { ProviderAvatarPrimitive } from '../ProviderAvatar'
 
-// Radix decides an image is `loaded` via `image.complete && image.naturalWidth > 0`. jsdom never
+// Radix decides an image is `loaded` via `image.complete && image.naturalWidth > 0`. the DOM test environment never
 // actually loads images, so stub `window.Image` to report a successful load the moment `src` is
 // set — that drives the avatar into the `loaded` state that triggers the bug.
 class StubImage {

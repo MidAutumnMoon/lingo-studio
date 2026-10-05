@@ -494,7 +494,7 @@ describe('MessageVirtualList', () => {
       })
       fireEvent(region, event)
     }
-    // jsdom has no PointerEvent constructor, so Testing Library otherwise
+    // the DOM test environment has no PointerEvent constructor, so Testing Library otherwise
     // falls back to Event and silently drops pointer-specific init fields.
     fireTouchPointerEvent('pointerdown', 100, 1)
     fireTouchPointerEvent('pointermove', 80, 1)

@@ -47,7 +47,7 @@ describe('KnowledgeBaseSelector', () => {
     fireEvent.click(trigger)
 
     // happy-dom's getComputedStyle drops var()-valued inline styles, so the width
-    // custom property is asserted on the inline style (jsdom-compatible either way).
+    // custom property is asserted on the inline style (works under any DOM environment).
     const content = screen.getByTestId('knowledge-base-selector-content')
     expect(content.style.width).toBe('var(--radix-popover-trigger-width)')
     // Select triggers must not add border or outer-ring feedback when expanded.

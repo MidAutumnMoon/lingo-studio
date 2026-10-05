@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import type { PointerSensorProps } from '@dnd-kit/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 

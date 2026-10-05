@@ -34,7 +34,7 @@ vi.mock('@renderer/ipc', () => ({
   ipcApi: { request: (...args: any[]) => ipcRequestMock(...args) }
 }))
 
-// Canvas isn't available in jsdom; stub the renderer normalize step to fixed bytes.
+// Canvas isn't available in the DOM test environment; stub the renderer normalize step to fixed bytes.
 vi.mock('@renderer/utils/image', async (importOriginal) => ({
   ...(await importOriginal<typeof ImageUtils>()),
   prepareEntityImageBytes: vi.fn(async () => new Uint8Array([1, 2, 3]))
@@ -181,7 +181,7 @@ describe('useProviderEditor', () => {
 
     it('creates the row without logo then uploads an image via provider.set_logo', async () => {
       const { result } = renderHook(() => useProviderEditor(makeParams()))
-      // jsdom's File lacks arrayBuffer(); provide a file-like with it.
+      // the DOM test environment's File lacks arrayBuffer(); provide a file-like with it.
       const file = { arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer } as unknown as File
 
       act(() => result.current.startAdd())

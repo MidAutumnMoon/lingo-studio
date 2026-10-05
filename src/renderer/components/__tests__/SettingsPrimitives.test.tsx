@@ -10,7 +10,7 @@ describe('SettingGroup', () => {
     expect(screen.getByTestId('setting-group')).toHaveClass('rounded-xl', 'border', 'border-border', 'bg-card', 'p-4')
     // happy-dom's getComputedStyle drops var()-valued inline styles, so the
     // customizable background is asserted on the inline style, mirroring the
-    // plain-variant assertion below (jsdom-compatible either way).
+    // plain-variant assertion below (works under any DOM environment).
     expect(screen.getByTestId('setting-group').style.backgroundColor).toBe(
       'var(--settings-group-background, var(--card))'
     )

@@ -138,7 +138,7 @@ vi.mock('@renderer/utils/naming', () => ({
   isEmoji: (value: string) => value === '🙂'
 }))
 
-// Canvas isn't available in jsdom; stub the renderer normalize step to fixed bytes.
+// Canvas isn't available in the DOM test environment; stub the renderer normalize step to fixed bytes.
 vi.mock('@renderer/utils/image', async (importOriginal) => ({
   ...(await importOriginal<typeof ImageUtils>()),
   prepareEntityImageBytes: vi.fn(async () => new Uint8Array([1, 2, 3]))
@@ -253,7 +253,7 @@ describe('UserPopup', () => {
     const trigger = await screen.findByTestId('popover-trigger')
     fireEvent.click(trigger)
 
-    // jsdom's File lacks arrayBuffer(); add it so the handler can read the bytes.
+    // the DOM test environment's File lacks arrayBuffer(); add it so the handler can read the bytes.
     const file = Object.assign(new File(['webp'], 'a.webp', { type: 'image/webp' }), {
       arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer
     })

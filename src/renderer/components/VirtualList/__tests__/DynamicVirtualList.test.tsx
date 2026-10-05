@@ -96,8 +96,8 @@ describe('DynamicVirtualList', () => {
 
       const scrollContainer = document.querySelector('.dynamic-virtual-list')
       expect(scrollContainer).toBeInTheDocument()
-      // happy-dom keeps the keyword as written while jsdom normalizes to rgb() — the
-      // contract is only that the custom scroller style reaches the scroller element.
+      // happy-dom keeps the keyword as written — the contract is only that the custom
+      // scroller style reaches the scroller element.
       expect(['red', 'rgb(255, 0, 0)']).toContain((scrollContainer as HTMLElement).style.backgroundColor)
       expect(scrollContainer).toHaveStyle('height: 400px')
     })

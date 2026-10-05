@@ -31,7 +31,7 @@ describe('RichEditor toolbar focus', () => {
     act(() => editorRef.current?.executeCommand('setTextSelection', { from: 1, to: 6 }))
     expect(editingSurface).toHaveFocus()
 
-    // jsdom does not move focus on mousedown; browsers focus the button unless the press is prevented.
+    // the DOM test environment does not move focus on mousedown; browsers focus the button unless the press is prevented.
     const moveFocus = (event: MouseEvent) => {
       if (!event.defaultPrevented && event.target instanceof HTMLElement) event.target.focus()
     }

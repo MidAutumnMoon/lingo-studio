@@ -42,7 +42,7 @@ vi.mock('@tanstack/react-router', () => ({
   getRouteApi: () => ({ useSearch: () => routerSearch.current })
 }))
 
-// jsdom ships no scrollIntoView, and the focused row calls it on mount.
+// the DOM test environment ships no scrollIntoView, and the focused row calls it on mount.
 Element.prototype.scrollIntoView = vi.fn()
 
 vi.mock('@renderer/utils/platform', async (importOriginal) => {

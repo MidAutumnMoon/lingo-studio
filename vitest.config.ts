@@ -70,7 +70,7 @@ export default defineConfig({
         test: {
           name: 'renderer',
           environment: 'happy-dom',
-          setupFiles: ['@vitest/web-worker', 'tests/renderer.setup.ts'],
+          setupFiles: ['@vitest/web-worker', 'tests/dom-env.setup.ts', 'tests/renderer.setup.ts'],
           include: ['src/renderer/**/*.{test,spec}.{ts,tsx}', 'src/renderer/**/__tests__/**/*.{test,spec}.{ts,tsx}'],
           benchmark: {
             include: ['src/renderer/**/*.bench.{ts,tsx}', 'src/renderer/**/__tests__/**/*.bench.{ts,tsx}']
@@ -137,6 +137,7 @@ export default defineConfig({
         test: {
           name: 'preload',
           environment: 'node',
+          setupFiles: ['tests/dom-env.setup.ts'],
           // vitest shards per (groupOrder, pool) bucket and rejects buckets smaller
           // than the shard count; preload's single test file must share main's forks
           // pool (CI always runs it alongside main) instead of crashing --shard=i/3.
@@ -174,6 +175,7 @@ export default defineConfig({
         test: {
           name: 'ui',
           environment: 'node',
+          setupFiles: ['tests/dom-env.setup.ts'],
           include: [
             'packages/ui/scripts/**/*.{test,spec}.{ts,tsx}',
             'packages/ui/src/**/*.{test,spec}.{ts,tsx}',

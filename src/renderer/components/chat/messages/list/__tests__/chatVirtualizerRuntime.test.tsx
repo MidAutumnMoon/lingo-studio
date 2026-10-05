@@ -2152,7 +2152,7 @@ describe('useChatVirtualizerRuntime', () => {
     const restoreResizeObserver = installResizeObserverMock(callbacks)
     const raf = installQueuedAnimationFrame()
     // Deterministically outside the user-input window (the freeze only yields to
-    // the user's own in-flight scrolling), regardless of how young the jsdom
+    // the user's own in-flight scrolling), regardless of how young the DOM test environment
     // time origin is when this test runs.
     const nowSpy = vi.spyOn(performance, 'now').mockReturnValue(1_000_000)
 

@@ -39,7 +39,7 @@ const LABELS: ResourceSelectorShellLabels = {
   pinnedTitle: 'Pinned'
 }
 
-// Radix Popover + Tailwind-driven scroll behaviours need these jsdom shims.
+// Radix Popover + Tailwind-driven scroll behaviours need these the DOM test environment shims.
 beforeAll(() => {
   globalThis.ResizeObserver = class {
     observe() {}

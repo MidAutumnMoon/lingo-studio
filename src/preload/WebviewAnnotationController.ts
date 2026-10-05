@@ -213,7 +213,7 @@ const buildSelectorInRoot = (element: Element, root: Document | ShadowRoot): str
 
 // Realm-safe document check: documents from another window/realm fail instanceof
 // against this realm's Document global; nodeType is realm-independent.
-const isDocumentNode = (node: Node): boolean => node.nodeType === 9
+const isDocumentNode = (node: Node): node is Document => node.nodeType === 9
 
 export function buildWebviewElementSelector(element: Element): string | null {
   const segments: string[] = []
@@ -1014,7 +1014,7 @@ export class WebviewAnnotationController {
     try {
       centerElement = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
     } catch {
-      // jsdom and detached documents do not implement elementFromPoint.
+      // DOM test environments and detached documents do not implement elementFromPoint.
     }
     let anchor: Element | null =
       findCommonAncestor(contained) ?? (centerElement !== this.overlayHost ? centerElement : null) ?? document.body

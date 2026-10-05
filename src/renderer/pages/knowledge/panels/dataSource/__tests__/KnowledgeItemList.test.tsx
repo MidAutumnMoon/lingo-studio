@@ -115,7 +115,7 @@ const noopProps = {
   onViewChunks: () => undefined
 }
 
-// jsdom reports 0 for every scroll dimension, so the scroll handler's bottom-threshold check is
+// the DOM test environment reports 0 for every scroll dimension, so the scroll handler's bottom-threshold check is
 // trivially satisfied unless the geometry is stubbed. Pin it to exercise the real arithmetic.
 const setScrollGeometry = (
   node: HTMLElement,

@@ -71,7 +71,7 @@ describe('TraceTree with TanStack Virtual', () => {
       expect(screen.getAllByRole('treeitem').length).toBeLessThan(30)
     } finally {
       view?.unmount()
-      // virtual-core's isScrolling reset debounce survives unmount and would fire after jsdom teardown.
+      // virtual-core's isScrolling reset debounce survives unmount and would fire after the DOM test environment teardown.
       vi.clearAllTimers()
       vi.useRealTimers()
       if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight)

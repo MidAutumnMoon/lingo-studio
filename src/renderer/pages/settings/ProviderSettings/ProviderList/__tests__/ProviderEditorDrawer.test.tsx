@@ -203,7 +203,7 @@ function toggleMoreSettings() {
 describe('ProviderEditorDrawer', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // jsdom has no object-URL impl; stub so the staged-upload preview path runs.
+    // the DOM test environment has no object-URL impl; stub so the staged-upload preview path runs.
     URL.createObjectURL = vi.fn(() => 'blob:provider-logo')
     URL.revokeObjectURL = vi.fn()
   })

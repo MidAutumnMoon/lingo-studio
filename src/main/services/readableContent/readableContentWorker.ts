@@ -86,7 +86,9 @@ try {
     window.document.write(input.source)
     // Fragment inputs can strand head elements in the body (happy-dom skips the
     // implied-head arrangement); they are metadata, never readable content.
-    window.document.body?.querySelectorAll('script, style, title, meta, link, base').forEach((element) => element.remove())
+    window.document.body
+      ?.querySelectorAll('script, style, title, meta, link, base')
+      .forEach((element) => element.remove())
 
     try {
       const article = new Readability(window.document as unknown as Document).parse()

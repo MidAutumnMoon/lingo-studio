@@ -16,7 +16,7 @@ describe('SettingsFocusScroll', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     locationMock.pathname = '/settings/general'
-    // jsdom has no layout (scrollIntoView is not even defined); the call is the contract
+    // the DOM test environment has no layout (scrollIntoView is not even defined); the call is the contract
     Element.prototype.scrollIntoView = vi.fn()
     setPendingFocus(undefined)
     // The settings content column of THIS tab; the lookup must stay inside it

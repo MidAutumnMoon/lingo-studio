@@ -20,7 +20,7 @@ vi.mock('@cherrystudio/ui', () => ({
   Input: (props: any) => <input {...props} />,
   Label: ({ children, ...props }: any) => <label {...props}>{children}</label>,
   // RadioGroup props are captured via spy so tests can drive onValueChange
-  // directly. Simulating real radio change events in jsdom + an inline mock
+  // directly. Simulating real radio change events in the DOM test environment + an inline mock
   // is unreliable because the mock doesn't reflect group selection state.
   RadioGroup: (props: any) => {
     radioGroupPropsSpy(props)

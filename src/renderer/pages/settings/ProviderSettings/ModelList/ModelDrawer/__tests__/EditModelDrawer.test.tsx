@@ -60,7 +60,7 @@ vi.mock('@cherrystudio/ui', async (importOriginal) => {
     ),
     Tooltip: ({ children, content }: any) => <span aria-label={content}>{children}</span>,
     WarnTooltip: () => <span>warn</span>,
-    // Radix's select cannot be opened in jsdom, so the option list is flattened
+    // Radix's select cannot be opened in the DOM test environment, so the option list is flattened
     // into buttons to make the currency switch clickable.
     Select: ({ children, onValueChange }: any) => <SelectContext value={{ onValueChange }}>{children}</SelectContext>,
     SelectTrigger: ({ children, ...props }: any) => <div {...props}>{children}</div>,

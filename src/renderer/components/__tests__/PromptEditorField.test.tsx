@@ -177,7 +177,7 @@ describe('PromptEditorField', () => {
       expect(renderedTokens).toContain('**')
     })
 
-    // happy-dom's getComputedStyle drops undeclared var() references while jsdom returns the
+    // happy-dom's getComputedStyle drops undeclared var() references while the DOM test environment returns the
     // literal string — declaring the palette on the root resolves both to concrete values.
     const palette = document.createElement('style')
     palette.textContent = `:root {
@@ -199,7 +199,7 @@ describe('PromptEditorField', () => {
       expect(tokenStyle('link').color).toBe('#0000ee')
       expect(tokenStyle('[').color).toBe('#767676')
       // happy-dom substitutes the declared var() inside the unevaluated calc();
-      // jsdom keeps the literal — accept either serialization.
+      // the DOM test environment keeps the literal — accept either serialization.
       expect(['calc(var(--spacing) * 3)', 'calc(4px * 3)']).toContain(getComputedStyle(view.contentDOM).padding)
     } finally {
       palette.remove()

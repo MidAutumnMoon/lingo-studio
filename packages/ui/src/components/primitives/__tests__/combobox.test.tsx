@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -287,9 +287,9 @@ describe('Combobox', () => {
     fireEvent.click(trigger)
 
     await waitFor(() => {
-      expect(document.querySelector('[data-slot="popover-content"]')).toHaveStyle({
-        width: 'var(--radix-popover-trigger-width)'
-      })
+      // Inline readback: happy-dom's computed style drops var() references.
+      const content = document.querySelector<HTMLElement>('[data-slot="popover-content"]')
+      expect(content?.style.width).toBe('var(--radix-popover-trigger-width)')
     })
   })
 })

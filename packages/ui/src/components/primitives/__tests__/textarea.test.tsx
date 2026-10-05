@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -11,7 +11,7 @@ afterEach(() => {
 
 describe('TextareaInput', () => {
   it('auto-grows with its content via field-sizing-content', () => {
-    // jsdom cannot lay out `field-sizing: content`; asserting the class is the
+    // the DOM test environment cannot lay out `field-sizing: content`; asserting the class is the
     // contract check that the auto-grow behavior is actually shipped.
     render(<Input defaultValue="long answer that should wrap and grow the field" />)
 

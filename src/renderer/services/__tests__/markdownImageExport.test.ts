@@ -18,7 +18,7 @@ import {
   writeImageAssets
 } from '../markdownImageExport'
 
-// jsdom's Blob lacks the standard arrayBuffer(); shim it via FileReader so the
+// the DOM test environment's Blob lacks the standard arrayBuffer(); shim it via FileReader so the
 // production `blob.arrayBuffer()` call works unmodified in tests.
 beforeAll(() => {
   if (typeof Blob.prototype.arrayBuffer !== 'function') {

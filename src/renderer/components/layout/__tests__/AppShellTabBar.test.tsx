@@ -685,7 +685,7 @@ describe('AppShellTabBar', () => {
       })
       expect(closeTab).toHaveBeenCalledWith('a')
 
-      // jsdom reports zero-size rects, so the thaw falls back to an instant unfreeze.
+      // the DOM test environment reports zero-size rects, so the thaw falls back to an instant unfreeze.
       fireEvent.mouseLeave(screen.getByTestId('app-shell-tab-strip'))
       act(() => {
         vi.advanceTimersByTime(300)

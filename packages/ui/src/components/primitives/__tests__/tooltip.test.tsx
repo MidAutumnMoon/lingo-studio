@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest'
 import { Root as RadixTooltipRoot } from '@radix-ui/react-tooltip'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -567,7 +567,7 @@ describe('Tooltip', () => {
         ghost.setAttribute('data-tooltip-sweepable', '')
         ghost.setAttribute('data-state', 'closed')
         document.body.appendChild(ghost)
-        // jsdom 的 MutationObserver 走原生微任务，排空后清扫 timer 才会被登记
+        // DOM 测试环境的 MutationObserver 走原生微任务，排空后清扫 timer 才会被登记
         await act(async () => {})
 
         // 退出窗口内（<清扫延迟）不删
@@ -586,7 +586,7 @@ describe('Tooltip', () => {
     })
 
     // 真实卸载遗留链：content 节点被外部移动后再卸载（React 对已被移走的 portal 子节点静默
-    // 跳过移除，jsdom/React 19 实测不抛错），留下无 owner 的 open 残骸 → 重检周期后清扫。
+    // 跳过移除，DOM 测试环境/React 19 实测不抛错），留下无 owner 的 open 残骸 → 重检周期后清扫。
     // 这取代手工造节点——后者与卸载的 Tooltip 无关，证明不了真实 portal remnant 被清理。
     it('sweeps a real ghost left by unmounting a tooltip whose content moved away', async () => {
       vi.useFakeTimers()

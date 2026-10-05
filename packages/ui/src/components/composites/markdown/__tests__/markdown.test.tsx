@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 
 /**
  * Smoke tests for the static `<Markdown>` component. Confirms the rehype

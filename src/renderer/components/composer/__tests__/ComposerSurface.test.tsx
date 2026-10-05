@@ -468,7 +468,7 @@ describe('ComposerSurface', () => {
 
   beforeEach(() => {
     clearMockTimers()
-    // jsdom reports an unfocused document, which would short-circuit every focus-restore path.
+    // the DOM test environment reports an unfocused document, which would short-circuit every focus-restore path.
     hasFocusSpy = vi.spyOn(document, 'hasFocus').mockReturnValue(true)
     mocks.editorOptions = undefined
     mocks.editorInstance = undefined

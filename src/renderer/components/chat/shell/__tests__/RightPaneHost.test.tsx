@@ -95,7 +95,7 @@ vi.mock('motion/react', () => ({
 const LIST_POLICY = getRightPaneWidthPolicy('navigation-list')
 const INSPECTOR_POLICY = getRightPaneWidthPolicy('inspector')
 
-// happy-dom ships no HTMLElement.prototype.offsetParent (jsdom's is a null getter);
+// happy-dom ships no HTMLElement.prototype.offsetParent;
 // an own accessor makes the region lookup resolve through the DOM parent chain.
 const originalOffsetParentDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent')
 let offsetParentOverridden = false
@@ -215,7 +215,7 @@ function createComposerSurface() {
 
 let restoreResizeObserver: (() => void) | null = null
 
-/** Gives the absolutely positioned pane the containing block and rect jsdom never computes. */
+/** Gives the absolutely positioned pane the containing block and rect the DOM test environment never computes. */
 function prepareMeasuredPane(container: HTMLElement) {
   const pane = container.querySelector<HTMLElement>('[data-right-pane]')
   const region = pane?.parentElement

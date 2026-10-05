@@ -216,7 +216,7 @@ function renderPreview(target: GlobalSearchMessagePreviewTarget = TOPIC_TARGET) 
   return render(<GlobalSearchMessagePreviewPanel {...createPreviewProps(target)} />)
 }
 
-// jsdom does not lay out, so scroll geometry has to be stubbed for the scroll-to-load-older handler.
+// the DOM test environment does not lay out, so scroll geometry has to be stubbed for the scroll-to-load-older handler.
 function setScrollGeometry(scroller: HTMLElement, geometry: { scrollTop: number; scrollHeight: number }) {
   Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: geometry.scrollHeight })
   scroller.scrollTop = geometry.scrollTop

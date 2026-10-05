@@ -40,7 +40,7 @@ const nodes: FileTreeNode[] = [
 
 /**
  * Bypass virtualization in tests by rendering a plain list - DynamicVirtualList
- * needs a sized scroll container which jsdom does not provide.
+ * needs a sized scroll container which the DOM test environment does not provide.
  */
 const passthroughRenderList: NonNullable<FileTreeProps['renderList']> = ({ flat, renderItem }) => (
   <div data-testid="passthrough-list">{flat.map((_item, index) => renderItem(index))}</div>

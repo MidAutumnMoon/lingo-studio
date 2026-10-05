@@ -5,7 +5,7 @@ import type { ChartModel } from '../renderModel'
 
 /**
  * Tests the pure ChartModel -> echarts option mapping. See 04-wp-charts.md Part 2 for the mapping rules.
- * It does not depend on DOM or echarts instances, so it is the main mapping test path when jsdom lacks canvas.
+ * It does not depend on DOM or echarts instances, so it is the main mapping test path when the DOM test environment lacks canvas.
  */
 
 const baseRect = { x: 0, y: 0, width: 100, height: 100 }
