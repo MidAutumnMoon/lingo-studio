@@ -211,20 +211,24 @@ const buildSelectorInRoot = (element: Element, root: Document | ShadowRoot): str
   return null
 }
 
+// Realm-safe document check: documents from another window/realm fail instanceof
+// against this realm's Document global; nodeType is realm-independent.
+const isDocumentNode = (node: Node): boolean => node.nodeType === 9
+
 export function buildWebviewElementSelector(element: Element): string | null {
   const segments: string[] = []
   let currentElement = element
 
   while (true) {
     const root = currentElement.getRootNode()
-    if (!(root instanceof Document || root instanceof ShadowRoot)) return null
+    if (!(isDocumentNode(root) || root instanceof ShadowRoot)) return null
     if (root instanceof ShadowRoot && root.mode === 'closed') return null
 
     const segment = buildSelectorInRoot(currentElement, root)
     if (!segment) return null
     segments.unshift(segment)
 
-    if (root instanceof Document) break
+    if (isDocumentNode(root)) break
     currentElement = root.host
   }
 
@@ -1219,7 +1223,7 @@ export class WebviewAnnotationController {
   private observeElementRoot(element: Element) {
     for (let current: Element | null = element; current; current = composedParent(current)) {
       const root = current.getRootNode()
-      if (root instanceof Document || root instanceof ShadowRoot) this.observeRoot(root)
+      if (isDocumentNode(root) || root instanceof ShadowRoot) this.observeRoot(root)
     }
   }
 
@@ -1229,7 +1233,7 @@ export class WebviewAnnotationController {
     const collect = (element: Element | null) => {
       for (let current = element; current?.isConnected; current = composedParent(current)) {
         const root = current.getRootNode()
-        if (root instanceof Document || root instanceof ShadowRoot) next.add(root)
+        if (isDocumentNode(root) || root instanceof ShadowRoot) next.add(root)
       }
     }
     for (const element of this.annotationElements.values()) collect(element)
