@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { PaintingData } from '../../model/types/paintingData'
 
@@ -21,8 +21,7 @@ vi.mock('../../hooks/useImageGenerationSupport', () => ({
 }))
 
 // Imported after mocks are registered. The size resolvers are unit-tested in
-// form/__tests__/paintingSize.test.ts; here the component reads them through
-// usePaintingSizeInfo, driven by the mocked useImageGenerationSupport above.
+// form/__tests__/paintingSize.test.ts; here they arrive via the mocked hook.
 const { default: PaintingImageSkeleton } = await import('../PaintingImageSkeleton')
 
 /** Minimal registry support declaring a single size-bearing field. */
@@ -41,18 +40,6 @@ const makePainting = (overrides: Partial<PaintingData> = {}): PaintingData => ({
 })
 
 describe('PaintingImageSkeleton', () => {
-  beforeAll(() => {
-    // jsdom lacks ResizeObserver; the skeleton wrapper observes its container.
-    vi.stubGlobal(
-      'ResizeObserver',
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      }
-    )
-  })
-
   beforeEach(() => {
     mockUseImageGenerationSupport.mockReset()
     mockPaintingSkeletonSurface.mockClear()
@@ -99,14 +86,16 @@ describe('PaintingImageSkeleton', () => {
     expect(wrapper.lastElementChild).toHaveClass('flex-1', 'min-h-0')
   })
 
-  it('falls back to the declared-ratio box when reveal natural size is unavailable', () => {
+  it('falls back to the percentage-sized box when reveal natural size is unavailable', () => {
     mockUseImageGenerationSupport.mockReturnValue(supportWith('size', ['1024x1024'], '1024x1024'))
 
     const { getByRole } = render(<PaintingImageSkeleton painting={makePainting()} />)
 
     const box = getByRole('status').firstElementChild!.lastElementChild as HTMLElement
-    expect(box.style.aspectRatio).toBe('1')
-    expect(box.style.width).not.toMatch(/px$/)
+    // Unmeasured + no natural size: the box fills the available width instead
+    // of locking to pixels; the ratio itself rides on `aspect-ratio`.
+    expect(box.style.width).toBe('100%')
+    expect(box.style.height).toBe('auto')
   })
 
   describe('reveal geometry relock', () => {
@@ -163,10 +152,8 @@ describe('PaintingImageSkeleton', () => {
         />
       )
 
-      // Reserving the top bar's 60px, contain-fit runs against a 400x(300-60)
-      // container: scale = min(1, 400/200, 240/600) = 0.4, so 200x600 → 80x240.
-      // (Ignoring the bar would instead contain-fit 200x600 into 400x300 →
-      // scale 300/600 = 0.5 → 100x300, clipping the bar.)
+      // Reserving the bar's 60px, contain-fit runs against 400x240:
+      // scale = min(1, 400/200, 240/600) = 0.4, so 200x600 → 80x240.
       const box = getByRole('status').firstElementChild!.lastElementChild as HTMLElement
       expect(box.style.width).toBe('80px')
       expect(box.style.height).toBe('240px')
@@ -192,11 +179,8 @@ describe('PaintingImageSkeleton', () => {
     })
 
     it('pins the [topBar, box] column to the box width so a long prompt cannot stretch it past a narrow image', () => {
-      // Portrait 768×1024 (ratio 0.75) in a 400×(300−40 bar) container is
-      // height-constrained: box width = availableHeight(260) × 0.75 = 195. The
-      // column must be that 195px — the image width — not the 400px canvas nor
-      // the long prompt's intrinsic width. (Without the fix the column is only
-      // `max-w-full`, so the prompt's intrinsic width stretches it out.)
+      // Portrait 768×1024 in a 400×(300−40 bar) container is height-constrained:
+      // box width = 260 × 0.75 = 195, and the column must match that image width.
       mockUseImageGenerationSupport.mockReturnValue(supportWith('size', ['768x1024'], '768x1024'))
 
       const { getByRole } = render(
@@ -207,16 +191,14 @@ describe('PaintingImageSkeleton', () => {
       expect(column.style.width).toBe('195px')
       // The box carries the same width, so the bar (stretched to the column) aligns with it.
       expect((column.lastElementChild as HTMLElement).style.width).toBe('195px')
-      // The bar wrapper keeps `min-w-0` so its content truncates rather than
-      // forcing the column wider (jsdom can't render the stretch, so pin the guard).
+      // The bar wrapper keeps `min-w-0` so its content truncates instead of
+      // forcing the column wider (no real layout here, so pin the guard).
       expect(column.firstElementChild).toHaveClass('min-w-0')
     })
 
     it('tracks the full canvas width for an image wider than the container (width-constrained)', () => {
       // Wide 1600×800 (ratio 2.0) exceeds the container's 400/260≈1.54 aspect, so
-      // it's width-constrained: box = 400 × (400/2 = 200). The column spans the
-      // full 400px canvas, and box height comes from `container.width / ratio` —
-      // pinning that formula, which the portrait branch above never exercises.
+      // it's width-constrained: box = 400 × 200, column spans the full 400px canvas.
       mockUseImageGenerationSupport.mockReturnValue(supportWith('size', ['1600x800'], '1600x800'))
 
       const { getByRole } = render(<PaintingImageSkeleton painting={makePainting()} topBar={<div>prompt</div>} />)

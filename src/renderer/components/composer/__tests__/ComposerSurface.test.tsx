@@ -1082,48 +1082,66 @@ describe('ComposerSurface', () => {
   })
 
   it('uses state-specific viewport-relative max heights and only fixes height when expanded', async () => {
-    render(<Harness />)
+    // happy-dom's CSSOM drops max()-valued height writes, but React hands every inline style
+    // write to CSSStyleDeclaration.prototype.setProperty — record height writes there.
+    const originalSetProperty = CSSStyleDeclaration.prototype.setProperty
+    const frameHeightWrites: string[] = []
+    const heightWriteSpy = vi.spyOn(CSSStyleDeclaration.prototype, 'setProperty').mockImplementation(function (
+      this: CSSStyleDeclaration,
+      property: string,
+      value: string | null,
+      priority?: string
+    ) {
+      if (property === 'height') frameHeightWrites.push(String(value))
+      return originalSetProperty.call(this, property, value, priority)
+    })
+    try {
+      render(<Harness />)
 
-    const editorContent = screen.getByTestId('editor-content')
-    const editor = screen.getByTestId('composer-editor')
-    const editorContainer = editorContent.parentElement
-    const inputbar = document.getElementById('inputbar')
-    const expandedHeight = `${Math.max(220, Math.round(window.innerHeight * 0.5))}px`
-    const stableEditorElementStyle = editor.getAttribute('data-editor-style')
+      const editorContent = screen.getByTestId('editor-content')
+      const editor = screen.getByTestId('composer-editor')
+      const editorContainer = editorContent.parentElement
+      const inputbar = document.getElementById('inputbar')
+      const expandedHeight = `${Math.max(220, Math.round(window.innerHeight * 0.5))}px`
+      const stableEditorElementStyle = editor.getAttribute('data-editor-style')
 
-    expect(editorContainer).toHaveStyle({ minHeight: '46px' })
-    expect(editorContainer).not.toHaveStyle({ height: 'max(220px, 50vh)' })
-    expect(editorContent).not.toHaveStyle({ height: '100%' })
-    expect(editorContent.style.getPropertyValue('--composer-editor-max-height')).toBe('max(220px, 40vh)')
-    expect(editorContent.style.getPropertyValue('--composer-editor-height')).toBe('auto')
-    expect(editor.className).toContain('max-h-[max(220px,40vh)]')
-    expect(editor.className).not.toContain('max-h-[max(220px,50vh)]')
-    expect(editor.className).not.toContain('max-h-[500px]')
+      expect(editorContainer).toHaveStyle({ minHeight: '46px' })
+      expect((editorContainer as HTMLElement).style.height).toBe('')
+      expect(editorContent).not.toHaveStyle({ height: '100%' })
+      expect(editorContent.style.getPropertyValue('--composer-editor-max-height')).toBe('max(220px, 40vh)')
+      expect(editorContent.style.getPropertyValue('--composer-editor-height')).toBe('auto')
+      expect(editor.className).toContain('max-h-[max(220px,40vh)]')
+      expect(editor.className).not.toContain('max-h-[max(220px,50vh)]')
+      expect(editor.className).not.toContain('max-h-[500px]')
 
-    fireEvent.click(screen.getByRole('button', { name: 'chat.input.expand' }))
+      fireEvent.click(screen.getByRole('button', { name: 'chat.input.expand' }))
 
-    await waitFor(() => expect(editorContainer).toHaveStyle({ height: expandedHeight, overflow: 'hidden' }))
-    fireEvent.transitionEnd(editorContainer as HTMLElement, { propertyName: 'height' })
+      await waitFor(() => expect(editorContainer).toHaveStyle({ height: expandedHeight, overflow: 'hidden' }))
+      fireEvent.transitionEnd(editorContainer as HTMLElement, { propertyName: 'height' })
 
-    expect(editorContainer).toHaveStyle({ height: 'max(220px, 50vh)', overflow: 'hidden' })
-    expect(editorContent).toHaveStyle({ height: '100%' })
-    expect(screen.getByTestId('composer-editor').className).toContain('max-h-[max(220px,50vh)]')
-    expect(screen.getByTestId('composer-editor').className).toContain('h-full')
-    expect(editorContent.style.getPropertyValue('--composer-editor-max-height')).toBe('max(220px, 50vh)')
-    expect(editorContent.style.getPropertyValue('--composer-editor-height')).toBe('100%')
-    expect(screen.getByTestId('composer-editor').getAttribute('data-editor-style')).toBe(stableEditorElementStyle)
-    expect(inputbar).toHaveClass('expanded')
+      expect(frameHeightWrites).toContain('max(220px, 50vh)')
+      expect(editorContainer).toHaveStyle({ overflow: 'hidden' })
+      expect(editorContent).toHaveStyle({ height: '100%' })
+      expect(screen.getByTestId('composer-editor').className).toContain('max-h-[max(220px,50vh)]')
+      expect(screen.getByTestId('composer-editor').className).toContain('h-full')
+      expect(editorContent.style.getPropertyValue('--composer-editor-max-height')).toBe('max(220px, 50vh)')
+      expect(editorContent.style.getPropertyValue('--composer-editor-height')).toBe('100%')
+      expect(screen.getByTestId('composer-editor').getAttribute('data-editor-style')).toBe(stableEditorElementStyle)
+      expect(inputbar).toHaveClass('expanded')
 
-    fireEvent.click(screen.getByRole('button', { name: 'chat.input.restore' }))
+      fireEvent.click(screen.getByRole('button', { name: 'chat.input.restore' }))
 
-    await waitFor(() => expect(editorContainer).toHaveStyle({ height: '46px', overflow: 'hidden' }))
-    fireEvent.transitionEnd(editorContainer as HTMLElement, { propertyName: 'height' })
+      await waitFor(() => expect(editorContainer).toHaveStyle({ height: '46px', overflow: 'hidden' }))
+      fireEvent.transitionEnd(editorContainer as HTMLElement, { propertyName: 'height' })
 
-    expect(screen.getByRole('button', { name: 'chat.input.expand' })).toHaveAttribute('aria-pressed', 'false')
-    expect(editorContent).not.toHaveStyle({ height: '100%' })
-    expect(editorContent.style.getPropertyValue('--composer-editor-max-height')).toBe('max(220px, 40vh)')
-    expect(editorContent.style.getPropertyValue('--composer-editor-height')).toBe('auto')
-    expect(inputbar).not.toHaveClass('expanded')
+      expect(screen.getByRole('button', { name: 'chat.input.expand' })).toHaveAttribute('aria-pressed', 'false')
+      expect(editorContent).not.toHaveStyle({ height: '100%' })
+      expect(editorContent.style.getPropertyValue('--composer-editor-max-height')).toBe('max(220px, 40vh)')
+      expect(editorContent.style.getPropertyValue('--composer-editor-height')).toBe('auto')
+      expect(inputbar).not.toHaveClass('expanded')
+    } finally {
+      heightWriteSpy.mockRestore()
+    }
   })
 
   it('renders the resize handle and expand control in the inputbar corner', () => {
@@ -1237,9 +1255,26 @@ describe('ComposerSurface', () => {
     })
 
     await waitFor(() => expect(editorContainer).toHaveStyle({ height: expandedHeight }))
-    fireEvent.transitionEnd(editorContainer, { propertyName: 'height' })
 
-    expect(editorContainer).toHaveStyle({ height: 'max(220px, 50vh)' })
+    // happy-dom drops max()-valued height writes; spy on setProperty to catch the
+    // declarative expanded height the component hands the CSSOM once settled.
+    const originalSetProperty = CSSStyleDeclaration.prototype.setProperty
+    const frameHeightWrites: string[] = []
+    const heightWriteSpy = vi.spyOn(CSSStyleDeclaration.prototype, 'setProperty').mockImplementation(function (
+      this: CSSStyleDeclaration,
+      property: string,
+      value: string | null,
+      priority?: string
+    ) {
+      if (property === 'height') frameHeightWrites.push(String(value))
+      return originalSetProperty.call(this, property, value, priority)
+    })
+    try {
+      fireEvent.transitionEnd(editorContainer, { propertyName: 'height' })
+      expect(frameHeightWrites).toContain('max(220px, 50vh)')
+    } finally {
+      heightWriteSpy.mockRestore()
+    }
 
     let handled = false
     act(() => {

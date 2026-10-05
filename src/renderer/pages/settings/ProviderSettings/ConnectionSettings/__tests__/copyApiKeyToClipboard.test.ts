@@ -19,10 +19,11 @@ vi.mock('@logger', () => ({
 describe('copyApiKeyToClipboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    Object.assign(navigator, {
-      clipboard: {
-        writeText: vi.fn().mockResolvedValue(undefined)
-      }
+    // happy-dom defines navigator.clipboard as a getter-only prototype accessor,
+    // so defineProperty (which works in jsdom too) replaces it instead of Object.assign.
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true
     })
   })
 

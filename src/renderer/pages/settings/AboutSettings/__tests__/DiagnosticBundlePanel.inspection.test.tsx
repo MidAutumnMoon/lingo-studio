@@ -39,7 +39,9 @@ const inspectResult: OutputFor<'diagnostics.bundle.inspect'> = {
   }
 }
 
-const logsSwitchName = /^settings\.about\.diagnostics\.sources\.logs\.title(?: |$)/
+// The switch is identified by its title; the description that follows in the
+// name may be glued to it without a separator, so anchor at the start only.
+const logsSwitchName = /^settings\.about\.diagnostics\.sources\.logs\.title/
 
 function renderPanel() {
   render(<DiagnosticBundlePanel appVersion="2.0.0" onClose={vi.fn()} />)

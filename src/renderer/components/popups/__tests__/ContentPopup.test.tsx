@@ -3,6 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { POPUP_EXIT_MS, popupService } from '@renderer/services/popup'
 
+// happy-dom's CSSOM drops min()/calc() from style serialization, so capture the
+// style prop handed to DialogContent and assert the raw clamped values on it.
+const lastDialogContentStyle = vi.hoisted(() => ({ style: undefined as undefined | Record<string, unknown> }))
+
 // This suite exercises the real popup store + host, so opt out of the global mock.
 vi.mock('@renderer/services/popup', async (importOriginal) => await importOriginal())
 
@@ -15,6 +19,7 @@ vi.mock('@cherrystudio/ui', () => {
       delete props.showCloseButton
       delete props.closeOnOverlayClick
       delete props.onPointerDownOutside
+      lastDialogContentStyle.style = props.style
 
       return React.createElement('div', { role: 'dialog', ...props }, children)
     },
@@ -52,16 +57,14 @@ describe('ContentPopup', () => {
       })
     })
 
-    // jsdom's cssstyle re-serializes min() oddly, so assert on the pieces.
-    const dialog = await screen.findByRole('dialog')
+    await screen.findByRole('dialog')
+    const style = lastDialogContentStyle.style ?? {}
     for (const [prop, size] of [
       ['width', '60vw'],
       ['minWidth', '600px'],
       ['maxWidth', '1200px']
     ] as const) {
-      expect(dialog.style[prop]).toContain('min(')
-      expect(dialog.style[prop]).toContain(size)
-      expect(dialog.style[prop]).toContain('calc(100vw - 2rem)')
+      expect(style[prop]).toBe(`min(${size}, calc(100vw - 2rem))`)
     }
   })
 
@@ -76,9 +79,9 @@ describe('ContentPopup', () => {
       })
     })
 
-    const dialog = await screen.findByRole('dialog')
-    expect(dialog.style.width).toContain('600px')
-    expect(dialog.style.width).toContain('calc(100vw - 2rem)')
-    expect(dialog.style.minWidth).toBe('')
+    await screen.findByRole('dialog')
+    const style = lastDialogContentStyle.style ?? {}
+    expect(style.width).toBe('min(600px, calc(100vw - 2rem))')
+    expect(style.minWidth).toBeUndefined()
   })
 })

@@ -80,26 +80,25 @@ function mockSelectorAvailableHeight(availableHeight: number, chromeHeight: numb
   const originalGetComputedStyle = window.getComputedStyle.bind(window)
 
   vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => {
-    const style = originalGetComputedStyle(element)
+    const real = originalGetComputedStyle(element)
     const isContent = element instanceof HTMLElement && element.getAttribute('data-selector-shell-content') === 'true'
     const isPopperWrapper = element instanceof HTMLElement && element.hasAttribute('data-radix-popper-content-wrapper')
 
     if (!isContent && !isPopperWrapper) {
-      return style
+      return real
     }
 
-    Object.defineProperties(style, {
-      maxHeight: { configurable: true, value: `${availableHeight}px` },
-      paddingTop: { configurable: true, value: '0px' },
-      paddingBottom: { configurable: true, value: '0px' }
-    })
-    vi.spyOn(style, 'getPropertyValue').mockImplementation((property: string) =>
-      property === '--radix-popover-content-available-height' || property === '--radix-popper-available-height'
-        ? `${availableHeight}px`
-        : CSSStyleDeclaration.prototype.getPropertyValue.call(style, property)
-    )
-
-    return style
+    // happy-dom's computed style is an un-patchable Proxy, so a plain stand-in
+    // seeded from the real computed style carries the measurement fields.
+    return {
+      maxHeight: `${availableHeight}px`,
+      paddingTop: '0px',
+      paddingBottom: '0px',
+      getPropertyValue: (property: string) =>
+        property === '--radix-popover-content-available-height' || property === '--radix-popper-available-height'
+          ? `${availableHeight}px`
+          : real.getPropertyValue(property)
+    } as unknown as CSSStyleDeclaration
   })
 
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {

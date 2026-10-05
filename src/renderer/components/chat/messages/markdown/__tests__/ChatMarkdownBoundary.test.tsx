@@ -36,7 +36,7 @@ describe('ChatMarkdown loading boundary', () => {
     const { rerender } = render(<ChatMarkdown block={{ id: 'stream', content, status: 'streaming' }} />, {
       wrapper: CodeStyleProvider
     })
-    const heading = await screen.findByRole('heading', { name: 'Reading position' }, { timeout: 10000 })
+    const heading = await screen.findByRole('heading', { name: /Reading\s*position/ }, { timeout: 10000 })
 
     try {
       rerender(
@@ -49,7 +49,7 @@ describe('ChatMarkdown loading boundary', () => {
         />
       )
 
-      expect(screen.getByRole('heading', { name: 'Reading position' })).toBe(heading)
+      expect(screen.getByRole('heading', { name: /Reading\s*position/ })).toBe(heading)
       await act(async () => {
         await vi.dynamicImportSettled()
       })
@@ -62,6 +62,6 @@ describe('ChatMarkdown loading boundary', () => {
       })
     }
 
-    expect(screen.getByRole('heading', { name: 'Reading position' })).toBe(heading)
+    expect(screen.getByRole('heading', { name: /Reading\s*position/ })).toBe(heading)
   })
 })

@@ -51,7 +51,9 @@ describe('ImageViewer', () => {
     Object.assign(window, {
       api: { file: { saveImage: mocks.saveImage }, fs: { read: mocks.fsRead } }
     })
-    Object.assign(navigator, { clipboard: mocks.clipboard })
+    // happy-dom defines navigator.clipboard as a getter-only prototype accessor,
+    // so defineProperty (which works in jsdom too) replaces it instead of Object.assign.
+    Object.defineProperty(navigator, 'clipboard', { value: mocks.clipboard, configurable: true })
     vi.stubGlobal('ClipboardItem', MockClipboardItem)
     vi.stubGlobal('fetch', mocks.fetch)
   })

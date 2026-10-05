@@ -96,7 +96,9 @@ describe('DynamicVirtualList', () => {
 
       const scrollContainer = document.querySelector('.dynamic-virtual-list')
       expect(scrollContainer).toBeInTheDocument()
-      expect(scrollContainer).toHaveStyle('background-color: rgb(255, 0, 0)')
+      // happy-dom keeps the keyword as written while jsdom normalizes to rgb() — the
+      // contract is only that the custom scroller style reaches the scroller element.
+      expect(['red', 'rgb(255, 0, 0)']).toContain((scrollContainer as HTMLElement).style.backgroundColor)
       expect(scrollContainer).toHaveStyle('height: 400px')
     })
 
@@ -350,9 +352,11 @@ describe('DynamicVirtualList', () => {
         onChangeCallback({ isScrolling: true }, true)
       })
 
-      // After scrolling starts, scrollbar should be visible
+      // After scrolling starts, scrollbar should be visible.
+      // Inline style readback: getComputedStyle drops var() values under happy-dom,
+      // while the inline style object keeps the raw declaration in every environment.
       expect(scrollContainer).not.toHaveAttribute('aria-hidden')
-      expect(scrollContainer).toHaveStyle('scrollbar-color: var(--scrollbar-thumb) transparent')
+      expect(scrollContainer.style.scrollbarColor).toBe('var(--scrollbar-thumb) transparent')
 
       // Simulate scroll end
       act(() => {

@@ -24,6 +24,40 @@ const { openAutoFocusEvents, popoverContentProps, portalContainerMock } = vi.hoi
 
 const originalResizeObserver = globalThis.ResizeObserver
 
+type SelectorStyleFields = Partial<Record<'height' | 'maxHeight' | 'paddingTop' | 'paddingBottom', string>>
+
+/**
+ * Wraps window.getComputedStyle so SelectorShell's measurement reads see the given fields.
+ * happy-dom's computed style is an un-patchable Proxy, so a plain stand-in seeded from the
+ * real computed style carries them in any DOM environment.
+ */
+function mockSelectorComputedStyles(options: {
+  radixAvailableHeight: string
+  content?: SelectorStyleFields
+  panel?: SelectorStyleFields
+}) {
+  const originalGetComputedStyle = window.getComputedStyle.bind(window)
+  return vi.spyOn(window, 'getComputedStyle').mockImplementation((element: Element) => {
+    const isContent = element instanceof HTMLElement && element.getAttribute('data-selector-shell-content') === 'true'
+    const isPanel = element instanceof HTMLElement && element.getAttribute('data-selector-shell-panel') === 'true'
+    if (!isContent && !isPanel) return originalGetComputedStyle(element)
+
+    const real = originalGetComputedStyle(element)
+    const standIn = {
+      height: real.height,
+      maxHeight: real.maxHeight,
+      paddingTop: real.paddingTop,
+      paddingBottom: real.paddingBottom,
+      getPropertyValue: (property: string) =>
+        property === '--radix-popover-content-available-height'
+          ? options.radixAvailableHeight
+          : real.getPropertyValue(property)
+    }
+    const overrides: SelectorStyleFields = isContent ? (options.content ?? {}) : (options.panel ?? {})
+    return Object.assign(standIn, overrides) as unknown as CSSStyleDeclaration
+  })
+}
+
 vi.mock('@cherrystudio/ui', () => ({
   Button: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: string; size?: string }) => {
     const { variant, size, type = 'button', ...buttonProps } = props
@@ -180,32 +214,14 @@ describe('SelectorShell', () => {
   })
 
   it('uses contentHeight when measuring available list height', async () => {
-    const originalGetComputedStyle = window.getComputedStyle.bind(window)
-    vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => {
-      const style = originalGetComputedStyle(element)
-      const isContent = element instanceof HTMLElement && element.getAttribute('data-selector-shell-content') === 'true'
-      const isPanel = element instanceof HTMLElement && element.getAttribute('data-selector-shell-panel') === 'true'
-      if (!isContent && !isPanel) return style
-
-      if (isContent) {
-        Object.defineProperties(style, {
-          height: { configurable: true, value: `${DEFAULT_SELECTOR_CONTENT_HEIGHT}px` },
-          paddingTop: { configurable: true, value: '0px' },
-          paddingBottom: { configurable: true, value: '0px' }
-        })
-      }
-      if (isPanel) {
-        Object.defineProperties(style, {
-          paddingTop: { configurable: true, value: '4px' },
-          paddingBottom: { configurable: true, value: '4px' }
-        })
-      }
-      vi.spyOn(style, 'getPropertyValue').mockImplementation((property: string) =>
-        property === '--radix-popover-content-available-height'
-          ? '500px'
-          : CSSStyleDeclaration.prototype.getPropertyValue.call(style, property)
-      )
-      return style
+    mockSelectorComputedStyles({
+      radixAvailableHeight: '500px',
+      content: {
+        height: `${DEFAULT_SELECTOR_CONTENT_HEIGHT}px`,
+        paddingTop: '0px',
+        paddingBottom: '0px'
+      },
+      panel: { paddingTop: '4px', paddingBottom: '4px' }
     })
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       const isChrome = this.hasAttribute('data-selector-shell-chrome')
@@ -297,31 +313,10 @@ describe('SelectorShell', () => {
   })
 
   it('subtracts selector chrome from available list height', async () => {
-    const originalGetComputedStyle = window.getComputedStyle.bind(window)
-    vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => {
-      const style = originalGetComputedStyle(element)
-      const isContent = element instanceof HTMLElement && element.getAttribute('data-selector-shell-content') === 'true'
-      const isPanel = element instanceof HTMLElement && element.getAttribute('data-selector-shell-panel') === 'true'
-      if (!isContent && !isPanel) return style
-
-      if (isContent) {
-        Object.defineProperties(style, {
-          paddingTop: { configurable: true, value: '0px' },
-          paddingBottom: { configurable: true, value: '0px' }
-        })
-      }
-      if (isPanel) {
-        Object.defineProperties(style, {
-          paddingTop: { configurable: true, value: '4px' },
-          paddingBottom: { configurable: true, value: '4px' }
-        })
-      }
-      vi.spyOn(style, 'getPropertyValue').mockImplementation((property: string) =>
-        property === '--radix-popover-content-available-height'
-          ? '200px'
-          : CSSStyleDeclaration.prototype.getPropertyValue.call(style, property)
-      )
-      return style
+    mockSelectorComputedStyles({
+      radixAvailableHeight: '200px',
+      content: { paddingTop: '0px', paddingBottom: '0px' },
+      panel: { paddingTop: '4px', paddingBottom: '4px' }
     })
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       const isChrome = this.hasAttribute('data-selector-shell-chrome')
@@ -444,32 +439,10 @@ describe('SelectorShell', () => {
   })
 
   it('uses maxContentHeight as the popover cap before measuring list height', async () => {
-    const originalGetComputedStyle = window.getComputedStyle.bind(window)
-    vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => {
-      const style = originalGetComputedStyle(element)
-      const isContent = element instanceof HTMLElement && element.getAttribute('data-selector-shell-content') === 'true'
-      const isPanel = element instanceof HTMLElement && element.getAttribute('data-selector-shell-panel') === 'true'
-      if (!isContent && !isPanel) return style
-
-      if (isContent) {
-        Object.defineProperties(style, {
-          maxHeight: { configurable: true, value: '160px' },
-          paddingTop: { configurable: true, value: '0px' },
-          paddingBottom: { configurable: true, value: '0px' }
-        })
-      }
-      if (isPanel) {
-        Object.defineProperties(style, {
-          paddingTop: { configurable: true, value: '4px' },
-          paddingBottom: { configurable: true, value: '4px' }
-        })
-      }
-      vi.spyOn(style, 'getPropertyValue').mockImplementation((property: string) =>
-        property === '--radix-popover-content-available-height'
-          ? '500px'
-          : CSSStyleDeclaration.prototype.getPropertyValue.call(style, property)
-      )
-      return style
+    mockSelectorComputedStyles({
+      radixAvailableHeight: '500px',
+      content: { maxHeight: '160px', paddingTop: '0px', paddingBottom: '0px' },
+      panel: { paddingTop: '4px', paddingBottom: '4px' }
     })
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       const isChrome = this.hasAttribute('data-selector-shell-chrome')

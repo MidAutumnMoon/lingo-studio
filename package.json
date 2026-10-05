@@ -368,6 +368,7 @@
     "fs-extra": "^11.2.0",
     "google-auth-library": "^9.15.1",
     "gpt-tokenizer": "^3.4.0",
+    "happy-dom": "20.14.5",
     "html-to-image": "^1.11.13",
     "html-to-text": "^9.0.5",
     "htmlparser2": "^10.0.0",

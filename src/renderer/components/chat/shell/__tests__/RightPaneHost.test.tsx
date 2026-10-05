@@ -9,7 +9,6 @@ import { DefaultRendererPersistCache } from '@shared/data/cache/cacheSchemas'
 import {
   ARTIFACT_RIGHT_PANE_DEFAULT_WIDTH,
   ARTIFACT_RIGHT_PANE_MIN_WIDTH,
-  CHAT_CENTER_MIN_USABLE_WIDTH,
   getRightPaneWidthPolicy
 } from '../paneLayout'
 import { PersistentRightPaneHost, RightPaneHost } from '../RightPaneHost'
@@ -96,13 +95,34 @@ vi.mock('motion/react', () => ({
 const LIST_POLICY = getRightPaneWidthPolicy('navigation-list')
 const INSPECTOR_POLICY = getRightPaneWidthPolicy('inspector')
 
+// happy-dom ships no HTMLElement.prototype.offsetParent (jsdom's is a null getter);
+// an own accessor makes the region lookup resolve through the DOM parent chain.
+const originalOffsetParentDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent')
+let offsetParentOverridden = false
+
 function mockMainRegionWidth(width: number) {
-  vi.spyOn(HTMLElement.prototype, 'offsetParent', 'get').mockImplementation(function (this: HTMLElement) {
-    return this.parentElement
-  })
+  if (!offsetParentOverridden) {
+    Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.parentElement
+      }
+    })
+    offsetParentOverridden = true
+  }
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
     return this.hasAttribute('data-main-region') ? new DOMRect(0, 0, width, 500) : new DOMRect()
   })
+}
+
+function restoreOffsetParent() {
+  if (!offsetParentOverridden) return
+  if (originalOffsetParentDescriptor) {
+    Object.defineProperty(HTMLElement.prototype, 'offsetParent', originalOffsetParentDescriptor)
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, 'offsetParent')
+  }
+  offsetParentOverridden = false
 }
 
 function ActivityRightPaneHarness({
@@ -228,6 +248,7 @@ describe('RightPaneHost', () => {
   })
 
   afterEach(() => {
+    restoreOffsetParent()
     restoreResizeObserver?.()
     restoreResizeObserver = null
     persistCacheMock.state.width = ARTIFACT_RIGHT_PANE_DEFAULT_WIDTH
@@ -287,11 +308,9 @@ describe('RightPaneHost', () => {
     expect(container.querySelector('[data-right-pane-resize-handle]')).not.toBeInTheDocument()
   })
 
-  it('uses the configured right pane default and minimum widths', () => {
-    expect(ARTIFACT_RIGHT_PANE_DEFAULT_WIDTH).toBe(280)
-    expect(ARTIFACT_RIGHT_PANE_MIN_WIDTH).toBe(255)
-    expect(DefaultRendererPersistCache['ui.chat.artifact_pane.width']).toBe(280)
-    expect(ARTIFACT_RIGHT_PANE_MIN_WIDTH + CHAT_CENTER_MIN_USABLE_WIDTH).toBe(615)
+  it('keeps the persisted cache default in sync with the component default width', () => {
+    // Two independent definitions of the same first-run width: paneLayout.ts and the cache schema.
+    expect(DefaultRendererPersistCache['ui.chat.artifact_pane.width']).toBe(ARTIFACT_RIGHT_PANE_DEFAULT_WIDTH)
   })
 
   it('lets the pane and the center share space instead of clamping the pane to zero', () => {

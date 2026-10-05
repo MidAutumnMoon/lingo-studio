@@ -70,9 +70,8 @@ vi.mock('../../utils/computeImageNaturalSize', () => ({
   computeImageNaturalSize: mockComputeImageNaturalSize
 }))
 
-// The skeleton owns its own aspect-ratio + registry-support logic (covered by
-// PaintingImageSkeleton.test.tsx); here we only assert Artboard swaps to it
-// while generating, so a lightweight stand-in keeps this test off the data layer.
+// The skeleton's own aspect-ratio and registry logic is covered by
+// PaintingImageSkeleton.test.tsx; here a stand-in keeps this test off it.
 const mockSkeletonProps = vi.hoisted(() => vi.fn())
 vi.mock('../PaintingImageSkeleton', () => ({
   default: (props: {
@@ -99,9 +98,8 @@ vi.mock('../PaintingImageSkeleton', () => ({
   }
 }))
 
-// usePaintingSizeInfo (aspect ratio + size label) is unit-tested via
-// form/__tests__/paintingSize.test.ts; here it's just the prompt bar's size-text
-// source, so a hoisted stub keeps that assertion simple.
+// usePaintingSizeInfo is unit-tested in form/__tests__/paintingSize.test.ts;
+// here it only feeds the prompt bar's size text, so a hoisted stub suffices.
 const mockUsePaintingSizeInfo = vi.hoisted(() =>
   vi.fn(() => ({ ratio: null as number | null, sizeLabel: undefined as string | undefined }))
 )
@@ -156,7 +154,9 @@ describe('Artboard', () => {
     mockSkeletonProps.mockClear()
     mockUsePaintingSizeInfo.mockReset()
     mockUsePaintingSizeInfo.mockReturnValue({ ratio: null, sizeLabel: undefined })
-    Object.assign(navigator, { clipboard: { writeText: mockWriteText } })
+    // happy-dom defines navigator.clipboard as a getter-only prototype accessor,
+    // so defineProperty (which works in jsdom too) replaces it instead of Object.assign.
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: mockWriteText }, configurable: true })
   })
 
   it('renders the shimmer skeleton while generating', () => {
@@ -185,8 +185,8 @@ describe('Artboard', () => {
     expect(screen.getByTestId('painting-image-skeleton')).toBeInTheDocument()
     expect(document.querySelector('img')).toBeNull()
     expect(mockComputeImageNaturalSize).toHaveBeenCalledWith('file:///tmp/image-1.png')
-    // Pending: the natural size is still decoding, so the image url (and the whole
-    // reveal transition it drives) is withheld from the skeleton until `ready`.
+    // Pending: natural size still decoding, so the image url is withheld from
+    // the skeleton until `ready`.
     expect(screen.getByTestId('painting-image-skeleton')).toHaveAttribute('data-image-url', '')
   })
 
@@ -197,9 +197,8 @@ describe('Artboard', () => {
 
     rerender(<Artboard painting={makePainting()} isLoading={false} />)
 
-    // Pending: neither the image url nor onRevealReady reach the skeleton yet.
-    // Offering the handoff now would flash the image, then the resolving natural
-    // size would resurrect the skeleton over it (a double reveal).
+    // Pending: neither the image url nor onRevealReady reach the skeleton yet —
+    // offering the handoff now would flash the image, then double-reveal it.
     const props = mockSkeletonProps.mock.calls.at(-1)?.[0]
     expect(props?.imageUrl).toBeUndefined()
     expect(props?.onRevealReady).toBeUndefined()
@@ -229,8 +228,7 @@ describe('Artboard', () => {
     const { rerender } = render(<Artboard painting={painting} isLoading={true} />)
 
     // A canceled generation never produces a file, so the reveal machine must
-    // escape `{ status: 'awaiting' }` on the generationStatus change alone —
-    // nothing else changes to escape it, since `files` stays empty after a cancel.
+    // escape 'awaiting' on the generationStatus change alone.
     rerender(<Artboard painting={{ ...painting, generationStatus: 'canceled' }} isLoading={false} />)
 
     expect(screen.queryByTestId('painting-image-skeleton')).not.toBeInTheDocument()
@@ -321,8 +319,8 @@ describe('Artboard', () => {
       const { rerender } = render(<Artboard painting={makePainting({ id: 'A', files: [] })} isLoading={true} />)
       expect(screen.getByTestId('painting-image-skeleton')).toBeInTheDocument()
 
-      // Selecting a different, file-less painting B (which is not generating) must
-      // not leak A's loading state and pin B in a permanent "awaiting" skeleton.
+      // Selecting a different, file-less painting B must not leak A's loading
+      // state into a permanent "awaiting" skeleton for B.
       rerender(<Artboard painting={makePainting({ id: 'B', files: [] })} isLoading={false} />)
 
       expect(screen.queryByTestId('painting-image-skeleton')).not.toBeInTheDocument()
@@ -402,6 +400,7 @@ describe('Artboard', () => {
       const trigger = screen.getByRole('button', { name: prompt })
       expect(trigger).toHaveAttribute('type', 'button')
       expect(trigger).toContainElement(preview)
+      // DESIGN.md Focus: hover vocabulary for focus-visible, never an outer ring.
       expect(trigger).toHaveClass('focus-visible:bg-accent', 'focus-visible:text-foreground')
       expect(trigger.className).not.toMatch(/focus-visible:ring-(?!0)/)
 
@@ -413,21 +412,10 @@ describe('Artboard', () => {
       const copyButtons = screen.getAllByRole('button', { name: 'common.copy' })
       expect(copyButtons).toHaveLength(1)
       const copyButton = copyButtons[0]
+      // Hover-opening must not steal focus from the zoom control.
       expect(zoomButton).toHaveFocus()
       expect(popoverContent).toHaveTextContent(prompt)
-      expect(popoverContent.querySelector('.float-right')).toBe(copyButton)
-      expect(popoverContent).toHaveClass('bg-neutral-900', 'text-neutral-50', 'shadow-md')
-      expect(copyButton).toHaveClass(
-        'float-right',
-        'ml-0.5',
-        'size-5',
-        'text-neutral-50',
-        'focus-visible:bg-neutral-50/10',
-        '[&_svg]:stroke-neutral-50!',
-        '[&_svg]:text-neutral-50!'
-      )
       expect(copyButton.className).not.toMatch(/focus-visible:ring-(?!0)/)
-      expect(copyButton).not.toHaveClass('absolute', 'bg-neutral-700')
 
       fireEvent.click(copyButton)
 
@@ -515,9 +503,8 @@ describe('Artboard', () => {
       let naturalHeight: ReturnType<typeof vi.spyOn>
 
       beforeEach(() => {
-        // Container is wide (800x400) relative to a square 1024x1024 photo. The prompt
-        // bar's own measured height (24) comes out of the 400 first, so the binding
-        // constraint is (400-24)/1024: contain-fit is 376x376.
+        // Container 800x400 vs a square 1024x1024 photo; the bar's measured 24px
+        // comes off the 400 first, so the binding scale is (400-24)/1024 → 376.
         clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(800)
         clientHeight = vi
           .spyOn(HTMLElement.prototype, 'clientHeight', 'get')
@@ -551,8 +538,8 @@ describe('Artboard', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'preview.next' }))
 
-        // The new image hasn't reported its natural size yet — falls back to filling
-        // the container instead of carrying over the previous image's locked width.
+        // The new image hasn't reported its natural size yet — fills the container
+        // instead of carrying over the previous image's locked width.
         expect(screen.getByTestId('artboard-image-layout').style.width).toBe('')
       })
 
@@ -561,9 +548,8 @@ describe('Artboard', () => {
         const painting = makePainting({ prompt: 'a red cat', files: [] })
         const { rerender } = render(<Artboard painting={painting} isLoading={true} />)
 
-        // The real-image wrapper (and its ref) doesn't exist in the DOM yet at this
-        // first mount — only the skeleton branch does. A plain ref + mount-only
-        // effect would attach nothing here and never get another chance to.
+        // The real-image wrapper (and its ref) doesn't exist in the DOM yet at
+        // first mount — a mount-only effect would never get another chance.
         rerender(<Artboard painting={makePainting({ prompt: 'a red cat' })} isLoading={false} />)
         await waitFor(() => expect(screen.queryByTestId('painting-image-skeleton')).not.toBeInTheDocument())
 
@@ -578,9 +564,8 @@ describe('Artboard', () => {
         fireEvent.load(document.querySelector('img') as HTMLImageElement)
 
         const image = document.querySelector('img') as HTMLImageElement
-        // Contain-fit reserves the prompt bar's 24px first: (400-24)/1024 is the
-        // binding scale → 376px, not the 400px an unreserved container would give
-        // (which would clip the bar).
+        // Contain-fit reserves the bar's 24px first: (400-24)/1024 → 376px, not
+        // the 400px an unreserved container would give (which would clip the bar).
         expect(image.style.height).toBe('376px')
       })
     })

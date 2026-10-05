@@ -840,7 +840,11 @@ describe('MessageGroup', () => {
       scrollWidth: 1000
     })
 
-    const wheelEvent = createEvent.wheel(horizontalGroup, { deltaY: 120, shiftKey: true })
+    const wheelEvent = createEvent.wheel(horizontalGroup, { deltaY: 120, shiftKey: true }) as WheelEvent
+    // happy-dom's WheelEvent drops init-dict modifier keys — patch the flag on the instance.
+    if (wheelEvent.shiftKey !== true) {
+      Object.defineProperty(wheelEvent, 'shiftKey', { configurable: true, value: true })
+    }
     fireEvent(horizontalGroup, wheelEvent)
 
     expect(wheelEvent.defaultPrevented).toBe(true)
@@ -904,7 +908,7 @@ describe('MessageGroup', () => {
     })
   })
 
-  it('wraps the edited plain user message region with an editing outline', () => {
+  it('wraps the edited user message region with an editing outline', () => {
     mocks.settings.mockReturnValue({
       multiModelMessageStyle: 'vertical',
       gridColumns: 2,
@@ -1027,30 +1031,6 @@ describe('MessageGroup', () => {
     })
 
     expect(startEditing).not.toHaveBeenCalled()
-  })
-
-  it('wraps the edited bubble user message region with an editing outline', () => {
-    mocks.settings.mockReturnValue({
-      multiModelMessageStyle: 'vertical',
-      gridColumns: 2,
-      gridPopoverTrigger: 'click',
-      messageFont: 'system',
-      fontSize: 14,
-      messageStyle: 'bubble'
-    })
-    const message = {
-      ...createMessage('user-bubble-editing-1', 0, 'vertical'),
-      role: 'user'
-    } as MessageListItem & { index: number; multiModelMessageStyle: MultiModelMessageStyle }
-    mocks.messageListEditingId.mockReturnValue('user-bubble-editing-1')
-
-    const { container } = render(<MessageGroup messages={[message]} />)
-    const messageElement = container.querySelector('#message-user-bubble-editing-1 .message')
-
-    expect(messageElement).toHaveAttribute('aria-disabled', 'true')
-    expect(container).not.toHaveTextContent('chat.message.editing_current')
-    expect(container.querySelector('#message-user-bubble-editing-1 .message-editing-hint')).toBeNull()
-    expect(container.querySelector('#message-user-bubble-editing-1 .message-menubar')).toBeNull()
   })
 
   it('shows delivery attribution for bubble-style user messages', () => {

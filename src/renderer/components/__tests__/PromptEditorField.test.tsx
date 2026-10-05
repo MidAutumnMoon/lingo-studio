@@ -177,14 +177,33 @@ describe('PromptEditorField', () => {
       expect(renderedTokens).toContain('**')
     })
 
-    expect(tokenStyle('#').color).toBe('var(--muted-foreground)')
-    expect(tokenStyle(' Heading').color).toBe('var(--foreground)')
-    expect(tokenStyle(' Heading').fontWeight).toBe('var(--font-weight-medium)')
-    expect(tokenStyle('**').color).toBe('var(--muted-foreground)')
-    expect(tokenStyle('strong').fontWeight).toBe('var(--font-weight-bold)')
-    expect(tokenStyle('link').color).toBe('var(--link)')
-    expect(tokenStyle('[').color).toBe('var(--muted-foreground)')
-    expect(getComputedStyle(view.contentDOM).padding).toBe('calc(var(--spacing) * 3)')
+    // happy-dom's getComputedStyle drops undeclared var() references while jsdom returns the
+    // literal string — declaring the palette on the root resolves both to concrete values.
+    const palette = document.createElement('style')
+    palette.textContent = `:root {
+      --muted-foreground: #767676;
+      --foreground: #171717;
+      --font-weight-medium: 500;
+      --font-weight-bold: 700;
+      --link: #0000ee;
+      --spacing: 4px;
+    }`
+    document.head.append(palette)
+
+    try {
+      expect(tokenStyle('#').color).toBe('#767676')
+      expect(tokenStyle(' Heading').color).toBe('#171717')
+      expect(tokenStyle(' Heading').fontWeight).toBe('500')
+      expect(tokenStyle('**').color).toBe('#767676')
+      expect(tokenStyle('strong').fontWeight).toBe('700')
+      expect(tokenStyle('link').color).toBe('#0000ee')
+      expect(tokenStyle('[').color).toBe('#767676')
+      // happy-dom substitutes the declared var() inside the unevaluated calc();
+      // jsdom keeps the literal — accept either serialization.
+      expect(['calc(var(--spacing) * 3)', 'calc(4px * 3)']).toContain(getComputedStyle(view.contentDOM).padding)
+    } finally {
+      palette.remove()
+    }
 
     view.destroy()
     parent.remove()

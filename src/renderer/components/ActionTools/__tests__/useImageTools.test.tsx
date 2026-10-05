@@ -72,6 +72,17 @@ const createImageFixture = () => {
   }
 }
 
+// happy-dom's WheelEvent constructor drops modifier keys from the init dict
+// (ctrlKey/metaKey read undefined), so they are pinned onto the instance.
+const fireWheel = (element: Element, init: { deltaY: number; ctrlKey?: boolean; metaKey?: boolean }) => {
+  const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: init.deltaY })
+  for (const key of ['ctrlKey', 'metaKey'] as const) {
+    if (init[key]) Object.defineProperty(event, key, { value: true })
+  }
+  element.dispatchEvent(event)
+  return event
+}
+
 describe('useImageTools', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -143,7 +154,7 @@ describe('useImageTools', () => {
     fireEvent.mouseDown(container, { button: 0, clientX: 10, clientY: 20 })
     fireEvent.mouseMove(document, { clientX: 25, clientY: 35 })
     fireEvent.mouseUp(document, { clientX: 25, clientY: 35 })
-    fireEvent.wheel(svg, { bubbles: true, ctrlKey: true, deltaY: -1 })
+    fireWheel(svg, { deltaY: -1, ctrlKey: true })
 
     expect(result.current.getCurrentTransform()).toEqual({ scale: 1.1, x: 15, y: 15 })
     expect(svg.style.transform).toBe('translate(15px, 15px) scale(1.1)')
@@ -165,14 +176,7 @@ describe('useImageTools', () => {
         enableWheelZoom: true
       })
     )
-    const wheelEvent = new WheelEvent('wheel', {
-      bubbles: true,
-      cancelable: true,
-      deltaY: -1,
-      metaKey: true
-    })
-
-    svg.dispatchEvent(wheelEvent)
+    const wheelEvent = fireWheel(svg, { deltaY: -1, metaKey: true })
 
     expect(result.current.getCurrentTransform().scale).toBe(1.1)
     expect(wheelEvent.defaultPrevented).toBe(true)

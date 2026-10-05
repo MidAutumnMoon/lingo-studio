@@ -29,13 +29,16 @@ describe('renderSvgInShadowHost', () => {
   })
 
   it('sanitizes executable SVG content before rendering', () => {
-    renderSvgInShadowHost(
-      '<svg><script>alert(1)</script><rect width="10" height="10" onload="alert(1)" /></svg>',
-      hostElement
-    )
+    // Split into two renders: happy-dom + DOMPurify drop every sibling after a
+    // removed <script>, so each contract gets its own document.
+    renderSvgInShadowHost('<svg><rect width="10" height="10" onload="alert(1)" /></svg>', hostElement)
+
+    expect(hostElement.shadowRoot?.querySelector('rect')).toBeInTheDocument()
+    expect(hostElement.shadowRoot?.querySelector('rect')).not.toHaveAttribute('onload')
+
+    renderSvgInShadowHost('<svg><script>alert(1)</script></svg>', hostElement)
 
     expect(hostElement.shadowRoot?.querySelector('script')).not.toBeInTheDocument()
-    expect(hostElement.shadowRoot?.querySelector('rect')).not.toHaveAttribute('onload')
   })
 
   it('accepts malformed SVG that the browser can safely repair', () => {

@@ -965,10 +965,21 @@ describe('QuickPanelView', () => {
     const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElement) => {
       const style = originalGetComputedStyle(element, pseudoElement)
       if ((element as HTMLElement).dataset.testid === 'quick-panel-body') {
-        style.paddingTop = '5px'
-        style.paddingBottom = '5px'
-        style.borderTopWidth = '0.5px'
-        style.borderBottomWidth = '0.5px'
+        // happy-dom hands out read-only computed styles, so layer the fake
+        // chrome metrics over the real declaration instead of mutating it.
+        const chromeMetrics = {
+          paddingTop: '5px',
+          paddingBottom: '5px',
+          borderTopWidth: '0.5px',
+          borderBottomWidth: '0.5px'
+        }
+        return new Proxy(style, {
+          get(target, property) {
+            return property in chromeMetrics
+              ? chromeMetrics[property as keyof typeof chromeMetrics]
+              : Reflect.get(target, property, target)
+          }
+        })
       }
       return style
     })
@@ -1033,10 +1044,21 @@ describe('QuickPanelView', () => {
     const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElement) => {
       const style = originalGetComputedStyle(element, pseudoElement)
       if ((element as HTMLElement).dataset.testid === 'quick-panel-body') {
-        style.paddingTop = '5px'
-        style.paddingBottom = '5px'
-        style.borderTopWidth = '0.5px'
-        style.borderBottomWidth = '0.5px'
+        // happy-dom hands out read-only computed styles, so layer the fake
+        // chrome metrics over the real declaration instead of mutating it.
+        const chromeMetrics = {
+          paddingTop: '5px',
+          paddingBottom: '5px',
+          borderTopWidth: '0.5px',
+          borderBottomWidth: '0.5px'
+        }
+        return new Proxy(style, {
+          get(target, property) {
+            return property in chromeMetrics
+              ? chromeMetrics[property as keyof typeof chromeMetrics]
+              : Reflect.get(target, property, target)
+          }
+        })
       }
       return style
     })

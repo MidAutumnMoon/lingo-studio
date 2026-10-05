@@ -726,7 +726,7 @@ describe('GlobalSearchPanel', () => {
       name: 'Search conversations, tasks, assistants, agents, and knowledge...'
     })
     const listbox = screen.getByRole('listbox')
-    const recentOption = screen.getByRole('option', { name: /Topic recent/ })
+    const recentOption = screen.getByRole('option', { name: /Topic\s*recent/ })
 
     await waitFor(() => {
       expect(searchInput).toHaveAttribute('aria-expanded', 'true')
@@ -771,7 +771,7 @@ describe('GlobalSearchPanel', () => {
         name: 'Search conversations, tasks, assistants, agents, and knowledge...'
       })
       const listbox = screen.getByRole('listbox')
-      const resultOption = screen.getByRole('option', { name: /Writing Assistant/ })
+      const resultOption = screen.getByRole('option', { name: /Writing\s*Assistant/ })
 
       expect(resultOption).toBeInTheDocument()
       expect(screen.getByText('2 minutes ago')).toBeInTheDocument()
@@ -819,7 +819,7 @@ describe('GlobalSearchPanel', () => {
     render(<GlobalSearchPanel onClose={mocks.onClose} />)
     await typeSearchQuery(user, 'topic')
 
-    expect(await screen.findByRole('option', { name: /Old conversation/ })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: /Old\s*conversation/ })).toBeInTheDocument()
     expect(screen.getByText('2 minutes ago')).toBeInTheDocument()
   })
 
@@ -852,7 +852,7 @@ describe('GlobalSearchPanel', () => {
 
     const input = screen.getByLabelText('Search conversations, tasks, assistants, agents, and knowledge...')
     await user.type(input, 'assistant')
-    const secondOption = await screen.findByRole('option', { name: /Review Assistant/ })
+    const secondOption = await screen.findByRole('option', { name: /Review\s*Assistant/ })
 
     await waitFor(() => {
       expect(input).toHaveAttribute('aria-activedescendant', getGlobalSearchOptionDomId('assistant:assistant-1'))
@@ -888,7 +888,7 @@ describe('GlobalSearchPanel', () => {
 
     const input = screen.getByLabelText('Search conversations, tasks, assistants, agents, and knowledge...')
     await user.type(input, 'plan')
-    const firstOption = await screen.findByRole('option', { name: /Topic 0/ })
+    const firstOption = await screen.findByRole('option', { name: /Topic\s*0/ })
     const footerOption = await screen.findByRole('option', { name: 'Show 1 more' })
     fireEvent.mouseEnter(firstOption)
 
@@ -1043,7 +1043,7 @@ describe('GlobalSearchPanel', () => {
     render(<GlobalSearchPanel onClose={mocks.onClose} />)
 
     await typeSearchQuery(user, 'topic')
-    await user.click(await screen.findByRole('option', { name: /Topic A/ }))
+    await user.click(await screen.findByRole('option', { name: /Topic\s*A/ }))
 
     expect(mocks.openTab).toHaveBeenCalledWith('/app/chat?topicId=topic-1', { forceNew: true })
     expect(mocks.emitResourceListReveal).not.toHaveBeenCalled()
@@ -1082,7 +1082,7 @@ describe('GlobalSearchPanel', () => {
     render(<GlobalSearchPanel onClose={mocks.onClose} />)
 
     await typeSearchQuery(user, 'topic')
-    await user.click(await screen.findByRole('option', { name: /Topic A/ }))
+    await user.click(await screen.findByRole('option', { name: /Topic\s*A/ }))
 
     expect(mocks.emitResourceListReveal).toHaveBeenCalledWith({
       source: 'assistants',
@@ -1113,7 +1113,7 @@ describe('GlobalSearchPanel', () => {
     render(<GlobalSearchPanel onClose={mocks.onClose} />)
 
     await typeSearchQuery(user, 'session')
-    await user.click(await screen.findByRole('option', { name: /Session A/ }))
+    await user.click(await screen.findByRole('option', { name: /Session\s*A/ }))
 
     expect(mocks.emitResourceListReveal).toHaveBeenCalledWith({
       source: 'agents',
@@ -1151,16 +1151,16 @@ describe('GlobalSearchPanel', () => {
 
     await typeSearchQuery(user, 'plan')
 
-    expect(await screen.findByRole('option', { name: /Topic 0/ })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /Topic 4/ })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /Topic 5/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /Work 4/ })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /Work 5/ })).not.toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: /Topic\s*0/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Topic\s*4/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Topic\s*5/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Work\s*4/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Work\s*5/ })).not.toBeInTheDocument()
 
     await user.click(screen.getAllByRole('option', { name: 'Show 1 more' })[0])
 
-    expect(screen.getByRole('option', { name: /Topic 5/ })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /Work 5/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Topic\s*5/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Work\s*5/ })).not.toBeInTheDocument()
   })
 
   it('shows a capped message preview group in all search and switches to message search from its footer', async () => {
@@ -1188,9 +1188,9 @@ describe('GlobalSearchPanel', () => {
 
     expect(await screen.findByText('Topic A')).toBeInTheDocument()
     expect(screen.getByText('Conversation messages')).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /needle message 5/ })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /needle message 1/ })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /needle message 0/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /needle\s*message\s*5/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /needle\s*message\s*1/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /needle\s*message\s*0/ })).not.toBeInTheDocument()
 
     await waitFor(() => {
       expect(mocks.useQuery).toHaveBeenCalledWith(
@@ -1242,7 +1242,7 @@ describe('GlobalSearchPanel', () => {
     const searchInput = screen.getByRole('combobox', {
       name: 'Search conversations, tasks, assistants, agents, and knowledge...'
     })
-    const messageOption = await screen.findByRole('option', { name: /needle target message/ })
+    const messageOption = await screen.findByRole('option', { name: /needle\s*target\s*message/ })
 
     await waitFor(() => {
       expect(searchInput).toHaveAttribute('aria-expanded', 'true')
@@ -1321,7 +1321,7 @@ describe('GlobalSearchPanel', () => {
     await user.click(screen.getByRole('radio', { name: 'Messages' }))
     await user.click(screen.getByRole('button', { name: 'Message source: Conversation messages' }))
 
-    expect(await screen.findByRole('option', { name: /needle first page/ })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: /needle\s*first\s*page/ })).toBeInTheDocument()
 
     const input = screen.getByLabelText('Search conversations, tasks, assistants, agents, and knowledge...')
     const loadMoreOption = screen.getByRole('option', { name: 'Show 50 more' })
@@ -1467,7 +1467,7 @@ describe('GlobalSearchPanel', () => {
 
     await typeSearchQuery(user, 'needle')
     await user.click(screen.getByRole('radio', { name: 'Messages' }))
-    expect(await screen.findByRole('option', { name: /needle session reply/ })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: /needle\s*session\s*reply/ })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Message source: Conversation messages' }))
 
@@ -1482,8 +1482,8 @@ describe('GlobalSearchPanel', () => {
           })
         })
       )
-      expect(screen.getByRole('option', { name: /needle topic reply/ })).toBeInTheDocument()
-      expect(screen.queryByRole('option', { name: /needle session reply/ })).not.toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /needle\s*topic\s*reply/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /needle\s*session\s*reply/ })).not.toBeInTheDocument()
       expect(screen.queryByText('Session A')).not.toBeInTheDocument()
     })
   })
@@ -1568,11 +1568,11 @@ describe('GlobalSearchPanel', () => {
 
     expect(await screen.findByText('Topic A')).toBeInTheDocument()
     expect(screen.getAllByText('JD')).not.toHaveLength(0)
-    expect(screen.queryByRole('option', { name: /needle message one/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /needle\s*message\s*one/ })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('option', { name: 'Show 1 more results' }))
 
-    expect(screen.getByRole('option', { name: /needle message one/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /needle\s*message\s*one/ })).toBeInTheDocument()
   })
 
   it('starts both topic message reads before locating the selected message', async () => {
@@ -1612,7 +1612,7 @@ describe('GlobalSearchPanel', () => {
 
     await typeSearchQuery(user, 'needle')
     await user.click(screen.getByRole('radio', { name: 'Messages' }))
-    await user.click(await screen.findByRole('option', { name: /needle topic reply/ }))
+    await user.click(await screen.findByRole('option', { name: /needle\s*topic\s*reply/ }))
 
     const preview = screen.getByRole('complementary', { name: 'Message preview' })
     expect(preview).toBeInTheDocument()
@@ -1691,7 +1691,7 @@ describe('GlobalSearchPanel', () => {
 
     await typeSearchQuery(user, 'needle')
     await user.click(screen.getByRole('radio', { name: 'Messages' }))
-    const messageOption = await screen.findByRole('option', { name: /needle topic reply/ })
+    const messageOption = await screen.findByRole('option', { name: /needle\s*topic\s*reply/ })
     expect(screen.queryByRole('button', { name: 'Jump to message' })).not.toBeInTheDocument()
     fireEvent.mouseEnter(messageOption)
     await user.click(await screen.findByRole('button', { name: 'Jump to message' }))
@@ -1748,7 +1748,7 @@ describe('GlobalSearchPanel', () => {
 
     await typeSearchQuery(user, 'needle')
     await user.click(screen.getByRole('radio', { name: 'Messages' }))
-    await user.click(await screen.findByRole('option', { name: /needle topic reply/ }))
+    await user.click(await screen.findByRole('option', { name: /needle\s*topic\s*reply/ }))
     await user.click(screen.getByRole('button', { name: 'Open preview other message' }))
 
     await waitFor(() => {
@@ -1789,7 +1789,7 @@ describe('GlobalSearchPanel', () => {
     await typeSearchQuery(user, 'needle')
     await user.click(screen.getByRole('radio', { name: 'Messages' }))
     expect(await screen.findByText('Assistant role')).toBeInTheDocument()
-    await user.click(await screen.findByRole('option', { name: /needle session reply/ }))
+    await user.click(await screen.findByRole('option', { name: /needle\s*session\s*reply/ }))
 
     const preview = screen.getByRole('complementary', { name: 'Message preview' })
     expect(preview).toBeInTheDocument()
@@ -1841,7 +1841,7 @@ describe('GlobalSearchPanel', () => {
 
     await typeSearchQuery(user, 'needle')
     await user.click(screen.getByRole('radio', { name: 'Messages' }))
-    const messageOption = await screen.findByRole('option', { name: /needle session reply/ })
+    const messageOption = await screen.findByRole('option', { name: /needle\s*session\s*reply/ })
     fireEvent.mouseEnter(messageOption)
     await user.click(await screen.findByRole('button', { name: 'Jump to message' }))
 
@@ -1888,7 +1888,7 @@ describe('GlobalSearchPanel', () => {
 
     await typeSearchQuery(user, 'needle')
     await user.click(screen.getByRole('radio', { name: 'Messages' }))
-    const messageOption = await screen.findByRole('option', { name: /needle session reply/ })
+    const messageOption = await screen.findByRole('option', { name: /needle\s*session\s*reply/ })
     fireEvent.mouseEnter(messageOption)
     await user.click(await screen.findByRole('button', { name: 'Jump to message' }))
 
@@ -1921,14 +1921,14 @@ describe('GlobalSearchPanel', () => {
 
     await typeSearchQuery(user, 'needle')
     await user.click(screen.getByRole('radio', { name: 'Messages' }))
-    await user.click(await screen.findByRole('option', { name: /needle session reply/ }))
+    await user.click(await screen.findByRole('option', { name: /needle\s*session\s*reply/ }))
 
     expect(screen.getByRole('complementary', { name: 'Message preview' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Close preview' }))
     expect(screen.queryByRole('complementary', { name: 'Message preview' })).not.toBeInTheDocument()
 
-    await user.click(await screen.findByRole('option', { name: /needle session reply/ }))
+    await user.click(await screen.findByRole('option', { name: /needle\s*session\s*reply/ }))
     expect(screen.getByRole('complementary', { name: 'Message preview' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Clear search' }))
@@ -1956,7 +1956,7 @@ describe('GlobalSearchPanel', () => {
     // Query-gated controls mount only after the input debounce commits.
     await screen.findByRole('radio', { name: 'Messages' })
     await user.click(screen.getByRole('radio', { name: 'Messages' }))
-    await screen.findByRole('option', { name: /needle session reply/ })
+    await screen.findByRole('option', { name: /needle\s*session\s*reply/ })
     await user.click(input)
     await user.keyboard('{Enter}')
 
@@ -2058,7 +2058,7 @@ describe('GlobalSearchPanel', () => {
 
     const input = screen.getByLabelText('Search conversations, tasks, assistants, agents, and knowledge...')
     await user.type(input, 'assistant')
-    await screen.findByRole('option', { name: /Writing Assistant/ })
+    await screen.findByRole('option', { name: /Writing\s*Assistant/ })
     await user.keyboard('{Enter}')
 
     expect(screen.getByTestId('resource-edit-dialog-host')).toHaveAttribute('data-kind', 'assistant')
@@ -2093,7 +2093,7 @@ describe('GlobalSearchPanel', () => {
 
     const input = screen.getByLabelText('Search conversations, tasks, assistants, agents, and knowledge...')
     await user.type(input, 'assistant')
-    await screen.findByRole('option', { name: /Writing Assistant/ })
+    await screen.findByRole('option', { name: /Writing\s*Assistant/ })
 
     fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
     fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })
@@ -2125,7 +2125,7 @@ describe('GlobalSearchPanel', () => {
 
     const input = screen.getByLabelText('Search conversations, tasks, assistants, agents, and knowledge...')
     await user.type(input, 'assistant')
-    await screen.findByRole('option', { name: /Writing Assistant/ })
+    await screen.findByRole('option', { name: /Writing\s*Assistant/ })
 
     // Typing again leaves the rendered results stale for one debounce window;
     // Enter inside it must not activate the previous query's active item.
@@ -2175,7 +2175,7 @@ describe('GlobalSearchPanel', () => {
 
     const input = screen.getByLabelText(SEARCH_INPUT_LABEL)
     await user.type(input, 'assistant')
-    await screen.findByRole('option', { name: /Writing Assistant/ })
+    await screen.findByRole('option', { name: /Writing\s*Assistant/ })
 
     // Pin the deferred lane on the previous query: the debounce commit below
     // propagates to `debouncedQuery`, but the rendered list (and its active
@@ -2242,7 +2242,7 @@ describe('GlobalSearchPanel', () => {
 
     const input = screen.getByLabelText(SEARCH_INPUT_LABEL)
     await user.type(input, 'assistant')
-    await screen.findByRole('option', { name: /Writing Assistant/ })
+    await screen.findByRole('option', { name: /Writing\s*Assistant/ })
 
     // The engine can write the next query into the input before React
     // processes the matching change event (the compositionend-before-change
@@ -2298,7 +2298,7 @@ describe('GlobalSearchPanel', () => {
 
     const input = screen.getByLabelText(SEARCH_INPUT_LABEL)
     await user.type(input, 'assistant')
-    await screen.findByRole('option', { name: /Writing Assistant/ })
+    await screen.findByRole('option', { name: /Writing\s*Assistant/ })
 
     // Extend the query: the debounce commits, the deferred lane catches up, and
     // the entities fetch for 'assistantx' starts — while the rendered results
@@ -2339,7 +2339,7 @@ describe('GlobalSearchPanel', () => {
       ]
     }
     view.rerender(<GlobalSearchPanel onClose={mocks.onClose} />)
-    await screen.findByRole('option', { name: /Refined Assistant/ })
+    await screen.findByRole('option', { name: /Refined\s*Assistant/ })
     await user.keyboard('{Enter}')
 
     expect(screen.getByTestId('resource-edit-dialog-host')).toHaveAttribute('data-kind', 'assistant')
@@ -2369,7 +2369,7 @@ describe('GlobalSearchPanel', () => {
 
     const input = screen.getByLabelText(SEARCH_INPUT_LABEL)
     await user.type(input, 'assistant')
-    await screen.findByRole('option', { name: /Writing Assistant/ })
+    await screen.findByRole('option', { name: /Writing\s*Assistant/ })
 
     // Extend the query: the aligned fetch for 'assistantx' fails terminally —
     // isRefreshing has settled and the queries align, but keepPreviousData
@@ -2410,7 +2410,7 @@ describe('GlobalSearchPanel', () => {
       ]
     }
     view.rerender(<GlobalSearchPanel onClose={mocks.onClose} />)
-    await screen.findByRole('option', { name: /Refined Assistant/ })
+    await screen.findByRole('option', { name: /Refined\s*Assistant/ })
     await user.keyboard('{Enter}')
 
     expect(screen.getByTestId('resource-edit-dialog-host')).toHaveAttribute('data-kind', 'assistant')
@@ -2441,7 +2441,7 @@ describe('GlobalSearchPanel', () => {
     await user.type(input, 'needle')
     await screen.findByRole('radio', { name: 'Messages' })
     await user.click(screen.getByRole('radio', { name: 'Messages' }))
-    await screen.findByRole('option', { name: /needle message one/ })
+    await screen.findByRole('option', { name: /needle\s*message\s*one/ })
     await user.click(input)
 
     // The load-more page fails terminally: the panel renders the error state and

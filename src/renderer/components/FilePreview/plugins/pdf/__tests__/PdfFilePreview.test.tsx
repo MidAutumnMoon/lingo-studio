@@ -274,6 +274,19 @@ async function flushPdfEffects() {
   await Promise.resolve()
 }
 
+// happy-dom's WheelEvent does not extend MouseEvent: clientX/clientY and
+// modifier keys are dropped from the init dict, so they are pinned on.
+function dispatchWheel(
+  target: Element,
+  init: { clientX?: number; clientY?: number; ctrlKey?: boolean; deltaY: number }
+) {
+  const event = new WheelEvent('wheel', { cancelable: true, deltaY: init.deltaY })
+  for (const key of ['clientX', 'clientY', 'ctrlKey'] as const) {
+    if (init[key] !== undefined) Object.defineProperty(event, key, { value: init[key] })
+  }
+  target.dispatchEvent(event)
+}
+
 describe('PdfFilePreview', () => {
   it('reports the clicked page as a reference with the page text as excerpt, and marks it as picked', async () => {
     mocks.pdfDocument.getPage.mockResolvedValue({
@@ -435,8 +448,8 @@ describe('PdfFilePreview', () => {
     const link = renderLinkAnnotation(renderPage('1'))
 
     let observed: boolean | undefined
-    // jsdom logs "Not implemented: navigation" for an unprevented <a href> click, so observe
-    // defaultPrevented at document and cancel it ourselves before jsdom gets there.
+    // The DOM env logs "not implemented: navigation" noise for an unprevented
+    // <a href> click, so observe defaultPrevented at document and cancel there.
     const observe = (event: Event) => {
       observed = event.defaultPrevented
       event.preventDefault()
@@ -576,9 +589,7 @@ describe('PdfFilePreview', () => {
     fireEvent.keyDown(container, { ctrlKey: true, key: '0' })
     expect(mocks.pdfViewerScaleValues).toContain('page-width')
 
-    container.dispatchEvent(
-      new WheelEvent('wheel', { cancelable: true, clientX: 24, clientY: 36, ctrlKey: true, deltaY: -10 })
-    )
+    dispatchWheel(container, { clientX: 24, clientY: 36, ctrlKey: true, deltaY: -10 })
     act(() => animationFrame?.(0))
 
     expect(mocks.pdfViewerUpdateScale).toHaveBeenCalledWith({
@@ -769,7 +780,7 @@ describe('PdfFilePreview', () => {
     const removeEventListener = vi.spyOn(container, 'removeEventListener')
     const clearTimeout = vi.spyOn(window, 'clearTimeout')
     const cancelAnimationFrame = vi.spyOn(window, 'cancelAnimationFrame')
-    container.dispatchEvent(new WheelEvent('wheel', { cancelable: true, ctrlKey: true, deltaY: -10 }))
+    dispatchWheel(container, { ctrlKey: true, deltaY: -10 })
 
     unmount()
     await act(flushPdfEffects)

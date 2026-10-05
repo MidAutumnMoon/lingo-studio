@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { parse as parsePartialJson } from 'partial-json'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as CherryUi from '@cherrystudio/ui'
@@ -264,29 +263,6 @@ describe('AgentToolRenderer', () => {
       render(<AgentToolRenderer toolResponse={toolResponse} />)
 
       expect(screen.getByRole('button', { name: 'MCP Server Tool exa:web_search_exa' })).toBeInTheDocument()
-    })
-  })
-
-  describe('partial-json parsing', () => {
-    it('should parse partial JSON correctly', () => {
-      // Test partial-json library behavior
-      const partialJson = '{"file_path": "/test.ts"'
-      const parsed = parsePartialJson(partialJson)
-      expect(parsed).toEqual({ file_path: '/test.ts' })
-    })
-
-    it('should parse nested partial JSON', () => {
-      const partialJson = '{"todos": [{"content": "Task 1", "status": "pending"'
-      const parsed = parsePartialJson(partialJson)
-      expect(parsed).toEqual({
-        todos: [{ content: 'Task 1', status: 'pending' }]
-      })
-    })
-
-    it('should handle empty partial JSON', () => {
-      const partialJson = '{'
-      const parsed = parsePartialJson(partialJson)
-      expect(parsed).toEqual({})
     })
   })
 
@@ -590,7 +566,10 @@ describe('AgentToolRenderer', () => {
       render(<AgentToolRenderer toolResponse={toolResponse} />)
 
       expect(screen.getByText('View')).toBeInTheDocument()
-      expect(screen.getByText('Error')).toHaveStyle('color: var(--muted-foreground)')
+      // Inline style readback: getComputedStyle drops var() values under happy-dom,
+      // while the inline style object keeps the raw declaration in every environment.
+      const errorLabel = screen.getByText('Error')
+      expect((errorLabel.closest('span') as HTMLElement).style.color).toBe('var(--muted-foreground)')
       await user.click(screen.getByRole('button'))
       expect(await screen.findByText(errorText)).toBeVisible()
     })

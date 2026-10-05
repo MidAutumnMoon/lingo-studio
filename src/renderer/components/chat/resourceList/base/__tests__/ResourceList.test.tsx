@@ -2082,7 +2082,9 @@ describe('ResourceList', () => {
 
     fireEvent.scroll(viewport)
     expect(viewport).toHaveAttribute('data-scrolling', 'true')
-    expect(viewport).toHaveStyle({ scrollbarColor: 'var(--scrollbar-thumb) transparent' })
+    // Inline style readback: getComputedStyle drops var() color functions under
+    // happy-dom, while the inline style object keeps the raw declaration everywhere.
+    expect(viewport.style.scrollbarColor).toBe('var(--scrollbar-thumb) transparent')
 
     act(() => {
       vi.advanceTimersByTime(1000)
@@ -2093,15 +2095,15 @@ describe('ResourceList', () => {
       vi.advanceTimersByTime(1199)
     })
     expect(viewport).toHaveAttribute('data-scrolling', 'true')
-    expect(viewport).toHaveStyle({ scrollbarColor: 'var(--scrollbar-thumb) transparent' })
+    expect(viewport.style.scrollbarColor).toBe('var(--scrollbar-thumb) transparent')
 
     act(() => {
       vi.advanceTimersByTime(1)
     })
     expect(viewport).toHaveAttribute('data-scrolling', 'true')
-    expect(viewport).toHaveStyle({
-      scrollbarColor: 'color-mix(in srgb, var(--scrollbar-thumb) 70%, transparent) transparent'
-    })
+    expect(viewport.style.scrollbarColor).toBe(
+      'color-mix(in srgb, var(--scrollbar-thumb) 70%, transparent) transparent'
+    )
 
     act(() => {
       vi.advanceTimersByTime(420)
@@ -2136,9 +2138,9 @@ describe('ResourceList', () => {
       vi.advanceTimersByTime(1200)
     })
 
-    expect(viewport).toHaveStyle({
-      scrollbarColor: 'color-mix(in srgb, var(--scrollbar-thumb) 70%, transparent) transparent'
-    })
+    expect(viewport.style.scrollbarColor).toBe(
+      'color-mix(in srgb, var(--scrollbar-thumb) 70%, transparent) transparent'
+    )
   })
 
   it('loads each group in configured increments and collapses it to the default count', () => {

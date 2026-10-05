@@ -498,7 +498,9 @@ describe('WebSearchSettings', () => {
     const { rerender } = render(<WebSearchSettings />)
 
     const section = getKeywordProviderSection()
-    fireEvent.click(within(section).getByRole('button', { name: /^Exa logo Exa$/ }))
+    // Logo aria-label + provider name are inline siblings; whitespace between
+    // them is a rendering detail, so match across an optional separator.
+    fireEvent.click(within(section).getByRole('button', { name: /^Exa logo\s*Exa$/ }))
 
     await waitFor(() => {
       expect(MockUsePreferenceUtils.getPreferenceValue('chat.web_search.default_search_keywords_provider')).toBe('exa')

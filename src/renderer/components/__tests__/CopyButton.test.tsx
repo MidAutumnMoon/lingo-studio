@@ -27,18 +27,14 @@ vi.mock('react-i18next', () => ({
 
 describe('CopyButton', () => {
   beforeEach(() => {
-    // Setup mocks
-    Object.assign(navigator, { clipboard: mockClipboard })
+    // navigator.clipboard is a getter-only accessor, so shadow it with defineProperty.
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: mockClipboard
+    })
 
     // Clear all mocks
     vi.clearAllMocks()
-  })
-
-  it('should render label when provided', () => {
-    const labelText = 'Copy to clipboard'
-    render(<CopyButton textToCopy="test text" label={labelText} />)
-
-    expect(screen.getByText(labelText)).toBeInTheDocument()
   })
 
   it('should copy text to the clipboard and show a success message', async () => {

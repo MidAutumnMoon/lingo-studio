@@ -102,7 +102,9 @@ describe('legacyV1BrowserData', () => {
   })
 
   it('reports a retry-marker write failure without throwing', () => {
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+    // Spy on the localStorage instance: happy-dom's global binding does not
+    // resolve setItem through Storage.prototype, so a prototype spy misses it.
+    vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => {
       throw new DOMException('quota exceeded', 'QuotaExceededError')
     })
 

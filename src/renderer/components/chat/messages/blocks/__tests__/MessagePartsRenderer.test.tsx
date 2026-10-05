@@ -1983,7 +1983,7 @@ describe('MessagePartsRenderer', () => {
       rerender(renderPartsTree(parts, msg({ status: 'success', updatedAt: '2026-01-01T00:00:01Z' })))
 
       expect(document.querySelector('[data-live-process-run]')).toBeNull()
-      expect(screen.getByTestId('completed-process-trigger')).toHaveAccessibleName('Processed 1 second')
+      expect(screen.getByTestId('completed-process-trigger')).toHaveAccessibleName(/Processed\s*1 second/)
       expect(screen.getByTestId('completed-process-trigger')).toHaveAttribute('aria-expanded', 'false')
       expect(screen.queryByTestId('tool-history-divider')).toBeNull()
       expect(screen.queryByTestId('tool-history-content')).toBeNull()
@@ -2321,7 +2321,7 @@ describe('MessagePartsRenderer', () => {
     it('shows processed status and elapsed time in a completed tool summary', () => {
       renderParts([toolPart('read')] as unknown as CherryMessagePart[], msg({ updatedAt: '2026-01-01T00:00:01Z' }))
 
-      expect(screen.getByRole('button', { name: 'Processed 1 second' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Processed\s*1 second/ })).toBeInTheDocument()
     })
 
     it('shows a recovered result as processed while preserving the failed tool detail', () => {
@@ -2334,7 +2334,7 @@ describe('MessagePartsRenderer', () => {
         msg({ updatedAt: '2026-01-01T00:00:01Z' })
       )
 
-      const historyTrigger = screen.getByRole('button', { name: 'Processed 1 second' })
+      const historyTrigger = screen.getByRole('button', { name: /Processed\s*1 second/ })
       fireEvent.click(historyTrigger)
       expandCollapsedChildToolGroups()
 
