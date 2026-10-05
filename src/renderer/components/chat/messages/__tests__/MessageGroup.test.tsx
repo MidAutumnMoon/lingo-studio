@@ -1,3 +1,4 @@
+import { pinWheelEventFields } from '@test-helpers/dom/wheelEvent'
 import { act, createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps, ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -841,10 +842,7 @@ describe('MessageGroup', () => {
     })
 
     const wheelEvent = createEvent.wheel(horizontalGroup, { deltaY: 120, shiftKey: true }) as WheelEvent
-    // happy-dom's WheelEvent drops init-dict modifier keys — patch the flag on the instance.
-    if (wheelEvent.shiftKey !== true) {
-      Object.defineProperty(wheelEvent, 'shiftKey', { configurable: true, value: true })
-    }
+    pinWheelEventFields(wheelEvent, { shiftKey: true })
     fireEvent(horizontalGroup, wheelEvent)
 
     expect(wheelEvent.defaultPrevented).toBe(true)

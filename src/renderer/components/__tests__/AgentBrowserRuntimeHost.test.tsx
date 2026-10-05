@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
 import { MockUsePreferenceUtils } from '@test-mocks/renderer/usePreference'
 import { act, cleanup, render, waitFor } from '@testing-library/react'

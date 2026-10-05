@@ -1,3 +1,4 @@
+import { fireWheel } from '@test-helpers/dom/wheelEvent'
 import { mockRendererLoggerService } from '@test-mocks/RendererLoggerService'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -272,19 +273,6 @@ async function flushPdfEffects() {
   await Promise.resolve()
   await Promise.resolve()
   await Promise.resolve()
-}
-
-// happy-dom's WheelEvent does not extend MouseEvent: clientX/clientY and
-// modifier keys are dropped from the init dict, so they are pinned on.
-function dispatchWheel(
-  target: Element,
-  init: { clientX?: number; clientY?: number; ctrlKey?: boolean; deltaY: number }
-) {
-  const event = new WheelEvent('wheel', { cancelable: true, deltaY: init.deltaY })
-  for (const key of ['clientX', 'clientY', 'ctrlKey'] as const) {
-    if (init[key] !== undefined) Object.defineProperty(event, key, { value: init[key] })
-  }
-  target.dispatchEvent(event)
 }
 
 describe('PdfFilePreview', () => {
@@ -589,7 +577,7 @@ describe('PdfFilePreview', () => {
     fireEvent.keyDown(container, { ctrlKey: true, key: '0' })
     expect(mocks.pdfViewerScaleValues).toContain('page-width')
 
-    dispatchWheel(container, { clientX: 24, clientY: 36, ctrlKey: true, deltaY: -10 })
+    fireWheel(container, { clientX: 24, clientY: 36, ctrlKey: true, deltaY: -10 })
     act(() => animationFrame?.(0))
 
     expect(mocks.pdfViewerUpdateScale).toHaveBeenCalledWith({
@@ -780,7 +768,7 @@ describe('PdfFilePreview', () => {
     const removeEventListener = vi.spyOn(container, 'removeEventListener')
     const clearTimeout = vi.spyOn(window, 'clearTimeout')
     const cancelAnimationFrame = vi.spyOn(window, 'cancelAnimationFrame')
-    dispatchWheel(container, { ctrlKey: true, deltaY: -10 })
+    fireWheel(container, { ctrlKey: true, deltaY: -10 })
 
     unmount()
     await act(flushPdfEffects)

@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
 import { mockUseInfiniteQuery, mockUseQuery } from '@test-mocks/renderer/useDataApi'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'

@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'

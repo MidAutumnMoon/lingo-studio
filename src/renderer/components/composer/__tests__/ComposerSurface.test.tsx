@@ -406,6 +406,23 @@ function createClipboardDataMock() {
   }
 }
 
+// happy-dom's CSSOM drops max()-valued height writes, but React hands every inline
+// style write to CSSStyleDeclaration.prototype.setProperty — record height writes.
+function captureHeightWrites(): { restore: () => void; writes: string[] } {
+  const originalSetProperty = CSSStyleDeclaration.prototype.setProperty
+  const writes: string[] = []
+  const spy = vi.spyOn(CSSStyleDeclaration.prototype, 'setProperty').mockImplementation(function (
+    this: CSSStyleDeclaration,
+    property: string,
+    value: string | null,
+    priority?: string
+  ) {
+    if (property === 'height') writes.push(String(value))
+    return originalSetProperty.call(this, property, value, priority)
+  })
+  return { restore: () => spy.mockRestore(), writes }
+}
+
 function createComposerCopyView(content: unknown[], options: { empty?: boolean } = {}) {
   return {
     state: {
@@ -1082,19 +1099,7 @@ describe('ComposerSurface', () => {
   })
 
   it('uses state-specific viewport-relative max heights and only fixes height when expanded', async () => {
-    // happy-dom's CSSOM drops max()-valued height writes, but React hands every inline style
-    // write to CSSStyleDeclaration.prototype.setProperty — record height writes there.
-    const originalSetProperty = CSSStyleDeclaration.prototype.setProperty
-    const frameHeightWrites: string[] = []
-    const heightWriteSpy = vi.spyOn(CSSStyleDeclaration.prototype, 'setProperty').mockImplementation(function (
-      this: CSSStyleDeclaration,
-      property: string,
-      value: string | null,
-      priority?: string
-    ) {
-      if (property === 'height') frameHeightWrites.push(String(value))
-      return originalSetProperty.call(this, property, value, priority)
-    })
+    const { restore, writes: frameHeightWrites } = captureHeightWrites()
     try {
       render(<Harness />)
 
@@ -1140,7 +1145,7 @@ describe('ComposerSurface', () => {
       expect(editorContent.style.getPropertyValue('--composer-editor-height')).toBe('auto')
       expect(inputbar).not.toHaveClass('expanded')
     } finally {
-      heightWriteSpy.mockRestore()
+      restore()
     }
   })
 
@@ -1256,24 +1261,13 @@ describe('ComposerSurface', () => {
 
     await waitFor(() => expect(editorContainer).toHaveStyle({ height: expandedHeight }))
 
-    // happy-dom drops max()-valued height writes; spy on setProperty to catch the
-    // declarative expanded height the component hands the CSSOM once settled.
-    const originalSetProperty = CSSStyleDeclaration.prototype.setProperty
-    const frameHeightWrites: string[] = []
-    const heightWriteSpy = vi.spyOn(CSSStyleDeclaration.prototype, 'setProperty').mockImplementation(function (
-      this: CSSStyleDeclaration,
-      property: string,
-      value: string | null,
-      priority?: string
-    ) {
-      if (property === 'height') frameHeightWrites.push(String(value))
-      return originalSetProperty.call(this, property, value, priority)
-    })
+    // Catch the declarative expanded height the component hands the CSSOM once settled.
+    const { restore, writes: frameHeightWrites } = captureHeightWrites()
     try {
       fireEvent.transitionEnd(editorContainer, { propertyName: 'height' })
       expect(frameHeightWrites).toContain('max(220px, 50vh)')
     } finally {
-      heightWriteSpy.mockRestore()
+      restore()
     }
 
     let handled = false

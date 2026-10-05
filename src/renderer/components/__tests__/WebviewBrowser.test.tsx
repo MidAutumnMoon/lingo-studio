@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
 import { mockRendererLoggerService } from '@test-mocks/RendererLoggerService'
 import { act, fireEvent, render, screen } from '@testing-library/react'

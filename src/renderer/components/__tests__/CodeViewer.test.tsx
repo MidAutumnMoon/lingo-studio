@@ -1,5 +1,3 @@
-// @vitest-environment jsdom
-
 import { MockUsePreferenceUtils } from '@test-mocks/renderer/usePreference'
 import { fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

@@ -2,7 +2,6 @@ import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
-// @vitest-environment jsdom
 import type { Tab } from '@shared/data/cache/cacheValueTypes'
 
 import {

@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
 import { act, render, waitFor } from '@testing-library/react'
 import { useEffect } from 'react'

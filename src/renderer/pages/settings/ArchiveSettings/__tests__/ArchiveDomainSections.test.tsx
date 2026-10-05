@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
 import { MockDataApiUtils } from '@test-mocks/renderer/DataApiService'
 import { MockUsePreferenceUtils } from '@test-mocks/renderer/usePreference'

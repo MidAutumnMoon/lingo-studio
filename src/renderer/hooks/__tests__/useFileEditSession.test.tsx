@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { SWRConfig } from 'swr'

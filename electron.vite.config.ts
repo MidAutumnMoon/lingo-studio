@@ -226,7 +226,8 @@ export default defineConfig({
         '@cherrystudio/ui/icons/providers': resolve('packages/ui/src/components/icons/providers'),
         '@cherrystudio/ui/icons': resolve('packages/ui/src/components/icons'),
         '@cherrystudio/ui': resolve('packages/ui/src'),
-        '@test-mocks': resolve('tests/__mocks__')
+        '@test-mocks': resolve('tests/__mocks__'),
+        '@test-helpers': resolve('tests/helpers')
       }
     },
     optimizeDeps: {

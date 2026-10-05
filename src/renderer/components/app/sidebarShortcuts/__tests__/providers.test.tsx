@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { dataApiService } from '@renderer/data/DataApiService'
 import { preferenceService } from '@renderer/data/PreferenceService'
-// @vitest-environment jsdom
 import type { SidebarShortcutTarget } from '@shared/data/preference/preferenceTypes'
 import { CodeCli } from '@shared/types/codeCli'
 

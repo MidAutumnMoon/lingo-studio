@@ -1,3 +1,4 @@
+import { stubNavigatorClipboard } from '@test-helpers/dom/clipboard'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { toast } from '@renderer/services/toast'
@@ -19,12 +20,7 @@ vi.mock('@logger', () => ({
 describe('copyApiKeyToClipboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // happy-dom defines navigator.clipboard as a getter-only prototype accessor,
-    // so defineProperty (which works in jsdom too) replaces it instead of Object.assign.
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: vi.fn().mockResolvedValue(undefined) },
-      configurable: true
-    })
+    stubNavigatorClipboard({ writeText: vi.fn().mockResolvedValue(undefined) })
   })
 
   it('shows success feedback after copying', async () => {

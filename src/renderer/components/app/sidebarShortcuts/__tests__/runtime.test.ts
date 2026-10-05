@@ -6,7 +6,6 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { TabsContext, type TabsContextValue } from '@renderer/hooks/tab/useTabsContext'
 import type { Tab } from '@shared/data/cache/cacheValueTypes'
-// @vitest-environment jsdom
 import { createSidebarShortcutId, type SidebarShortcutItem } from '@shared/data/preference/preferenceTypes'
 
 import { createSidebarShortcutTarget } from '../../../../utils/sidebar'

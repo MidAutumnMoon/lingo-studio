@@ -125,6 +125,29 @@ function createRect(top: number, bottom: number): DOMRect {
   }
 }
 
+// happy-dom hands out read-only computed styles, so layer the fake chrome metrics
+// over the real declaration instead of mutating it.
+function spyBodyChromeMetrics() {
+  const originalGetComputedStyle = window.getComputedStyle.bind(window)
+  return vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElement) => {
+    const style = originalGetComputedStyle(element, pseudoElement)
+    if ((element as HTMLElement).dataset.testid !== 'quick-panel-body') return style
+    const chromeMetrics = {
+      paddingTop: '5px',
+      paddingBottom: '5px',
+      borderTopWidth: '0.5px',
+      borderBottomWidth: '0.5px'
+    }
+    return new Proxy(style, {
+      get(target, property) {
+        return property in chromeMetrics
+          ? chromeMetrics[property as keyof typeof chromeMetrics]
+          : Reflect.get(target, property, target)
+      }
+    })
+  })
+}
+
 function PanelHarness({
   captureDispatch,
   footerActions,
@@ -961,28 +984,7 @@ describe('QuickPanelView', () => {
         if (this.dataset.testid === 'quick-panel-footer') return footerHeight
         return 0
       })
-    const originalGetComputedStyle = window.getComputedStyle.bind(window)
-    const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElement) => {
-      const style = originalGetComputedStyle(element, pseudoElement)
-      if ((element as HTMLElement).dataset.testid === 'quick-panel-body') {
-        // happy-dom hands out read-only computed styles, so layer the fake
-        // chrome metrics over the real declaration instead of mutating it.
-        const chromeMetrics = {
-          paddingTop: '5px',
-          paddingBottom: '5px',
-          borderTopWidth: '0.5px',
-          borderBottomWidth: '0.5px'
-        }
-        return new Proxy(style, {
-          get(target, property) {
-            return property in chromeMetrics
-              ? chromeMetrics[property as keyof typeof chromeMetrics]
-              : Reflect.get(target, property, target)
-          }
-        })
-      }
-      return style
-    })
+    const getComputedStyleSpy = spyBodyChromeMetrics()
 
     try {
       render(
@@ -1040,28 +1042,7 @@ describe('QuickPanelView', () => {
         if (this.dataset.testid === 'quick-panel-footer') return footerHeight
         return 0
       })
-    const originalGetComputedStyle = window.getComputedStyle.bind(window)
-    const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElement) => {
-      const style = originalGetComputedStyle(element, pseudoElement)
-      if ((element as HTMLElement).dataset.testid === 'quick-panel-body') {
-        // happy-dom hands out read-only computed styles, so layer the fake
-        // chrome metrics over the real declaration instead of mutating it.
-        const chromeMetrics = {
-          paddingTop: '5px',
-          paddingBottom: '5px',
-          borderTopWidth: '0.5px',
-          borderBottomWidth: '0.5px'
-        }
-        return new Proxy(style, {
-          get(target, property) {
-            return property in chromeMetrics
-              ? chromeMetrics[property as keyof typeof chromeMetrics]
-              : Reflect.get(target, property, target)
-          }
-        })
-      }
-      return style
-    })
+    const getComputedStyleSpy = spyBodyChromeMetrics()
 
     const renderPanel = (fill: boolean) => (
       <div data-composer-dock-layer="" data-testid="quick-panel-dock" style={{ overflow: 'hidden' }}>

@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import { stubNavigatorClipboard } from '@test-helpers/dom/clipboard'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -51,9 +52,7 @@ describe('ImageViewer', () => {
     Object.assign(window, {
       api: { file: { saveImage: mocks.saveImage }, fs: { read: mocks.fsRead } }
     })
-    // happy-dom defines navigator.clipboard as a getter-only prototype accessor,
-    // so defineProperty (which works in jsdom too) replaces it instead of Object.assign.
-    Object.defineProperty(navigator, 'clipboard', { value: mocks.clipboard, configurable: true })
+    stubNavigatorClipboard(mocks.clipboard)
     vi.stubGlobal('ClipboardItem', MockClipboardItem)
     vi.stubGlobal('fetch', mocks.fetch)
   })

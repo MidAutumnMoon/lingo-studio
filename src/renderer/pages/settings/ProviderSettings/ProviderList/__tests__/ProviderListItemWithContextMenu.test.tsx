@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
-// @vitest-environment jsdom
 import type { Provider } from '@shared/data/types/provider'
 
 vi.mock('@renderer/components/command', () => ({

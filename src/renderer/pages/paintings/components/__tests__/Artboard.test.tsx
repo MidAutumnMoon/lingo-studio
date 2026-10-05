@@ -1,3 +1,4 @@
+import { stubNavigatorClipboard } from '@test-helpers/dom/clipboard'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ImgHTMLAttributes, ReactNode } from 'react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -154,9 +155,7 @@ describe('Artboard', () => {
     mockSkeletonProps.mockClear()
     mockUsePaintingSizeInfo.mockReset()
     mockUsePaintingSizeInfo.mockReturnValue({ ratio: null, sizeLabel: undefined })
-    // happy-dom defines navigator.clipboard as a getter-only prototype accessor,
-    // so defineProperty (which works in jsdom too) replaces it instead of Object.assign.
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText: mockWriteText }, configurable: true })
+    stubNavigatorClipboard({ writeText: mockWriteText })
   })
 
   it('renders the shimmer skeleton while generating', () => {

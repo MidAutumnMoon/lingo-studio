@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
 import { MockUseCacheUtils } from '@test-mocks/renderer/useCache'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
