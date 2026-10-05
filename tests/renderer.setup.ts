@@ -125,7 +125,7 @@ vi.mock('axios', () => {
   }
 })
 
-// Mock ResizeObserver for jsdom environment
+// Mock ResizeObserver for the DOM test environment
 vi.stubGlobal(
   'ResizeObserver',
   class ResizeObserver {
@@ -134,6 +134,16 @@ vi.stubGlobal(
     disconnect() {}
   }
 )
+
+// happy-dom rejects Animation.finished on cancel() per spec; Motion's WAAPI path
+// never awaits it, so mark the rejection handled to keep the exit code clean.
+if (typeof window !== 'undefined' && window.Animation?.prototype?.cancel) {
+  const cancelAnimation = window.Animation.prototype.cancel
+  window.Animation.prototype.cancel = function (this: Animation) {
+    cancelAnimation.call(this)
+    this.finished?.catch(() => {})
+  }
+}
 
 vi.stubGlobal('electron', {
   ipcRenderer: {
