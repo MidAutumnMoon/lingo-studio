@@ -1,7 +1,7 @@
 import { parentPort, workerData } from 'node:worker_threads'
 
 import { Readability } from '@mozilla/readability'
-import { JSDOM } from 'jsdom'
+import { Window } from 'happy-dom'
 import TurndownService from 'turndown'
 
 const SAFE_JSDOM_URL = 'http://localhost/'
@@ -80,10 +80,16 @@ try {
   let content = input.source
 
   if (input.inputKind === 'html') {
-    const dom = new JSDOM(input.source, { url: SAFE_JSDOM_URL })
+    // document.write (rather than DOMParser) keeps document.baseURI on the window's
+    // URL, which Readability needs to rewrite relative links.
+    const window = new Window({ url: SAFE_JSDOM_URL })
+    window.document.write(input.source)
+    // Fragment inputs can strand head elements in the body (happy-dom skips the
+    // implied-head arrangement); they are metadata, never readable content.
+    window.document.body?.querySelectorAll('script, style, title, meta, link, base').forEach((element) => element.remove())
 
     try {
-      const article = new Readability(dom.window.document).parse()
+      const article = new Readability(window.document as unknown as Document).parse()
       title = article?.title || ''
       content = article?.textContent || ''
 
@@ -91,7 +97,7 @@ try {
         content = new TurndownService().turndown(article.content || '').trim()
       }
     } finally {
-      dom.window.close()
+      window.close()
     }
   }
 
