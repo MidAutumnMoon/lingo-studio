@@ -17,7 +17,6 @@ import type { ModelThinkingLevel } from '@earendil-works/pi-ai'
 import type { ProviderConfig } from '@earendil-works/pi-coding-agent'
 
 import { application } from '@application'
-import type { TokenUsageSource } from '@cherrystudio/analytics-client'
 import { aiUsageRecordService, type SourceSnapshot } from '@data/services/AiUsageRecordService'
 import { loggerService } from '@logger'
 import { resolveChatTurnPlan, type ChatTurnPlan, type ChatTurnPlanRequest } from '@main/ai/chatTurnPlan'
@@ -64,7 +63,6 @@ export type PiChatSeamRequest = ChatTurnPlanRequest & {
   trigger?: MainDispatchRequest['trigger']
   source?: SourceSnapshot | null
   usageContext?: { source?: SourceSnapshot | null; assistantMessageId: string }
-  tokenUsageSource?: TokenUsageSource
   runtimeTimingSink?: PiChatRuntimeTimingSink
 }
 
@@ -275,7 +273,6 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
       injection.usageCapture.owner === 'agent-sdk' ? injection.usageCapture.credentialReceipt : undefined,
     ...resolveUsageAttribution(request, assistant)
   })
-  const tokenUsageSource = request.tokenUsageSource ?? 'chat'
 
   const stream = await streamPiChatTurn(
     {
@@ -302,18 +299,6 @@ export async function tryStreamPiChatTurn(input: PiChatSeamInput): Promise<Reada
           metrics: invocation.metrics,
           completedAt: Date.now()
         })
-        if (!model.providerId || !model.apiModelId) return
-        try {
-          application.get('AnalyticsService').trackTokenUsage({
-            provider: model.providerId,
-            model: model.apiModelId ?? model.id,
-            input_tokens: invocation.usage?.inputTokens ?? 0,
-            output_tokens: invocation.usage?.outputTokens ?? 0,
-            source: tokenUsageSource
-          })
-        } catch {
-          // AnalyticsService may not be activated (data collection disabled)
-        }
       },
       ...(request.runtimeTimingSink && { runtimeTimingSink: request.runtimeTimingSink }),
       toolCallLimit: plan.toolCallLimit,

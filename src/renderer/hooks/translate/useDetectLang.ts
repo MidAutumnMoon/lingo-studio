@@ -211,7 +211,7 @@ export const useDetectLang = () => {
       }
 
       // No data: endpoint resolved with an empty list. Seeder failure or DB
-      // corruption — log loudly for Sentry and surface a one-shot toast so
+      // corruption — log loudly and surface a one-shot toast so
       // the user knows why every translation is coming back as UNKNOWN.
       if (languages.length === 0) {
         logger.error('useDetectLang invoked with an empty language list')

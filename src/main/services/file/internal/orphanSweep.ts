@@ -345,7 +345,7 @@ async function runFileSweepInner(deps: RunFileSweepDeps, deleteFiles: boolean): 
         return emptyCompleted(idSnapshot.size, startedAt)
       }
       // Permission / I/O / wrong-type — surface as failure so the operator
-      // (or future Sentry) sees a real signal, not a silent zero-count log.
+      // sees a real signal, not a silent zero-count log.
       return {
         ...zeroStats(idSnapshot.size, startedAt),
         outcome: 'failed',

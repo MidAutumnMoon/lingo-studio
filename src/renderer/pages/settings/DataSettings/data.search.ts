@@ -48,12 +48,6 @@ export const entries: SettingsSearchEntry[] = [
     aliases: ['reset', '恢复出厂', '清空数据']
   },
   {
-    anchorId: 'data-privacy-mode',
-    titleKey: 'settings.privacy.enable_privacy_mode',
-    panel: 'data',
-    groupKey: 'settings.privacy.title'
-  },
-  {
     anchorId: 'local-backup-directory',
     titleKey: 'settings.data.local.directory.label',
     panel: 'local_backup',

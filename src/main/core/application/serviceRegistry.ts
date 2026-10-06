@@ -23,7 +23,6 @@ import { BrowserSessionService } from '@main/features/browser'
 import { FileProcessingService, TesseractRuntimeService } from '@main/features/fileProcessing'
 import { KnowledgeService, KnowledgeVectorStoreService } from '@main/features/knowledge'
 import { IpcApiService } from '@main/ipc/IpcApiService'
-import { AnalyticsService } from '@main/services/AnalyticsService'
 import { AppMenuService } from '@main/services/AppMenuService'
 import { AppService } from '@main/services/AppService'
 import { AutoBackupService } from '@main/services/AutoBackupService'
@@ -49,7 +48,6 @@ import { ProtocolService } from '@main/services/protocol/ProtocolService'
 import { ProviderRegistryUpdaterService } from '@main/services/ProviderRegistryUpdaterService'
 import { ProxyService } from '@main/services/proxy/ProxyService'
 import { PythonService } from '@main/services/PythonService'
-import { SentryLogService } from '@main/services/SentryLogService'
 import { ShortcutService } from '@main/services/ShortcutService'
 import { StorageMonitorService } from '@main/services/StorageMonitorService'
 import { SubWindowService } from '@main/services/SubWindowService'
@@ -91,9 +89,7 @@ export const services = {
   IpcApiService,
   SubWindowService,
   PreferenceService,
-  SentryLogService,
   TesseractRuntimeService,
-  AnalyticsService,
   AppMenuService,
   AppService,
   CodeCliService,

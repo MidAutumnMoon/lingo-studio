@@ -117,10 +117,6 @@ jobs:
           pnpm ${{ matrix.edition == 'cn' && 'build:linux:cn' || 'build:linux' }} --publish never
         env:
           NODE_OPTIONS: --max-old-space-size=8192
-          SENTRY_SOURCE_MAP_UPLOAD: "true"
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
       - name: Build Mac
         if: matrix.os == 'macos-latest'
@@ -135,10 +131,6 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           NODE_OPTIONS: --max-old-space-size=8192
-          SENTRY_SOURCE_MAP_UPLOAD: "true"
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           MAIN_VITE_CHERRYAI_CLIENT_SECRET: ${{ secrets.MAIN_VITE_CHERRYAI_CLIENT_SECRET }}
           MAIN_VITE_MINERU_API_KEY: ${{ secrets.MAIN_VITE_MINERU_API_KEY }}
           RENDERER_VITE_AIHUBMIX_SECRET: ${{ secrets.RENDERER_VITE_AIHUBMIX_SECRET }}
@@ -150,10 +142,6 @@ jobs:
         env:
           ELECTRON_BUILDER_7Z_FILTER: BCJ
           NODE_OPTIONS: --max-old-space-size=8192
-          SENTRY_SOURCE_MAP_UPLOAD: "true"
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
       - name: Validate edition preview artifacts
         run: node scripts/release/validate-edition-artifacts.js "${{ matrix.edition }}"

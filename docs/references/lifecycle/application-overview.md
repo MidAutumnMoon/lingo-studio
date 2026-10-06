@@ -119,8 +119,7 @@ Preboot callbacks that must work before services exist can use
 `application.getExisting('ServiceName')`. It returns an already-created instance
 or `undefined`, without instantiating a service or throwing when it is absent.
 Existence does not imply readiness: check `service?.isReady` before relying on
-initialized state. For example, Sentry's consent gate blocks reporting while
-`PreferenceService` is absent, initializing, or stopped. This exception does not
+initialized state. This exception does not
 replace normal service access or declared lifecycle dependencies.
 
 ### Local variables are optional

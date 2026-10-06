@@ -171,7 +171,6 @@ themeService.init()
 windowService.createMainWindow()
 new TrayService()
 nodeTraceService.init()
-analyticsService.init()
 ```
 
 The lifecycle system calls `onInit()` automatically in the correct order during `application.bootstrap()`.

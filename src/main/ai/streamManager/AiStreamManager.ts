@@ -4,7 +4,6 @@ import { context as otelContext, type Span, SpanStatusCode, trace } from '@opent
 import type { UIMessageChunk } from 'ai'
 
 import { application } from '@application'
-import type { TokenUsageSource } from '@cherrystudio/analytics-client'
 import { loggerService } from '@logger'
 import { DEFAULT_TIMEOUT } from '@main/ai/constants'
 import { chatErrorContext } from '@main/ai/utils/chatErrorContext'
@@ -75,7 +74,6 @@ import { withReasoningTimingMetadata } from './withReasoningTimingMetadata'
 const logger = loggerService.withContext('AiStreamManager')
 type ManagedAiStreamRequest = AiStreamRequest & {
   usageContext?: InProcessUsageContext
-  tokenUsageSource?: TokenUsageSource
 }
 
 // Renderer→main stream requests (open/attach/detach/abort) are validated by the IpcApi
@@ -864,8 +862,6 @@ export class AiStreamManager extends BaseService {
     idleTimeoutMs?: number
     /** In-process agent correlation for gateway-owned provider-request records. */
     usageContext?: InProcessUsageContext
-    /** Trusted in-process classification for remote token analytics. */
-    tokenUsageSource?: TokenUsageSource
     source?: SourceSnapshot | null
     /** `0` disables same-model retry AND cross-model fallback. */
     maxRetries?: 0
@@ -888,7 +884,6 @@ export class AiStreamManager extends BaseService {
       contextOwner: input.contextOwner,
       reasoningEffort: input.reasoningEffort,
       ...(input.usageContext ? { usageContext: input.usageContext } : {}),
-      ...(input.tokenUsageSource ? { tokenUsageSource: input.tokenUsageSource } : {}),
       source: input.source,
       ...(input.idleTimeoutMs !== undefined || input.maxRetries !== undefined
         ? {

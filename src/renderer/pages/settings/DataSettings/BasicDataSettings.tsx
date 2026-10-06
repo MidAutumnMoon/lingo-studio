@@ -57,7 +57,6 @@ const BasicDataSettings: React.FC = () => {
   const [clearingCache, setClearingCache] = useState(false)
   const { theme } = useTheme()
   const [skipBackupFile, setSkipBackupFile] = usePreference('data.backup.general.skip_backup_file')
-  const [enableDataCollection, setEnableDataCollection] = usePreference('app.privacy.data_collection.enabled')
   const [logRetentionDays, setLogRetentionDays] = usePreference('app.logs.retention_days')
   const [hasV1MigrationSource, setHasV1MigrationSource] = useState(
     () => localStorage.getItem(V1_REDUX_PERSIST_KEY) !== null
@@ -432,19 +431,6 @@ const BasicDataSettings: React.FC = () => {
               {t('settings.data.data_reset.button')}
             </Button>
           </RowFlex>
-        </SettingRow>
-      </SettingGroup>
-      <SettingGroup theme={theme}>
-        <SettingTitle>{t('settings.privacy.title')}</SettingTitle>
-        <SettingDivider />
-        <SettingRow id="setting-data-data-privacy-mode" className="scroll-mt-6">
-          <SettingRowTitle>{t('settings.privacy.enable_privacy_mode')}</SettingRowTitle>
-          <Switch
-            checked={enableDataCollection}
-            onCheckedChange={(v) => {
-              void setEnableDataCollection(v)
-            }}
-          />
         </SettingRow>
       </SettingGroup>
     </>

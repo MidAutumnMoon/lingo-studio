@@ -9,7 +9,6 @@ import {
   type RuntimeProviderCallEvent,
   type RuntimeProviderCallHandler
 } from '@cherrystudio/ai-core'
-import type { TokenUsageSource } from '@cherrystudio/analytics-client'
 import { endpointImpliedCapability, type ParamValues } from '@cherrystudio/provider-registry'
 import {
   type AiUsageCaptureContext,
@@ -170,8 +169,6 @@ export interface AiRequestOptions extends AiTransportOptions {
 /** Widens `requestOptions` to accept the in-process shape on `AiService.*` method signatures. */
 export type AsInProcess<T extends AiRequest> = Omit<T, 'requestOptions'> & {
   requestOptions?: AiRequestOptions
-  /** Trusted in-process classification for remote token analytics. */
-  tokenUsageSource?: TokenUsageSource
   resolvedModel?: { readonly provider: Provider; readonly model: Model }
 }
 
@@ -544,8 +541,8 @@ export class AiService extends BaseService {
       ...(request.reasoningEffort && { reasoning: request.reasoningEffort })
     })
 
-    // Same sinks the legacy engine's plugins fed: one language invocation per
-    // provider call (billing) plus the analytics token funnel.
+    // Same sink the legacy engine's plugins fed: one language invocation per
+    // provider call (billing).
     const captureContext = createRequestCaptureContext({
       provider,
       model,
@@ -566,11 +563,6 @@ export class AiService extends BaseService {
       metrics: { timeCompletionMs: result.timeCompletionMs },
       completedAt: Date.now()
     })
-    this.trackUsage(
-      model,
-      { inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens },
-      request.tokenUsageSource ?? 'chat'
-    )
 
     return { text: result.text, usage: toLanguageModelUsage(result.usage) }
   }
@@ -1122,31 +1114,6 @@ export class AiService extends BaseService {
     )
     applyHttpTrace(sdkConfig.providerSettings, { modelName: model.name ?? model.id })
     return { provider, model, assistant, sdkConfig, credentialReceipt }
-  }
-
-  // ── Token usage tracking ──
-
-  private trackUsage(
-    model: Model,
-    usage?: { inputTokens?: number; outputTokens?: number },
-    source: TokenUsageSource = 'chat'
-  ): void {
-    if (!usage || !model.providerId || !model.apiModelId) return
-    const inputTokens = usage.inputTokens ?? 0
-    const outputTokens = usage.outputTokens ?? 0
-
-    try {
-      const analyticsService = application.get('AnalyticsService')
-      analyticsService.trackTokenUsage({
-        provider: model.providerId,
-        model: model.apiModelId ?? model.id,
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
-        source
-      })
-    } catch {
-      // AnalyticsService may not be activated (data collection disabled)
-    }
   }
 
   /** Priority: explicit `uniqueModelId` > `assistant.modelId`. */

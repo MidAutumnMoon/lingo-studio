@@ -17,7 +17,6 @@ import { makeProvider } from './fixtures/provider'
 
 type AiServicePrivate = {
   resolveTransportFor: (...args: never[]) => Promise<unknown>
-  trackUsage: (...args: never[]) => void
 }
 
 const mockGenerateImage = vi.fn()
@@ -662,11 +661,9 @@ describe('AiService', () => {
       mockEmbedMany.mockResolvedValue({ embeddings: [[0.1, 0.2]], usage: { tokens: 42 } })
     }
 
-    it('returns embedding usage without reporting tokens to analytics', async () => {
+    it('returns embedding usage', async () => {
       const service = createService()
       stubEmbedding(service)
-      const trackTokenUsage = vi.fn()
-      mockApplicationGet.mockReturnValue({ trackTokenUsage })
 
       const result = await service.embedMany({
         uniqueModelId: 'test-provider::test-embedding-model',
@@ -674,7 +671,6 @@ describe('AiService', () => {
       })
 
       expect(result).toEqual({ embeddings: [[0.1, 0.2]], usage: { tokens: 42 } })
-      expect(trackTokenUsage).not.toHaveBeenCalled()
     })
 
     it('records the usage entry with modality "embedding" and the token count', async () => {
@@ -812,12 +808,10 @@ describe('AiService', () => {
       )
     })
 
-    it('records one language usage invocation and analytics tokens per call', async () => {
+    it('records one language usage invocation per call', async () => {
       const service = createService()
-      const trackTokenUsage = vi.fn()
       mockApplicationGet.mockImplementation((name: string) => {
         if (name === 'PreferenceService') return defaultServiceInstances.PreferenceService
-        if (name === 'AnalyticsService') return { trackTokenUsage }
         return undefined
       })
 
@@ -830,13 +824,6 @@ describe('AiService', () => {
         usage: ONE_SHOT_RESULT.usage,
         metrics: { timeCompletionMs: 37 },
         requestId: expect.stringMatching(/^pi-one-shot:test-provider:/)
-      })
-      expect(trackTokenUsage).toHaveBeenCalledWith({
-        provider: 'test-provider',
-        model: 'test-model',
-        input_tokens: 21,
-        output_tokens: 5,
-        source: 'chat'
       })
     })
 
@@ -1315,7 +1302,6 @@ describe('AiService tool approval', () => {
 
   it('passes the AI SDK default maxRetries (2) to embedMany', async () => {
     const service = createService()
-    vi.spyOn(service as unknown as AiServicePrivate, 'trackUsage').mockReturnValue(undefined)
     vi.spyOn(service as unknown as AiServicePrivate, 'resolveTransportFor').mockResolvedValue({
       sdkConfig: { providerId: 'test-provider', providerSettings: {}, modelId: 'test-embed' },
       credentialReceipt: { attribution: 'explicit', id: 'key-a', masked: 'sk-a****aaaa' },

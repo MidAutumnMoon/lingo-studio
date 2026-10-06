@@ -1,7 +1,6 @@
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
-import { sentryVitePlugin } from '@sentry/vite-plugin'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
@@ -17,7 +16,6 @@ import { chunkExportGuardPlugin } from './scripts/checkChunkExports'
 import { uiContractPlugin } from './scripts/uiContract/vitePlugin'
 import { APP_EDITIONS, type AppEdition } from './src/shared/types/appEdition'
 import { parseReleaseHistory, validateCurrentReleaseHistory } from './src/shared/utils/releaseNotes'
-import { getSentryBuildContext } from './src/shared/utils/sentry'
 
 type ElectronBuilderConfig = {
   releaseInfo?: {
@@ -45,18 +43,8 @@ const visualizerPlugin = (type: 'renderer' | 'main') => {
 const isDev = process.env.NODE_ENV === 'development'
 const isProd = process.env.NODE_ENV === 'production'
 
-const SENTRY_UPLOAD_ENV_KEYS = ['SENTRY_AUTH_TOKEN', 'SENTRY_ORG', 'SENTRY_PROJECT'] as const
-
-export function resolveSentryBuildSettings(env: NodeJS.ProcessEnv) {
-  const sourceMapUploadEnabled = env.NODE_ENV === 'production' && env.SENTRY_SOURCE_MAP_UPLOAD === 'true'
-  const missingUploadEnv = sourceMapUploadEnabled ? SENTRY_UPLOAD_ENV_KEYS.filter((key) => !env[key]?.trim()) : []
-
-  if (missingUploadEnv.length > 0) {
-    throw new Error(`Sentry production builds require: ${missingUploadEnv.join(', ')}`)
-  }
-
-  return { sourceMapUploadEnabled }
-}
+// Shipped builds carry no sourcemaps; dev keeps them for debugging.
+const sourceMap = isDev
 
 export function resolveRendererEdition(value: string | undefined): AppEdition {
   const edition = value?.trim().toLowerCase() || 'global'
@@ -65,27 +53,6 @@ export function resolveRendererEdition(value: string | undefined): AppEdition {
 }
 
 const rendererEdition = resolveRendererEdition(process.env.CHERRY_EDITION)
-const sentryBuildContext = getSentryBuildContext(pkg.name, pkg.version, rendererEdition)
-const { sourceMapUploadEnabled } = resolveSentryBuildSettings(process.env)
-const sentrySourceMap = sourceMapUploadEnabled ? ('hidden' as const) : isDev
-const sentrySourceMapPlugins = (outputDirectory: 'main' | 'preload' | 'renderer') =>
-  sourceMapUploadEnabled
-    ? sentryVitePlugin({
-        authToken: process.env.SENTRY_AUTH_TOKEN,
-        org: process.env.SENTRY_ORG,
-        project: process.env.SENTRY_PROJECT,
-        telemetry: false,
-        release: {
-          name: sentryBuildContext.release,
-          create: false,
-          finalize: false,
-          setCommits: false
-        },
-        sourcemaps: {
-          filesToDeleteAfterUpload: `./out/${outputDirectory}/**/*.map`
-        }
-      })
-    : []
 
 // Bundle/externalize split for the main process: everything in `dependencies` is
 // externalized below (kept in node_modules of the packaged app), and everything
@@ -126,7 +93,7 @@ export const mainResolveAlias = {
 export default defineConfig({
   main: {
     define: { __APP_EDITION__: JSON.stringify(rendererEdition) },
-    plugins: [chunkExportGuardPlugin(), ...visualizerPlugin('main'), ...sentrySourceMapPlugins('main')],
+    plugins: [chunkExportGuardPlugin(), ...visualizerPlugin('main')],
     resolve: { alias: mainResolveAlias },
     build: {
       externalizeDeps: {
@@ -150,21 +117,20 @@ export default defineConfig({
           warn(warning)
         }
       },
-      sourcemap: sentrySourceMap
+      sourcemap: sourceMap
     },
     optimizeDeps: {
       noDiscovery: isDev
     }
   },
   preload: {
-    plugins: [...sentrySourceMapPlugins('preload')],
     resolve: {
       alias: {
         '@shared': resolve('src/shared')
       }
     },
     build: {
-      sourcemap: sentrySourceMap,
+      sourcemap: sourceMap,
       rolldownOptions: {
         // Unlike renderer which auto-discovers entries from HTML files,
         // preload requires explicit entry point configuration for multiple scripts
@@ -207,8 +173,7 @@ export default defineConfig({
       // CodeInspectorPlugin above react() so it annotates raw JSX before the compiler lowers it.
       react({ compiler: false }),
       // react({ compiler: { reportDiagnostics: true, logDiagnostics: true } })
-      ...visualizerPlugin('renderer'),
-      ...sentrySourceMapPlugins('renderer')
+      ...visualizerPlugin('renderer')
     ],
     resolve: {
       alias: {
@@ -242,7 +207,7 @@ export default defineConfig({
       format: 'es'
     },
     build: {
-      sourcemap: sentrySourceMap,
+      sourcemap: sourceMap,
       target: 'esnext', // for build
       rolldownOptions: {
         input: {

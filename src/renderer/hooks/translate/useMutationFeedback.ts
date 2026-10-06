@@ -38,8 +38,8 @@ interface FeedbackContext {
 /**
  * Wraps a mutation function with standardized feedback:
  *
- * - **Always** logs errors via `context.logger.error` (no opt-out, so Sentry
- *   never silently loses a mutation failure).
+ * - **Always** logs errors via `context.logger.error` (no opt-out, so a
+ *   mutation failure is never silently swallowed).
  * - Conditionally emits success/error toasts.
  * - Conditionally rethrows the error so consumers that rely on throw-to-keep-open
  *   semantics (PopoverConfirm, Modal submit) still work.

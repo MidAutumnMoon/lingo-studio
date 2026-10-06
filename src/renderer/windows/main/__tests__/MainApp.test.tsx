@@ -13,10 +13,6 @@ vi.mock('../onboarding/OnboardingPage', () => {
   return { default: () => <div data-testid="onboarding-page">onboarding</div> }
 })
 
-vi.mock('../privacy/PrivacyPolicyUpdateGate', () => ({
-  PrivacyPolicyUpdateGate: () => <div data-testid="privacy-policy-gate">privacy-policy-gate</div>
-}))
-
 const tabsProviderMock = vi.hoisted(() => ({ lastInitialDefaultTab: null as unknown }))
 
 vi.mock('@renderer/components/layout/TabsProvider', () => ({
@@ -77,7 +73,6 @@ describe('MainWindowContent', () => {
       expect(screen.getByTestId('tabs-provider')).toBeInTheDocument()
       expect(screen.getByTestId('app-shell')).toBeInTheDocument()
       expect(screen.queryByTestId('onboarding-page')).not.toBeInTheDocument()
-      expect(screen.getByTestId('privacy-policy-gate')).toBeInTheDocument()
       expect(onboardingModule.evaluations).toBe(0)
       view.unmount()
     }
@@ -92,7 +87,6 @@ describe('MainWindowContent', () => {
     expect(await screen.findByTestId('onboarding-page')).toBeInTheDocument()
     expect(onboardingModule.evaluations).toBe(1)
     expect(screen.queryByTestId('app-shell')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('privacy-policy-gate')).not.toBeInTheDocument()
     expect(document.getElementById('spinner')).toBeNull()
   })
 

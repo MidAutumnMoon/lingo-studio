@@ -2088,8 +2088,8 @@ export class JobManager extends BaseService {
    * enqueue failure (`JOB_PAYLOAD_TOO_LARGE`, unregistered type, DB
    * constraint) cannot leave `nextRun` stuck null and form an infinite
    * "always overdue → catch-up enqueue → fails again" loop after restart.
-   * The error log keeps `{ code, stack }` so Sentry can bucket distinct
-   * failure modes instead of flattening to one opaque string.
+   * The error log keeps `{ code, stack }` so distinct failure modes stay
+   * distinguishable instead of flattening to one opaque string.
    *
    * A spent `once` schedule (its natural fire already happened) is never
    * re-armed — see the guard below.

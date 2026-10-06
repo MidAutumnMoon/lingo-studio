@@ -44,8 +44,7 @@ const mocks = vi.hoisted(() => ({
   getSessionById: vi.fn(),
   getAgent: vi.fn(),
   ensureTraceId: vi.fn(),
-  recordUsage: vi.fn(),
-  trackTokenUsage: vi.fn()
+  recordUsage: vi.fn()
 }))
 
 const forkRecoveryMocks = vi.hoisted(() => ({
@@ -514,7 +513,6 @@ describe('AgentSessionRuntimeService', () => {
           getShared: mocks.cacheGetShared,
           deleteShared: mocks.cacheDeleteShared
         }
-      if (name === 'AnalyticsService') return { trackTokenUsage: mocks.trackTokenUsage }
       throw new Error(`Unexpected application.get(${name})`)
     })
   })
@@ -885,13 +883,6 @@ describe('AgentSessionRuntimeService', () => {
         })
       )
     )
-    expect(mocks.trackTokenUsage).toHaveBeenCalledWith({
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-5',
-      input_tokens: 10,
-      output_tokens: 5,
-      source: 'agent'
-    })
 
     events.push({ type: 'turn-complete' })
     await expect(reader.read()).resolves.toMatchObject({ done: true })
@@ -928,13 +919,6 @@ describe('AgentSessionRuntimeService', () => {
         })
       )
     )
-    expect(mocks.trackTokenUsage).toHaveBeenLastCalledWith({
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-5',
-      input_tokens: 4,
-      output_tokens: 2,
-      source: 'agent'
-    })
     void service.closeSession('session-1')
   })
 
@@ -951,7 +935,6 @@ describe('AgentSessionRuntimeService', () => {
     })
 
     expect(mocks.recordUsage).not.toHaveBeenCalled()
-    expect(mocks.trackTokenUsage).not.toHaveBeenCalled()
   })
 
   describe('api_retry ephemeral status', () => {

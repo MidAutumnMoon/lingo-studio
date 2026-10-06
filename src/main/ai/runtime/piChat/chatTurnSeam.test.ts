@@ -9,10 +9,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import { makeAssistant, makeModel, makeProvider } from '../../__tests__/fixtures'
 
-const { mockPreferenceGet, mockResolveToolApproval, mockTrackTokenUsage, mockRecordInvocation } = vi.hoisted(() => ({
+const { mockPreferenceGet, mockResolveToolApproval, mockRecordInvocation } = vi.hoisted(() => ({
   mockPreferenceGet: vi.fn(),
   mockResolveToolApproval: vi.fn(),
-  mockTrackTokenUsage: vi.fn(),
   mockRecordInvocation: vi.fn()
 }))
 
@@ -21,7 +20,6 @@ vi.mock('@application', () => ({
     get: (name: string) => {
       if (name === 'PreferenceService') return { get: mockPreferenceGet }
       if (name === 'AiStreamManager') return { resolveToolApproval: mockResolveToolApproval }
-      if (name === 'AnalyticsService') return { trackTokenUsage: mockTrackTokenUsage }
       throw new Error(`Unexpected service: ${name}`)
     }
   }
@@ -460,8 +458,8 @@ describe('pi chat seam preparation', () => {
     mockResolveInjection.mockReturnValue(INJECTION)
   })
 
-  it('records usage invocations with chat attribution and analytics', async () => {
-    const input = seamInput({ tokenUsageSource: 'chat' })
+  it('records usage invocations with chat attribution', async () => {
+    const input = seamInput()
     await tryStreamPiChatTurn(input)
     const engineRequest = mockStreamPiChatTurn.mock.calls[0][0]
     const usage = { inputTokens: 3, outputTokens: 5 }
@@ -483,9 +481,6 @@ describe('pi chat seam preparation', () => {
     const recorded = mockRecordInvocation.mock.calls[0][0]
     expect(recorded.context.messageRef).toEqual({ kind: 'chat', id: 'anchor-1' })
     expect(recorded.context.modelId).toBe('test-model')
-    expect(mockTrackTokenUsage).toHaveBeenCalledWith(
-      expect.objectContaining({ provider: 'test-provider', input_tokens: 3, output_tokens: 5, source: 'chat' })
-    )
   })
 
   it('does not touch the engine when no tools are selected', async () => {

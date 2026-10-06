@@ -22,7 +22,6 @@ import { requireSingleInstance } from '@main/core/preboot/singleInstance'
 import { resolveUserDataLocation } from '@main/core/preboot/userDataLocation'
 import { runV2MigrationGate } from '@main/core/preboot/v2MigrationGate'
 import { runDataReset } from '@main/services/dataReset'
-import { initSentry } from '@main/services/sentry'
 import { runUserDataRelocation } from '@main/services/userDataRelocation'
 import { getApplicationId } from '@main/utils/appEdition'
 
@@ -31,7 +30,6 @@ resolveUserDataLocation()
 requireSingleInstance()
 configureChromiumFlags()
 initCrashTelemetry()
-initSentry()
 // Freeze the path registry — bootstrap() asserts this completed.
 application.initPathRegistry()
 

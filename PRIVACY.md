@@ -1,6 +1,6 @@
 # Cherry Studio Privacy Policy
 
-**Updated Date:** August 20, 2026
+**Updated Date:** October 6, 2026
 
 **Effective Date:** August 20, 2026
 
@@ -8,33 +8,27 @@ Welcome to Cherry Studio (hereinafter referred to as "this Software" or "we"). W
 
 ## I. Scope of Information We Collect
 
-To ensure the proper functioning of the Software, optimize user experience, and improve product quality, we collect the following fully anonymized non-personal operational information in the following two categories. All such information is anonymized, contains no data that can identify you personally, and cannot be linked to your personal information. You retain full control over all data collection activities, as described below.
+This Software contains no automatic telemetry. It does not collect, upload, or otherwise transmit usage statistics, feature-activity data, error logs, or crash reports in the background, and it does not attach any persistent unique identifier to the network requests it makes. The only data transmissions this Software directs toward our or third-party servers in connection with its own operation are the three categories below; each is either initiated by you or limited to retrieving public update information.
 
-### (1) Basic Operational Information
+### (1) Diagnostics You Explicitly Choose to Upload
 
-This information is collected by default to ensure the basic functionality, security, and version compatibility of the Software:
+When you contact us for support, the Software can help you assemble a diagnostics bundle from the data sources you select (for example logs and request traces). A bundle is uploaded to our official service (api.cherry-ai.com) only after you explicitly confirm the upload, together with a short description you provide. You may review and delete the bundle file on your device before and after uploading it.
 
-- Software version information: Used for version compatibility checks;
-- Aggregated feature usage information: Overall usage summaries of various features (excluding specific behavioral details).
+### (2) Release Notes and Provider Registry Update Checks
 
-### (2) Product Improvement Information
+To display release notes and keep the built-in model provider registry current, the Software fetches this public information: release notes are fetched on demand from our official endpoint, and registry updates are checked periodically from public hosting services. These requests carry a standard User-Agent header identifying the Software version and your operating system family and CPU architecture (for example, `CherryStudio/1.x (Mac OS X 15; arm64)`), used solely to keep the delivered information compatible with your environment; they do not carry any persistent unique identifier or any of your data. To select the appropriate registry source, the Software also consults a third-party IP-geolocation service, which necessarily receives your IP address for that lookup.
 
-To continuously improve the product experience, we collect the following information by default:
+### (3) Local-Only Diagnostic Traces and Logs (Developer Mode)
 
-- Feature usage activity and frequency: The activity level and call frequency of various features;
-- Error logs and crash reports: Anonymous error logs and crash stack traces generated during Software operation, used for troubleshooting and stability improvement.
+When you enable Developer Mode, the Software records traces and logs of AI requests on your device to help diagnose problems. These records are stored only on your local device, are never transmitted by the Software itself, and can be deleted from your device at any time. They leave your device only if you deliberately include them in a diagnostics bundle you upload under item (1).
 
-The above information is highly aggregated anonymous data and does not involve your conversation content, API Keys, or any personally identifiable information.
+### (4) Our Commitments
 
-**How to Disable:** You may disable the collection of both categories of information at any time through the corresponding toggles under [Settings] - [Data Settings] - [Privacy Settings]. Disabling these options will not affect the core functionality of the Software. If you disable the collection of Basic Operational Information, you may not receive version compatibility notices in a timely manner.
+We commit that any information reaching our servers through the channels described above:
 
-### (3) Our Commitments
-
-Whether categorized as Basic Operational Information or Product Improvement Information, we commit that all collected information:
-
-- Is fully anonymized and cannot be linked to your personal identity;
+- Is limited to what is described above and nothing more;
 - Will NOT be used for user profiling or targeted advertising, nor sold or otherwise provided to third parties (except as mandatorily required by laws and regulations);
-- Will NOT include your conversation content, API Keys, knowledge base content, or any other sensitive data (see Section II for details).
+- Will NOT include your API Keys, knowledge base content, or any other sensitive data beyond what you deliberately place in a diagnostics bundle you choose to upload (see Section II for details).
 
 ## II. Information We Explicitly Do NOT Collect
 
@@ -70,7 +64,7 @@ When you use API Keys for third-party model services that you have applied for a
 
 You shall bear all privacy and compliance risks associated with using third-party model service providers.
 
-Each model provider (e.g., large language model companies) will, in accordance with its own privacy policies and data security measures, process the data you actively input (such as conversation content) and may independently collect other related data within the scope of its services. Such processing and collection activities are beyond the control of this Software, and the toggles under [Settings] - [Privacy Settings] cannot disable such activities.
+Each model provider (e.g., large language model companies) will, in accordance with its own privacy policies and data security measures, process the data you actively input (such as conversation content) and may independently collect other related data within the scope of its services. Such processing and collection activities are beyond the control of this Software and cannot be disabled from within this Software.
 
 If you wish to learn about or disable such data processing and collection activities, please review the privacy policy on the official website of the model service provider you have selected and contact them for instructions on disabling such activities. We assume no responsibility in this regard.
 
@@ -89,7 +83,7 @@ The API Keys, passwords, and other credentials you enter are used only locally o
 
 Third-party services are operated independently by their respective service providers. Their data processing activities (including collection, use, storage, and sharing) are governed by those service providers' own privacy policies and terms. We recommend that you carefully read and understand the relevant service provider's privacy policy and terms of service before connecting. You are responsible for using the third-party service in compliance and for assuming all risks and responsibilities associated with using that service. We assume no responsibility for data breaches, loss, or improper processing resulting from your use of third-party services.
 
-Please also be aware that the above third-party service providers may independently collect your data within the scope of their services. Such collection activities are beyond the control of this Software, and the toggles under [Settings] - [Privacy Settings] cannot disable such collection. If you wish to disable such collection, please contact the relevant third-party service provider for instructions.
+Please also be aware that the above third-party service providers may independently collect your data within the scope of their services. Such collection activities are beyond the control of this Software and cannot be disabled from within this Software. If you wish to disable such collection, please contact the relevant third-party service provider for instructions.
 
 ## VII. Disclaimer Regarding Third-Party Service Providers and Third-Party Services
 
