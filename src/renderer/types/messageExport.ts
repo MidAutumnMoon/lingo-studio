@@ -34,15 +34,7 @@ export interface MessageExportView {
 // is gated on migrating `export.test.ts` / `copy.test.ts` off the v1 block model.
 export type ExportableMessage = Message | MessageExportView
 
-export type MessageExportTarget =
-  | 'markdown'
-  | 'markdown-reason'
-  | 'word'
-  | 'notion'
-  | 'yuque'
-  | 'obsidian'
-  | 'joplin'
-  | 'siyuan'
+export type MessageExportTarget = 'markdown' | 'markdown-reason' | 'word' | 'yuque' | 'obsidian' | 'joplin' | 'siyuan'
 
 export type ExportMessages = (messages: MessageExportView[], target: MessageExportTarget) => Promise<boolean>
 

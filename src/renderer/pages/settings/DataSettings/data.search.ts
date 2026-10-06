@@ -182,19 +182,6 @@ export const entries: SettingsSearchEntry[] = [
     groupKey: 'settings.data.markdown_export.title'
   },
   {
-    anchorId: 'notion-api-key',
-    titleKey: 'settings.data.notion.api_key',
-    panel: 'notion',
-    groupKey: 'settings.data.notion.title',
-    aliases: ['notion']
-  },
-  {
-    anchorId: 'notion-database-id',
-    titleKey: 'settings.data.notion.database_id',
-    panel: 'notion',
-    groupKey: 'settings.data.notion.title'
-  },
-  {
     anchorId: 'yuque-token',
     titleKey: 'settings.data.yuque.token',
     panel: 'yuque',

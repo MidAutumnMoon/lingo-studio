@@ -313,10 +313,6 @@ registerCommand('message.exportWord', async ({ actions, messageForExport }) => {
   await actions.exportToWord?.(markdown, title)
 })
 
-registerCommand('message.exportNotion', async ({ actions, messageForExport }) => {
-  await actions.exportToNotion?.(messageForExport)
-})
-
 registerCommand('message.exportYuque', async ({ actions, messageForExport }) => {
   await actions.exportToYuque?.(messageForExport)
 })

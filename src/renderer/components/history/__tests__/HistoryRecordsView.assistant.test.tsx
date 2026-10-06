@@ -264,7 +264,6 @@ vi.mock('@renderer/services/ExportService', () => ({
   exportMarkdownToYuque: vi.fn(),
   exportTopicAsMarkdown: vi.fn(),
   exportTopicToNotes: vi.fn(),
-  exportTopicToNotion: vi.fn(),
   topicToMarkdown: vi.fn().mockResolvedValue('# topic')
 }))
 
@@ -291,7 +290,6 @@ vi.mock('react-i18next', () => ({
         'chat.topics.export.joplin': 'Export to Joplin',
         'chat.topics.export.md.label': 'Export as Markdown',
         'chat.topics.export.md.reason': 'Export as Markdown with Reasoning',
-        'chat.topics.export.notion': 'Export to Notion',
         'chat.topics.export.obsidian': 'Export to Obsidian',
         'chat.topics.export.siyuan': 'Export to Siyuan',
         'chat.topics.export.title': 'Export',
@@ -490,7 +488,6 @@ describe('HistoryRecordsView assistant mode', () => {
         joplin: true,
         markdown: true,
         markdown_reason: true,
-        notion: true,
         obsidian: true,
         plain_text: true,
         siyuan: true,

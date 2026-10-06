@@ -10,7 +10,6 @@ export const DATA_PANEL_KEYS = [
   'import_settings',
   'export_menu',
   'markdown_export',
-  'notion',
   'yuque',
   'joplin',
   'obsidian',

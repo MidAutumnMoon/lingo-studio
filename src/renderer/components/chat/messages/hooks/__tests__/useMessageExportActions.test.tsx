@@ -6,14 +6,6 @@ import type { MessageExportView } from '@renderer/types/messageExport'
 
 import { useMessageExportActions } from '../useMessageExportActions'
 
-const { createPage, appendBlocks } = vi.hoisted(() => ({ createPage: vi.fn(), appendBlocks: vi.fn() }))
-vi.mock('@notionhq/client', () => ({
-  Client: class {
-    pages = { create: createPage }
-  }
-}))
-vi.mock('notion-helper', () => ({ appendBlocks }))
-
 const first: MessageExportView = {
   id: 'first',
   role: 'user',
@@ -49,8 +41,6 @@ beforeEach(async () => {
   save.mockResolvedValue('/tmp/export.md')
   showObsidian.mockResolvedValue(true)
   ipcRequest.mockResolvedValue({ ok: true, data: true })
-  createPage.mockResolvedValue({ id: 'page' })
-  appendBlocks.mockResolvedValue({ apiResponses: [] })
   Object.defineProperty(window, 'api', {
     configurable: true,
     value: {
@@ -171,27 +161,6 @@ describe('message export actions', () => {
       expect(await result.current.exportMessages([first, second], 'obsidian')).toBe(false)
     })
     expect(showObsidian).toHaveBeenLastCalledWith('Folder_Topic', [first, second])
-  })
-
-  it('preserves the extra Notion topic heading only for selected-message exports', async () => {
-    await preferenceService.set('data.integration.notion.api_key', 'test-key')
-    await preferenceService.set('data.integration.notion.database_id', 'test-database')
-    const result = renderExports('Topic name')
-    await act(async () => {
-      await result.current.exportToNotion?.(first)
-    })
-    const singleBlocks = JSON.stringify(appendBlocks.mock.calls[0][0].children)
-    expect(singleBlocks).toContain('Question')
-    expect(singleBlocks).not.toContain('Topic name')
-    await act(async () => {
-      expect(await result.current.exportMessages([first, second], 'notion')).toBe(true)
-    })
-    const multipleBlocks = JSON.stringify(appendBlocks.mock.calls[1][0].children)
-    expect(multipleBlocks).toMatch(/Topic name[\s\S]*Question[\s\S]*Answer/)
-    appendBlocks.mockResolvedValueOnce({ error: 'write failed' })
-    await act(async () => {
-      expect(await result.current.exportMessages([first], 'notion')).toBe(false)
-    })
   })
 
   it.each(['yuque', 'joplin', 'siyuan'] as const)(

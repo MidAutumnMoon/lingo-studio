@@ -19,7 +19,6 @@ type MessageExportActions = Pick<
   | 'exportMessageAsMarkdown'
   | 'exportToNotes'
   | 'exportToWord'
-  | 'exportToNotion'
   | 'exportToYuque'
   | 'exportToObsidian'
   | 'exportToJoplin'
@@ -89,14 +88,6 @@ export function useMessageExportActions({
     [notesPath]
   )
 
-  const exportToNotion = useCallback(async (message: MessageExportView) => {
-    const { exportMessageToNotion, getMessageTitle, messageToMarkdown } =
-      await import('@renderer/services/ExportService')
-    const title = await getMessageTitle(message)
-    const markdown = await messageToMarkdown(message)
-    await exportMessageToNotion(title, markdown, message)
-  }, [])
-
   const exportToYuque = useCallback(
     async (message: MessageExportView) => {
       await exportContent([message], 'yuque')
@@ -134,7 +125,6 @@ export function useMessageExportActions({
       exportMessages,
       exportToNotes,
       exportToWord,
-      exportToNotion,
       exportToYuque,
       exportToObsidian,
       exportToJoplin,
@@ -145,7 +135,6 @@ export function useMessageExportActions({
       exportMessages,
       exportToJoplin,
       exportToNotes,
-      exportToNotion,
       exportToObsidian,
       exportToSiyuan,
       exportToWord,

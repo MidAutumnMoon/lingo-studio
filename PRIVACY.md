@@ -73,7 +73,7 @@ If you wish to learn about or disable such data processing and collection activi
 To facilitate your management and processing of data, in the [Settings] - [Data Settings] section of this Software, we support the following third-party service functions, including but not limited to, that you can choose to configure and use by entering API addresses, usernames, passwords, etc.:
 
 - **Cloud Backup Settings:** WebDAV, S3-compatible storage, Nutstore (坚果云);
-- **Third-Party Connections:** Notion, Yuque (语雀), Joplin, Obsidian, SiYuan Note (思源笔记), and others.
+- **Third-Party Connections:** Yuque (语雀), Joplin, Obsidian, SiYuan Note (思源笔记), and others.
 
 The third-party services actually supported are as displayed within the client.
 

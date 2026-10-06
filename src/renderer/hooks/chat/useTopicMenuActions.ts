@@ -99,10 +99,6 @@ export function createTopicActionContext({
       const { exportTopicAsMarkdown } = await import('@renderer/services/ExportService')
       return exportTopicAsMarkdown(topic, true, undefined, chooseImageExportMode)
     },
-    onExportNotion: async (topic) => {
-      const { exportTopicToNotion } = await import('@renderer/services/ExportService')
-      await exportTopicToNotion(topic)
-    },
     onExportObsidian: async (topic) => {
       const { default: ObsidianExportPopup } = await import('@renderer/components/ObsidianExportPopup')
       await ObsidianExportPopup.show({ title: topic.name, topic, processingMethod: '3' })

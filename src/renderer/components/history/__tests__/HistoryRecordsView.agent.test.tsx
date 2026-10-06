@@ -256,7 +256,6 @@ vi.mock('@renderer/services/ExportService', () => ({
   exportMarkdownToYuque: vi.fn(),
   exportTopicAsMarkdown: vi.fn(),
   exportTopicToNotes: vi.fn(),
-  exportTopicToNotion: vi.fn(),
   topicToMarkdown: vi.fn().mockResolvedValue('# topic')
 }))
 
@@ -485,7 +484,6 @@ describe('HistoryRecordsView agent mode', () => {
         joplin: true,
         markdown: true,
         markdown_reason: true,
-        notion: true,
         obsidian: true,
         plain_text: true,
         siyuan: true,

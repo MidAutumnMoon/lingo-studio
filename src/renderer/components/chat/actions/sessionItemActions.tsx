@@ -22,16 +22,7 @@ import { OpenInNewWindowIcon } from '@renderer/components/icons/WindowIcons'
 import type { TopicTabPosition } from '@shared/data/preference/preferenceTypes'
 
 export type SessionExportMenuOptions = Record<
-  | 'docx'
-  | 'image'
-  | 'joplin'
-  | 'markdown'
-  | 'markdown_reason'
-  | 'notion'
-  | 'obsidian'
-  | 'plain_text'
-  | 'siyuan'
-  | 'yuque',
+  'docx' | 'image' | 'joplin' | 'markdown' | 'markdown_reason' | 'obsidian' | 'plain_text' | 'siyuan' | 'yuque',
   boolean
 >
 
@@ -49,7 +40,6 @@ export interface SessionActionContext {
   onExportJoplin?: () => void | Promise<void>
   onExportMarkdown?: () => void | Promise<void>
   onExportMarkdownReason?: () => void | Promise<void>
-  onExportNotion?: () => void | Promise<void>
   onExportObsidian?: () => void | Promise<void>
   onExportSiyuan?: () => void | Promise<void>
   onExportWord?: () => void | Promise<void>
@@ -77,7 +67,6 @@ const hasExportOption = ({
   onExportJoplin,
   onExportMarkdown,
   onExportMarkdownReason,
-  onExportNotion,
   onExportObsidian,
   onExportSiyuan,
   onExportWord,
@@ -87,7 +76,6 @@ const hasExportOption = ({
   (exportMenuOptions?.markdown && !!onExportMarkdown) ||
   (exportMenuOptions?.markdown_reason && !!onExportMarkdownReason) ||
   (exportMenuOptions?.docx && !!onExportWord) ||
-  (exportMenuOptions?.notion && !!onExportNotion) ||
   (exportMenuOptions?.yuque && !!onExportYuque) ||
   (exportMenuOptions?.obsidian && !!onExportObsidian) ||
   (exportMenuOptions?.joplin && !!onExportJoplin) ||
@@ -192,15 +180,6 @@ sessionActionRegistry.registerCommand({
     enabled: !!exportMenuOptions?.docx && !!onExportWord
   }),
   run: ({ onExportWord }) => onExportWord?.()
-})
-
-sessionActionRegistry.registerCommand({
-  id: 'session.export.notion',
-  availability: ({ exportMenuOptions, onExportNotion }) => ({
-    visible: !!exportMenuOptions?.notion && !!onExportNotion,
-    enabled: !!exportMenuOptions?.notion && !!onExportNotion
-  }),
-  run: ({ onExportNotion }) => onExportNotion?.()
 })
 
 sessionActionRegistry.registerCommand({
@@ -420,13 +399,6 @@ sessionActionRegistry.registerAction({
       commandId: 'session.export.word',
       label: ({ t }) => t('chat.topics.export.word'),
       order: 40,
-      surface: 'menu'
-    },
-    {
-      id: 'session.export.notion',
-      commandId: 'session.export.notion',
-      label: ({ t }) => t('chat.topics.export.notion'),
-      order: 50,
       surface: 'menu'
     },
     {

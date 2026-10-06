@@ -93,7 +93,6 @@ const TOPIC_EXPORT_MENU_PREFERENCE_KEYS = {
   joplin: 'data.export.menus.joplin',
   markdown: 'data.export.menus.markdown',
   markdown_reason: 'data.export.menus.markdown_reason',
-  notion: 'data.export.menus.notion',
   obsidian: 'data.export.menus.obsidian',
   plain_text: 'data.export.menus.plain_text',
   siyuan: 'data.export.menus.siyuan',

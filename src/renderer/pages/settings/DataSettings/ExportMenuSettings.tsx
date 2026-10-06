@@ -20,7 +20,6 @@ const ExportMenuOptions: FC = () => {
     image: 'data.export.menus.image',
     markdown: 'data.export.menus.markdown',
     markdown_reason: 'data.export.menus.markdown_reason',
-    notion: 'data.export.menus.notion',
     yuque: 'data.export.menus.yuque',
     joplin: 'data.export.menus.joplin',
     obsidian: 'data.export.menus.obsidian',
@@ -74,15 +73,6 @@ const ExportMenuOptions: FC = () => {
       <SettingDivider />
 
       <SettingSubtitle className="py-3">{t('settings.data.export_menu.categories.apps')}</SettingSubtitle>
-      <SettingDivider />
-
-      <SettingRow>
-        <SettingRowTitle>{t('settings.data.export_menu.notion')}</SettingRowTitle>
-        <Switch
-          checked={exportMenuOptions.notion}
-          onCheckedChange={(checked) => handleToggleOption('notion', checked)}
-        />
-      </SettingRow>
       <SettingDivider />
 
       <SettingRow>

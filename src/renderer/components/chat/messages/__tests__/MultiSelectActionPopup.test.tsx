@@ -203,7 +203,6 @@ describe('MultiSelectionPopup', () => {
         markdown: true,
         markdown_reason: true,
         docx: true,
-        notion: true,
         yuque: true,
         obsidian: true,
         joplin: true,
@@ -223,7 +222,6 @@ describe('MultiSelectionPopup', () => {
         'chat.topics.export.md.label',
         'chat.topics.export.md.reason',
         'chat.topics.export.word',
-        'chat.topics.export.notion',
         'chat.topics.export.yuque',
         'chat.topics.export.obsidian',
         'chat.topics.export.joplin',
@@ -233,10 +231,10 @@ describe('MultiSelectionPopup', () => {
       }
 
       await user.click(screen.getByRole('button', { name: 'chat.topics.export.md.label' }))
-      await user.click(screen.getByRole('button', { name: 'chat.topics.export.notion' }))
+      await user.click(screen.getByRole('button', { name: 'chat.topics.export.yuque' }))
 
       expect(props.onExport).toHaveBeenNthCalledWith(1, 'markdown')
-      expect(props.onExport).toHaveBeenNthCalledWith(2, 'notion')
+      expect(props.onExport).toHaveBeenNthCalledWith(2, 'yuque')
     })
 
     it('limits the menu to the enabled destinations', () => {
@@ -251,7 +249,7 @@ describe('MultiSelectionPopup', () => {
       expect(screen.getByRole('button', { name: 'chat.topics.export.md.label' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'chat.topics.export.joplin' })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'chat.topics.export.word' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'chat.topics.export.notion' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'chat.topics.export.yuque' })).not.toBeInTheDocument()
     })
 
     it('omits the export button when no export handler is provided', () => {

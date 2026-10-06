@@ -1475,30 +1475,6 @@
           "targetKey": "chat.message.multi_model.style"
         },
         {
-          "originalKey": "notionDatabaseID",
-          "type": "string",
-          "defaultValue": "",
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "data.integration.notion.database_id"
-        },
-        {
-          "originalKey": "notionApiKey",
-          "type": "string",
-          "defaultValue": "",
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "data.integration.notion.api_key"
-        },
-        {
-          "originalKey": "notionPageNameKey",
-          "type": "string",
-          "defaultValue": "Name",
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "data.integration.notion.page_name_key"
-        },
-        {
           "originalKey": "markdownExportPath",
           "type": "string",
           "defaultValue": null,
@@ -1545,14 +1521,6 @@
           "status": "classified",
           "category": "preferences",
           "targetKey": "chat.message.thought.auto_collapse"
-        },
-        {
-          "originalKey": "notionExportReasoning",
-          "type": "boolean",
-          "defaultValue": false,
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "data.integration.notion.export_reasoning"
         },
         {
           "originalKey": "excludeCitationsInExport",
@@ -1741,7 +1709,7 @@
         {
           "originalKey": "exportMenuOptions",
           "type": "unknown",
-          "defaultValue": "{ image: true, markdown: true, markdown_reason: true, notion: true, yuque: true, joplin: true, obsidian: true, siyuan: true, docx: true, plain_text: true }",
+          "defaultValue": "{ image: true, markdown: true, markdown_reason: true, yuque: true, joplin: true, obsidian: true, siyuan: true, docx: true, plain_text: true }",
           "status": "pending",
           "category": null,
           "targetKey": null,
@@ -1768,14 +1736,6 @@
               "originalKey": "markdown_reason",
               "status": "classified",
               "targetKey": "data.export.menus.markdown_reason",
-              "type": "boolean"
-            },
-            {
-              "category": "preferences",
-              "defaultValue": true,
-              "originalKey": "notion",
-              "status": "classified",
-              "targetKey": "data.export.menus.notion",
               "type": "boolean"
             },
             {
@@ -1851,14 +1811,6 @@
           "status": "classified",
           "category": "preferences",
           "targetKey": "data.export.menus.markdown_reason"
-        },
-        {
-          "originalKey": "notion",
-          "type": "boolean",
-          "defaultValue": true,
-          "status": "classified",
-          "category": "preferences",
-          "targetKey": "data.export.menus.notion"
         },
         {
           "originalKey": "yuque",

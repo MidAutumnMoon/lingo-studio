@@ -35,14 +35,6 @@ export const messageExportTargets: {
     action: 'exportToWord'
   },
   {
-    target: 'notion',
-    option: 'notion',
-    labelKey: 'chat.topics.export.notion',
-    group: 'external',
-    commandId: 'message.exportNotion',
-    action: 'exportToNotion'
-  },
-  {
     target: 'yuque',
     option: 'yuque',
     labelKey: 'chat.topics.export.yuque',

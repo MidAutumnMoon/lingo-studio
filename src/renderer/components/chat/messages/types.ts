@@ -105,7 +105,6 @@ export interface MessageMenuExportOptions {
   image: boolean
   markdown: boolean
   markdown_reason: boolean
-  notion: boolean
   yuque: boolean
   joplin: boolean
   obsidian: boolean
@@ -124,7 +123,6 @@ export const defaultMessageMenuExportOptions: MessageMenuExportOptions = {
   image: false,
   markdown: false,
   markdown_reason: false,
-  notion: false,
   yuque: false,
   joplin: false,
   obsidian: false,
@@ -368,7 +366,6 @@ export interface MessageListActions {
   exportMessageAsMarkdown?: (message: MessageExportView, includeReasoning?: boolean) => void | Promise<void>
   exportToNotes?: (message: MessageExportView) => void | Promise<void>
   exportToWord?: (markdown: string, title: string) => void | Promise<void>
-  exportToNotion?: (message: MessageExportView) => void | Promise<void>
   exportToYuque?: (message: MessageExportView) => void | Promise<void>
   exportToObsidian?: (message: MessageExportView) => void | Promise<void>
   exportToJoplin?: (message: MessageExportView) => void | Promise<void>

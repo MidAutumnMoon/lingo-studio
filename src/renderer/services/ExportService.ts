@@ -1,11 +1,4 @@
-import type { Client } from '@notionhq/client'
-import type { markdownToBlocks } from '@tryfabric/martian'
 import DOMPurify from 'dompurify'
-import type { Blockquote } from 'mdast'
-import type { appendBlocks } from 'notion-helper'
-import remarkParse from 'remark-parse'
-import { unified } from 'unified'
-import { visit } from 'unist-util-visit'
 
 import { preferenceService } from '@data/PreferenceService'
 import { loggerService } from '@logger'
@@ -59,41 +52,8 @@ import {
 
 const logger = loggerService.withContext('ExportService')
 
-let notionDependenciesPromise: Promise<{
-  Client: typeof Client
-  markdownToBlocks: typeof markdownToBlocks
-  appendBlocks: typeof appendBlocks
-}> | null = null
-
-const loadNotionDependencies = () => {
-  notionDependenciesPromise ??= Promise.all([
-    import('@notionhq/client'),
-    import('@tryfabric/martian'),
-    import('notion-helper')
-  ])
-    .then(([{ Client }, { markdownToBlocks }, { appendBlocks }]) => ({ Client, markdownToBlocks, appendBlocks }))
-    .catch((error) => {
-      // Drop the rejected promise so a retry reloads the chunks instead of replaying the failure.
-      notionDependenciesPromise = null
-      throw error
-    })
-
-  return notionDependenciesPromise
-}
-
-/** Block conversion runs before executeNotionExport's own catch, so it needs the same failure face. */
-const runNotionExport = async (build: () => Promise<boolean>): Promise<boolean> => {
-  try {
-    return await build()
-  } catch (error) {
-    logger.error('Notion export failed:', error as Error)
-    toast.error(i18n.t('message.error.notion.export'))
-    return false
-  }
-}
-
 // Single export-in-progress mutex shared by every exporter below
-// (markdown / Notion / Yuque / Obsidian / Joplin / Siyuan): a second export
+// (markdown / Yuque / Obsidian / Joplin / Siyuan): a second export
 // started while one is still running is rejected with a warning toast. This
 // mutable runtime state is what classifies the module as a `service` (runtime
 // logic) rather than a pure `util`.
@@ -776,8 +736,6 @@ export async function exportMessagesToTarget(
         markdown: await messagesToMarkdown(messages),
         fileName: removeSpecialCharactersForFileName(title)
       })
-    case 'notion':
-      return exportMessagesToNotion(title, messages)
     case 'yuque':
       return (await exportMarkdownToYuque(title, await messagesToMarkdown(messages))) != null
     case 'obsidian':
@@ -787,344 +745,6 @@ export async function exportMessagesToTarget(
     case 'siyuan':
       return exportMarkdownToSiyuan(title, await messagesToMarkdown(messages))
   }
-}
-
-// GitHub-style alert marker (e.g. "[!NOTE]") leading the first paragraph inside a quote
-const ALERT_MARKER_RE = /^\[!([A-Za-z][\w-]*)\]/
-
-// Fixed alert-type → Notion callout icon/color pairs (issue #16388 spec)
-const ALERT_CALLOUT_MAP: Record<string, { emoji: string; color: string }> = {
-  NOTE: { emoji: '💡', color: 'blue_background' },
-  TIP: { emoji: '✅', color: 'green_background' },
-  IMPORTANT: { emoji: '⭐', color: 'purple_background' },
-  WARNING: { emoji: '⚠️', color: 'yellow_background' },
-  CAUTION: { emoji: '🚫', color: 'red_background' }
-}
-const UNKNOWN_ALERT_CALLOUT = { emoji: '📝', color: 'gray_background' }
-
-const stripLeadingNewline = (segment: any): any =>
-  segment?.text ? { ...segment, text: { ...segment.text, content: segment.text.content.replace(/^\n/, '') } } : segment
-
-// Detect alert quotes on the source mdast, mirroring the live renderer
-// (remark-github-blockquote-alert): the marker must lead the quote's first
-// paragraph as a plain text node. Source-level detection keeps provenance that
-// martian strips (raw HTML like <code>[!NOTE]</code> becomes plain text).
-const isAlertQuoteNode = (quote: Blockquote): boolean => {
-  const firstChild = quote.children?.[0]
-  if (firstChild?.type !== 'paragraph') {
-    return false
-  }
-  const firstNode = firstChild.children?.[0]
-  return firstNode?.type === 'text' && ALERT_MARKER_RE.test(firstNode.value)
-}
-
-// One flag per source blockquote in document order, consumed in the same order below.
-// The visitor must not return a value — visit treats numbers as index moves.
-const collectAlertQuoteFlags = (markdown: string): boolean[] => {
-  const flags: boolean[] = []
-  const tree = unified().use(remarkParse).parse(markdown)
-  visit(tree, 'blockquote', (node) => {
-    flags.push(isAlertQuoteNode(node))
-  })
-  return flags
-}
-
-// Drop the marker from the paragraph's rich text segments; marker may share a segment
-// with the body or occupy its own (e.g. marker-only paragraph).
-const stripAlertMarker = (segments: any[], markerLength: number): any[] => {
-  const [first, ...rest] = segments
-  const remainder = first.text.content.slice(markerLength).replace(/^\n/, '')
-  if (remainder) {
-    return [{ ...first, text: { ...first.text, content: remainder } }, ...rest]
-  }
-  return rest.length > 0 ? [stripLeadingNewline(rest[0]), ...rest.slice(1)] : []
-}
-
-const quoteToCallout = (block: any, isAlert: boolean): any => {
-  if (!isAlert) {
-    return block
-  }
-  const firstChild = block.quote?.children?.[0]
-  if (firstChild?.type !== 'paragraph') {
-    return block
-  }
-  const segments = firstChild.paragraph.rich_text ?? []
-  const match = ALERT_MARKER_RE.exec(segments[0]?.text?.content ?? '')
-  if (!match) {
-    return block
-  }
-  const style = ALERT_CALLOUT_MAP[match[1].toUpperCase()] ?? UNKNOWN_ALERT_CALLOUT
-  return {
-    object: 'block',
-    type: 'callout',
-    callout: {
-      rich_text: stripAlertMarker(segments, match[0].length),
-      icon: { type: 'emoji', emoji: style.emoji },
-      color: style.color,
-      children: block.quote.children.slice(1)
-    }
-  }
-}
-
-// Rewrite GitHub-style alert quotes ("> [!TYPE]") in martian output into native
-// Notion callout blocks; plain quotes are left untouched.
-export const rewriteAlertQuotesToCallouts = (blocks: any[], markdown: string): any[] => {
-  const alertFlags = collectAlertQuoteFlags(markdown)
-  let quoteIndex = 0
-  const rewriteBlock = (block: any): any => {
-    if (!block?.type) {
-      return block
-    }
-    // Consume the flag before recursing so nested quotes align with the
-    // source AST's document order (parents before children).
-    const rewritten = block.type === 'quote' ? quoteToCallout(block, alertFlags[quoteIndex++] === true) : block
-    const payload = rewritten[rewritten.type]
-    return Array.isArray(payload?.children)
-      ? { ...rewritten, [rewritten.type]: { ...payload, children: payload.children.map(rewriteBlock) } }
-      : rewritten
-  }
-  return blocks.map(rewriteBlock)
-}
-
-const convertMarkdownToNotionBlocks = async (markdown: string): Promise<any[]> => {
-  const { markdownToBlocks } = await loadNotionDependencies()
-  return rewriteAlertQuotesToCallouts(markdownToBlocks(markdown), markdown)
-}
-
-const convertThinkingToNotionBlocks = async (thinkingContent: string): Promise<any[]> => {
-  if (!thinkingContent.trim()) {
-    return []
-  }
-
-  try {
-    const { markdownToBlocks } = await loadNotionDependencies()
-    // 预处理思维链内容：将HTML的<br>标签转换为真正的换行符
-    const processedContent = thinkingContent.replace(/<br\s*\/?>/g, '\n')
-
-    // 使用 markdownToBlocks 处理思维链内容
-    const childrenBlocks = rewriteAlertQuotesToCallouts(markdownToBlocks(processedContent), processedContent)
-
-    return [
-      {
-        object: 'block',
-        type: 'toggle',
-        toggle: {
-          rich_text: [
-            {
-              type: 'text',
-              text: {
-                content: '🤔 ' + i18n.t('common.reasoning_content')
-              },
-              annotations: {
-                bold: true
-              }
-            }
-          ],
-          children: childrenBlocks
-        }
-      }
-    ]
-  } catch (error) {
-    logger.error('failed to process reasoning content:', error as Error)
-    // 发生错误时，回退到简单的段落处理
-    return [
-      {
-        object: 'block',
-        type: 'toggle',
-        toggle: {
-          rich_text: [
-            {
-              type: 'text',
-              text: {
-                content: '🤔 ' + i18n.t('common.reasoning_content')
-              },
-              annotations: {
-                bold: true
-              }
-            }
-          ],
-          children: [
-            {
-              object: 'block',
-              type: 'paragraph',
-              paragraph: {
-                rich_text: [
-                  {
-                    type: 'text',
-                    text: {
-                      content:
-                        thinkingContent.length > 1800
-                          ? thinkingContent.substring(0, 1800) + '...\n' + i18n.t('export.notion.reasoning_truncated')
-                          : thinkingContent
-                    }
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      }
-    ]
-  }
-}
-
-// Reasoning content comes from the message itself, not from the body markdown,
-// so callers can produce these blocks concurrently with the body conversion.
-const convertThinkingBlocksFor = async (message: ExportableMessage, reasoningEnabled: boolean): Promise<any[]> => {
-  if (!reasoningEnabled) {
-    return []
-  }
-  const thinkingContent = stripCitationMarkers(getThinkingContent(message))
-  if (!thinkingContent) {
-    return []
-  }
-  return convertThinkingToNotionBlocks(thinkingContent)
-}
-
-const executeNotionExport = async (title: string, allBlocks: any[]): Promise<boolean> => {
-  if (getExportState()) {
-    toast.warning(i18n.t('message.warn.export.exporting'))
-    return false
-  }
-
-  const { notionDatabaseID, notionApiKey, notionPageNameKey } = await preferenceService.getMultiple({
-    notionDatabaseID: 'data.integration.notion.database_id',
-    notionPageNameKey: 'data.integration.notion.page_name_key',
-    notionApiKey: 'data.integration.notion.api_key'
-  })
-  if (!notionApiKey || !notionDatabaseID) {
-    toast.error(i18n.t('message.error.notion.no_api_key'))
-    return false
-  }
-
-  if (allBlocks.length === 0) {
-    toast.error(i18n.t('message.error.notion.export'))
-    return false
-  }
-
-  setExportingState(true)
-
-  // 限制标题长度
-  if (title.length > 32) {
-    title = title.slice(0, 29) + '...'
-  }
-
-  try {
-    const { Client, appendBlocks } = await loadNotionDependencies()
-    const notion = new Client({ auth: notionApiKey })
-
-    const responsePromise = notion.pages.create({
-      parent: { database_id: notionDatabaseID },
-      properties: {
-        [notionPageNameKey || 'Name']: {
-          title: [{ text: { content: title } }]
-        }
-      }
-    })
-    const preparingToastKey = 'notion-export:preparing'
-    toast.loading({
-      key: preparingToastKey,
-      title: i18n.t('message.loading.notion.preparing'),
-      promise: responsePromise.finally(() => toast.closeToast(preparingToastKey)).catch(() => undefined)
-    })
-    const response = await responsePromise
-
-    const exportPromise = appendBlocks({
-      block_id: response.id,
-      children: allBlocks,
-      client: notion
-    })
-    const exportingToastKey = 'notion-export:exporting'
-    toast.loading({
-      key: exportingToastKey,
-      title: i18n.t('message.loading.notion.exporting_progress'),
-      promise: exportPromise.finally(() => toast.closeToast(exportingToastKey)).catch(() => undefined)
-    })
-    const result = await exportPromise
-    if ('error' in result || ('apiResponses' in result && result.apiResponses === null)) {
-      throw new Error(
-        'error' in result && typeof result.error === 'string' && result.error
-          ? result.error
-          : i18n.t('message.error.notion.export')
-      )
-    }
-
-    toast.success(i18n.t('message.success.notion.export'))
-    return true
-  } catch (error: any) {
-    // 清理可能存在的loading消息
-
-    logger.error('Notion export failed:', error)
-    toast.error(i18n.t('message.error.notion.export'))
-    return false
-  } finally {
-    setExportingState(false)
-  }
-}
-
-export const exportMessageToNotion = async (
-  title: string,
-  content: string,
-  message?: ExportableMessage
-): Promise<boolean> =>
-  runNotionExport(async () => {
-    const notionExportReasoning = await preferenceService.get('data.integration.notion.export_reasoning')
-
-    const notionBlocks = await convertMarkdownToNotionBlocks(content)
-
-    if (notionExportReasoning && message) {
-      // Same reason as `createBaseMarkdown`: the body arrives already resolved, so the trace is the
-      // only way an internal marker could still reach Notion.
-      const thinkingContent = stripCitationMarkers(getThinkingContent(message))
-      if (thinkingContent) {
-        const thinkingBlocks = await convertThinkingToNotionBlocks(thinkingContent)
-        if (notionBlocks.length > 0) {
-          notionBlocks.splice(1, 0, ...thinkingBlocks)
-        } else {
-          notionBlocks.push(...thinkingBlocks)
-        }
-      }
-    }
-
-    return executeNotionExport(title, notionBlocks)
-  })
-
-export const exportMessagesToNotion = async (title: string, messages: ExportableMessage[]): Promise<boolean> =>
-  runNotionExport(async () => {
-    const { notionExportReasoning, excludeCitationsInExport } = await preferenceService.getMultiple({
-      notionExportReasoning: 'data.integration.notion.export_reasoning',
-      excludeCitationsInExport: 'data.export.markdown.exclude_citations'
-    })
-
-    const titleBlocks = await convertMarkdownToNotionBlocks(`# ${title}`)
-
-    // Body and reasoning conversions take independent inputs, so they run
-    // concurrently per message and across messages; map+Promise.all keeps input order.
-    const convertMessage = async (message: ExportableMessage): Promise<any[]> => {
-      const [messageBlocks, thinkingBlocks] = await Promise.all([
-        messageToMarkdown(message, excludeCitationsInExport).then(convertMarkdownToNotionBlocks),
-        convertThinkingBlocksFor(message, notionExportReasoning)
-      ])
-      if (thinkingBlocks.length > 0) {
-        if (messageBlocks.length > 0) {
-          messageBlocks.splice(1, 0, ...thinkingBlocks)
-        } else {
-          messageBlocks.push(...thinkingBlocks)
-        }
-      }
-      return messageBlocks
-    }
-
-    const messageBlocksList = await Promise.all(messages.map(convertMessage))
-    const allBlocks: any[] = [...titleBlocks, ...messageBlocksList.flat()]
-
-    return executeNotionExport(title, allBlocks)
-  })
-
-export const exportTopicToNotion = async (topic: Topic): Promise<boolean> => {
-  const topicMessages = await getTopicMessages(topic.id)
-
-  return exportMessagesToNotion(topic.name, topicMessages)
 }
 
 export const exportMarkdownToYuque = async (title: string, content: string): Promise<any | null> => {
@@ -1631,7 +1251,7 @@ const exportNoteAsImageFile = async (noteName: string, noteId: string): Promise<
 
 interface NoteExportOptions {
   node: { id: string; name: string; externalPath: string }
-  platform: 'markdown' | 'docx' | 'notion' | 'yuque' | 'joplin' | 'siyuan' | 'copyImage' | 'exportImage'
+  platform: 'markdown' | 'docx' | 'yuque' | 'joplin' | 'siyuan' | 'copyImage' | 'exportImage'
 }
 
 export const exportNote = async ({ node, platform }: NoteExportOptions): Promise<void> => {
@@ -1650,9 +1270,6 @@ export const exportNote = async ({ node, platform }: NoteExportOptions): Promise
           markdown: `# ${node.name}\n\n${content}`,
           fileName: removeSpecialCharactersForFileName(node.name)
         })
-        return
-      case 'notion':
-        await exportMessageToNotion(node.name, content)
         return
       case 'yuque':
         await exportMarkdownToYuque(node.name, `# ${node.name}\n\n${content}`)

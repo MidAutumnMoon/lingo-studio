@@ -55,7 +55,6 @@ export interface SessionItemMenuActions {
   onExportJoplin: (session: AgentSessionEntity) => void | Promise<void>
   onExportMarkdown: (session: AgentSessionEntity) => void | Promise<void>
   onExportMarkdownReason: (session: AgentSessionEntity) => void | Promise<void>
-  onExportNotion: (session: AgentSessionEntity) => void | Promise<void>
   onExportObsidian: (session: AgentSessionEntity) => void | Promise<void>
   onExportSiyuan: (session: AgentSessionEntity) => void | Promise<void>
   onExportWord: (session: AgentSessionEntity) => void | Promise<void>
@@ -160,7 +159,6 @@ const SessionItem = ({
       onExportJoplin: () => sessionMenuActions.onExportJoplin(session),
       onExportMarkdown: () => sessionMenuActions.onExportMarkdown(session),
       onExportMarkdownReason: () => sessionMenuActions.onExportMarkdownReason(session),
-      onExportNotion: () => sessionMenuActions.onExportNotion(session),
       onExportObsidian: () => sessionMenuActions.onExportObsidian(session),
       onExportSiyuan: () => sessionMenuActions.onExportSiyuan(session),
       onExportWord: () => sessionMenuActions.onExportWord(session),

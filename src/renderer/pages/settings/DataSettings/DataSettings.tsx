@@ -29,7 +29,6 @@ const ExportMenuOptions = lazy(() => import('./ExportMenuSettings'))
 const JoplinSettings = lazy(() => import('./JoplinSettings'))
 const LocalBackupSettings = lazy(() => import('./LocalBackupSettings'))
 const MarkdownExportSettings = lazy(() => import('./MarkdownExportSettings'))
-const NotionSettings = lazy(() => import('./NotionSettings'))
 const NutstoreSettings = lazy(() => import('./NutstoreSettings'))
 const ObsidianSettings = lazy(() => import('./ObsidianSettings'))
 const S3Settings = lazy(() => import('./S3Settings'))
@@ -79,7 +78,6 @@ const DataSettings: FC = () => {
       icon: <FileText size={16} />
     },
     { key: 'divider_note_export', isDivider: true, text: t('settings.data.divider.note_export') },
-    { key: 'notion', title: t('settings.data.notion.title'), icon: <i className="iconfont icon-notion" /> },
     { key: 'yuque', title: t('settings.data.yuque.title'), icon: <BookOpen size={16} /> },
     { key: 'joplin', title: t('settings.data.joplin.title'), icon: <JoplinIcon /> },
     { key: 'obsidian', title: t('settings.data.obsidian.title'), icon: <i className="iconfont icon-obsidian" /> },
@@ -126,7 +124,6 @@ const DataSettings: FC = () => {
             {menu === 'export_menu' && <ExportMenuOptions />}
             {menu === 'markdown_export' && <MarkdownExportSettings />}
             {menu === 'local_backup' && <LocalBackupSettings />}
-            {menu === 'notion' && <NotionSettings />}
             {menu === 'yuque' && <YuqueSettings />}
             {menu === 'joplin' && <JoplinSettings />}
             {menu === 'obsidian' && <ObsidianSettings />}

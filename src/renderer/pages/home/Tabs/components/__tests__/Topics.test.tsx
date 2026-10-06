@@ -236,7 +236,6 @@ vi.mock('@renderer/services/ExportService', () => ({
   exportMarkdownToYuque: vi.fn(),
   exportTopicAsMarkdown: vi.fn(),
   exportTopicToNotes: vi.fn(),
-  exportTopicToNotion: vi.fn(),
   topicToMarkdown: vi.fn().mockResolvedValue('# topic')
 }))
 
@@ -288,7 +287,6 @@ vi.mock('react-i18next', () => ({
         if (key === 'chat.topics.export.md.label') return 'Export as Markdown'
         if (key === 'chat.topics.export.md.reason') return 'Export as Markdown with Reasoning'
         if (key === 'chat.topics.export.word') return 'Export as Word'
-        if (key === 'chat.topics.export.notion') return 'Export to Notion'
         if (key === 'chat.topics.export.yuque') return 'Export to Yuque'
         if (key === 'chat.topics.export.obsidian') return 'Export to Obsidian'
         if (key === 'chat.topics.export.joplin') return 'Export to Joplin'
@@ -647,7 +645,6 @@ describe('Topics', () => {
       'data.export.menus.joplin': true,
       'data.export.menus.markdown': true,
       'data.export.menus.markdown_reason': true,
-      'data.export.menus.notion': true,
       'data.export.menus.obsidian': true,
       'data.export.menus.plain_text': true,
       'data.export.menus.siyuan': true,

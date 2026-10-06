@@ -20,7 +20,6 @@ const exportActionsMock = vi.hoisted(() => ({
   exportMessageAsMarkdown: vi.fn(),
   exportToNotes: vi.fn(),
   exportToWord: vi.fn(),
-  exportToNotion: vi.fn(),
   exportToYuque: vi.fn(),
   exportToObsidian: vi.fn(),
   exportToJoplin: vi.fn(),
@@ -131,7 +130,6 @@ vi.mock('@renderer/components/chat/messages/hooks/useMessageMenuConfig', () => (
       image: false,
       markdown: false,
       markdown_reason: false,
-      notion: false,
       yuque: false,
       joplin: false,
       obsidian: false,
@@ -398,7 +396,6 @@ describe('useAgentMessageListProviderValue', () => {
     expect(value?.actions.exportMessageAsMarkdown).toBe(exportActionsMock.exportMessageAsMarkdown)
     expect(value?.actions.exportToNotes).toBe(exportActionsMock.exportToNotes)
     expect(value?.actions.exportToWord).toBe(exportActionsMock.exportToWord)
-    expect(value?.actions.exportToNotion).toBe(exportActionsMock.exportToNotion)
     expect(value?.actions.exportToYuque).toBe(exportActionsMock.exportToYuque)
     expect(value?.actions.exportToObsidian).toBe(exportActionsMock.exportToObsidian)
     expect(value?.actions.exportToJoplin).toBe(exportActionsMock.exportToJoplin)

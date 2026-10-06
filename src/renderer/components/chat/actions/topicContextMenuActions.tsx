@@ -26,16 +26,7 @@ import type { Topic } from '@renderer/types/topic'
 import type { TopicTabPosition } from '@shared/data/preference/preferenceTypes'
 
 export type TopicExportMenuOptions = Record<
-  | 'docx'
-  | 'image'
-  | 'joplin'
-  | 'markdown'
-  | 'markdown_reason'
-  | 'notion'
-  | 'obsidian'
-  | 'plain_text'
-  | 'siyuan'
-  | 'yuque',
+  'docx' | 'image' | 'joplin' | 'markdown' | 'markdown_reason' | 'obsidian' | 'plain_text' | 'siyuan' | 'yuque',
   boolean
 >
 
@@ -65,7 +56,6 @@ export interface TopicActionContext {
   onExportJoplin: TopicMenuHandler
   onExportMarkdown: TopicMenuHandler
   onExportMarkdownReason: TopicMenuHandler
-  onExportNotion: TopicMenuHandler
   onExportObsidian: TopicMenuHandler
   onExportSiyuan: TopicMenuHandler
   onExportWord: TopicMenuHandler
@@ -117,7 +107,6 @@ const hasExportOption = ({ exportMenuOptions }: TopicActionContext) =>
   exportMenuOptions.markdown ||
   exportMenuOptions.markdown_reason ||
   exportMenuOptions.docx ||
-  exportMenuOptions.notion ||
   exportMenuOptions.yuque ||
   exportMenuOptions.obsidian ||
   exportMenuOptions.joplin ||
@@ -213,11 +202,6 @@ topicActionRegistry.registerCommand({
 topicActionRegistry.registerCommand({
   id: 'topic.export.word',
   run: ({ onExportWord, topic }) => onExportWord(topic)
-})
-
-topicActionRegistry.registerCommand({
-  id: 'topic.export.notion',
-  run: ({ onExportNotion, topic }) => onExportNotion(topic)
 })
 
 topicActionRegistry.registerCommand({
@@ -443,14 +427,6 @@ topicActionRegistry.registerAction({
       order: 40,
       surface: 'menu',
       availability: ({ exportMenuOptions }) => ({ visible: exportMenuOptions.docx })
-    },
-    {
-      id: 'topic.export.notion',
-      commandId: 'topic.export.notion',
-      label: ({ t }) => t('chat.topics.export.notion'),
-      order: 50,
-      surface: 'menu',
-      availability: ({ exportMenuOptions }) => ({ visible: exportMenuOptions.notion })
     },
     {
       id: 'topic.export.yuque',

@@ -387,7 +387,6 @@ const Sessions = ({
     joplin: 'data.export.menus.joplin',
     markdown: 'data.export.menus.markdown',
     markdown_reason: 'data.export.menus.markdown_reason',
-    notion: 'data.export.menus.notion',
     obsidian: 'data.export.menus.obsidian',
     plain_text: 'data.export.menus.plain_text',
     siyuan: 'data.export.menus.siyuan',
@@ -1074,17 +1073,6 @@ const Sessions = ({
         markdown,
         fileName: removeSpecialCharactersForFileName(title)
       })
-    },
-    [getSessionExportOptions]
-  )
-
-  const handleExportSessionNotion = useCallback(
-    async (session: AgentSessionEntity) => {
-      const [{ getAgentSessionExportTitle, getAgentSessionMessagesForExport }, { exportMessagesToNotion }] =
-        await Promise.all([import('@renderer/services/agentSessionExport'), import('@renderer/services/ExportService')])
-      const title = getAgentSessionExportTitle(session)
-      const messages = await getAgentSessionMessagesForExport(session, getSessionExportOptions(session))
-      await exportMessagesToNotion(title, messages)
     },
     [getSessionExportOptions]
   )
@@ -1992,7 +1980,6 @@ const Sessions = ({
       onExportJoplin: handleExportSessionJoplin,
       onExportMarkdown: handleExportSessionMarkdown,
       onExportMarkdownReason: handleExportSessionMarkdownReason,
-      onExportNotion: handleExportSessionNotion,
       onExportObsidian: handleExportSessionObsidian,
       onExportSiyuan: handleExportSessionSiyuan,
       onExportWord: handleExportSessionWord,
@@ -2010,7 +1997,6 @@ const Sessions = ({
       handleExportSessionJoplin,
       handleExportSessionMarkdown,
       handleExportSessionMarkdownReason,
-      handleExportSessionNotion,
       handleExportSessionObsidian,
       handleExportSessionSiyuan,
       handleExportSessionWord,

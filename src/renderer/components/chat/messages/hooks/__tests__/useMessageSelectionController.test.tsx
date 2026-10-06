@@ -669,7 +669,7 @@ describe('useMessageSelectionController', () => {
       })
       let exporting!: Promise<void>
       act(() => {
-        exporting = first.result.current.actions.exportSelectedMessages!(['a'], 'notion') as Promise<void>
+        exporting = first.result.current.actions.exportSelectedMessages!(['a'], 'yuque') as Promise<void>
       })
       act(() => {
         first.unmount()

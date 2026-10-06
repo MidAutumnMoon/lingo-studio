@@ -43,7 +43,6 @@ export const useNotesMenu = ({
     image: 'data.export.menus.image',
     joplin: 'data.export.menus.joplin',
     markdown: 'data.export.menus.markdown',
-    notion: 'data.export.menus.notion',
     obsidian: 'data.export.menus.obsidian',
     siyuan: 'data.export.menus.siyuan',
     yuque: 'data.export.menus.yuque'
@@ -201,11 +200,7 @@ export const useNotesMenu = ({
         )
 
         const exportChildren: CommandContextMenuExtraItem[] = []
-        const addExport = (
-          id: string,
-          label: string,
-          platform: 'markdown' | 'docx' | 'notion' | 'yuque' | 'joplin' | 'siyuan'
-        ) =>
+        const addExport = (id: string, label: string, platform: 'markdown' | 'docx' | 'yuque' | 'joplin' | 'siyuan') =>
           exportChildren.push({
             type: 'item',
             id,
@@ -234,7 +229,6 @@ export const useNotesMenu = ({
         }
         if (exportMenuOptions.markdown) addExport('notes.export.markdown', t('chat.topics.export.md.label'), 'markdown')
         if (exportMenuOptions.docx) addExport('notes.export.docx', t('chat.topics.export.word'), 'docx')
-        if (exportMenuOptions.notion) addExport('notes.export.notion', t('chat.topics.export.notion'), 'notion')
         if (exportMenuOptions.yuque) addExport('notes.export.yuque', t('chat.topics.export.yuque'), 'yuque')
         if (exportMenuOptions.obsidian) {
           exportChildren.push({

@@ -1,6 +1,6 @@
 /**
  * Auto-generated preference mappings from classification.json
- * Generated at: 2026-10-02T17:48:46.036Z
+ * Generated at: 2026-10-06T13:52:45.272Z
  *
  * This file contains pure mapping relationships without default values.
  * Default values are managed in src/shared/data/preferences.ts
@@ -319,18 +319,6 @@ export const REDUX_STORE_MAPPINGS = {
       "targetKey": "chat.message.multi_model.style"
     },
     {
-      "originalKey": "notionDatabaseID",
-      "targetKey": "data.integration.notion.database_id"
-    },
-    {
-      "originalKey": "notionApiKey",
-      "targetKey": "data.integration.notion.api_key"
-    },
-    {
-      "originalKey": "notionPageNameKey",
-      "targetKey": "data.integration.notion.page_name_key"
-    },
-    {
       "originalKey": "markdownExportPath",
       "targetKey": "data.export.markdown.path"
     },
@@ -353,10 +341,6 @@ export const REDUX_STORE_MAPPINGS = {
     {
       "originalKey": "thoughtAutoCollapse",
       "targetKey": "chat.message.thought.auto_collapse"
-    },
-    {
-      "originalKey": "notionExportReasoning",
-      "targetKey": "data.integration.notion.export_reasoning"
     },
     {
       "originalKey": "excludeCitationsInExport",
@@ -437,10 +421,6 @@ export const REDUX_STORE_MAPPINGS = {
     {
       "originalKey": "exportMenuOptions.markdown_reason",
       "targetKey": "data.export.menus.markdown_reason"
-    },
-    {
-      "originalKey": "exportMenuOptions.notion",
-      "targetKey": "data.export.menus.notion"
     },
     {
       "originalKey": "exportMenuOptions.yuque",
@@ -711,11 +691,11 @@ export const LOCALSTORAGE_MAPPINGS: ReadonlyArray<{ originalKey: string; targetK
 /**
  * 映射统计:
  * - ElectronStore项: 2
- * - Redux Store项: 153
+ * - Redux Store项: 148
  * - Redux分类: settings, nutstore, preprocess, translate, websearch, ocr, note
  * - DexieSettings项: 5
  * - localStorage项: 0
- * - 总配置项: 160
+ * - 总配置项: 155
  *
  * 使用说明:
  * 1. ElectronStore读取: configManager.get(mapping.originalKey)
