@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getLocaleFirstDayOfWeek } from '@renderer/utils/time'
 
-import { buildHeatmapDays } from '../UsageHeatmap'
+import { buildHeatmapDays } from '../usageAnalytics'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -21,11 +21,12 @@ describe('buildHeatmapDays', () => {
 
     expect(days).toHaveLength(53 * 7)
     expect(days.filter((day) => !day.isOutsideRange)).toHaveLength(30)
-    expect(days[0].date.getDay()).toBe(0)
-    expect(days.at(-1)?.date.getDay()).toBe(6)
+    // dayOfWeek is ISO: 1=Monday … 7=Sunday
+    expect(days[0].date.dayOfWeek).toBe(7)
+    expect(days.at(-1)?.date.dayOfWeek).toBe(6)
 
     const mondayFirstDays = buildHeatmapDays([], range, getLocaleFirstDayOfWeek('zh-CN'))
-    expect(mondayFirstDays[0].date.getDay()).toBe(1)
-    expect(mondayFirstDays.at(-1)?.date.getDay()).toBe(0)
+    expect(mondayFirstDays[0].date.dayOfWeek).toBe(1)
+    expect(mondayFirstDays.at(-1)?.date.dayOfWeek).toBe(7)
   })
 })

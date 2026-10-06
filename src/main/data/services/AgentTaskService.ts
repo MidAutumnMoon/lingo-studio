@@ -19,6 +19,7 @@ import { registerDataService } from '@data/services/dataServiceRegistry'
 import { jobScheduleService } from '@data/services/JobScheduleService'
 import { jobService } from '@data/services/JobService'
 import { timestampToISO } from '@data/services/utils/rowMappers'
+import { safeParseInstant } from '@main/utils/time'
 import { DataApiErrorFactory } from '@shared/data/api/errors'
 import type {
   ScheduledTaskEntity,
@@ -163,14 +164,17 @@ export function clearMissedTask(metadata: Record<string, unknown>): Record<strin
   return next
 }
 
+// `lastRun` is an ISO string (timestampToISO) while `trigger.at` is epoch-ms: normalize both
+// sides to epoch-ms. A missing or unparseable lastRun means the once trigger was never consumed.
+function hasConsumedOnceTrigger(snapshot: JobScheduleSnapshot): boolean {
+  if (snapshot.trigger.kind !== 'once' || snapshot.lastRun === null) return false
+  const lastRunMs = safeParseInstant(snapshot.lastRun)?.epochMilliseconds
+  return lastRunMs !== undefined && lastRunMs >= snapshot.trigger.at
+}
+
 function deriveStatus(snapshot: JobScheduleSnapshot): ScheduledTaskEntity['status'] {
   if (isMissedTask(snapshot.metadata)) return 'missed'
-  if (
-    snapshot.trigger.kind === 'once' &&
-    snapshot.lastRun !== null &&
-    Date.parse(snapshot.lastRun) >= snapshot.trigger.at
-  )
-    return 'completed'
+  if (hasConsumedOnceTrigger(snapshot)) return 'completed'
   if (!snapshot.enabled) return 'paused'
   return 'active'
 }
@@ -311,11 +315,7 @@ export class AgentTaskService {
     const metadata = { ...schedule.metadata }
     delete metadata.agentTrash
     const expiredOnce = schedule.trigger.kind === 'once' && schedule.trigger.at <= now
-    const consumedOnce =
-      schedule.trigger.kind === 'once' &&
-      schedule.lastRun !== null &&
-      Date.parse(schedule.lastRun) >= schedule.trigger.at
-    const missed = expiredOnce && !consumedOnce
+    const missed = expiredOnce && !hasConsumedOnceTrigger(schedule)
     if (missed) metadata.missed = { reason: 'agent_archived', at: now }
     jobScheduleService.updateTx(tx, schedule.id, { enabled: !missed, metadata })
     return true

@@ -8,72 +8,14 @@ import { cn } from '@renderer/utils/style'
 import { getLocaleFirstDayOfWeek } from '@renderer/utils/time'
 import type { AiUsageRecordTimelineBucket } from '@shared/data/api/schemas/aiUsageRecords'
 
-import { formatCost, parseDateKey, startOfLocalDay, toDateKey } from './usageDisplay'
+import { buildHeatmapDays } from './usageAnalytics'
+import { formatCost } from './usageDisplay'
 import { UsagePanelTitle } from './UsageSettingsPrimitives'
 
 export type UsageHeatmapMetric = 'tokens' | 'cost'
 
 const CELL_SIZE = 12
 const CELL_GAP = 3
-const MIN_HEATMAP_DAYS = 365
-
-function startOfLocalWeek(date: Date, firstDayOfWeek: number): Date {
-  const day = startOfLocalDay(date)
-  day.setDate(day.getDate() - ((day.getDay() - firstDayOfWeek + 7) % 7))
-  return day
-}
-
-function endOfLocalWeek(date: Date, firstDayOfWeek: number): Date {
-  const day = startOfLocalWeek(date, firstDayOfWeek)
-  day.setDate(day.getDate() + 6)
-  return day
-}
-
-export function buildHeatmapDays(
-  buckets: AiUsageRecordTimelineBucket[],
-  range: { from?: number; to?: number } | undefined,
-  firstDayOfWeek: number
-): { date: Date; key: string; isOutsideRange: boolean }[] {
-  const today = startOfLocalDay(new Date())
-  let rangeFirstDay: Date
-  let rangeLastDay: Date
-
-  if (range?.from !== undefined) {
-    rangeFirstDay = startOfLocalDay(new Date(range.from))
-    rangeLastDay = startOfLocalDay(new Date(range.to ?? Date.now()))
-  } else if (buckets.length > 0) {
-    const times = buckets.map((bucket) => parseDateKey(bucket.date).getTime())
-    rangeFirstDay = new Date(Math.min(...times))
-    rangeLastDay = today
-  } else {
-    rangeLastDay = today
-    rangeFirstDay = new Date(today)
-    rangeFirstDay.setDate(today.getDate() - 29)
-  }
-
-  const minimumFirstDay = new Date(rangeLastDay)
-  minimumFirstDay.setDate(minimumFirstDay.getDate() - MIN_HEATMAP_DAYS + 1)
-  const displayFirstDay = rangeFirstDay.getTime() < minimumFirstDay.getTime() ? rangeFirstDay : minimumFirstDay
-  const firstWeekDay = startOfLocalWeek(displayFirstDay, firstDayOfWeek)
-  const lastWeekDay = endOfLocalWeek(rangeLastDay, firstDayOfWeek)
-
-  // Step by calendar date, not by DAY_MS: DST days are 23h/25h long, so millisecond
-  // arithmetic would duplicate or skip a local date around a transition.
-  const days: { date: Date; key: string; isOutsideRange: boolean }[] = []
-  const cursor = new Date(firstWeekDay)
-
-  while (cursor.getTime() <= lastWeekDay.getTime()) {
-    const date = new Date(cursor)
-    days.push({
-      date,
-      key: toDateKey(date),
-      isOutsideRange: date.getTime() < rangeFirstDay.getTime() || date.getTime() > rangeLastDay.getTime()
-    })
-    cursor.setDate(cursor.getDate() + 1)
-  }
-
-  return days
-}
 
 function getBucketValue(bucket: AiUsageRecordTimelineBucket | undefined, metric: UsageHeatmapMetric): number {
   if (!bucket) {
@@ -194,7 +136,7 @@ export default function UsageHeatmap({ buckets, costCurrency, isLoading, range }
     return weeks.map((week, weekIndex) => {
       const day = week[0]
       const previous = weekIndex > 0 ? weeks[weekIndex - 1][0] : undefined
-      const label = !previous || previous.date.getMonth() !== day.date.getMonth() ? formatter.format(day.date) : ''
+      const label = !previous || previous.date.month !== day.date.month ? formatter.format(day.date) : ''
 
       if (!label || weekIndex - previousVisibleIndex < 3) {
         return ''

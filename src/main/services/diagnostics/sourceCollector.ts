@@ -13,6 +13,7 @@ import {
   type ReadableFileSnapshot,
   remove
 } from '@main/utils/file'
+import { dayKeyToEpochMs } from '@main/utils/time'
 import { type AbsoluteFilePath, AbsoluteFilePathSchema } from '@shared/types/file'
 
 import type {
@@ -172,13 +173,11 @@ export function logMayOverlapRange(fileName: string, range: DiagnosticTimeRange)
   const match = LOG_NAME.exec(fileName)
   if (!match) return false
 
-  const [year, month, day] = match[1].split('-').map(Number)
-  const dayStart = new Date(year, month - 1, day)
-  if (dayStart.getFullYear() !== year || dayStart.getMonth() !== month - 1 || dayStart.getDate() !== day) {
-    return false
-  }
-  const nextDay = new Date(year, month - 1, day + 1)
-  return dayStart.getTime() <= range.toMs && nextDay.getTime() > range.fromMs
+  // null dayStart rejects calendar-impossible stamps (e.g. 2026-02-30) that Date would silently fold
+  const dayStart = dayKeyToEpochMs(match[1])
+  const nextDay = dayKeyToEpochMs(match[1], { dayOffset: 1 })
+  if (dayStart === null || nextDay === null) return false
+  return dayStart <= range.toMs && nextDay > range.fromMs
 }
 
 async function scanSnapshot(

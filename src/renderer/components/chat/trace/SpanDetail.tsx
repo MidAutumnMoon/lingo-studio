@@ -22,6 +22,7 @@ import { useTemporaryValue } from '@renderer/hooks/useTemporaryValue'
 import { toast } from '@renderer/services/toast'
 import { download } from '@renderer/utils/download'
 import { formatFileSize } from '@renderer/utils/file'
+import { formatNumericTime } from '@renderer/utils/time'
 
 import { buildSpanView, type SpanDetailRow, type SpanTab } from './spanPresenters'
 import type { TraceNode } from './traceNode'
@@ -235,9 +236,10 @@ function DetailField({ row }: { row: SpanDetailRow }) {
 
 function formatDate(timestamp: number | null): string {
   if (timestamp == null) return ''
-  const date = new Date(timestamp)
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${date.getMilliseconds().toString().padStart(3, '0')}`
+  // 'YYYY-MM-DD HH:mm:ss.SSS' is outside the seam's closed pattern union — the second-precision
+  // body comes from the seam, the millisecond suffix from pure epoch arithmetic.
+  const seconds = formatNumericTime(timestamp, 'YYYY-MM-DD HH:mm:ss')
+  return seconds ? `${seconds}.${String(timestamp % 1000).padStart(3, '0')}` : ''
 }
 
 /** Formatted tab payload. `content` is always the FULL text; the caller slices the preview. */

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button, error as showErrorToast, success as showSuccessToast } from '@cherrystudio/ui'
 import { loggerService } from '@renderer/services/LoggerService'
+import { formatNumericNow } from '@renderer/utils/time'
 
 import { useMigrationActions } from '../hooks/useMigrationProgress'
 
@@ -12,13 +13,6 @@ const logger = loggerService.withContext('MigrationDiagnosticPanel')
 
 type DiagnosticStatus = 'idle' | 'saving' | 'saved_with_logs' | 'saved_without_logs' | 'failed'
 type DiagnosticLogs = 'included' | 'not_included'
-
-function formatLocalDate(date: Date): string {
-  const year = String(date.getFullYear()).padStart(4, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
 
 interface MigrationDiagnosticPanelProps {
   embedded?: boolean
@@ -40,7 +34,7 @@ export function MigrationDiagnosticPanel({
     if (savedLogs === 'not_included') return 'saved_without_logs'
     return 'idle'
   })
-  const [logDate] = useState(() => formatLocalDate(new Date()))
+  const [logDate] = useState(() => formatNumericNow('YYYY-MM-DD'))
   const revealButtonRef = useRef<HTMLButtonElement>(null)
   const saved = diagnosticStatus === 'saved_with_logs' || diagnosticStatus === 'saved_without_logs'
 

@@ -8,7 +8,15 @@ import type {
 import type { Currency } from '@shared/data/types/model'
 import { CURRENCY } from '@shared/data/types/model'
 
-import { DEFAULT_COST_CURRENCY, parseDateKey, startOfLocalDay, toDateKey } from './usageDisplay'
+import {
+  DEFAULT_COST_CURRENCY,
+  endOfDayEpochMs,
+  localDateOf,
+  parseDateKey,
+  startOfDayEpochMs,
+  startOfLocalWeek,
+  toDateKey
+} from './usageDisplay'
 
 export const WINDOW_KEYS = ['30d', '90d', '365d'] as const
 export const GROUP_BY_KEYS = ['provider', 'model', 'apiKey', 'source'] as const
@@ -94,38 +102,30 @@ export interface BoundedTimeRange {
   to: number
 }
 
-export function endOfLocalDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999)
-}
-
 function getWindowDays(windowKey: WindowKey): number {
   return windowKey === '30d' ? 30 : windowKey === '90d' ? 90 : 365
 }
 
 export function getWindowRange(windowKey: WindowKey): BoundedTimeRange {
   const days = getWindowDays(windowKey)
-  const today = startOfLocalDay(new Date())
-  const from = new Date(today)
-  from.setDate(today.getDate() - days + 1)
+  const today = Temporal.Now.plainDateISO()
+  const from = today.subtract({ days: days - 1 })
 
   return {
-    from: from.getTime(),
-    to: endOfLocalDay(today).getTime()
+    from: startOfDayEpochMs(from),
+    to: endOfDayEpochMs(today)
   }
 }
 
 export function getPreviousWindowRange(windowKey: WindowKey): BoundedTimeRange {
   const days = getWindowDays(windowKey)
-  const currentRange = getWindowRange(windowKey)
-  const currentFrom = startOfLocalDay(new Date(currentRange.from))
-  const previousFrom = new Date(currentFrom)
-  previousFrom.setDate(currentFrom.getDate() - days)
-  const previousTo = new Date(currentFrom)
-  previousTo.setDate(currentFrom.getDate() - 1)
+  const currentFrom = Temporal.Now.plainDateISO().subtract({ days: days - 1 })
+  const previousFrom = currentFrom.subtract({ days })
+  const previousTo = currentFrom.subtract({ days: 1 })
 
   return {
-    from: startOfLocalDay(previousFrom).getTime(),
-    to: endOfLocalDay(previousTo).getTime()
+    from: startOfDayEpochMs(previousFrom),
+    to: endOfDayEpochMs(previousTo)
   }
 }
 
@@ -202,18 +202,13 @@ export function getLongestStreak(dateKeys: string[]): number {
   const sorted = [...dateKeys].sort()
   let longest = 0
   let current = 0
-  let previousDate: Date | undefined
+  let previous: Temporal.PlainDate | undefined
 
   for (const key of sorted) {
-    let isConsecutive = false
-    if (previousDate !== undefined) {
-      const next = new Date(previousDate)
-      next.setDate(next.getDate() + 1)
-      isConsecutive = toDateKey(next) === key
-    }
+    const isConsecutive = previous !== undefined && toDateKey(previous.add({ days: 1 })) === key
     current = isConsecutive ? current + 1 : 1
     longest = Math.max(longest, current)
-    previousDate = startOfLocalDay(parseDateKey(key))
+    previous = parseDateKey(key)
   }
 
   return longest
@@ -230,30 +225,78 @@ export function getTimelinePoints(
 ): Array<{ date: string; value: number }> {
   const first = buckets[0]
   const last = buckets[buckets.length - 1]
-  const from = range.from ?? (first ? startOfLocalDay(parseDateKey(first.date)).getTime() : undefined)
-  const to = range.to ?? (last ? endOfLocalDay(parseDateKey(last.date)).getTime() : undefined)
-  if (from === undefined || to === undefined) return []
+  const from = range.from !== undefined ? localDateOf(range.from) : first ? parseDateKey(first.date) : undefined
+  const to = range.to !== undefined ? localDateOf(range.to) : last ? parseDateKey(last.date) : undefined
+  if (!from || !to) return []
 
   const byDate = new Map(buckets.map((bucket) => [bucket.date, getValue(bucket)]))
   const points: Array<{ date: string; value: number }> = []
-  const cursor = startOfLocalDay(new Date(from))
-  const end = endOfLocalDay(new Date(to))
-  while (cursor.getTime() <= end.getTime()) {
+  for (let cursor = from; Temporal.PlainDate.compare(cursor, to) <= 0; cursor = cursor.add({ days: 1 })) {
     const date = toDateKey(cursor)
     points.push({ date, value: byDate.get(date) ?? 0 })
-    cursor.setDate(cursor.getDate() + 1)
   }
   return points
 }
 
 export function toPeriodKey(dateKey: string, rollup: UsageRollupKey, firstDayOfWeek: number): string {
   if (rollup === 'monthly') return `${dateKey.slice(0, 7)}-01`
-  if (rollup === 'weekly') {
-    const date = startOfLocalDay(parseDateKey(dateKey))
-    date.setDate(date.getDate() - ((date.getDay() - firstDayOfWeek + 7) % 7))
-    return toDateKey(date)
-  }
+  if (rollup === 'weekly') return toDateKey(startOfLocalWeek(parseDateKey(dateKey), firstDayOfWeek))
   return dateKey
+}
+
+export interface HeatmapDay {
+  date: Temporal.PlainDate
+  key: string
+  isOutsideRange: boolean
+}
+
+const MIN_HEATMAP_DAYS = 365
+
+export function buildHeatmapDays(
+  buckets: AiUsageRecordTimelineBucket[],
+  range: { from?: number; to?: number } | undefined,
+  firstDayOfWeek: number
+): HeatmapDay[] {
+  const today = Temporal.Now.plainDateISO()
+  let rangeFirstDay: Temporal.PlainDate
+  let rangeLastDay: Temporal.PlainDate
+
+  if (range?.from !== undefined) {
+    rangeFirstDay = localDateOf(range.from) ?? today
+    rangeLastDay = localDateOf(range.to ?? Date.now()) ?? today
+  } else if (buckets.length > 0) {
+    rangeFirstDay = buckets
+      .map((bucket) => parseDateKey(bucket.date))
+      .reduce((earliest, date) => (Temporal.PlainDate.compare(date, earliest) < 0 ? date : earliest))
+    rangeLastDay = today
+  } else {
+    rangeLastDay = today
+    rangeFirstDay = today.subtract({ days: 29 })
+  }
+
+  const minimumFirstDay = rangeLastDay.subtract({ days: MIN_HEATMAP_DAYS - 1 })
+  const displayFirstDay =
+    Temporal.PlainDate.compare(rangeFirstDay, minimumFirstDay) < 0 ? rangeFirstDay : minimumFirstDay
+  const firstWeekDay = startOfLocalWeek(displayFirstDay, firstDayOfWeek)
+  const lastWeekDay = startOfLocalWeek(rangeLastDay, firstDayOfWeek).add({ days: 6 })
+
+  // Step by calendar day, never by DAY_MS: DST days are 23h/25h long, so millisecond
+  // arithmetic would duplicate or skip a local date around a transition.
+  const days: HeatmapDay[] = []
+  for (
+    let cursor = firstWeekDay;
+    Temporal.PlainDate.compare(cursor, lastWeekDay) <= 0;
+    cursor = cursor.add({ days: 1 })
+  ) {
+    days.push({
+      date: cursor,
+      key: toDateKey(cursor),
+      isOutsideRange:
+        Temporal.PlainDate.compare(cursor, rangeFirstDay) < 0 || Temporal.PlainDate.compare(cursor, rangeLastDay) > 0
+    })
+  }
+
+  return days
 }
 
 export interface UsageChartSeries {

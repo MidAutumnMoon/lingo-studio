@@ -26,6 +26,7 @@ import { toast } from '@renderer/services/toast'
 import { normalizeFilePreviewPath } from '@renderer/utils/filePreview'
 import { isMac } from '@renderer/utils/platform'
 import { createSidebarShortcutTarget, SIDEBAR_SHORTCUT_PROVIDER_IDS } from '@renderer/utils/sidebar'
+import { formatNumericTime } from '@renderer/utils/time'
 import type { FileEntry, FileEntryId } from '@shared/data/types/file'
 import type { OutputFor } from '@shared/ipc/types'
 import type { AbsoluteFilePath, FileType } from '@shared/types/file'
@@ -145,13 +146,8 @@ async function requestBatchedInternalEntryCreates(
 }
 
 function formatDateTime(timestamp: number): string {
-  const date = new Date(timestamp)
-  if (Number.isNaN(date.getTime())) return '—'
-
-  const pad = (value: number) => value.toString().padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(
-    date.getMinutes()
-  )}`
+  // an unparseable timestamp has no wall-clock to render — keep the em dash the table shows today
+  return formatNumericTime(timestamp, 'YYYY-MM-DD HH:mm') || '—'
 }
 
 function displayNameOf(entry: FileEntry): string {

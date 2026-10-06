@@ -1,9 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { getLocaleFirstDayOfWeek } from '@renderer/utils/time'
 import type { AiUsageRecordTimelineBucket } from '@shared/data/api/schemas/aiUsageRecords'
 
-import { buildChartSeries, getTimelinePoints, selectCostTotal, toPeriodKey } from '../usageAnalytics'
+import {
+  buildChartSeries,
+  getLongestStreak,
+  getPreviousWindowRange,
+  getTimelinePoints,
+  getWindowRange,
+  selectCostTotal,
+  toPeriodKey
+} from '../usageAnalytics'
 
 function bucket(date: string, totalTokens: number, overrides: Partial<AiUsageRecordTimelineBucket> = {}) {
   return {
@@ -37,8 +45,7 @@ describe('getTimelinePoints', () => {
     ])
   })
 
-  it('steps by calendar day across a DST transition', () => {
-    // 2026-11-01 is the US fall-back day (25h long in America/New_York).
+  it('steps one calendar day at a time across a month boundary', () => {
     const from = new Date(2026, 9, 30).getTime()
     const to = new Date(2026, 10, 3, 23, 59, 59, 999).getTime()
     const dates = getTimelinePoints([], { from, to }, getTokens).map((point) => point.date)
@@ -58,6 +65,44 @@ describe('getTimelinePoints', () => {
 
   it('has no axis to draw without buckets or bounds', () => {
     expect(getTimelinePoints([], {}, getTokens)).toEqual([])
+  })
+})
+
+describe('window ranges', () => {
+  it('bounds the window to whole local days', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(Date.UTC(2026, 6, 4, 16, 30)))
+
+      const range = getWindowRange('30d')
+      expect(range.from).toBe(Date.UTC(2026, 5, 5))
+      expect(range.to).toBe(Date.UTC(2026, 6, 4, 23, 59, 59, 999))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('places the previous window immediately before the current one', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(Date.UTC(2026, 6, 4, 16, 30)))
+
+      const current = getWindowRange('30d')
+      const previous = getPreviousWindowRange('30d')
+      expect(previous.to).toBe(current.from - 1)
+      expect(previous.to - previous.from).toBe(30 * 24 * 60 * 60 * 1000 - 1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('getLongestStreak', () => {
+  it('counts consecutive calendar days and survives gaps and duplicates', () => {
+    expect(getLongestStreak(['2026-03-01', '2026-03-02', '2026-03-03', '2026-03-01'])).toBe(3)
+    expect(getLongestStreak(['2026-03-01', '2026-03-03', '2026-03-04', '2026-03-06'])).toBe(2)
+    expect(getLongestStreak(['2026-12-31', '2027-01-01'])).toBe(2) // month rollover is still consecutive
+    expect(getLongestStreak([])).toBe(0)
   })
 })
 

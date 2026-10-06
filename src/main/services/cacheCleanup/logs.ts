@@ -3,6 +3,7 @@ import path from 'node:path'
 
 import { application } from '@application'
 import { loggerService } from '@logger'
+import { toLocalDayKey } from '@main/utils/time'
 import type { CacheCleanupGroupResult, CacheCleanupSizeSnapshot } from '@shared/types/cacheCleanupIpc'
 
 import {
@@ -23,25 +24,27 @@ const logger = loggerService.withContext('CacheCleanup')
 // counter after the name, because our `filename` carries the extension and its own is empty.
 const LOG_FILE_PATTERN = /\.log(\.\d+)?(\.gz)?$/
 const LOG_STAMP_PATTERN = /(\d{4})-(\d{2})-(\d{2})/
-const DAY_MS = 24 * 60 * 60 * 1000
 
-/** Whole days between a file's `YYYY-MM-DD` rotation stamp and today, both local. */
-function ageInDays(name: string): number | null {
+/** Calendar days between a file's `YYYY-MM-DD` rotation stamp and today, both local. Null for an impossible stamp. */
+export function ageInDays(name: string, now = Date.now()): number | null {
   const match = LOG_STAMP_PATTERN.exec(name)
   if (!match) return null
 
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const stamped = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).getTime()
-  return Math.round((today - stamped) / DAY_MS)
+  const today = toLocalDayKey(now)
+  if (today === null) return null
+  try {
+    return Temporal.PlainDate.from(`${match[1]}-${match[2]}-${match[3]}`).until(Temporal.PlainDate.from(today)).days
+  } catch {
+    return null
+  }
 }
 
-function isRemovable(name: string, minAgeDays: number): boolean {
+export function isRemovable(name: string, minAgeDays: number, now = Date.now()): boolean {
   if (!LOG_FILE_PATTERN.test(name)) return false
 
-  const age = ageInDays(name)
-  // Undated leftovers have no age to weigh against a retention window, so only the
-  // manual sweep takes them. Today's files stay open in the rotating transports:
+  const age = ageInDays(name, now)
+  // Undated or impossibly-dated leftovers have no age to weigh against a retention window,
+  // so only the manual sweep takes them. Today's files stay open in the rotating transports:
   // removing them would silently drop the rest of today's logs on POSIX and fail on Windows.
   return age === null ? minAgeDays === 0 : age > minAgeDays
 }

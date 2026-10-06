@@ -17,7 +17,7 @@ import {
   type UsageMetricKey,
   type UsageRollupKey
 } from './usageAnalytics'
-import { formatCost, parseDateKey } from './usageDisplay'
+import { endOfDayEpochMs, formatCost, parseDateKey, startOfDayEpochMs } from './usageDisplay'
 
 const Chart = lazy(() => import('@renderer/components/Chart').then((module) => ({ default: module.Chart })))
 
@@ -94,10 +94,9 @@ export function UsageDistributionChart({
       if (rollup === 'monthly') return monthFormatter.format(parseDateKey(periodKey))
       if (rollup === 'weekly') {
         const start = parseDateKey(periodKey)
-        const end = parseDateKey(periodKey)
-        end.setDate(end.getDate() + 6)
-        const clippedStart = new Date(Math.max(start.getTime(), range.from))
-        const clippedEnd = new Date(Math.min(end.getTime(), range.to))
+        const end = start.add({ days: 6 })
+        const clippedStart = new Date(Math.max(startOfDayEpochMs(start), range.from))
+        const clippedEnd = new Date(Math.min(endOfDayEpochMs(end), range.to))
         return `${dateFormatter.format(clippedStart)} – ${dateFormatter.format(clippedEnd)}`
       }
       return dateFormatter.format(parseDateKey(periodKey))

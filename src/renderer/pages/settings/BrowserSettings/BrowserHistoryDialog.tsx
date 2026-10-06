@@ -26,6 +26,8 @@ import { useTabs } from '@renderer/hooks/tab'
 import { toast } from '@renderer/services/toast'
 import type { BrowserVisit } from '@shared/data/api/schemas/browserVisits'
 
+import { groupVisitsByDay } from './browserHistoryGroups'
+
 export function BrowserHistoryDialog({ onOpenPage }: { onOpenPage: () => void }) {
   const { t } = useTranslation()
   return (
@@ -81,28 +83,7 @@ function BrowserHistoryContent({ onOpenPage }: { onOpenPage: () => void }) {
 
   const locale = i18n.resolvedLanguage ?? i18n.language
   const timeFormat = useMemo(() => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }), [locale])
-  const groups = useMemo(() => {
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(today.getDate() - 1)
-    const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-    const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'long' })
-    const grouped = new Map<string, { label: string; visits: BrowserVisit[] }>()
-    for (const visit of items) {
-      const date = new Date(visit.visitedAt)
-      const day = date.toDateString()
-      const label =
-        day === today.toDateString()
-          ? relative.format(0, 'day')
-          : day === yesterday.toDateString()
-            ? relative.format(-1, 'day')
-            : dateFormat.format(date)
-      const group = grouped.get(day)
-      if (group) group.visits.push(visit)
-      else grouped.set(day, { label, visits: [visit] })
-    }
-    return [...grouped.entries()].map(([day, { label, visits }]) => ({ group: day, header: label, items: visits }))
-  }, [items, locale])
+  const groups = useMemo(() => groupVisitsByDay(items, locale), [items, locale])
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true)

@@ -10,12 +10,47 @@ import type { AbsoluteFilePath } from '@shared/types/file'
 import {
   collectCrashDumpInventory,
   collectDiagnosticSources,
+  logMayOverlapRange,
   SourceChangedError,
   stageSourceCandidate
 } from '../sourceCollector'
 import type { DiagnosticWarning } from '../types'
 
 const ALL_SOURCES = { includeLogs: true, includeTraces: true } as const
+
+describe('logMayOverlapRange', () => {
+  // TZ=UTC in tests, so local midnight of 2026-07-04 is 2026-07-04T00:00:00Z
+  const range = { fromMs: Date.UTC(2026, 6, 4, 12), toMs: Date.UTC(2026, 6, 4, 18) }
+
+  it('accepts a log day whose local midnight..next-midnight window touches the range', () => {
+    expect(logMayOverlapRange('app.2026-07-04.log', range)).toBe(true)
+    // a size-rolled shard of the previous day still overlaps a range reaching into its night
+    expect(logMayOverlapRange('app.2026-07-03.log.1', { fromMs: Date.UTC(2026, 6, 3, 23), toMs: range.toMs })).toBe(
+      true
+    )
+  })
+
+  it('rejects days strictly outside the range', () => {
+    expect(logMayOverlapRange('app.2026-07-02.log', range)).toBe(false)
+    expect(logMayOverlapRange('app.2026-07-05.log', range)).toBe(false)
+  })
+
+  it('rejects calendar-impossible and malformed stamps', () => {
+    expect(logMayOverlapRange('app.2026-02-30.log', { fromMs: 0, toMs: Date.now() })).toBe(false)
+    expect(logMayOverlapRange('app.2026-13-01.log', { fromMs: 0, toMs: Date.now() })).toBe(false)
+    expect(logMayOverlapRange('notes.txt', range)).toBe(false)
+  })
+
+  it('steps a month rollover through the next day boundary', () => {
+    // 2026-07-31's next local midnight is 2026-08-01 — the range just after Aug 1 midnight overlaps
+    expect(
+      logMayOverlapRange('app.2026-07-31.log', { fromMs: Date.UTC(2026, 6, 31), toMs: Date.UTC(2026, 7, 1) })
+    ).toBe(true)
+    expect(
+      logMayOverlapRange('app.2026-07-31.log', { fromMs: Date.UTC(2026, 7, 1, 0, 0, 1), toMs: Date.UTC(2026, 7, 2) })
+    ).toBe(false)
+  })
+})
 
 function formatLogDate(timestamp: number): string {
   const date = new Date(timestamp)
