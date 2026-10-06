@@ -271,17 +271,13 @@ jobs:
         with:
           node-version-file: ".node-version"
 
-      - name: macos-latest dependencies fix
-        if: matrix.os == 'macos-latest'
-        run: brew install python-setuptools
-
       - name: Install pnpm
         uses: pnpm/action-setup@v5
 
       - name: Get pnpm store directory
         id: pnpm-cache
         shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Restore pnpm dependencies
         uses: actions/cache/restore@v6
@@ -314,7 +310,6 @@ jobs:
               echo "::error::No platform-gated test files found — refusing to run the whole suite."
               exit 1
             fi
-            pnpm rebuild:node
             pnpm exec vitest run --project main --project shared $gated
             exit 0
           fi
@@ -339,7 +334,6 @@ jobs:
             projects+=(--project scripts)
           fi
 
-          pnpm rebuild:node
           pnpm exec vitest run "${projects[@]}" --shard=${{ matrix.shard }}/${{ matrix.shards }}
 
   general-test:

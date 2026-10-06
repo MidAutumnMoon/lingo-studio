@@ -41,7 +41,6 @@ out
 mcp_server
 stats.html
 .eslintcache
-scripts/linux-native/prebuilt/
 
 # ENV
 .env

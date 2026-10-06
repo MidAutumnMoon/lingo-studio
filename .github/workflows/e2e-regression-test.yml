@@ -202,12 +202,6 @@ jobs:
         if: needs.resolve.outputs.mode == 'branch'
         run: pnpm --dir target-app install --frozen-lockfile
 
-      - name: Prepare application runtime once
-        if: needs.resolve.outputs.mode == 'branch'
-        shell: bash
-        run: |
-          pnpm --dir target-app rebuild:electron
-
       - name: Download and install release
         if: needs.resolve.outputs.mode == 'tag'
         shell: bash

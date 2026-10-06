@@ -1,10 +1,7 @@
 const { Arch } = require('electron-builder')
-const { rebuild } = require('@electron/rebuild')
 const fs = require('fs')
 const path = require('path')
 const { parse } = require('yaml')
-
-const { ensureLinuxNativeArtifact } = require('./linux-native/download')
 
 // if you want to add new prebuild binaries packages with different architectures, you can add them here
 // please add to allX64 and allArm64 from pnpm-lock.yaml
@@ -74,47 +71,6 @@ const platformToArch = {
   linuxmusl: 'linuxmusl'
 }
 
-async function prepareNativeModulesForElectron(
-  context,
-  rebuildFn = rebuild,
-  ensureLinuxArtifact = ensureLinuxNativeArtifact
-) {
-  const arch = context.arch === Arch.arm64 ? 'arm64' : 'x64'
-  const platformName = context.packager.platform.name
-  const platform = platformToArch[platformName]
-  const electronVersion = context.packager.config.electronVersion
-  const projectRoot = path.join(__dirname, '..')
-
-  if (!platform || !electronVersion) {
-    throw new Error(`Cannot resolve Electron rebuild target for ${platformName}-${arch}`)
-  }
-
-  if (platform === 'linux') {
-    if (context.arch !== Arch.arm64 && context.arch !== Arch.x64) {
-      throw new Error(`Unsupported Linux packaging architecture: ${context.arch}`)
-    }
-    const artifact = ensureLinuxArtifact({ projectRoot, arch })
-    process.stdout.write(
-      `${artifact.cached ? 'Verified cached' : 'Downloaded'} GLIBC-compatible better-sqlite3 for ` +
-        `linux-${arch} (${artifact.inspection.sha256})\n`
-    )
-    return
-  }
-
-  // electron-builder's automatic pnpm rebuild can retain the host Node prebuild.
-  // Force the ABI-sensitive addon from source for the exact target before app files are copied.
-  await rebuildFn({
-    buildPath: projectRoot,
-    electronVersion,
-    platform,
-    arch,
-    onlyModules: ['better-sqlite3'],
-    force: true,
-    buildFromSource: true
-  })
-}
-exports.prepareNativeModulesForElectron = prepareNativeModulesForElectron
-
 // Most native packages encode Electron's platform key (win32) in their name, but some
 // (e.g. sqlite-vec) use the npm `windows` convention. Match either so a win32 build keeps
 // sqlite-vec-windows-x64 instead of wrongly excluding it.
@@ -143,39 +99,50 @@ const assertPrebuiltPackages = (platform, arch) => {
 exports.assertPrebuiltPackages = assertPrebuiltPackages
 exports.keepPackages = keepPackages
 
+// better-sqlite3 v13 ships all eight N-API prebuilds in prebuilds/ and its loader picks
+// `${platform}-${arch}.node` at runtime. Only the file matching the packaging target is
+// needed — exclude the rest from the bundle like the per-package excludes above.
+// Packaged Linux builds are glibc, so the linuxmusl prebuilts are never the target.
+const betterSqlite3PrebuildTargets = [
+  'darwin-arm64',
+  'darwin-x64',
+  'linux-arm64',
+  'linux-x64',
+  'linuxmusl-arm64',
+  'linuxmusl-x64',
+  'win32-arm64',
+  'win32-x64'
+]
+
+const betterSqlite3PrebuildExcludes = (platform, arch) => {
+  const prebuildPlatform = platform === 'linuxmusl' ? 'linux' : platform
+  return betterSqlite3PrebuildTargets
+    .filter((target) => target !== `${prebuildPlatform}-${arch}`)
+    .map((target) => `!node_modules/better-sqlite3/prebuilds/${target}.node`)
+}
+exports.betterSqlite3PrebuildExcludes = betterSqlite3PrebuildExcludes
+
 exports.default = async function (context) {
   const arch = context.arch === Arch.arm64 ? 'arm64' : 'x64'
   const platformName = context.packager.platform.name
   const platform = platformToArch[platformName]
+  if (!platform) {
+    throw new Error(`Unsupported packaging platform: ${platformName}`)
+  }
 
-  await prepareNativeModulesForElectron(context)
   assertPrebuiltPackages(platform, arch)
 
-  const excludePackages = async (packagesToExclude) => {
-    // 从项目根目录的 electron-builder.yml 读取 files 配置，避免多次覆盖配置导致出错
-    const electronBuilderConfigPath = path.join(__dirname, '..', 'electron-builder.yml')
-    const electronBuilderConfig = parse(fs.readFileSync(electronBuilderConfigPath, 'utf-8'))
-    let filters = electronBuilderConfig.files
+  // 从项目根目录的 electron-builder.yml 读取 files 配置，避免多次覆盖配置导致出错
+  const electronBuilderConfigPath = path.join(__dirname, '..', 'electron-builder.yml')
+  const electronBuilderConfig = parse(fs.readFileSync(electronBuilderConfigPath, 'utf-8'))
+  const filters = electronBuilderConfig.files
 
-    // add filters for other architectures (exclude them)
-    filters.push(...packagesToExclude)
+  // add filters for other architectures and platforms (exclude them)
+  const keptPackages = keepPackages(platform, arch)
+  filters.push(
+    ...packages.filter((p) => !keptPackages.includes(p)).map((p) => '!node_modules/' + p + '/**'),
+    ...betterSqlite3PrebuildExcludes(platform, arch)
+  )
 
-    context.packager.config.files[0].filter = filters
-  }
-
-  const arm64KeepPackages = keepPackages(platform, 'arm64')
-  const arm64ExcludePackages = packages
-    .filter((p) => !arm64KeepPackages.includes(p))
-    .map((p) => '!node_modules/' + p + '/**')
-
-  const x64KeepPackages = keepPackages(platform, 'x64')
-  const x64ExcludePackages = packages
-    .filter((p) => !x64KeepPackages.includes(p))
-    .map((p) => '!node_modules/' + p + '/**')
-
-  if (context.arch === Arch.arm64) {
-    await excludePackages(arm64ExcludePackages)
-  } else {
-    await excludePackages(x64ExcludePackages)
-  }
+  context.packager.config.files[0].filter = filters
 }

@@ -1,13 +1,16 @@
 ---
-description: Linux packaging flow using pinned better-sqlite3 prebuilds, with build commands and prebuild update steps
+description: Linux packaging flow — build commands, upstream better-sqlite3 prebuilds, and the GLIBC 2.34 floor
 sources:
-  - scripts/linux-native
+  - scripts/before-pack.js
+  - electron-builder.yml
 ---
 
 # Linux Packaging
 
-Linux packages use x64 and ARM64 `better-sqlite3` prebuilds from the pinned
-[`CherryHQ/cherry-studio-better-sqlite3`](https://github.com/CherryHQ/cherry-studio-better-sqlite3) GitHub Release.
+Linux builds use the upstream `better-sqlite3` prebuilts that ship inside the
+npm package (`prebuilds/`). Since v13 the module is N-API, so one ABI-stable
+binary serves both the test runner (system Node) and the app (Electron) —
+nothing is compiled, downloaded, or pinned at build time anymore.
 
 ## Build
 
@@ -20,24 +23,19 @@ pnpm build:linux:x64
 pnpm build:linux:arm64
 ```
 
-The first build requires network access to populate the Git-ignored `scripts/linux-native/prebuilt/` cache. Cherry
-Studio packaging itself does not require Docker or QEMU; those tools are only needed when publishing new prebuilds
-from the separate repository.
+Cherry Studio packaging does not require Docker or QEMU.
 
 ## Packaging Flow
 
-1. `beforePack` downloads the target artifact and verifies its pinned Release checksum.
-2. electron-builder performs its normal native dependency rebuild.
-3. `afterPack` verifies the Electron ABI, module version, ELF architecture, checksum, and maximum
-   GLIBC/GLIBCXX/CXXABI requirements before replacing the packaged `better_sqlite3.node`.
+`beforePack` (`scripts/before-pack.js`) filters the package's `prebuilds/`
+down to the target platform-arch file, alongside the other per-platform
+prebuilt packages; electron-builder then packs the app with the surviving
+upstream `better_sqlite3.node`. A missing prebuilt package for the target
+stops packaging.
 
-A missing, stale, or incompatible artifact stops packaging.
+## Minimum glibc
 
-## Updating the Prebuild
-
-When Electron or `better-sqlite3` changes:
-
-1. Publish a verified Release from the prebuild repository.
-2. Update `scripts/linux-native/release.json` with the exact tag, filenames, metadata, and SHA-256 values.
-
-Never point application builds at a floating `latest` Release.
+The upstream linux prebuilds require **GLIBC 2.34** and **GLIBCXX 3.4.29**
+(x64 and ARM64 alike). Distributions with an older glibc cannot load the
+binary. Rolling-release Linux is the support target; macOS and Windows
+packaging is best-effort.

@@ -8,7 +8,6 @@ sources:
   - src/main/data/migration/v2
   - src/main/features/knowledge/pipeline/vectorstore/indexStore
   - tests/helpers/db
-  - scripts/invalidate-electron-rebuild-metadata.js
   - package.json
 ---
 
@@ -18,13 +17,22 @@ sources:
 "today" sections, which are facts about the shipped code. The implemented data-layer contract lives in
 [database-patterns.md](./database-patterns.md) and [database-construction.md](./database-construction.md).
 
+**Update 2026-10 — the ABI-flip motivation is resolved.** better-sqlite3 v13 (13.0.3) migrated to
+N-API (node-addon-api) and ships every prebuilt binary inside the npm package: one ABI-stable binary
+serves Node (Vitest) and Electron alike, and the rebuild ceremony — `rebuild:electron`, `rebuild:node`,
+`pretest`, `pretest:main`, `scripts/invalidate-electron-rebuild-metadata.js` — has been deleted. That
+removes pain points P1–P3 and acceptance item H. What still argues for `node:sqlite` is only what is
+left below, weighed against this doc's own criteria: the test/runtime mismatch itself (P4), the
+native-artifact surface and third-party SQLite cadence (P5, minus the compile path), and driver
+semantics (B–F, I). Present-tense descriptions of the flip below are historical.
+
 ## Why this document exists
 
-The application and its `main`-project tests load **one** compiled native addon, but they run in **two
-different runtimes**: Electron's main process (the app) and plain Node (Vitest). Those runtimes have
-incompatible V8 ABIs, so the addon has to be rebuilt for whichever side runs next. In practice that
-means a forced `electron-rebuild` before every app start and a `pnpm rebuild` before every full test
-run, and a wrong pairing fails as a raw linker error rather than a readable one.
+The application and its `main`-project tests load **one** compiled native addon while running in **two
+different runtimes**: Electron's main process (the app) and plain Node (Vitest). While better-sqlite3
+was a V8-direct (NAN) addon, those runtimes' incompatible V8 ABIs forced a rebuild for whichever side
+ran next — a forced `electron-rebuild` before every app start and a `pnpm rebuild` before every full
+test run, with a wrong pairing failing as a raw linker error rather than a readable one.
 
 A migration would delete that whole class of problem rather than managing it: the platform now ships a
 synchronous SQLite driver — `node:sqlite` — that covers every capability this codebase uses.
@@ -40,7 +48,7 @@ synchronous SQLite driver — `node:sqlite` — that covers every capability thi
 | Backup / checkpoint / restore | `src/main/data/db/restore/` |
 | Vector index (own connection + driver port) | `src/main/features/knowledge/pipeline/vectorstore/indexStore/` |
 | Real-DB test harness | `tests/helpers/db/`, used by 169 test files |
-| ABI flip scripts | `package.json` (`rebuild:electron`, `rebuild:node`, `pretest`, `pretest:main`, `dev`, `debug`, `start`) and `scripts/invalidate-electron-rebuild-metadata.js` |
+| ABI flip scripts | removed by the v13 upgrade — formerly `package.json` (`rebuild:electron`, `rebuild:node`, `pretest`, `pretest:main`, `dev`, `debug`, `start`) and `scripts/invalidate-electron-rebuild-metadata.js` |
 
 Three properties of the layer make the driver choice load-bearing:
 
@@ -53,21 +61,21 @@ Three properties of the layer make the driver choice load-bearing:
 
 ## Pain points of the current approach
 
-**P1 — better-sqlite3 is V8-direct, not Node-API, so no single artifact can serve both runtimes.**
-It is compiled against one runtime's V8 headers (`binding.gyp` builds `src/better_sqlite3.cpp`; the addon
-loads through `require('bindings')('better_sqlite3.node')`, a fixed path list with no runtime awareness).
-A Node-API addon could satisfy both runtimes; this one cannot, by design.
+**P1 — resolved in v13.** better-sqlite3 **was** V8-direct, not Node-API, so no single artifact could
+serve both runtimes. It was compiled against one runtime's V8 headers (`binding.gyp` built
+`src/better_sqlite3.cpp`; the addon loaded through `require('bindings')('better_sqlite3.node')`, a fixed
+path list with no runtime awareness). A Node-API addon could satisfy both runtimes — v13 became one.
 
-**P2 — The ABI flip is forced on every start, and only one side can be a download.**
-`debug` / `dev` / `dev:watch` / `start` run `electron-rebuild --force` first; `pretest` / `pretest:main`
-run `rebuild:node`. The Node side resolves through `prebuild-install`, which is a cached download
-(`~/.npm/_prebuilds/…-node-v137-…`), while `electron-rebuild` compiles from source through node-gyp — so
-the Electron side always costs a toolchain (gcc, make, python3) and minutes.
-`scripts/invalidate-electron-rebuild-metadata.js` exists only to defeat pnpm's "already built" caching
+**P2 — resolved in v13.** The ABI flip **was** forced on every start, and only one side could be a
+download. `debug` / `dev` / `dev:watch` / `start` ran `electron-rebuild --force` first; `pretest` /
+`pretest:main` ran `rebuild:node`. The Node side resolved through `prebuild-install`, a cached download
+(`~/.npm/_prebuilds/…-node-v137-…`), while `electron-rebuild` compiled from source through node-gyp — so
+the Electron side always cost a toolchain (gcc, make, python3) and minutes.
+`scripts/invalidate-electron-rebuild-metadata.js` existed only to defeat pnpm's "already built" caching
 across a flip.
 
-**P3 — A wrong pairing fails as a linker error, not as a diagnosis.**
-Loading an Electron-ABI build under Node 24 surfaces as
+**P3 — resolved in v13 (with one binary there is no pairing to get wrong).** A wrong pairing used to
+fail as a linker error, not as a diagnosis. Loading an Electron-ABI build under Node 24 surfaced as
 `undefined symbol: _ZN2v811HandleScope6ExtendEPNS_7IsolateE`, because Electron patches V8: the addon's
 C++ symbols do not exist in Node's V8, and the failure arrives from the dynamic loader instead of as a
 version message. Nothing in it names the pairing, so the failure reads as broken code. Observed
@@ -77,14 +85,14 @@ missing native build rather than a bug.
 **P4 — The deeper cause is a test/runtime mismatch, not the driver alone.**
 The production DB layer is exercised under a different runtime than it ships in. That is a deliberate
 policy — the harness forbids stubbing the database, and 169 test files open a real, migrated database —
-so the Node side genuinely needs a working native driver. Any fix that keeps that harness unchanged
-keeps the flip; only moving those tests into Electron or changing the driver removes it.
+so the Node side genuinely needs a working native driver. The mismatch itself remains under v13; what
+the N-API migration removed is the flip it used to force.
 
 **P5 — Native-artifact surface, per platform and per upgrade.**
-Every target platform/arch needs its own compiled addon, rebuilt for the app's Electron by
-electron-builder, and unpacked from asar (the extension needs explicit handling — see
-`toAsarUnpackedPath`). Bumping Electron or Node re-opens the compile path, and the data layer's SQLite
-version is tied to better-sqlite3's release cadence rather than the runtime's.
+Every target platform/arch needs its own native binary, shipped in the package and unpacked from asar
+(the extension needs explicit handling — see `toAsarUnpackedPath`). Under v13 this is a prebuilt file
+rather than a compile, so Electron/Node bumps no longer re-open a build path — but the data layer's
+SQLite version is still tied to better-sqlite3's release cadence rather than the runtime's.
 
 **P6 — The decision has not been stable historically.**
 `better-sqlite3` entered in 2024-09, was replaced by sequelize at one point, then returned; the
@@ -140,9 +148,10 @@ behaviours that must be re-tested (fresh install, upgrade from a populated v2 da
 restore, integrity check).
 
 **H. Test harness and tooling.** `tests/helpers/db/`, `tests/__mocks__/main/DbService.ts` and the
-`withWriteTx` integration test are the contract here. On success, `rebuild:electron`, `rebuild:node`,
-`pretest`/`pretest:main` and `scripts/invalidate-electron-rebuild-metadata.js` all disappear — that
-deletion is the acceptance test for the whole project.
+`withWriteTx` integration test are the contract here. The flip scripts this project set out to delete
+(`rebuild:electron`, `rebuild:node`, `pretest`/`pretest:main`,
+`scripts/invalidate-electron-rebuild-metadata.js`) were removed by the v13 upgrade; the remaining
+acceptance is that the harness keeps passing unchanged under `node:sqlite`.
 
 **I. Performance, measured before committing.** better-sqlite3 is the performance baseline: benchmark
 bulk message insert, FTS search, `vec0` search and startup migration on a large database, and write down
@@ -158,12 +167,12 @@ the first cutover on real user data.
 
 ## Expected net gain
 
-Disappears:
+Disappears (the first two bullets already did, via the v13 N-API upgrade):
 
 - The ABI flip and its failure mode (P1–P3), including the toolchain dependency for the data path.
 - Four package scripts and the metadata-invalidation workaround, plus the CI time they cost.
-- A compiled artifact per platform/arch to build, unpack and ship; Electron bumps stop re-opening a
-  compile path.
+- The native artifact per platform/arch itself — v13 reduced it to a prebuilt file, `node:sqlite`
+  removes it entirely; either way Electron bumps no longer re-open a compile path.
 - SQLite updates arrive with the runtime instead of on better-sqlite3's cadence.
 
 Stays or grows:
@@ -186,10 +195,13 @@ the tests) leaves the flip in place.
 2. **Adapter decision**: resolve D (Drizzle) with the spike's findings in hand.
 3. **Parallel-run the app data layer**: implement the `node:sqlite` adapter behind `DbService`, keep
    better-sqlite3 installed, and run the full test suite against both.
-4. **Cut over behind a snapshot**, then delete `better-sqlite3` and the flip scripts in the same change
-   that removes the last import.
+4. **Cut over behind a snapshot**, then delete `better-sqlite3` in the same change
+   that removes the last import. (The flip scripts are already gone — v13 removed them.)
 
 ## If the migration is deferred
+
+*This section predates the v13 upgrade; the flip it mitigates no longer exists, so neither mitigation
+is worth doing. Kept for history.*
 
 The daily pain has a much cheaper mitigation, and it is worth doing regardless:
 
@@ -210,11 +222,14 @@ The daily pain has a much cheaper mitigation, and it is worth doing regardless:
 
 ## Appendix: reproducing the diagnosis
 
+*Historical — this diagnosed the pre-v13 flip era; under v13 there is one N-API binary and no pairing
+to get wrong. The whole check that remains is the last line: the module loads.*
+
 ```bash
-# What the addon is built for (electron-rebuild stamps the target ABI here):
+# What the addon was built for (electron-rebuild stamped the target ABI here):
 cat node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3/build/Release/.forge-meta
 # What Node needs:
 node -p "process.versions.modules"
 # Does the active binding satisfy Node?
-node -e "require('better-sqlite3')"   # undefined symbol / missing bindings ⇒ the flip is on the wrong side
+node -e "require('better-sqlite3')"   # undefined symbol / missing bindings ⇒ the flip was on the wrong side
 ```

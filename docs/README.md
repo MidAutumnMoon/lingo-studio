@@ -10,7 +10,7 @@
 | [🌿 Branching Strategy](./contrib/branching-strategy.md) | Branch model for contributions, pull request guidelines, and version tag management targeting main |
 | [🖥️ Develop](./contrib/development.md) | Developer environment setup covering IDE configuration, Windows symlink support, and project install steps |
 | [Feishu Notification Script](./contrib/feishu-notify.md) | CLI script that sends Feishu webhook card notifications from GitHub Actions workflows, with command reference |
-| [Linux Packaging](./contrib/linux-packaging.md) | Linux packaging flow using pinned better-sqlite3 prebuilds, with build commands and prebuild update steps |
+| [Linux Packaging](./contrib/linux-packaging.md) | Linux packaging flow — build commands, upstream better-sqlite3 prebuilds, and the GLIBC 2.34 floor |
 | [Release Workflow Operations](./contrib/release-workflow.md) | Maintainer runbook for preparing, validating, hotfixing, publishing, and synchronizing release branches |
 
 ## References

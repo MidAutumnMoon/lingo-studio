@@ -50,17 +50,15 @@ describe('regression execution plan', () => {
     expect(workflow.concurrency['cancel-in-progress']).toBe(false)
   })
 
-  it('prepares native dependencies before the first branch launch only', () => {
+  it('installs branch dependencies before the first launch without rebuilding native modules', () => {
     const workflow = parse(readFileSync(resolve('.github/workflows/e2e-regression-test.yml'), 'utf8'))
     const steps = workflow.jobs.test.steps as Array<{ name: string; if?: string; run?: string }>
-    const prepare = steps.findIndex((step) => step.name === 'Prepare application runtime once')
-    expect(prepare).toBeGreaterThan(steps.findIndex((step) => step.name === 'Install application dependencies'))
-    expect(prepare).toBeLessThan(steps.findIndex((step) => step.name === 'Launch controlled Cherry Studio once'))
-    expect(steps[prepare].if).toBe("needs.resolve.outputs.mode == 'branch'")
-    const commands = steps.flatMap((step) => step.run?.split('\n') ?? [])
-    expect(commands.filter((command) => command.includes('rebuild:electron'))).toEqual([
-      'pnpm --dir target-app rebuild:electron'
-    ])
+    const install = steps.findIndex((step) => step.name === 'Install application dependencies')
+    expect(install).toBeGreaterThan(-1)
+    expect(steps[install].if).toBe("needs.resolve.outputs.mode == 'branch'")
+    expect(install).toBeLessThan(steps.findIndex((step) => step.name === 'Launch controlled Cherry Studio once'))
+    // Native modules ship N-API prebuilds — no workflow step may reintroduce a rebuild.
+    expect(steps.some((step) => step.run?.includes('rebuild:electron'))).toBe(false)
   })
 
   it('selects only the requested task within its workflow phase', () => {

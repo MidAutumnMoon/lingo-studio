@@ -210,6 +210,6 @@ Never close all Electron processes to recover from a targeting mistake.
 | Symptom | Action |
 | --- | --- |
 | CDP works but the page is missing | Re-list targets and match URL/title; splash, migration, settings, detached tabs, and mini-apps are separate targets. |
-| Debug launch exits | Inspect the recorded log for a profile lock, native rebuild, database/startup failure, or port collision; confirm the old PID exited. |
+| Debug launch exits | Inspect the recorded log for a profile lock, database/startup failure, or port collision; confirm the old PID exited. |
 | Splash or migration is stuck | Read startup logs and wait; do not bypass, reset, or force-close without understanding its phase. |
 | CDP automation is unavailable | Use logs/source when sufficient. If UI evidence is essential, explain why and use the replacement procedure; never fall back to generic Electron control. |

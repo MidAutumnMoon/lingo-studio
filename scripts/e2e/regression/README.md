@@ -24,10 +24,11 @@ The explicit profile/restart operation prepares Windows connections by closing n
 
 ## Execution contract
 
-Branch runs prepare `rebuild:electron` once after installing
-application dependencies. The controller then launches the development server directly,
+Branch runs install application dependencies once; native modules
+ship N-API prebuilds, so no rebuild step is needed. The controller then launches the
+development server directly,
 including on profile switches and persistence-test restarts. Local controller runs must
-perform the same preparation in the target checkout before `launch`; release installers
+perform the same install in the target checkout before `launch`; release installers
 do not need it. Restarting still stops the owned application and preserves its profile.
 
 The workflow keeps ten separately timed steps. Each calls `run-phase`; the controller intersects its phase with the run's selected task and returns immediately for unselected phases.
