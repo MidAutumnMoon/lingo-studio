@@ -1,5 +1,5 @@
 import type { HighlighterCore } from 'shiki'
-import { createHighlighter } from 'shiki'
+import { createHighlighter, createJavaScriptRegexEngine } from 'shiki'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { ShikiStreamTokenizer } from '../ShikiStreamTokenizer'
@@ -12,9 +12,11 @@ import {
 const stripSpanMarkup = (html: string) => html.replace(/<span(?:\s[^>]*)?>/g, '').replace(/<\/span>/g, '')
 
 describe('ShikiStreamTokenizer', () => {
+  // 与生产环境一致使用 JavaScript regex engine，保证等价性验证覆盖实际发布的高亮行为
   const highlighterPromise = createHighlighter({
     langs: ['typescript'],
-    themes: ['one-light']
+    themes: ['one-light'],
+    engine: createJavaScriptRegexEngine({ forgiving: true })
   })
 
   let highlighter: HighlighterCore | null = null
@@ -181,6 +183,23 @@ console.log(typeof f, E.B, new C() instanceof C, /^ts$/.test('ts')); // typeof/�
 
       const result = await highlightCode(chunks, tokenizer)
       const expected = getExpectedHighlightedCode(fixture.tsCode, highlighter)
+
+      expect(result).toBe(expected)
+    })
+
+    it('should handle an empty first chunk', async () => {
+      const result = await highlightCode(['', fixture.tsCode], tokenizer)
+      const expected = getExpectedHighlightedCode(fixture.tsCode, highlighter)
+
+      expect(result).toBe(expected)
+    })
+
+    it('should handle chunks that split on double newlines leaving empty lines', async () => {
+      const withBlankLines = fixture.tsCode.replace(/\n\n/g, '\n\n\n')
+      const chunks = withBlankLines.split('\n\n').flatMap((part, i) => (i === 0 ? [part] : ['\n\n', part]))
+
+      const result = await highlightCode(chunks, tokenizer)
+      const expected = getExpectedHighlightedCode(withBlankLines, highlighter)
 
       expect(result).toBe(expected)
     })

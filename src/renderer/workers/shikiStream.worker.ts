@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import { LRUCache } from 'lru-cache'
-import { bundledLanguages, bundledThemes, createHighlighter } from 'shiki'
+import { bundledLanguages, bundledThemes, createHighlighter, createJavaScriptRegexEngine } from 'shiki'
 import type { HighlighterCore, SpecialLanguage, ThemedToken } from 'shiki/core'
 
 import { loggerService } from '@logger'
@@ -57,7 +57,9 @@ const tokenizerMap = new LRUCache<string, ShikiStreamTokenizer>({
 async function initHighlighter(themes: string[], languages: string[]): Promise<void> {
   highlighter = await createHighlighter({
     langs: languages,
-    themes: themes
+    themes: themes,
+    // 与主线程一致：JavaScript regex engine（oniguruma WASM 已从构建中移除）
+    engine: createJavaScriptRegexEngine({ forgiving: true })
   })
   languageLoadPromises.clear()
   themeLoadPromises.clear()

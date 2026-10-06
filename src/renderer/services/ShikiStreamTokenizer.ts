@@ -20,16 +20,18 @@ export interface ShikiStreamTokenizerEnqueueResult {
 }
 
 /**
- * 修改自 shiki-stream 的 tokenizer。
+ * 修改自 shiki-stream 的 tokenizer（上游现为 @shikijs/stream）。
  *
- * 和 shiki-stream 实现的不同：
- * - tokenizer 会拆分代码块为两个 subtrunk，第一个 subtrunk 可以包含多行。
- * - 这个实现可以避免 chunk 过大时引入额外开销。
+ * 保留自有实现的原因（2026-10 基于 @shikijs/stream@4.5.0 的评估）：
+ * - 本实现按行输出（ThemedToken[][]）、recall 按行计；上游输出带 '\n' 哨兵 token 的
+ *   扁平数组、recall 按 token 计，消费者（worker 协议、CodeViewer 行渲染）需适配层。
+ * - 上游 enqueue 逐行调用 codeToTokens，且无界累积 tokensStable：整块重入时其
+ *   spread 在约 1 万行处栈溢出，内存也随流式内容无限增长。
+ * 上游若提供批量 enqueue 或渲染层改用扁平 token 模型，可重新评估合并。
  */
 export class ShikiStreamTokenizer {
   public readonly options: ShikiStreamTokenizerOptions
 
-  // public linesStable: ThemedToken[][] = []
   public linesUnstable: ThemedToken[][] = []
 
   public lastUnstableCodeChunk: string = ''
@@ -69,7 +71,6 @@ export class ShikiStreamTokenizer {
       }
     })
 
-    // this.linesStable.push(...stable)
     this.linesUnstable = unstable
 
     return {
@@ -90,7 +91,6 @@ export class ShikiStreamTokenizer {
   }
 
   clear(): void {
-    // this.linesStable = []
     this.linesUnstable = []
     this.lastUnstableCodeChunk = ''
     this.lastStableGrammarState = undefined

@@ -61,7 +61,10 @@ const highlighterInitializer = new AsyncInitializer(async (langs?: string[], the
   const shiki = await getShiki()
   return shiki.createHighlighter({
     langs: langs || DEFAULT_LANGUAGES,
-    themes: themes || DEFAULT_THEMES
+    themes: themes || DEFAULT_THEMES,
+    // JavaScript regex engine：免掉 oniguruma WASM；forgiving 跳过个别无法编译的
+    // 语法 pattern，而不是让整个语言回退成纯文本（shiki/wasm 已被构建别名移除）。
+    engine: shiki.createJavaScriptRegexEngine({ forgiving: true })
   })
 })
 

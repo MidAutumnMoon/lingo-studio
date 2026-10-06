@@ -181,6 +181,11 @@ export default defineConfig({
         '@shared': resolve('src/shared'),
         '@logger': resolve('src/renderer/services/LoggerService'),
         '@data': resolve('src/renderer/data'),
+        // shiki runs on the JavaScript regex engine everywhere; alias the wasm module to a
+        // throwing stub so the bundler drops the otherwise-dead 622KB oniguruma chunk that
+        // shiki's default-engine closure (and pierre's opt-in branch) would keep emitted.
+        // Vitest's renderer/scripts projects inherit this alias via vitest.config.ts.
+        'shiki/wasm': resolve('src/renderer/utils/shikiWasmStub'),
         '@cherrystudio/ai-core/provider': resolve('packages/aiCore/src/core/providers'),
         '@cherrystudio/ai-core/built-in/plugins': resolve('packages/aiCore/src/core/plugins/built-in'),
         '@cherrystudio/ai-core': resolve('packages/aiCore/src'),

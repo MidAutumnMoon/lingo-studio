@@ -5,7 +5,8 @@ const shikiMocks = vi.hoisted(() => ({
   bundledLanguages: {} as Record<string, ReturnType<typeof vi.fn>>,
   bundledThemes: {} as Record<string, ReturnType<typeof vi.fn>>,
   bundledThemesInfo: [],
-  createHighlighter: vi.fn()
+  createHighlighter: vi.fn(),
+  createJavaScriptRegexEngine: vi.fn(() => ({}))
 }))
 
 vi.mock('shiki', () => shikiMocks)
@@ -92,6 +93,9 @@ describe('Shiki asset loading', () => {
     go.resolve({ id: 'go' })
 
     await expect(loading).resolves.toBeDefined()
+    // The app promises a wasm-free bundle: every highlighter creation must pin the
+    // JavaScript regex engine, otherwise shiki falls back to its oniguruma default.
+    expect(shikiMocks.createHighlighter).toHaveBeenCalledWith(expect.objectContaining({ engine: expect.anything() }))
   })
 
   it('shares a same-key in-flight language load', async () => {
