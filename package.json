@@ -395,7 +395,7 @@
     "oxc-parser": "0.142.0",
     "oxc-transform-react": "0.152.0",
     "oxfmt": "0.72.0",
-    "oxlint": "1.76.0",
+    "oxlint": "1.87.0",
     "oxlint-tsgolint": "7.0.2001",
     "p-queue": "^8.1.0",
     "pako": "1.0.11",

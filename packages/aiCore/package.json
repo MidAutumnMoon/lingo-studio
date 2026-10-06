@@ -81,7 +81,7 @@
   "devDependencies": {
     "@cherrystudio/ai-sdk-provider": "workspace:*",
     "@types/node": "^24.10.4",
-    "oxlint": "1.76.0",
+    "oxlint": "1.87.0",
     "tsdown": "^0.22.14",
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "vitest": "^5.0.3"
