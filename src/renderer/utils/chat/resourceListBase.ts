@@ -1,4 +1,4 @@
-import dayjs from 'dayjs'
+import { safeParseInstant } from '@renderer/utils/time'
 
 export type ResourceListGroup = {
   id: string
@@ -42,10 +42,11 @@ export type ResourceListGroupReorderPayload = {
   targetIndex: number
 }
 
-type TimestampInput = dayjs.ConfigType
+// undefined is part of the dirty-input contract: entity accessors can yield a missing
+// timestamp, which parks in the invalid rung rather than throwing.
+type TimestampInput = string | number | Date | undefined
 type GroupRankResolver<T> = (item: T) => number
 
-const MS_PER_DAY = 86_400_000
 /** Anything dated before this reads as corrupt data, not history — parked in the invalid rung. */
 const MIN_PLAUSIBLE_YEAR = 2000
 
@@ -75,24 +76,33 @@ function createInvalidTimeGroup(): ResourceListTimeGroup {
 
 /**
  * The conversation-list time ladder: Today, Yesterday, 7 Days (2-7 days back), 30 Days (8-30 days
- * back), then one group per calendar month ("2026-08"). Day math uses rounded local-midnight deltas
- * so a DST transition (two local midnights 23h/25h apart) cannot merge two days into one bucket.
- * Future timestamps and pre-2000 dates land in the invalid rung instead of minting a phantom group.
+ * back), then one group per calendar month ("2026-08"). Day math runs on Temporal.PlainDate, which
+ * carries no time of day and no UTC offset: an age is a whole number of calendar days by
+ * construction, so a DST transition (two local days 23h/25h long) cannot merge two days into one
+ * bucket the way raw millisecond deltas could. Future timestamps and pre-2000 dates land in the
+ * invalid rung instead of minting a phantom group.
  */
 export function resolveResourceTimeGroup(timestamp: TimestampInput, now?: TimestampInput): ResourceListTimeGroup {
   if (timestamp === undefined) {
     return createInvalidTimeGroup()
   }
 
-  const item = dayjs(timestamp)
-  const current = now === undefined ? dayjs() : dayjs(now)
-  if (!item.isValid() || !current.isValid() || item.year() < MIN_PLAUSIBLE_YEAR) {
+  // One zone snapshot for item, reference, and date conversion keeps a single call consistent
+  // even if the system zone were to change mid-run.
+  const zone = Temporal.Now.timeZoneId()
+  const itemInstant = safeParseInstant(timestamp, zone)
+  const currentInstant = now === undefined ? Temporal.Now.instant() : safeParseInstant(now, zone)
+  if (!itemInstant || !currentInstant) {
     return createInvalidTimeGroup()
   }
 
-  const itemStart = item.startOf('day')
-  const todayStart = current.startOf('day')
-  const ageInDays = Math.round((todayStart.valueOf() - itemStart.valueOf()) / MS_PER_DAY)
+  const itemDate = itemInstant.toZonedDateTimeISO(zone).toPlainDate()
+  const todayDate = currentInstant.toZonedDateTimeISO(zone).toPlainDate()
+  if (itemDate.year < MIN_PLAUSIBLE_YEAR) {
+    return createInvalidTimeGroup()
+  }
+
+  const ageInDays = todayDate.since(itemDate).days
 
   // A negative age is a future timestamp (clock skew) — park it rather than minting a phantom group.
   if (ageInDays < 0) {
@@ -122,8 +132,8 @@ export function resolveResourceTimeGroup(timestamp: TimestampInput, now?: Timest
 
   // Anything past the 30-day tier always predates the current month (a month spans at most 30
   // same-month days), so month ranks never collide with the tiers above.
-  const monthKey = item.format('YYYY-MM')
-  const monthIndex = item.year() * 12 + item.month()
+  const monthKey = `${String(itemDate.year).padStart(4, '0')}-${String(itemDate.month).padStart(2, '0')}`
+  const monthIndex = itemDate.year * 12 + (itemDate.month - 1)
   return { kind: 'month', id: `time:${monthKey}`, rank: MONTH_RANK_BASE - monthIndex, monthKey }
 }
 

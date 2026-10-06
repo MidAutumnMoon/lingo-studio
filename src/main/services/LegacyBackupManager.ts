@@ -23,7 +23,6 @@ import * as path from 'path'
 import { ZipArchive } from 'archiver'
 import { Mutex, tryAcquire } from 'async-mutex'
 import Database from 'better-sqlite3'
-import dayjs from 'dayjs'
 import { readMigrationFiles } from 'drizzle-orm/migrator'
 import { app } from 'electron'
 import * as fs from 'fs-extra'
@@ -41,6 +40,7 @@ import { type AtomicWriteStream, createAtomicWriteStream } from '@main/utils/fil
 import { IdleTimeoutController } from '@main/utils/IdleTimeoutController'
 import { isPathInside, resolveAndValidatePath } from '@main/utils/legacyFile'
 import { getDeviceType, getHostname } from '@main/utils/system'
+import { formatNumericNow } from '@main/utils/time'
 import { assertZipEntriesWithin } from '@main/utils/zipSafety'
 import { IpcChannel } from '@shared/IpcChannel'
 import {
@@ -256,7 +256,7 @@ class BackupManager {
   }
 
   private createBackupFileName(): string {
-    return `cherry-studio.${dayjs().format('YYYYMMDDHHmmssSSS')}.${getHostname() || 'unknown'}.${getDeviceType() || 'unknown'}.zip`
+    return `cherry-studio.${formatNumericNow('YYYYMMDDHHmmssSSS')}.${getHostname() || 'unknown'}.${getDeviceType() || 'unknown'}.zip`
   }
 
   private createRemoteCleanupSignal(signal?: AbortSignal): AbortSignal {
@@ -2051,10 +2051,7 @@ class BackupManager {
     data: string,
     destinationPath?: string
   ): Promise<string> {
-    const timestamp = new Date()
-      .toISOString()
-      .replace(/[-:T.Z]/g, '')
-      .slice(0, 14)
+    const timestamp = formatNumericNow('YYYYMMDDHHmmss', 'UTC')
 
     const fileName = `cherry-studio.${timestamp}.zip`
     const tempPath = application.getPath('feature.lan_transfer.temp')

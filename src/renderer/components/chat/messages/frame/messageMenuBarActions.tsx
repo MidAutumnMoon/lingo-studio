@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import type { TFunction } from 'i18next'
 import {
   AtSign,
@@ -33,6 +32,7 @@ import { formatErrorMessageWithPrefix } from '@renderer/utils/error'
 import { removeTrailingDoubleSpaces } from '@renderer/utils/markdownLight'
 import { createComposerRichClipboardContentFromParts } from '@renderer/utils/message/composerClipboard'
 import { getTranslationFromParts } from '@renderer/utils/message/partsHelpers'
+import { formatNumericTime } from '@renderer/utils/time'
 import type { CherryMessagePart } from '@shared/data/types/message'
 import type { TranslateLanguage } from '@shared/data/types/translate'
 
@@ -248,7 +248,7 @@ registerCommand('message.multiSelect', ({ actions }) => {
 })
 
 registerCommand('message.saveFile', async ({ actions, mainTextContent, message }) => {
-  const fileName = dayjs(message.createdAt).format('YYYYMMDDHHmm') + '.md'
+  const fileName = formatNumericTime(message.createdAt, 'YYYYMMDDHHmm') + '.md'
   await actions.saveTextFile?.(fileName, mainTextContent)
 })
 

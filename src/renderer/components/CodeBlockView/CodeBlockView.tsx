@@ -1,5 +1,4 @@
 import { Icon } from '@iconify/react'
-import dayjs from 'dayjs'
 import React, {
   memo,
   startTransition,
@@ -38,6 +37,7 @@ import { getExtensionByLanguage } from '@renderer/utils/codeLanguage'
 import { getFileIconName } from '@renderer/utils/fileIconName'
 import { extractHtmlTitle, getFileNameFromHtmlTitle } from '@renderer/utils/formats'
 import { cn } from '@renderer/utils/style'
+import { formatNumericNow } from '@renderer/utils/time'
 
 import { MAX_COLLAPSED_CODE_HEIGHT, SPECIAL_VIEW_COMPONENTS, SPECIAL_VIEWS } from './constants'
 import StatusBar from './StatusBar'
@@ -221,7 +221,7 @@ export const CodeBlockView: React.FC<Props> = memo((props) => {
 
     // 默认使用日期格式命名
     if (!fileName) {
-      fileName = `${dayjs().format('YYYYMMDDHHmm')}`
+      fileName = formatNumericNow('YYYYMMDDHHmm')
     }
 
     const ext = getExtensionByLanguage(currentLanguage)

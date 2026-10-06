@@ -1,6 +1,5 @@
 import type { Client } from '@notionhq/client'
 import type { markdownToBlocks } from '@tryfabric/martian'
-import dayjs from 'dayjs'
 import DOMPurify from 'dompurify'
 import type { Blockquote } from 'mdast'
 import type { appendBlocks } from 'notion-helper'
@@ -44,6 +43,7 @@ import {
   getThinkingContent,
   getToolCitationExport
 } from '@renderer/utils/message/find'
+import { formatNumericNow, formatNumericTime } from '@renderer/utils/time'
 import type { ContentHash } from '@shared/data/types/file'
 import { AbsoluteFilePathSchema, type FileVersion } from '@shared/types/file'
 import { createFilePathHandle } from '@shared/utils/file'
@@ -380,7 +380,7 @@ export async function getMessageTitle(message: ExportableMessage, length = 30): 
   let title = getTitleFromString(content, length)
 
   if (!title) {
-    title = dayjs(message.createdAt).format('YYYYMMDDHHmm')
+    title = formatNumericTime(message.createdAt, 'YYYYMMDDHHmm')
   }
 
   return title
@@ -497,7 +497,7 @@ export const exportMarkdownContentAsFile = async (title: string, markdown: strin
     }
   } else {
     try {
-      const timestamp = dayjs().format('YYYY-MM-DD-HH-mm-ss')
+      const timestamp = formatNumericNow('YYYY-MM-DD-HH-mm-ss')
       const fileName = removeSpecialCharactersForFileName(title) + ` ${timestamp}.md`
       await window.api.file.write(markdownExportPath + '/' + fileName, markdown)
       toast.success(i18n.t('message.success.markdown.export.preconf'))
@@ -679,7 +679,7 @@ export const exportTopicAsMarkdown = async (
     }
   } else {
     try {
-      const timestamp = dayjs().format('YYYY-MM-DD-HH-mm-ss')
+      const timestamp = formatNumericNow('YYYY-MM-DD-HH-mm-ss')
       const fileName = removeSpecialCharactersForFileName(topic.name) + ` ${timestamp}.md`
       const messages = await getTopicMessages(topic.id)
       const built = await buildMarkdownWithImages(
@@ -728,7 +728,7 @@ export const exportMessagesAsMarkdown = async (
   try {
     markdownExportPath = await preferenceService.get('data.export.markdown.path')
     const fileTitle = title?.trim() || (await getMessageTitle(messages[0]))
-    const timestamp = markdownExportPath ? ` ${dayjs().format('YYYY-MM-DD-HH-mm-ss')}` : ''
+    const timestamp = markdownExportPath ? ` ${formatNumericNow('YYYY-MM-DD-HH-mm-ss')}` : ''
     const fileName = removeSpecialCharactersForFileName(fileTitle) + timestamp + '.md'
     const built = await buildMarkdownWithImages(
       messages,

@@ -1,5 +1,6 @@
-import dayjs from 'dayjs'
 import { t } from 'i18next'
+
+import { formatNumericNow } from '@renderer/utils/time'
 
 /**
  * Export table data to an Excel file.
@@ -33,7 +34,7 @@ export async function exportTableToExcel(data: string[][]): Promise<boolean> {
   const uint8Array = new Uint8Array(buffer)
 
   // Generate the default filename.
-  const fileName = `table_${dayjs().format('YYYY-MM-DD_HHmmss')}.xlsx`
+  const fileName = `table_${formatNumericNow('YYYY-MM-DD_HHmmss')}.xlsx`
 
   // Open the Save As dialog so the user can change the default filename.
   const savedPath = await window.api.file.save(fileName, uint8Array, {

@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import { Archive, FilePenLine, PinIcon } from 'lucide-react'
 import type { RefObject } from 'react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
@@ -155,10 +154,10 @@ export function Topics({
   const tabs = useOptionalTabsContext()
   const conversationNav = useConversationNavigation('assistants')
   const isWindowFrame = useWindowFrame().mode === 'window'
-  const [groupNow, setGroupNow] = useState(() => dayjs())
+  const [groupNow, setGroupNow] = useState(() => new Date())
 
   useEffect(() => {
-    const updateGroupNow = () => setGroupNow(dayjs())
+    const updateGroupNow = () => setGroupNow(new Date())
     const intervalId = window.setInterval(updateGroupNow, 60_000)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') updateGroupNow()

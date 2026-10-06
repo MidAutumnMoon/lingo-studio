@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { exportTableToExcel } from '../exportExcel'
 
@@ -24,12 +24,6 @@ vi.mock('@e965/xlsx', () => ({
   write: xlsxMock.write
 }))
 
-vi.mock('dayjs', () => ({
-  default: () => ({
-    format: () => '2026-06-01_010203'
-  })
-}))
-
 const fileApiMock = {
   save: vi.fn()
 }
@@ -37,6 +31,10 @@ const fileApiMock = {
 describe('exportTableToExcel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Pin the clock so the default filename (a persisted byte-format contract) is asserted exactly.
+    // vitest pins TZ=UTC, so the stamp reads 2026-06-01_010203.
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.UTC(2026, 5, 1, 1, 2, 3))
     delete (xlsxMock.worksheet as Record<string, unknown>)['!cols']
     xlsxMock.write.mockReturnValue([1, 2, 3])
     fileApiMock.save.mockResolvedValue('/tmp/cherry-export/custom-table.xlsx')
@@ -74,5 +72,9 @@ describe('exportTableToExcel', () => {
     expect(fileApiMock.save).toHaveBeenCalledWith('table_2026-06-01_010203.xlsx', new Uint8Array([1, 2, 3]), {
       filters: [{ name: expect.any(String), extensions: ['xlsx'] }]
     })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 })

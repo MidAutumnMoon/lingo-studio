@@ -5,8 +5,6 @@
 //TODO Data Refactor
 // The code is messy, need to refactor all the backup related code
 
-import dayjs from 'dayjs'
-
 import { preferenceService } from '@data/PreferenceService'
 import { loggerService } from '@logger'
 import i18n from '@renderer/i18n/resolver'
@@ -14,6 +12,7 @@ import { ipcApi } from '@renderer/ipc'
 import { popup } from '@renderer/services/popup'
 import { toast } from '@renderer/services/toast'
 import { getBackupErrorTitleKey, getLocalizedBackupErrorMessage } from '@renderer/utils/backup'
+import { formatNumericNow } from '@renderer/utils/time'
 import { uuid } from '@renderer/utils/uuid'
 import type { AutoBackupType } from '@shared/types/backup'
 
@@ -61,7 +60,7 @@ const setLocalBackupSyncState = (patch: Partial<RemoteSyncState>) => setBackupSy
 type ManualBackupOptions = { customFileName?: string }
 
 export async function backup(skipBackupFile = false) {
-  const filename = `cherry-studio.${dayjs().format('YYYYMMDDHHmm')}.zip`
+  const filename = `cherry-studio.${formatNumericNow('YYYYMMDDHHmm')}.zip`
   const selectFolder = await window.api.file.selectFolder()
   if (selectFolder) {
     // Use the direct compatibility archive with the selected full or slim resource set.
