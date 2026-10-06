@@ -15,14 +15,6 @@ const READABLE_TEXT_COLOR = 'var(--foreground)'
 const languageLoadPromises = new WeakMap<HighlighterGeneric<any, any>, Map<string, Promise<string>>>()
 const themeLoadPromises = new WeakMap<HighlighterGeneric<any, any>, Map<string, Promise<string>>>()
 
-// Literal white fallbacks (including #ffffffff with alpha). Shiki colorReplacements matches by exact, lowercased value, so enumerate each one.
-const LITERAL_WHITE_COLOR_REPLACEMENTS: Record<string, string> = {
-  white: READABLE_TEXT_COLOR,
-  '#fff': READABLE_TEXT_COLOR,
-  '#ffffff': READABLE_TEXT_COLOR,
-  '#ffffffff': READABLE_TEXT_COLOR
-}
-
 function isWhiteTokenColor(color: string): boolean {
   return WHITE_TOKEN_COLOR_PATTERN.test(color)
 }
@@ -30,15 +22,15 @@ function isWhiteTokenColor(color: string): boolean {
 /**
  * Build the white-token color replacement map for light themes, to feed Shiki's native colorReplacements.
  *
- * Key insight: themes like one-light map a sentinel color (e.g. `#00000001`) to `white` via their own
- * colorReplacements, and Shiki only replaces once, so using `white` as the key never matches. We therefore
- * read the theme's own colorReplacements, rewrite any sentinel whose value is white to the readable color,
- * and add the literal white spellings as a fallback.
+ * Only sentinel colors are rewritten: themes map sentinel colors (e.g. `#00000001`) to `white` via their
+ * own colorReplacements, and Shiki only replaces once, so using `white` as the key never matches — the
+ * sentinel key does. Literal white spellings must NOT be added: colorReplacements applies to the whole
+ * output, so they would also rewrite the literal-white backgrounds of themes like github-light.
  */
-function getLightThemeWhiteColorReplacements(theme: {
+export function getLightThemeWhiteColorReplacements(theme: {
   colorReplacements?: Record<string, string>
 }): Record<string, string> {
-  const replacements: Record<string, string> = { ...LITERAL_WHITE_COLOR_REPLACEMENTS }
+  const replacements: Record<string, string> = {}
   for (const [sentinel, value] of Object.entries(theme.colorReplacements ?? {})) {
     if (isWhiteTokenColor(value)) {
       replacements[sentinel] = READABLE_TEXT_COLOR

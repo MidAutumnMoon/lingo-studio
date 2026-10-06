@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { LRUCache } from 'lru-cache'
+import { bundledLanguages, bundledThemes, createHighlighter } from 'shiki'
 import type { HighlighterCore, SpecialLanguage, ThemedToken } from 'shiki/core'
 
 import { loggerService } from '@logger'
@@ -54,7 +55,6 @@ const tokenizerMap = new LRUCache<string, ShikiStreamTokenizer>({
 
 // 初始化高亮器
 async function initHighlighter(themes: string[], languages: string[]): Promise<void> {
-  const { createHighlighter } = await import('shiki')
   highlighter = await createHighlighter({
     langs: languages,
     themes: themes
@@ -79,7 +79,6 @@ async function ensureLanguageLoaded(language: string): Promise<string> {
       if (['text', 'ansi'].includes(language)) {
         await currentHighlighter.loadLanguage(language as SpecialLanguage)
       } else {
-        const { bundledLanguages } = await import('shiki')
         const languageImportFn = bundledLanguages[language]
         const langData = await languageImportFn()
         await currentHighlighter.loadLanguage(langData)
@@ -113,14 +112,12 @@ async function ensureThemeLoaded(theme: string): Promise<string> {
 
   const loadPromise = (async () => {
     try {
-      const { bundledThemes } = await import('shiki')
       const themeImportFn = bundledThemes[theme]
       const themeData = await themeImportFn()
       await currentHighlighter.loadTheme(themeData)
     } catch (error) {
       // 回退到 one-light
       logger.debug(`Worker: Failed to load theme '${theme}', falling back to 'one-light':`, error as Error)
-      const { bundledThemes } = await import('shiki')
       const oneLightTheme = await bundledThemes['one-light']()
       await currentHighlighter.loadTheme(oneLightTheme)
       return 'one-light'

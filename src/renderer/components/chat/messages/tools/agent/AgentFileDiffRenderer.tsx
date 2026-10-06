@@ -15,7 +15,7 @@ function AgentFileDiffHunkView({
 }: {
   filePath: string
   hunk: AgentFileDiffHunk
-  options: FileDiffOptions<undefined>
+  options: FileDiffOptions<undefined, undefined>
 }) {
   const fileDiff = useMemo(
     () =>

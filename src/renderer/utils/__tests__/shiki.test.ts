@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { splitToSubTrunks } from '@renderer/services/ShikiStreamTokenizer'
 
-import { getMarkdownIt, getReactStyleFromToken } from '../shiki'
+import { getLightThemeWhiteColorReplacements, getMarkdownIt, getReactStyleFromToken } from '../shiki'
 
 // FontStyle 常量，避免类型错误
 const FS_ITALIC = 1
@@ -226,20 +226,30 @@ describe('shiki', () => {
   })
 
   describe('getMarkdownIt', () => {
-    const markdownWithWhiteToken = '```json\n{,}\n```'
+    // v4 resolves light-theme sentinel colors to 'inherit' upstream, so no rendered fixture can exercise
+    // the white-token rewrite; the builder is unit-tested against synthetic theme data instead.
+    describe('getLightThemeWhiteColorReplacements', () => {
+      it('rewrites sentinels the theme maps to white', () => {
+        const replacements = getLightThemeWhiteColorReplacements({
+          colorReplacements: { '#00000001': 'white', '#deadbeef': '#383A42' }
+        })
 
-    it('rewrites white token colors to the readable color in light themes', async () => {
-      const renderer = await getMarkdownIt('one-light', markdownWithWhiteToken)
-      const html = renderer.render(markdownWithWhiteToken)
+        expect(replacements).toEqual({ '#00000001': 'var(--foreground)' })
+      })
 
-      expect(html).toContain('color:var(--foreground)')
-    })
+      it('keeps non-white sentinel values untouched', () => {
+        const replacements = getLightThemeWhiteColorReplacements({
+          colorReplacements: { '#00000001': 'inherit' }
+        })
 
-    it('does not rewrite token colors in dark shiki themes', async () => {
-      const renderer = await getMarkdownIt('material-theme-darker', markdownWithWhiteToken)
-      const html = renderer.render(markdownWithWhiteToken)
+        expect(replacements).toEqual({})
+      })
 
-      expect(html).not.toContain('var(--foreground)')
+      it('never maps literal white spellings — they would rewrite white theme backgrounds too', () => {
+        const replacements = getLightThemeWhiteColorReplacements({})
+
+        expect(replacements).toEqual({})
+      })
     })
 
     it('renders untagged code blocks as plain text without json white tokens', async () => {

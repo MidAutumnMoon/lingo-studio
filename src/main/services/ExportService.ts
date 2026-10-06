@@ -6,7 +6,7 @@ import fs from 'fs'
 import type * as Docx from 'docx'
 import type { ExternalHyperlink, Table, TableCell, TableRow, TextRun } from 'docx'
 import { dialog } from 'electron'
-import type MarkdownIt from 'markdown-it'
+import type { MarkdownIt } from 'markdown-it'
 
 import { loggerService } from '@logger'
 import { t } from '@main/i18n'
