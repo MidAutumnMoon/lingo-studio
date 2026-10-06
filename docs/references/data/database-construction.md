@@ -119,8 +119,6 @@ A table rebuild (drizzle's `INSERT…SELECT` drops the implicit rowid) **and `VA
 
 `setupTestDatabase()` runs the **real** production migrations + `CUSTOM_SQL_STATEMENTS` on a real better-sqlite3 connection, so the test schema is byte-identical to production — hand-writing `CREATE TABLE` in tests is banned. Raw SQL / PRAGMA / FTS `MATCH` go through the handle's raw connection `dbh.sqlite` (`dbh.sqlite.prepare(...).all()` / `.exec(...)` / `.pragma(...)`); the rebuild regression lives in `ftsRebuild.test.ts`. See [testing/database-testing.md](../testing/database-testing.md).
 
-**Native-module note.** better-sqlite3 v13 is an N-API module (node-addon-api) that ships its prebuilt binaries inside the npm package under `prebuilds/` — a single ABI-stable binary serves both system Node (Vitest) and the app (Electron). There are no rebuild steps and no ABI flip between tests and `pnpm dev`; tests run directly after `pnpm install`. See [testing/database-testing.md](../testing/database-testing.md).
-
 ## 6. Gotchas (quick reference)
 
 | Gotcha | One-liner |

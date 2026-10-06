@@ -7,10 +7,10 @@ sources:
 
 # Linux Packaging
 
-Linux builds use the upstream `better-sqlite3` prebuilts that ship inside the
-npm package (`prebuilds/`). Since v13 the module is N-API, so one ABI-stable
-binary serves both the test runner (system Node) and the app (Electron) —
-nothing is compiled, downloaded, or pinned at build time anymore.
+Linux builds ship the upstream `better-sqlite3` N-API prebuilts that come
+inside the npm package (`prebuilds/`) — one ABI-stable binary per
+platform-arch, packaged as-is; nothing is compiled or downloaded at build
+time.
 
 ## Build
 

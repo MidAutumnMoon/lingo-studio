@@ -36,17 +36,9 @@ export default defineConfig({
         test: {
           name: 'main',
           environment: 'node',
-          // This project loads the REAL native better-sqlite3. Since v13 the module is N-API
-          // (node-addon-api) and ships a single prebuilt binary inside the package, so the
-          // same binary serves Vitest (system Node) and the Electron app — no rebuild hooks
-          // and no ABI flip. See docs/references/testing/database-testing.md.
-          //
-          // pool: 'forks' — historically chosen because the old NAN/V8 addon was unsafe under
-          // worker_threads (its finalizers crashed at thread teardown — SIGSEGV at process
-          // exit); v13's N-API migration addresses that class of issue, but the pool choice
-          // is deliberately kept as-is. (This mirrors Vitest 5's own default pool, which is
-          // `forks` for native-addon safety; the global config below overrides it back to
-          // the faster `threads` for the non-native projects.)
+          // Loads the REAL native better-sqlite3 (N-API prebuild — the same binary the
+          // Electron app runs). pool: 'forks' keeps native addons out of worker threads;
+          // the global config below uses the faster `threads` pool for the other projects.
           pool: 'forks',
           setupFiles: ['tests/main.setup.ts'],
           include: [

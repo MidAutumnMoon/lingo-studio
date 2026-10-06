@@ -15,8 +15,7 @@ const loader = new RegistryLoader({
 describe('Ling 3.0 Flash catalog', () => {
   it.each([
     ['ling-3-0-flash', 'inclusionai/ling-3.0-flash'],
-    // Upstream keeps flip-flopping the `:free` suffix on the fin variant's OpenRouter wire id;
-    // current listing serves it without the suffix.
+    // The `:free` suffix on the fin variant's wire id changes between upstream pulls.
     ['ling-3-0-flash-fin', 'inclusionai/ling-3.0-flash-fin']
   ])('serves %s through its OpenRouter wire id', (modelId, apiModelId) => {
     expect(loader.findOverride('openrouter', apiModelId)).toMatchObject({

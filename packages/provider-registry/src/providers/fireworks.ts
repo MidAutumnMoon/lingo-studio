@@ -53,8 +53,8 @@ const override = (modelId: string, support: ReasoningSupport): Partial<ProviderM
   reasoningContracts: reasoningContracts(support)
 })
 
-// Wire ids are Fireworks' exact serving ids (`/v1/models`); the models.dev listing no
-// longer carries them for every served model, so pin them instead of resolving at generate time.
+// Wire ids are Fireworks' exact serving ids (`/v1/models`); the models.dev listing
+// doesn't carry every serving id, so pin them here instead of resolving at generate time.
 const toggleModels: Array<{ apiModelId: string; modelId: string }> = [
   { apiModelId: 'accounts/fireworks/models/kimi-k2p6', modelId: 'kimi-k2-6' },
   { apiModelId: 'accounts/fireworks/models/kimi-k2p7-code', modelId: 'kimi-k2-7-code' }

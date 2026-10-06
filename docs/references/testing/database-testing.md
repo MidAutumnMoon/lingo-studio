@@ -208,18 +208,11 @@ or declare a local `vi.mock('node:fs', ...)` with the
 
 ### better-sqlite3 native module
 
-better-sqlite3 is a native module, but since v13 it **is** N-API
-(node-addon-api), so its binary is ABI-stable: one prebuilt `.node` file
-serves any Node or Electron version. The npm package ships the prebuilts for
-every platform/arch inside itself under `prebuilds/`, and a runtime loader
-picks the matching file — `pnpm install` never compiles anything.
-
-Consequence for tests: there is nothing to manage. The binary that
-`pnpm install` lays down is the same one the Electron app loads, so there are
-no rebuild scripts, no `pre*` hooks, and no ABI flip between `pnpm dev` and
-the test suites — tests run directly after `pnpm install`, including right
-after a dev session, and CI needs no special handling. The `main` project
-loads this real native module; the other Vitest projects never load it.
+The `main` project loads the real better-sqlite3 native module. The package
+ships N-API prebuilts for every platform inside itself (`prebuilds/`) and a
+runtime loader picks the matching file, so the installed binary serves both
+Vitest and the Electron app — tests run directly after `pnpm install`. The
+other Vitest projects never load the module.
 
 ### FTS5 and NULL content
 

@@ -20,10 +20,8 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
-          # python3 + stdenv's C/C++ toolchain drive node-gyp for source-built native addons.
-          # better-sqlite3 v13 needs no building (N-API, prebuilt binary shipped in the package);
-          # the toolchain remains for registry-js (install-time NAPI stub) and any other
-          # source-building native.
+          # python3 + stdenv's C/C++ toolchain serve node-gyp for source-built native
+          # addons (registry-js's install-time build).
           default = pkgs.mkShell {
             packages = [ pkgs.python3 pkgs.electron_44 ];
 
