@@ -45,7 +45,7 @@ export default defineConfig({
           //
           // pool: 'forks' — better-sqlite3 is a NAN/V8 native addon that is not safe under
           // worker_threads (its finalizers crash at thread teardown — SIGSEGV at process exit).
-          // Forks give each worker a clean V8 isolate. (This mirrors Vitest 3's own default pool,
+          // Forks give each worker a clean V8 isolate. (This mirrors Vitest 5's own default pool,
           // which is `forks` for native-addon safety; the global config below overrides it back
           // to the faster `threads` for the non-native projects.)
           pool: 'forks',
@@ -186,8 +186,8 @@ export default defineConfig({
     ],
     // 全局共享配置
     globals: true,
-    // Inherited only by projects without their own setupFiles (scripts/shared/provider-registry);
-    // project-level setupFiles replace it, hence the explicit temporal.setup imports elsewhere.
+    // Inline projects extend this root config and merge setupFiles arrays, so every
+    // project installs the Temporal polyfill exactly once from here.
     setupFiles: ['tests/temporal.setup.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/out/**', '**/build/**'],
     coverage: {
@@ -214,7 +214,7 @@ export default defineConfig({
     },
     testTimeout: 20000,
     pool: 'threads',
-    // Vitest 4 uses all available parallelism by default. Cap workers so the
+    // Vitest 5 uses all available parallelism by default. Cap workers so the
     // full suite does not starve subprocess, worker-thread, and timing tests.
     maxWorkers: '50%'
   }

@@ -12,8 +12,9 @@
  * that race against the test's own cleanup.
  *
  * The natural workaround — `vi.spyOn(fsPromisesNamespace, 'rename')` at
- * test granularity — does NOT work in vitest 3: `node:fs/promises` is a
- * native ESM namespace and Node freezes its property descriptors, so the
+ * test granularity — does NOT work (still true under vitest 5):
+ * `node:fs/promises` is a native ESM namespace and Node freezes its
+ * property descriptors, so the
  * spy throws `Cannot redefine property: rename`. (This is the same
  * limitation that forced 69eacc14b to swap rename.test.ts onto a
  * user-space `move` wrapper.) The only working approach is

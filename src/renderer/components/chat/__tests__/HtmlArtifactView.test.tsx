@@ -749,7 +749,9 @@ describe('HtmlArtifactView', () => {
   })
 
   it('stops pacing timers once unmounted', () => {
-    vi.useFakeTimers()
+    // happy-dom's iframe navigation schedules its own requestAnimationFrame; leaving it
+    // unfaked keeps that internal bookkeeping out of the component's timer count.
+    vi.useFakeTimers({ toNotFake: ['requestAnimationFrame'] })
 
     try {
       const { unmount } = render(

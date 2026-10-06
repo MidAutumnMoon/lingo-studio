@@ -1,4 +1,3 @@
-import './temporal.setup'
 import { vi } from 'vitest'
 
 // Electron Vite turns `?nodeWorker` imports into Worker factories in production.
