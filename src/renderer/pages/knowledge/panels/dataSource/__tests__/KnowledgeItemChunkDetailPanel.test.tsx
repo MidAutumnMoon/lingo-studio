@@ -228,21 +228,18 @@ describe('KnowledgeItemChunkDetailPanel', () => {
   })
 
   it('virtualizes large chunk lists with stable chunk ids', async () => {
-    const largeChunkList = Array.from(
-      { length: 1000 },
-      (_, index): KnowledgeItemChunk => ({
-        id: `chunk-${index}`,
+    const largeChunkList = Array.from({ length: 1000 }, (_, index): KnowledgeItemChunk => ({
+      id: `chunk-${index}`,
+      itemId: 'file-1',
+      content: `Chunk content ${index}`,
+      metadata: {
         itemId: 'file-1',
-        content: `Chunk content ${index}`,
-        metadata: {
-          itemId: 'file-1',
-          itemType: 'file',
-          source: '/tmp/large.pdf',
-          chunkIndex: index,
-          tokenCount: 100
-        }
-      })
-    )
+        itemType: 'file',
+        source: '/tmp/large.pdf',
+        chunkIndex: index,
+        tokenCount: 100
+      }
+    }))
     mockIpcRequest.mockResolvedValueOnce(largeChunkList)
 
     renderPanel()

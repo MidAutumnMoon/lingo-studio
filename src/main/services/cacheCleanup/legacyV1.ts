@@ -393,25 +393,21 @@ async function collectLegacyCleanupPlan(): Promise<LegacyCleanupPlan> {
   const plan: LegacyCleanupPlan = { targets: [], mutations: [], issues: [] }
   const ownedTargets = collectOwnedTargets([
     { item: 'legacy_config', path: paths.legacyConfig, kind: 'file' },
-    ...paths.legacyWindowStates.map(
-      (targetPath): CleanupTarget => ({
-        item: `legacy_window_state:${path.basename(targetPath)}`,
-        path: targetPath,
-        kind: 'file'
-      })
-    ),
+    ...paths.legacyWindowStates.map((targetPath): CleanupTarget => ({
+      item: `legacy_window_state:${path.basename(targetPath)}`,
+      path: targetPath,
+      kind: 'file'
+    })),
     { item: 'legacy_custom_mini_apps', path: paths.customMiniApps, kind: 'file' },
     { item: 'legacy_cherry_account_credentials', path: paths.cherryAccountCredentials, kind: 'file' },
     { item: 'legacy_migration_temp', path: paths.migrationTemp, kind: 'directory' },
     { item: 'legacy_cli_install', path: paths.legacyCliInstall, kind: 'directory' },
     { item: 'legacy_database', path: paths.legacyDatabase, kind: 'file' },
-    ...SQLITE_SIDECAR_SUFFIXES.map(
-      (suffix): CleanupTarget => ({
-        item: 'legacy_database',
-        path: `${paths.legacyDatabase}${suffix}`,
-        kind: 'file'
-      })
-    )
+    ...SQLITE_SIDECAR_SUFFIXES.map((suffix): CleanupTarget => ({
+      item: 'legacy_database',
+      path: `${paths.legacyDatabase}${suffix}`,
+      kind: 'file'
+    }))
   ])
 
   await Promise.all([

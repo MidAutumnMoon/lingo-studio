@@ -230,13 +230,11 @@ export default function ModelSyncPreviewPanel(props: ModelSyncPreviewPanelProps)
   const entries = useMemo(() => Object.entries(modelGroups).filter(([, models]) => models.length > 0), [modelGroups])
   const virtualRows = useMemo<ManageVirtualRow[]>(() => {
     if (flattenSingleGroup && entries.length === 1) {
-      return entries[0][1].map(
-        (model): ManageVirtualRow => ({
-          key: `model:${model.id}`,
-          type: 'model',
-          model
-        })
-      )
+      return entries[0][1].map((model): ManageVirtualRow => ({
+        key: `model:${model.id}`,
+        type: 'model',
+        model
+      }))
     }
 
     return entries.flatMap(([groupName, models]) => {
@@ -257,13 +255,11 @@ export default function ModelSyncPreviewPanel(props: ModelSyncPreviewPanelProps)
 
       return [
         groupRow,
-        ...models.map(
-          (model): ManageVirtualRow => ({
-            key: `model:${model.id}`,
-            type: 'model',
-            model
-          })
-        )
+        ...models.map((model): ManageVirtualRow => ({
+          key: `model:${model.id}`,
+          type: 'model',
+          model
+        }))
       ]
     })
   }, [collapsedGroups, entries, flattenSingleGroup, searchActive, t])

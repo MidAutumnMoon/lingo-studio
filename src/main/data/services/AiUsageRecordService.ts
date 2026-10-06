@@ -848,12 +848,10 @@ function getAiUsageRecordTimeline(query: AiUsageRecordTimelineQuery): AiUsageRec
     }, new Map<Currency, number>()),
     ([currency, total]) => ({ currency, total })
   ).sort((a, b) => a.currency.localeCompare(b.currency))
-  const ungrouped = dailyTotals.map(
-    (row): AiUsageRecordTimelineBucket => ({
-      date: row.date,
-      ...toTimelineMetrics(row, query.currency)
-    })
-  )
+  const ungrouped = dailyTotals.map((row): AiUsageRecordTimelineBucket => ({
+    date: row.date,
+    ...toTimelineMetrics(row, query.currency)
+  }))
 
   if (!query.groupBy || dailyTotals.length === 0) {
     return { buckets: ungrouped, costTotals, dailyCosts }
@@ -884,13 +882,11 @@ function getAiUsageRecordTimeline(query: AiUsageRecordTimelineQuery): AiUsageRec
     .orderBy(asc(dayBucket))
     .all()
 
-  const selected = selectedRows.map(
-    (row): AiUsageRecordTimelineBucket => ({
-      ...toGroupIdentity(row, query.groupBy),
-      date: row.date,
-      ...toTimelineMetrics(row, query.currency)
-    })
-  )
+  const selected = selectedRows.map((row): AiUsageRecordTimelineBucket => ({
+    ...toGroupIdentity(row, query.groupBy),
+    date: row.date,
+    ...toTimelineMetrics(row, query.currency)
+  }))
   const selectedByDate = new Map<string, AiUsageRecordTimelineBucket[]>()
   for (const bucket of selected) {
     const dateBuckets = selectedByDate.get(bucket.date) ?? []

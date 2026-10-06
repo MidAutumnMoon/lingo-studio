@@ -192,14 +192,14 @@ describe('TabRouter PageSidePanel portal isolation', () => {
   })
 
   it('keeps a trigger-search Combobox anchored after switching away and back', async () => {
-    const rectSpy = vi
-      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-      .mockImplementation(function (this: HTMLElement) {
-        if (this.matches('[data-slot="popover-anchor"]'))
-          return DOMRect.fromRect({ x: 120, y: 40, width: 260, height: 36 })
-        if (this.matches('[role="combobox"]')) return DOMRect.fromRect({ x: 120, y: 40, width: 100, height: 36 })
-        return DOMRect.fromRect({ x: 0, y: 0, width: 100, height: 40 })
-      })
+    const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement
+    ) {
+      if (this.matches('[data-slot="popover-anchor"]'))
+        return DOMRect.fromRect({ x: 120, y: 40, width: 260, height: 36 })
+      if (this.matches('[role="combobox"]')) return DOMRect.fromRect({ x: 120, y: 40, width: 100, height: 36 })
+      return DOMRect.fromRect({ x: 0, y: 0, width: 100, height: 40 })
+    })
 
     function PageWithCombobox({ url }: { url: string }) {
       if (url !== '/b') return null

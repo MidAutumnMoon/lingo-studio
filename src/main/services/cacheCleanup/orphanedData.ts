@@ -47,14 +47,12 @@ async function collectOrphanKnowledgeTargets(): Promise<{
     return { targets: [], issues: [issue(item, 'unsafe_target')] }
   }
 
-  const candidates = inspection.artifacts.map(
-    ({ baseId, path }): OrphanKnowledgeTarget => ({
-      baseId,
-      item: 'orphan_knowledge_bases:' + baseId,
-      path,
-      kind: 'directory'
-    })
-  )
+  const candidates = inspection.artifacts.map(({ baseId, path }): OrphanKnowledgeTarget => ({
+    baseId,
+    item: 'orphan_knowledge_bases:' + baseId,
+    path,
+    kind: 'directory'
+  }))
   const owned = await collectOwnedTargets<OrphanKnowledgeTarget>(candidates)
   if (!inspection.complete) {
     owned.issues.push(issue(item, 'inspection_failed'))

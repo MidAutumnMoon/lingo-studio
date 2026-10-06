@@ -175,22 +175,20 @@ describe('useAgentChatRuntimeState', () => {
       '/agent-sessions/:sessionId/messages',
       [
         {
-          items: history.toReversed().map(
-            (id): AgentSessionMessageEntity => ({
-              id,
-              sessionId: 'session-1',
-              role: id.endsWith('user') ? 'user' : 'assistant',
-              data: { parts: [{ type: 'text', text: id }] },
-              status: 'success',
-              modelId: null,
-              messageSnapshot: null,
-              stats: null,
-              searchableText: id,
-              runtimeResumeToken: null,
-              createdAt: '2026-01-01T00:00:00.000Z',
-              updatedAt: '2026-01-01T00:00:00.000Z'
-            })
-          )
+          items: history.toReversed().map((id): AgentSessionMessageEntity => ({
+            id,
+            sessionId: 'session-1',
+            role: id.endsWith('user') ? 'user' : 'assistant',
+            data: { parts: [{ type: 'text', text: id }] },
+            status: 'success',
+            modelId: null,
+            messageSnapshot: null,
+            stats: null,
+            searchableText: id,
+            runtimeResumeToken: null,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z'
+          }))
         }
       ],
       { params: { sessionId: 'session-1' }, query: { deferToolOutputs: true }, limit: 50 }

@@ -234,23 +234,21 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
     })
   }, [])
 
-  const imageMenuItems = contextActions.map(
-    (action): CommandContextMenuExtraItem => ({
-      type: 'item',
-      id: action.id,
-      label: action.label,
-      icon: action.icon,
-      enabled: !action.disabled,
-      onSelect: () => {
-        try {
-          const result = action.onSelect(displayItem, contextMenuActionContext)
-          void Promise.resolve(result).catch((error) => onActionError(error, action, displayItem))
-        } catch (error) {
-          onActionError(error, action, displayItem)
-        }
+  const imageMenuItems = contextActions.map((action): CommandContextMenuExtraItem => ({
+    type: 'item',
+    id: action.id,
+    label: action.label,
+    icon: action.icon,
+    enabled: !action.disabled,
+    onSelect: () => {
+      try {
+        const result = action.onSelect(displayItem, contextMenuActionContext)
+        void Promise.resolve(result).catch((error) => onActionError(error, action, displayItem))
+      } catch (error) {
+        onActionError(error, action, displayItem)
       }
-    })
-  )
+    }
+  }))
 
   const image = (
     <img

@@ -113,20 +113,18 @@ export class KnowledgeQueryService {
     const chunkGroups = await runStoreOperation(store, knowledgeBaseId, 'listItemChunks', () =>
       leafItems.map((leafItem) => {
         const units = store.listMaterialUnits(leafItem.id)
-        return units.map(
-          (unit): KnowledgeItemChunk => ({
-            id: unit.unitId,
+        return units.map((unit): KnowledgeItemChunk => ({
+          id: unit.unitId,
+          itemId: leafItem.id,
+          content: unit.text,
+          metadata: {
             itemId: leafItem.id,
-            content: unit.text,
-            metadata: {
-              itemId: leafItem.id,
-              itemType: leafItem.type,
-              source: leafItem.data.source,
-              chunkIndex: unit.unitIndex,
-              tokenCount: estimateTokenCount(unit.text)
-            }
-          })
-        )
+            itemType: leafItem.type,
+            source: leafItem.data.source,
+            chunkIndex: unit.unitIndex,
+            tokenCount: estimateTokenCount(unit.text)
+          }
+        }))
       })
     )
 

@@ -505,11 +505,11 @@ describe('Artboard', () => {
         // Container 800x400 vs a square 1024x1024 photo; the bar's measured 24px
         // comes off the 400 first, so the binding scale is (400-24)/1024 → 376.
         clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(800)
-        clientHeight = vi
-          .spyOn(HTMLElement.prototype, 'clientHeight', 'get')
-          .mockImplementation(function (this: HTMLElement) {
-            return this.dataset.testid === 'artboard-prompt-bar-measure' ? 24 : 400
-          })
+        clientHeight = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (
+          this: HTMLElement
+        ) {
+          return this.dataset.testid === 'artboard-prompt-bar-measure' ? 24 : 400
+        })
         naturalWidth = vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(1024)
         naturalHeight = vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(1024)
       })

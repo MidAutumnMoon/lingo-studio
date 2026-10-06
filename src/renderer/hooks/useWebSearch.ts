@@ -39,7 +39,9 @@ const WEB_SEARCH_SETTINGS_PREFERENCE_KEYS = {
 } as const
 
 type WebSearchPreferenceValues = {
-  -readonly [K in keyof typeof WEB_SEARCH_SETTINGS_PREFERENCE_KEYS]: WebSearchPreferenceSnapshot[(typeof WEB_SEARCH_SETTINGS_PREFERENCE_KEYS)[K]]
+  -readonly [
+    K in keyof typeof WEB_SEARCH_SETTINGS_PREFERENCE_KEYS
+  ]: WebSearchPreferenceSnapshot[(typeof WEB_SEARCH_SETTINGS_PREFERENCE_KEYS)[K]]
 }
 
 type WebSearchSettingsState = {

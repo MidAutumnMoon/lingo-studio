@@ -170,10 +170,12 @@ type ExtractVariantIds<TConfig, TName extends string> = TConfig extends {
 
 export type ExtensionConfigToIdResolutionMap<TConfig> = TConfig extends { name: infer TName extends string }
   ? {
-      readonly [K in
-        | TName
-        | (TConfig extends { aliases: readonly (infer TAlias extends string)[] } ? TAlias : never)
-        | ExtractVariantIds<TConfig, TName>]: K extends ExtractVariantIds<TConfig, TName>
+      readonly [
+        K in
+          | TName
+          | (TConfig extends { aliases: readonly (infer TAlias extends string)[] } ? TAlias : never)
+          | ExtractVariantIds<TConfig, TName>
+      ]: K extends ExtractVariantIds<TConfig, TName>
         ? K // 变体 → 自身
         : TName // 基础名和别名 → TName
     }

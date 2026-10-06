@@ -109,12 +109,10 @@ const {
     mockAgentIngressHold,
     mockJobManager: {
       pause: vi.fn(() => mockJobHold),
-      drainInFlight: vi.fn(
-        async (): Promise<{ stragglerIds: string[]; startupRecoveryPending: boolean }> => ({
-          stragglerIds: [],
-          startupRecoveryPending: false
-        })
-      )
+      drainInFlight: vi.fn(async (): Promise<{ stragglerIds: string[]; startupRecoveryPending: boolean }> => ({
+        stragglerIds: [],
+        startupRecoveryPending: false
+      }))
     },
     mockJobHold,
     mockHeartbeatHold,

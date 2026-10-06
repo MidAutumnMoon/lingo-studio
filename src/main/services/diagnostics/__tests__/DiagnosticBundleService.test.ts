@@ -1151,13 +1151,13 @@ describe('DiagnosticBundleService', () => {
 
   it('preserves a destination created while the bundle archive is finalizing', async () => {
     const originalFinalize = ZipArchive.prototype.finalize
-    const finalizeSpy = vi
-      .spyOn(ZipArchive.prototype, 'finalize')
-      .mockImplementation(async function (this: ZipArchive) {
-        const finalized = originalFinalize.call(this)
-        await writeFile(destination, 'external file')
-        return finalized
-      })
+    const finalizeSpy = vi.spyOn(ZipArchive.prototype, 'finalize').mockImplementation(async function (
+      this: ZipArchive
+    ) {
+      const finalized = originalFinalize.call(this)
+      await writeFile(destination, 'external file')
+      return finalized
+    })
     const service = new DiagnosticBundleService()
 
     try {

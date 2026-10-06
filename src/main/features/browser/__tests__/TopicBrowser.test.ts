@@ -156,13 +156,13 @@ describe('topic browser ownership and cancellation', () => {
     const started = new Signal<void>()
     const resume = new Signal<void>()
     const dispose = SessionBrowserController.prototype.dispose
-    vi.spyOn(SessionBrowserController.prototype, 'dispose').mockImplementationOnce(
-      async function (this: SessionBrowserController) {
-        started.resolve()
-        await resume
-        await dispose.call(this)
-      }
-    )
+    vi.spyOn(SessionBrowserController.prototype, 'dispose').mockImplementationOnce(async function (
+      this: SessionBrowserController
+    ) {
+      started.resolve()
+      await resume
+      await dispose.call(this)
+    })
 
     vi.advanceTimersByTime(5 * 60_000)
     await started

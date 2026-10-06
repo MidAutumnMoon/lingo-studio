@@ -166,13 +166,10 @@ describe('summarizeHistory', () => {
     it('clamps prose-only history that stubbing cannot shrink', async () => {
       const prose: ContextMessage[] = [
         { role: 'user', content: 'FIRST — a prior summary the caller leads with' },
-        ...Array.from(
-          { length: 40 },
-          (_, i): ContextMessage => ({
-            role: i % 2 === 0 ? 'assistant' : 'user',
-            content: `turn ${i}: ${'长篇叙述内容。'.repeat(80)}`
-          })
-        ),
+        ...Array.from({ length: 40 }, (_, i): ContextMessage => ({
+          role: i % 2 === 0 ? 'assistant' : 'user',
+          content: `turn ${i}: ${'长篇叙述内容。'.repeat(80)}`
+        })),
         { role: 'user', content: 'NEWEST message' }
       ]
 

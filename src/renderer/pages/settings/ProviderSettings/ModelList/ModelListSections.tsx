@@ -127,14 +127,12 @@ const ModelListSections: React.FC<ModelListSectionsProps> = ({
 
       return [
         groupRow,
-        ...items.map(
-          ({ model }, modelIndex): ModelListVirtualRow => ({
-            type: 'model',
-            key: `model:${model.id}`,
-            model,
-            isLastInGroup: modelIndex === items.length - 1
-          })
-        ),
+        ...items.map(({ model }, modelIndex): ModelListVirtualRow => ({
+          type: 'model',
+          key: `model:${model.id}`,
+          model,
+          isLastInGroup: modelIndex === items.length - 1
+        })),
         separatorRow
       ]
     })

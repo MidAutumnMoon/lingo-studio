@@ -67,13 +67,13 @@ const popperAnchorWidth = () =>
 
 describe('PopoverContent', () => {
   it('keeps a custom anchor after its Activity is hidden and shown', async () => {
-    const rectSpy = vi
-      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-      .mockImplementation(function (this: HTMLElement) {
-        if (this.dataset.testid === 'custom-anchor') return rect(120, 40, 260, 36)
-        if (this.dataset.testid === 'anchor-trigger') return rect(120, 40, 100, 36)
-        return rect(0, 0, 100, 40)
-      })
+    const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement
+    ) {
+      if (this.dataset.testid === 'custom-anchor') return rect(120, 40, 260, 36)
+      if (this.dataset.testid === 'anchor-trigger') return rect(120, 40, 100, 36)
+      return rect(0, 0, 100, 40)
+    })
 
     try {
       const { rerender } = render(<ActivityAnchoredPopover visible />)
