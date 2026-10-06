@@ -1310,9 +1310,6 @@ importers:
       vitest:
         specifier: ^4.1.10
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.10.4)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(happy-dom@20.14.5)(jsdom@26.1.0(supports-color@8.1.1))(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(vite@8.2.2(@types/node@24.10.4)(esbuild@0.25.12)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.2))
-      voyage-ai-provider:
-        specifier: ^3.0.0
-        version: 3.0.0(zod@4.4.3)
       webdav:
         specifier: ^5.9.0
         version: 5.9.0
@@ -15965,14 +15962,6 @@ packages:
   void-elements@3.1.0:
     resolution: {integrity: sha512-Dhxzh5HZuiHQhbvTW9AMetFfBHDMYpo23Uo9btPXgdYP+3T5S+p+jgNy7spra+veYhBP2dCSgxR/i2Y02h5/6w==}
     engines: {node: '>=0.10.0'}
-
-  voyage-ai-provider@3.0.0:
-    resolution: {integrity: sha512-m7+N9xVjCaDYjv1vxGuTIbigoBD2eC5LX73hL0FiHo/kNwuJluo+PrSUo24RfQuFbZcSlE3ss5vXgmdqGqHRIA==}
-    peerDependencies:
-      zod: ^3.25.76 || ^4
-    peerDependenciesMeta:
-      zod:
-        optional: true
 
   vscode-jsonrpc@8.2.0:
     resolution: {integrity: sha512-C+r0eKJUIfiDIfwJhria30+TYWPtuHJXHtI7J0YlOmKAo7ogxP20T0zxB7HZQIFhIyvoBPwWskjxrvAtfjyZfA==}
@@ -32106,13 +32095,6 @@ snapshots:
       - msw
 
   void-elements@3.1.0: {}
-
-  voyage-ai-provider@3.0.0(zod@4.4.3):
-    dependencies:
-      '@ai-sdk/provider': 3.0.18
-      '@ai-sdk/provider-utils': 4.0.56(zod@4.4.3)
-    optionalDependencies:
-      zod: 4.4.3
 
   vscode-jsonrpc@8.2.0: {}
 

@@ -463,7 +463,6 @@
     "virtua": "^0.49.1",
     "vite": "8.2.2",
     "vitest": "^4.1.10",
-    "voyage-ai-provider": "^3.0.0",
     "webdav": "^5.9.0",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0",

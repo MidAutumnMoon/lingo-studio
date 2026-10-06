@@ -12,7 +12,6 @@ import type { MistralProviderSettings } from '@ai-sdk/mistral'
 import type { PerplexityProviderSettings } from '@ai-sdk/perplexity'
 import type { ProviderV3 } from '@ai-sdk/provider'
 import type { TogetherAIProviderSettings } from '@ai-sdk/togetherai'
-import type { VoyageProviderSettings } from 'voyage-ai-provider'
 
 import { ProviderExtension, type ProviderExtensionConfig } from '@cherrystudio/ai-core/provider'
 import { SystemProviderIds } from '@shared/utils/systemProviderId'
@@ -335,16 +334,6 @@ export const TokenhubExtension = ProviderExtension.create({
   create: async (settings) => (await import('./custom/tokenhub/tokenhubProvider')).createTokenhubProvider(settings)
 } as const satisfies ProviderExtensionConfig<TokenhubProviderSettings, ProviderV3, 'tokenhub'>)
 
-/**
- * Voyage AI Extension - embeddings and reranking
- */
-export const VoyageExtension = ProviderExtension.create({
-  name: 'voyage',
-  aliases: [SystemProviderIds.voyageai] as const,
-  supportsImageGeneration: false,
-  create: async (settings) => (await import('voyage-ai-provider')).createVoyage(settings)
-} as const satisfies ProviderExtensionConfig<VoyageProviderSettings, ProviderV3, 'voyage'>)
-
 export const extensions = [
   GoogleVertexExtension,
   GoogleVertexAnthropicExtension,
@@ -368,7 +357,6 @@ export const extensions = [
   ModelscopeExtension,
   DashScopeExtension,
   TokenhubExtension,
-  VoyageExtension,
   TogetherAIExtension,
   GroqExtension
 ] as const
