@@ -9,12 +9,10 @@ import { useCustomCss } from '@renderer/hooks/useCustomCss'
 import { useLanguageSync } from '@renderer/hooks/useLanguageSync'
 import useMacTransparentWindow from '@renderer/hooks/useMacTransparentWindow'
 import { useTopicAutoRenameSync } from '@renderer/hooks/useTopic'
-import { setDayjsLocale } from '@renderer/i18n/resolver'
 import { ipcApi, useIpcOn } from '@renderer/ipc'
 import { toast } from '@renderer/services/toast'
 import { setInlineFilePathHomePath } from '@renderer/utils/filePath'
 import { isWin } from '@renderer/utils/platform'
-import { defaultLanguage } from '@shared/utils/languages'
 
 const logger = loggerService.withContext('useWindowRuntime')
 
@@ -27,7 +25,7 @@ const DEFAULT_NAV_BACKGROUND = 'var(--sidebar)'
  * The window runtime shared by every full-chrome window (main + subWindow): the
  * window-level side effects both need, identically. It calls the two hooks the light
  * windows also reuse (`useLanguageSync` / `useCustomCss`) and inlines the concerns
- * only main + subWindow have (dayjs locale, root background, app-path snapshot,
+ * only main + subWindow have (root background, app-path snapshot,
  * fullscreen, topic/agent auto-rename).
  *
  * Mount it from a leaf inside the providers but OUTSIDE every `TabRouter`/`<Activity>`
@@ -42,7 +40,6 @@ const DEFAULT_NAV_BACKGROUND = 'var(--sidebar)'
  */
 export function useWindowRuntime(): void {
   const { t } = useTranslation()
-  const [language] = usePreference('app.language')
   const [exitFullscreenPref] = usePreference('shortcut.app.fullscreen.exit')
   const enableQuitFullScreen = exitFullscreenPref?.enabled !== false
   const isMacTransparentWindow = useMacTransparentWindow()
@@ -51,11 +48,6 @@ export function useWindowRuntime(): void {
   // Also used by the light windows, so these stay as their own reusable hooks.
   useLanguageSync()
   useCustomCss()
-
-  // dayjs locale — only the windows that render localized dates need it.
-  useEffect(() => {
-    setDayjsLocale(language || navigator.language || defaultLanguage)
-  }, [language])
 
   // Root background (macOS vibrancy / transparent-window aware).
   useEffect(() => {

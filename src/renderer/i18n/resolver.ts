@@ -1,16 +1,3 @@
-import 'dayjs/locale/de'
-import 'dayjs/locale/el'
-import 'dayjs/locale/es'
-import 'dayjs/locale/fr'
-import 'dayjs/locale/ja'
-import 'dayjs/locale/pt'
-import 'dayjs/locale/ro'
-import 'dayjs/locale/ru'
-import 'dayjs/locale/tr'
-import 'dayjs/locale/vi'
-import 'dayjs/locale/zh-cn'
-import 'dayjs/locale/zh-tw'
-import dayjs from 'dayjs'
 import i18n from 'i18next'
 import resourcesToBackend from 'i18next-resources-to-backend'
 import { initReactI18next } from 'react-i18next'
@@ -47,28 +34,6 @@ export const getLanguage = async () => {
 
 export const getLanguageCode = async () => {
   return (await getLanguage()).split('-')[0]
-}
-
-// Map i18n language codes to dayjs locale codes
-const dayjsLocaleMap: Record<string, string> = {
-  'en-US': 'en',
-  'ja-JP': 'ja',
-  'ru-RU': 'ru',
-  'zh-CN': 'zh-cn',
-  'zh-TW': 'zh-tw',
-  'de-DE': 'de',
-  'el-GR': 'el',
-  'es-ES': 'es',
-  'fr-FR': 'fr',
-  'pt-PT': 'pt',
-  'ro-RO': 'ro',
-  'vi-VN': 'vi',
-  'tr-TR': 'tr'
-}
-
-export const setDayjsLocale = (language: string) => {
-  const dayjsLocale = dayjsLocaleMap[language] || 'en'
-  dayjs.locale(dayjsLocale)
 }
 
 let initPromise: Promise<void> | null = null

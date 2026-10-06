@@ -10,9 +10,8 @@ import { defaultLanguage } from '@shared/utils/languages'
  * The initial language is already applied by `prepareWindow`'s `initI18n()`; this
  * hook only reacts to runtime preference changes. It is the shared language owner
  * for every UI window (main / subWindow / selection-action /
- * selection-toolbar). It deliberately does NOT touch the dayjs locale — date
- * localization is a separate concern, synced in `useWindowRuntime` only for the
- * windows that render localized dates (main / subWindow).
+ * selection-toolbar). Date formatting is locale-independent (fixed numeric
+ * patterns via `utils/time.ts`), so no date-locale sync exists.
  */
 export function useLanguageSync(): void {
   const [language] = usePreference('app.language')
