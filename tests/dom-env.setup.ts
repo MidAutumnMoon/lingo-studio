@@ -1,3 +1,5 @@
+import './temporal.setup'
+
 // Shared DOM-environment compensation for every happy-dom project.
 // happy-dom rejects Animation.finished on cancel() per spec; Motion's WAAPI path
 // never awaits it, so mark the rejection handled to keep exit codes clean.

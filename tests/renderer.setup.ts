@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 
 import { beforeAll, beforeEach, expect, vi } from 'vitest'
 
+import './temporal.setup'
 import { MockCherrystudioUI } from './__mocks__/renderer/CherrystudioUI'
 import { resetPopupMocks } from './__mocks__/renderer/popup'
 import { resetToastMocks } from './__mocks__/renderer/toast'

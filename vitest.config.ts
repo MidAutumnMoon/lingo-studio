@@ -186,7 +186,9 @@ export default defineConfig({
     ],
     // 全局共享配置
     globals: true,
-    setupFiles: [],
+    // Inherited only by projects without their own setupFiles (scripts/shared/provider-registry);
+    // project-level setupFiles replace it, hence the explicit temporal.setup imports elsewhere.
+    setupFiles: ['tests/temporal.setup.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/out/**', '**/build/**'],
     coverage: {
       provider: 'v8',
