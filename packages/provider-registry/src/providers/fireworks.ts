@@ -53,7 +53,12 @@ const override = (modelId: string, support: ReasoningSupport): Partial<ProviderM
   reasoningContracts: reasoningContracts(support)
 })
 
-const toggleModels = ['kimi-k2-6', 'kimi-k2-7-code']
+// Wire ids are Fireworks' exact serving ids (`/v1/models`); the models.dev listing no
+// longer carries them for every served model, so pin them instead of resolving at generate time.
+const toggleModels: Array<{ apiModelId: string; modelId: string }> = [
+  { apiModelId: 'accounts/fireworks/models/kimi-k2p6', modelId: 'kimi-k2-6' },
+  { apiModelId: 'accounts/fireworks/models/kimi-k2p7-code', modelId: 'kimi-k2-7-code' }
+]
 
 // `/v1/models` does not reliably list router-backed variants; keep the exact IDs
 // advertised by Fireworks' serving-path and integration docs.
@@ -96,12 +101,16 @@ const effortModels: Array<{ modelId: string; values: ReasoningEffort[] }> = [
   { modelId: 'minimax-m3', values: ['low', 'medium', 'high'] }
 ]
 
-const adjustableModels: Array<{ modelId: string; values: ReasoningEffort[] }> = [
-  { modelId: 'deepseek-v4-flash', values: ['high', 'max'] },
-  { modelId: 'deepseek-v4-pro', values: ['high', 'max'] },
-  { modelId: 'glm-5-2', values: ['high', 'max'] },
-  { modelId: 'glm-5-2-fast', values: ['high', 'max'] },
-  { modelId: 'qwen3-7-plus', values: ['low', 'medium', 'high'] }
+const adjustableModels: Array<{ apiModelId: string; modelId: string; values: ReasoningEffort[] }> = [
+  {
+    apiModelId: 'accounts/fireworks/models/deepseek-v4-flash-0731',
+    modelId: 'deepseek-v4-flash',
+    values: ['high', 'max']
+  },
+  { apiModelId: 'accounts/fireworks/models/deepseek-v4-pro-0813', modelId: 'deepseek-v4-pro', values: ['high', 'max'] },
+  { apiModelId: 'accounts/fireworks/models/glm-5p2', modelId: 'glm-5-2', values: ['high', 'max'] },
+  { apiModelId: 'accounts/fireworks/routers/glm-5p2-fast', modelId: 'glm-5-2-fast', values: ['high', 'max'] },
+  { apiModelId: 'accounts/fireworks/models/qwen3p7-plus', modelId: 'qwen3-7-plus', values: ['low', 'medium', 'high'] }
 ]
 
 export default defineProvider({
@@ -138,7 +147,7 @@ export default defineProvider({
   },
   modelsDevProvider: 'fireworks-ai',
   overrides: [
-    ...toggleModels.map((modelId) => override(modelId, toggleSupport)),
+    ...toggleModels.map(({ apiModelId, modelId }) => ({ ...override(modelId, toggleSupport), apiModelId })),
     ...fastToggleModels.map((model) => ({ ...override(model.modelId, toggleSupport), ...model })),
     {
       ...override('glm-5-1-fast', toggleSupport),
@@ -169,6 +178,9 @@ export default defineProvider({
       }
     },
     ...effortModels.map(({ modelId, values }) => override(modelId, effortSupport(values))),
-    ...adjustableModels.map(({ modelId, values }) => override(modelId, adjustableSupport(values)))
+    ...adjustableModels.map(({ apiModelId, modelId, values }) => ({
+      ...override(modelId, adjustableSupport(values)),
+      apiModelId
+    }))
   ]
 })

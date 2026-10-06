@@ -156,7 +156,9 @@ export default openaiCompatible({
     {
       apiModelId: 'moonshotai/kimi-k2-instruct',
       limits: { contextWindow: 131072, maxOutputTokens: 128000 },
+      // Upstream catalogs dropped the base model; PPIO still serves it as a vendor-exclusive row.
       modelId: 'kimi-k2-instruct',
+      name: 'Kimi K2 Instruct',
       pricing: { input: { currency: 'CNY', perMillionTokens: 4 }, output: { currency: 'CNY', perMillionTokens: 16 } }
     },
     {

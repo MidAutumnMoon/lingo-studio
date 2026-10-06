@@ -48,6 +48,8 @@ const chatEffortModels: Array<{
 }> = [
   { modelId: 'deepseek-flash', values: ['high', 'max'] },
   { modelId: 'deepseek-v4-flash', values: ['high', 'max'] },
+  // models.dev lists it as `deepseek-v4.1-flash` with no per-model npm override → chat/completions.
+  { modelId: 'deepseek-v4-1-flash', values: ['low', 'high', 'max'] },
   { modelId: 'deepseek-v4-flash-vision-exp', values: ['high', 'max'] },
   { modelId: 'deepseek-v4-pro', values: ['high', 'max'] },
   { modelId: 'glm-5-2', values: ['high', 'max'] },
@@ -64,13 +66,10 @@ const chatEffortModels: Array<{
   },
   { modelId: 'hy3', values: ['none', 'low', 'high'] },
   { modelId: 'kimi-k3', values: ['max'] },
-  // Stealth model, no creator entry: models.dev routes it through `@ai-sdk/openai-compatible`
-  // and prints an effort ladder, so pin chat/completions rather than let it fall back unpinned.
-  { modelId: 'ox-alpha', values: ['low', 'high', 'max'] },
-  // Same shape as ox-alpha: unclassified stealth SKU, chat/completions with a printed ladder.
-  { modelId: 'omen-alpha', values: ['low', 'high'] }
+  // Stealth model, no creator entry: models.dev gives it no per-model npm override, so it routes
+  // through the provider-level `@ai-sdk/openai-compatible` (chat/completions) with an effort ladder.
+  { modelId: 'space-bunny', values: ['low', 'medium', 'high', 'xhigh', 'max'] }
 ]
-
 const anthropicFixedModels = ['minimax-m2-5', 'minimax-m2-7']
 
 const qwenBudgetModels = [
@@ -99,6 +98,8 @@ const endpointOverrides: Partial<ProviderModelOverride>[] = [
     }
   })),
   { modelId: 'longcat-2-0', endpointTypes: ['openai-chat-completions'] },
+  // Listed as `longcat-2.5-preview-free` on models.dev with no per-model npm override → chat/completions.
+  { modelId: 'longcat-2-5-preview', endpointTypes: ['openai-chat-completions'] },
   // models.dev routes Zen Go's Grok 4.5 through `@ai-sdk/openai` (Responses); the Go endpoint table
   // still prints chat/completions, so Chat stays selectable behind the Responses default (#17860).
   {
@@ -125,6 +126,14 @@ const endpointOverrides: Partial<ProviderModelOverride>[] = [
   },
   {
     modelId: 'gpt-5-6-luna',
+    endpointTypes: ['openai-responses' as const],
+    reasoningContracts: {
+      'openai-responses': { support: effortSupport(['none', 'low', 'medium', 'high', 'xhigh', 'max']) }
+    }
+  },
+  // models.dev routes it through `@ai-sdk/openai` (per-model npm override), same as gpt-5-6-luna.
+  {
+    modelId: 'gpt-6-luna',
     endpointTypes: ['openai-responses' as const],
     reasoningContracts: {
       'openai-responses': { support: effortSupport(['none', 'low', 'medium', 'high', 'xhigh', 'max']) }

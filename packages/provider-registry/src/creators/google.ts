@@ -18,6 +18,8 @@ export default defineCreator({
     // before, so it had been silently taking the Gemini 3 level wire.
     { pattern: '^gemini-robotics', wireDialect: 'budget', template: true },
     { pattern: '^gemini-(?:3|flash-latest|pro-latest|flash-lite-latest)', wireDialect: 'effort', template: true },
+    // Nano Banana 2.1 (image line) gained thinking; it rides the Gemini 3 thinkingLevel wire.
+    { pattern: '^gemini-nano-banana', wireDialect: 'effort', template: true },
 
     { pattern: '^gemma-?4', toggle: true },
     {
@@ -26,6 +28,7 @@ export default defineCreator({
     },
     { pattern: '^gemini-3-pro', effort: ['low', 'high'] },
     { pattern: '^gemini-3\\.\\d+-pro|^gemini-pro-latest', effort: ['low', 'medium', 'high'] },
+    { pattern: '^gemini-nano-banana', effort: ['none', 'low', 'medium', 'high'] },
     // Robotics ER (vision-language-action) exposes a thinking on/off toggle; not a flash/pro budget SKU.
     { pattern: '^gemini-robotics', toggle: true },
     // Gemini 2.x budget models: flash can be turned off (budget 0); pro
@@ -50,6 +53,7 @@ export default defineCreator({
     },
     { pattern: '^gemini-omni-flash' },
     { pattern: '^gemini-robotics' },
+    { pattern: 'diffusiongemma' },
     { pattern: 'gemma-?4' }
   ],
   families: ['gemini', 'gemma'],

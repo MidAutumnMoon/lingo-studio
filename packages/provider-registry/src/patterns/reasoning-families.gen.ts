@@ -114,6 +114,8 @@ export const REASONING_FAMILY_RULES: readonly ReasoningFamilyRule[] = [
   },
   { pattern: 'claude-3-7-sonnet|claude-3\\.7-sonnet' },
   { pattern: 'claude-(?:sonnet|opus|haiku)-4' },
+  // arceeai
+  { pattern: '^trinity', effort: ['none', 'low', 'medium', 'high'] },
   // baichuan
   { pattern: 'baichuan-m2$', budget: { min: 0, max: 30000 }, template: true },
   { pattern: 'baichuan-m3$', budget: { min: 0, max: 30000 }, template: true },
@@ -121,6 +123,7 @@ export const REASONING_FAMILY_RULES: readonly ReasoningFamilyRule[] = [
   // bailing
   { pattern: 'ring-(?:1t|mini|flash)' },
   { pattern: '^ling-3[.-]0-flash' },
+  { pattern: '^ling-3[.-]1-flash' },
   { pattern: '^inkling' },
   // bytedance
   {
@@ -159,6 +162,7 @@ export const REASONING_FAMILY_RULES: readonly ReasoningFamilyRule[] = [
   { pattern: '^gemini-omni', wireDialect: 'budget', template: true },
   { pattern: '^gemini-robotics', wireDialect: 'budget', template: true },
   { pattern: '^gemini-(?:3|flash-latest|pro-latest|flash-lite-latest)', wireDialect: 'effort', template: true },
+  { pattern: '^gemini-nano-banana', wireDialect: 'effort', template: true },
   { pattern: '^gemma-?4', toggle: true },
   {
     pattern: '^gemini-3(?:\\.\\d+)?-flash|^gemini-3\\.1-flash-lite|^gemini-flash-latest',
@@ -166,6 +170,7 @@ export const REASONING_FAMILY_RULES: readonly ReasoningFamilyRule[] = [
   },
   { pattern: '^gemini-3-pro', effort: ['low', 'high'] },
   { pattern: '^gemini-3\\.\\d+-pro|^gemini-pro-latest', effort: ['low', 'medium', 'high'] },
+  { pattern: '^gemini-nano-banana', effort: ['none', 'low', 'medium', 'high'] },
   { pattern: '^gemini-robotics', toggle: true },
   { pattern: '^gemini-[\\d.]+.*flash', toggle: true, template: true },
   { pattern: 'gemini-2[.-]5-flash-lite.*$', budget: { min: 512, max: 24576 }, template: true },
@@ -183,6 +188,7 @@ export const REASONING_FAMILY_RULES: readonly ReasoningFamilyRule[] = [
   },
   { pattern: '^gemini-omni-flash' },
   { pattern: '^gemini-robotics' },
+  { pattern: 'diffusiongemma' },
   { pattern: 'gemma-?4' },
   // iflytek
   { pattern: '^xopdeepseekv3\\d', toggle: true },
@@ -196,6 +202,7 @@ export const REASONING_FAMILY_RULES: readonly ReasoningFamilyRule[] = [
   { pattern: '^mercury-2' },
   // meituan
   { pattern: '^longcat-2[.-]0$', toggle: true },
+  { pattern: '^longcat-2[.-]5' },
   // meta
   { pattern: '^muse-spark' },
   // minimax
@@ -203,18 +210,20 @@ export const REASONING_FAMILY_RULES: readonly ReasoningFamilyRule[] = [
   { pattern: 'minimax-m\\d' },
   // mistral
   { pattern: '^mistral-small-2603', effort: ['none', 'high'] },
+  { pattern: '^mistral-large-4', effort: ['none', 'low', 'medium', 'high'] },
   { pattern: 'magistral' },
   { pattern: 'mistral-small-2603' },
   { pattern: '^mistral-(?:small|medium)(?!.*instruct)' },
   // moonshot
   { pattern: '^kimi-k2[.-]7-code', toggle: false },
+  { pattern: '^kimi-k2$', effort: ['none', 'low', 'medium', 'high'] },
   { pattern: '^kimi-k3$', effort: ['low', 'high', 'max'], toggle: true },
   { pattern: '^kimi-k3-fast$', effort: ['low', 'high', 'max'] },
   { pattern: '^kimi-k2[.-][5-9]\\d*', toggle: true },
   { pattern: 'kimi-k2[.-][5-9]\\d*', budget: { min: 0, max: 30720 }, template: true },
   { pattern: '^kimi-k2-thinking(?:-turbo)?$|^kimi-k(?:2[.-][5-9]\\d*|[3-9]\\d*(?:[.-]\\d+)?)(?:-[\\w-]+)?$' },
   // nvidia
-  { pattern: '(?:llama-3-1-)?nemotron-(?:\\d+(?:-\\d+)*-)?(?:nano|super|ultra|lightning)' },
+  { pattern: '(?:llama-3-1-)?nemotron-(?:\\d+(?:-\\d+)*-)?(?:nano|super|ultra|lightning|content-safety)' },
   { pattern: '^muse-glimmer' },
   // openai
   { pattern: '^gpt-6[.-]1-sol(?:$|-)', effort: ['low', 'medium', 'high', 'xhigh', 'max'] },
@@ -230,6 +239,7 @@ export const REASONING_FAMILY_RULES: readonly ReasoningFamilyRule[] = [
   { pattern: '^gpt-5[.-]\\d+(?!.*chat)', effort: ['none', 'low', 'medium', 'high', 'xhigh'] },
   { pattern: '^gpt-5(?![.-]\\d)(?!.*chat)', effort: ['minimal', 'low', 'medium', 'high'] },
   { pattern: '^gpt-6', effort: ['none', 'low', 'medium', 'high', 'xhigh', 'max'] },
+  { pattern: '^gpt-daybreak', effort: ['none', 'low', 'medium', 'high', 'xhigh', 'max'] },
   { pattern: '^gpt-oss', effort: ['low', 'medium', 'high'] },
   { pattern: '^o1(?!-preview|-mini)|^o3|^o4', effort: ['low', 'medium', 'high'] },
   { pattern: '^o\\d+(?:-[\\w-]+)?$' },
@@ -244,6 +254,7 @@ export const REASONING_FAMILY_RULES: readonly ReasoningFamilyRule[] = [
   // stepfun
   { pattern: 'step-3' },
   { pattern: 'step-r1-v-mini' },
+  { pattern: '^step-5', effort: ['low', 'medium', 'high'] },
   // tencent
   { pattern: '^hunyuan-a13b', toggle: true },
   { pattern: 'hunyuan-a13b', budget: { min: 0, max: 30720 }, template: true },
@@ -256,6 +267,10 @@ export const REASONING_FAMILY_RULES: readonly ReasoningFamilyRule[] = [
   { pattern: '^muse-spark' },
   { pattern: '^interfaze' },
   { pattern: '^laguna-s' },
+  { pattern: '^arrow-2', effort: ['low', 'medium', 'high', 'xhigh'] },
+  { pattern: '^fugu-', effort: ['high', 'xhigh'] },
+  { pattern: '^namazu', effort: ['none', 'low', 'medium', 'high'] },
+  { pattern: '^ember-', effort: ['none', 'low', 'medium', 'high'] },
   // xai
   { pattern: '^grok-4\\.3(?!.*non-reasoning)', effort: ['none', 'low', 'medium', 'high'] },
   { pattern: '^grok-4[.-][67](?!.*non-reasoning)', effort: ['low', 'medium', 'high', 'xhigh'] },

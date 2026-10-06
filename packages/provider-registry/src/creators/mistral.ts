@@ -8,6 +8,7 @@ export default defineCreator({
   modelsDevProviders: ['mistral'],
   reasoningFamilies: [
     { pattern: '^mistral-small-2603', effort: ['none', 'high'] },
+    { pattern: '^mistral-large-4', effort: ['none', 'low', 'medium', 'high'] },
     // Membership profiles (no knobs): reasoning SKUs beyond the knob rules above.
     { pattern: 'magistral' },
     { pattern: 'mistral-small-2603' },

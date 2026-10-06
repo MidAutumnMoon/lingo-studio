@@ -13,6 +13,8 @@ export default defineCreator({
     // claude-code guide: requests without it are rejected) — always-on, the
     // explicit `toggle: false` stops the generic toggle below.
     { pattern: '^kimi-k2[.-]7-code', toggle: false },
+    // models.dev serves bare `kimi-k2` as the Thinking SKU (`kimi-k2-instruct` is the plain one).
+    { pattern: '^kimi-k2$', effort: ['none', 'low', 'medium', 'high'] },
     // K3 supports low/high/max thinking effort and can disable thinking; K3 Fast
     // exposes the same effort vocabulary but is always-on.
     { pattern: '^kimi-k3$', effort: ['low', 'high', 'max'], toggle: true },
