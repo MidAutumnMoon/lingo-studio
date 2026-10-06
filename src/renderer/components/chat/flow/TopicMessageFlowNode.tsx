@@ -1,5 +1,4 @@
 import { Handle, type NodeProps, Position } from '@xyflow/react'
-import dayjs from 'dayjs'
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -12,6 +11,7 @@ import { EmptyState, LoadingState } from '@renderer/components/chat/primitives'
 import { useTimer } from '@renderer/hooks/useTimer'
 import { sharedMessageToUIMessage, uiMessagesToPartsMap } from '@renderer/utils/message/messageProjection'
 import { cn } from '@renderer/utils/style'
+import { formatNumericTime } from '@renderer/utils/time'
 import type { MessageRole, MessageStatus } from '@shared/data/types/message'
 
 import type { TopicMessageFlowNodeModel } from './types'
@@ -49,8 +49,7 @@ function getModelShortLabel(modelId?: string | null) {
 }
 
 function formatNodeTime(createdAt: string) {
-  const value = dayjs(createdAt)
-  return value.isValid() ? value.format('MM/DD HH:mm') : createdAt || '-'
+  return formatNumericTime(createdAt, 'MM/DD HH:mm') || createdAt || '-'
 }
 
 function useRoleLabel(role: MessageRole, isContextBoundary?: boolean) {

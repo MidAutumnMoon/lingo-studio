@@ -1,5 +1,3 @@
-import dayjs from 'dayjs'
-
 import { cacheService } from '@data/CacheService'
 import type { Topic } from '@renderer/types/topic'
 import type { AgentSessionEntity } from '@shared/data/api/schemas/agentSessions'
@@ -442,9 +440,10 @@ export function buildGlobalMessageSearchGroups({
   return Array.from(groupsByParent.entries()).map(([parentId, group]) => {
     const expanded = expandedParentIds.has(parentId)
     const orderedResults = [...group.results].sort((a, b) => {
-      const timeA = dayjs(a.createdAt).valueOf() || 0
-      const timeB = dayjs(b.createdAt).valueOf() || 0
-      if (timeA !== timeB) return timeA - timeB
+      // ISO createdAt strings; compareResourceRecency's Date.parse pattern, oldest first
+      const timeA = Date.parse(a.createdAt)
+      const timeB = Date.parse(b.createdAt)
+      if (Number.isFinite(timeA) && Number.isFinite(timeB) && timeA !== timeB) return timeA - timeB
       return a.messageId.localeCompare(b.messageId)
     })
     const visibleResults = expanded

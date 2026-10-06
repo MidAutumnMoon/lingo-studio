@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import type { TFunction } from 'i18next'
 import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +14,7 @@ import { popup } from '@renderer/services/popup'
 import { FILE_TYPE, type FileMetadata } from '@renderer/types/file'
 import type { McpTool } from '@renderer/types/tool'
 import { safeOpen } from '@renderer/utils/file/safeOpen'
+import { formatNumericTime } from '@renderer/utils/time'
 import type { FileHandle } from '@shared/data/types/file'
 import type { CherryMessagePart } from '@shared/data/types/message'
 import type { AbsoluteFilePath } from '@shared/types/file'
@@ -88,14 +88,17 @@ function formatMessageAttachmentFileName(
     return ''
   }
 
-  const date = dayjs(file.created_at).format('YYYY-MM-DD')
+  // An unparseable created_at drops the date prefix entirely rather than leaving a
+  // leading space on the label.
+  const date = formatNumericTime(file.created_at, 'YYYY-MM-DD')
+  const prefix = date ? `${date} ` : ''
 
   if (file.origin_name.includes('pasted_text')) {
-    return date + ' ' + t('message.attachments.pasted_text') + file.ext
+    return prefix + t('message.attachments.pasted_text') + file.ext
   }
 
   if (file.origin_name.startsWith('temp_file') && file.origin_name.includes('image')) {
-    return date + ' ' + t('message.attachments.pasted_image') + file.ext
+    return prefix + t('message.attachments.pasted_image') + file.ext
   }
 
   return file.origin_name

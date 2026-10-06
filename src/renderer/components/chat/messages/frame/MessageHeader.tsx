@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import { ArrowUpRight, Bot, MousePointerClick, Sparkle, Target } from 'lucide-react'
 import type { FC, ReactNode } from 'react'
 import { memo, useCallback, useMemo } from 'react'
@@ -11,6 +10,7 @@ import { useTheme } from '@renderer/hooks/useTheme'
 import type { Model } from '@renderer/types/model'
 import { getModelLogoRef } from '@renderer/utils/model'
 import { firstLetter, removeLeadingEmoji } from '@renderer/utils/naming'
+import { formatNumericTime } from '@renderer/utils/time'
 import type { AutonomousTurnOrigin } from '@shared/ai/agentSessionTurnOrigin'
 
 import {
@@ -202,7 +202,7 @@ const MessageHeader: FC<Props> = memo(
             )}
             <div
               className={`message-header-info-wrap flex shrink-0 items-center gap-1 text-[10px] text-foreground-tertiary leading-none opacity-0 transition-opacity duration-150 focus-within:opacity-100 no-hover:opacity-100 ${hiddenContentHoverClass}`}>
-              <span>{dayjs(message?.updatedAt ?? message.createdAt).format('MM/DD HH:mm')}</span>
+              <span>{formatNumericTime(message?.updatedAt ?? message.createdAt, 'MM/DD HH:mm')}</span>
               {renderConfig.showEstimatedTokens &&
                 isBubbleStyle &&
                 !isAssistantMessage &&

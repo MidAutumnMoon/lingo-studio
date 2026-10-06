@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import type { FC } from 'react'
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -9,6 +8,7 @@ import { useTimer } from '@renderer/hooks/useTimer'
 import { scrollIntoView } from '@renderer/utils/dom'
 import { canEditAssistantMessageParts } from '@renderer/utils/message/partsHelpers'
 import { classNames, cn } from '@renderer/utils/style'
+import { formatNumericTime } from '@renderer/utils/time'
 import type { CherryMessagePart } from '@shared/data/types/message'
 import { createUniqueModelId, type Model } from '@shared/data/types/model'
 
@@ -405,7 +405,7 @@ const UserBubbleMessage = ({
       {!isEditing && (
         <div className="MessageFooter relative mt-1 mr-[30px] flex min-h-6.5 w-[calc(100%-30px)] max-w-full items-center justify-end text-xs leading-none text-foreground-tertiary">
           <div className={cn(USER_MESSAGE_FOOTER_ACTIONS_CLASS, 'justify-end')}>
-            <span className="shrink-0">{dayjs(message.updatedAt ?? message.createdAt).format('MM/DD HH:mm')}</span>
+            <span className="shrink-0">{formatNumericTime(message.updatedAt ?? message.createdAt, 'MM/DD HH:mm')}</span>
             <MessageMenuBar
               message={message}
               isLastMessage={isLastMessage}

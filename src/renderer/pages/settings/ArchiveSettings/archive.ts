@@ -2,10 +2,10 @@
  * Pure helpers for the archive settings page.
  */
 
-import dayjs from 'dayjs'
 import type { ReactNode } from 'react'
 
 import { formatErrorMessage } from '@renderer/utils/error'
+import { formatNumericTime } from '@renderer/utils/time'
 
 export interface ArchiveItem {
   id: string
@@ -78,6 +78,5 @@ export function computeDaysRemaining(
 /** Format a deleted-at timestamp as `YYYY-MM-DD HH:mm`; missing/invalid → "—". */
 export function formatDeletedTime(ms: number | undefined): string {
   if (ms === undefined) return '—'
-  const date = dayjs(ms)
-  return date.isValid() ? date.format('YYYY-MM-DD HH:mm') : '—'
+  return formatNumericTime(ms, 'YYYY-MM-DD HH:mm') || '—'
 }

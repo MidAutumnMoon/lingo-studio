@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import type { TFunction } from 'i18next'
 import { Archive, PinIcon } from 'lucide-react'
 import type { ReactElement, ReactNode } from 'react'
@@ -11,6 +10,7 @@ import { CommandContextMenu, type CommandContextMenuExtraItem } from '@renderer/
 import ConfirmActionPopup from '@renderer/components/popups/ConfirmActionPopup'
 import { DynamicVirtualList } from '@renderer/components/VirtualList'
 import { cn } from '@renderer/utils/style'
+import { formatBucketedLocalTime } from '@renderer/utils/time'
 
 const historyTableClassName = 'min-w-[760px] rounded-none border-0 bg-card shadow-none'
 export const historyTableGridClassName =
@@ -521,13 +521,8 @@ export const HistoryRecordRow = ({
 )
 
 export function formatHistoryTime(value: string, t: TFunction) {
-  const date = dayjs(value)
-  const now = dayjs()
-
-  if (!date.isValid()) return t('history.records.table.emptyValue')
-  if (date.isSame(now, 'day')) return date.format('HH:mm')
-  if (date.isSame(now.subtract(1, 'day'), 'day')) return t('common.yesterday')
-  if (date.isSame(now, 'year')) return date.format('MM/DD')
-
-  return date.format('YYYY/MM/DD')
+  return formatBucketedLocalTime(value, {
+    yesterday: t('common.yesterday'),
+    fallback: t('history.records.table.emptyValue')
+  })
 }

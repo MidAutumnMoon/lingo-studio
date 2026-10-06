@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import { Check, ExternalLink, FolderOpen, Loader2, RefreshCw } from 'lucide-react'
 import type { FC } from 'react'
 import { useCallback, useEffect, useState } from 'react'
@@ -31,6 +30,7 @@ import {
 import { popup } from '@renderer/services/popup'
 import { toast } from '@renderer/services/toast'
 import { openExternalWebsite } from '@renderer/services/website'
+import { formatNumericTime } from '@renderer/utils/time'
 import { NUTSTORE_HOST } from '@shared/utils/nutstore'
 
 import NutstorePathPopup from './NutstorePathPopup'
@@ -196,7 +196,7 @@ const NutstoreSettings: FC = () => {
         )}
         {nutstoreSyncState.lastSyncTime && (
           <span style={{ color: SYNC_STATUS_COLOR }}>
-            {t('settings.data.webdav.lastSync')}: {dayjs(nutstoreSyncState.lastSyncTime).format('HH:mm:ss')}
+            {t('settings.data.webdav.lastSync')}: {formatNumericTime(nutstoreSyncState.lastSyncTime, 'HH:mm:ss')}
           </span>
         )}
       </RowFlex>

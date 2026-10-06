@@ -1,8 +1,8 @@
-import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useQuery } from '@data/hooks/useDataApi'
 import type { GroupedVirtualListGroup } from '@renderer/components/VirtualList'
+import { timeFilterLowerBoundISO } from '@renderer/utils/time'
 import type { ContentSearchGroup, ContentSearchSourceType } from '@shared/data/api/schemas/search'
 import type { GlobalSearchRecentEntry } from '@shared/data/cache/cacheValueTypes'
 
@@ -45,17 +45,7 @@ function createContentSearchState(baseKey: string): ContentSearchState {
 
 function getUpdatedAtFromForTimeFilter(filter: GlobalSearchTimeFilter): string | undefined {
   if (filter === 'any') return undefined
-
-  switch (filter) {
-    case 'today':
-      return dayjs().startOf('day').toISOString()
-    case 'week':
-      return dayjs().subtract(7, 'day').toISOString()
-    case 'month':
-      return dayjs().subtract(1, 'month').toISOString()
-    case 'quarter':
-      return dayjs().subtract(3, 'month').toISOString()
-  }
+  return timeFilterLowerBoundISO(filter)
 }
 
 function toContentSearchSource(source: 'topic' | 'session'): ContentSearchSourceType {
@@ -330,9 +320,10 @@ export function useGlobalSearchPanelData({
   const messageSearchItems = useMemo(
     () =>
       [...activeContentSearchState.items].sort((a, b) => {
-        const timeA = dayjs(a.createdAt).valueOf() || 0
-        const timeB = dayjs(b.createdAt).valueOf() || 0
-        if (timeA !== timeB) return timeB - timeA
+        // ISO createdAt strings; compareResourceRecency's Date.parse pattern, newest first
+        const timeA = Date.parse(a.createdAt)
+        const timeB = Date.parse(b.createdAt)
+        if (Number.isFinite(timeA) && Number.isFinite(timeB) && timeA !== timeB) return timeB - timeA
         if (a.sourceType !== b.sourceType) return a.sourceType === 'topic' ? -1 : 1
         return b.messageId.localeCompare(a.messageId)
       }),

@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -20,6 +19,7 @@ import { toast } from '@renderer/services/toast'
 import { getLocalizedBackupErrorMessage } from '@renderer/utils/backup'
 import { createDefaultBackupFileName } from '@renderer/utils/backupFileName'
 import { formatFileSize } from '@renderer/utils/file'
+import { formatBackupModifiedTime } from '@renderer/utils/time'
 
 interface BackupFile {
   fileName: string
@@ -279,7 +279,8 @@ export function S3RestoreModal({
 }
 
 function formatFileOption(file: BackupFile): ComboboxOption {
-  const date = dayjs(file.modifiedTime).format('YYYY-MM-DD HH:mm:ss')
+  // S3 listings leave lastModified '' when the object carries none
+  const date = formatBackupModifiedTime(file.modifiedTime) || '-'
   const size = formatFileSize(file.size)
   return {
     label: `${file.fileName} (${date}, ${size})`,

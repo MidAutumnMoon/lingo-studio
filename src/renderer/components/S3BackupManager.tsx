@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import { ChevronLeft, ChevronRight, CircleAlert, RefreshCw, Trash2 } from 'lucide-react'
 import type { Key } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -21,6 +20,7 @@ import { popup } from '@renderer/services/popup'
 import { toast } from '@renderer/services/toast'
 import { getLocalizedBackupErrorMessage } from '@renderer/utils/backup'
 import { formatFileSize } from '@renderer/utils/file'
+import { formatBackupModifiedTime } from '@renderer/utils/time'
 import type { S3Config } from '@shared/types/backup'
 
 interface BackupFile {
@@ -242,7 +242,7 @@ export function S3BackupManager({ visible, onClose, s3Config, restoreMethod }: S
       accessorKey: 'modifiedTime',
       header: t('settings.data.s3.manager.columns.modifiedTime'),
       meta: { width: 180 },
-      cell: ({ getValue }) => dayjs(getValue() as string).format('YYYY-MM-DD HH:mm:ss')
+      cell: ({ getValue }) => formatBackupModifiedTime(getValue() as string) || '-'
     },
     {
       accessorKey: 'size',

@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import { FolderOpen, RefreshCw, Save } from 'lucide-react'
 import type { FC } from 'react'
 import { useState } from 'react'
@@ -20,6 +19,7 @@ import {
 import { useBackupSyncState } from '@renderer/hooks/useBackupSyncState'
 import { useTheme } from '@renderer/hooks/useTheme'
 import { ipcApi } from '@renderer/ipc'
+import { formatNumericTime } from '@renderer/utils/time'
 
 const SYNC_STATUS_COLOR = 'var(--muted-foreground)'
 
@@ -77,7 +77,7 @@ const S3Settings: FC = () => {
         )}
         {s3Sync?.lastSyncTime && (
           <span style={{ color: SYNC_STATUS_COLOR }}>
-            {t('settings.data.s3.syncStatus.lastSync', { time: dayjs(s3Sync.lastSyncTime).format('HH:mm:ss') })}
+            {t('settings.data.s3.syncStatus.lastSync', { time: formatNumericTime(s3Sync.lastSyncTime, 'HH:mm:ss') })}
           </span>
         )}
       </RowFlex>

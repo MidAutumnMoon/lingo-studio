@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import { FolderOpen, RefreshCw, Save, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -22,6 +21,7 @@ import { useTheme } from '@renderer/hooks/useTheme'
 import { ipcApi } from '@renderer/ipc'
 import { toast } from '@renderer/services/toast'
 import type { AppInfo } from '@renderer/types/app'
+import { formatNumericTime } from '@renderer/utils/time'
 
 const logger = loggerService.withContext('LocalBackupSettings')
 const SYNC_STATUS_COLOR = 'var(--muted-foreground)'
@@ -168,7 +168,7 @@ const LocalBackupSettings: React.FC = () => {
         )}
         {localBackupSync.lastSyncTime && (
           <span style={{ color: SYNC_STATUS_COLOR }}>
-            {t('settings.data.local.lastSync')}: {dayjs(localBackupSync.lastSyncTime).format('HH:mm:ss')}
+            {t('settings.data.local.lastSync')}: {formatNumericTime(localBackupSync.lastSyncTime, 'HH:mm:ss')}
           </span>
         )}
       </RowFlex>
