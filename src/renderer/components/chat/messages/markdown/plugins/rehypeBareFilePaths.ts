@@ -426,10 +426,8 @@ function createMarker(path: string): Element {
 
 function isSkippedElement(node: Element): boolean {
   if (SKIPPED_ELEMENTS.has(node.tagName)) return true
-  // hast 3.0.5 types className as array-only; hand-built trees may still carry a string.
-  const className = node.properties?.className as string | readonly string[] | undefined
-  const classes = Array.isArray(className) ? className : typeof className === 'string' ? className.split(/\s+/) : []
-  return classes.some((value) => typeof value === 'string' && value.startsWith('katex'))
+  const classes = node.properties.className ?? []
+  return classes.some((value) => value.startsWith('katex'))
 }
 
 function splitTextNode(node: Text, platform: BareFilePathPlatform): RootContent[] {
@@ -457,7 +455,7 @@ function transformChildren(parent: Root | Element, platform: BareFilePathPlatfor
     }
 
     if (child.type === 'element') {
-      if (child.properties?.[BARE_FILE_PATH_PROPERTY] !== undefined || isSkippedElement(child)) {
+      if (child.properties[BARE_FILE_PATH_PROPERTY] !== undefined || isSkippedElement(child)) {
         transformedChildren.push(child)
         continue
       }

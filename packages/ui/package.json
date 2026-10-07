@@ -153,7 +153,7 @@
     "@svgr/plugin-jsx": "^8.1.0",
     "@svgr/plugin-prettier": "^8.1.0",
     "@svgr/plugin-svgo": "^8.1.0",
-    "@types/hast": "^3.0.4",
+    "@types/hast": "^3.0.5",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "@types/unist": "3.0.3",

@@ -1,4 +1,3 @@
-import type { Element, Root } from 'hast'
 import rehypeParse from 'rehype-parse'
 import rehypeStringify from 'rehype-stringify'
 import { unified } from 'unified'
@@ -42,37 +41,15 @@ describe('rehypePrefixSvgReferences', () => {
     expect(output).not.toContain('user-content-icon')
   })
 
-  it('rewrites array-valued SVG properties', () => {
-    const tree: Root = {
-      type: 'root',
-      children: [
-        {
-          type: 'element',
-          tagName: 'svg',
-          properties: {},
-          children: [
-            {
-              type: 'element',
-              tagName: 'linearGradient',
-              properties: { id: 'user-content-gradient' },
-              children: []
-            },
-            {
-              type: 'element',
-              tagName: 'rect',
-              // The plugin rewrites array-valued SVG properties; hast 3.0.5 types `values` as string-only.
-              properties: { values: ['url(#gradient)', '#gradient'] as unknown as string },
-              children: []
-            }
-          ]
-        }
-      ]
-    }
+  it('rewrites references on the svg root element itself', () => {
+    const output = processHtml(`
+      <svg mask="url(#frame)">
+        <defs><mask id="user-content-frame"></mask></defs>
+        <rect width="1" height="1"></rect>
+      </svg>
+    `)
 
-    rehypePrefixSvgReferences()(tree)
-
-    const rect = (tree.children[0] as Element).children[1] as Element
-    expect(rect.properties.values).toEqual(['url(#user-content-gradient)', '#user-content-gradient'])
+    expect(output).toContain('mask="url(#user-content-frame)"')
   })
 
   it('keeps same-id SVG references scoped to each SVG subtree', () => {
