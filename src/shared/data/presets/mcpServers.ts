@@ -80,14 +80,6 @@ export const PRESET_MCP_SERVERS = freezePresets([
     isTrusted: true
   },
   {
-    name: BuiltinMcpServerNames.sequentialThinking,
-    type: 'inMemory',
-    isActive: true,
-    provider: 'CherryAI',
-    installSource: 'builtin',
-    isTrusted: true
-  },
-  {
     name: BuiltinMcpServerNames.braveSearch,
     type: 'inMemory',
     isActive: false,

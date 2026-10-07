@@ -17,10 +17,6 @@ const inMemoryServers: Partial<Record<BuiltinMcpServerName, InMemoryServerLoader
     const { default: MemoryServer } = await import('./memory')
     return new MemoryServer(envs.MEMORY_FILE_PATH).server
   },
-  [BuiltinMcpServerNames.sequentialThinking]: async () => {
-    const { default: ThinkingServer } = await import('./sequentialthinking')
-    return new ThinkingServer().server
-  },
   [BuiltinMcpServerNames.braveSearch]: async (_args, envs) => {
     const { default: BraveSearchServer } = await import('./braveSearch')
     return new BraveSearchServer(envs.BRAVE_API_KEY).server

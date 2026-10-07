@@ -300,7 +300,6 @@ const builtInMcpDescriptionKeyMap: Record<BuiltinMcpServerName, string> = {
   [BuiltinMcpServerNames.qveris]: 'settings.mcp.builtinServersDescriptions.qveris',
   [BuiltinMcpServerNames.mcpAutoInstall]: 'settings.mcp.builtinServersDescriptions.mcp_auto_install',
   [BuiltinMcpServerNames.memory]: 'settings.mcp.builtinServersDescriptions.memory',
-  [BuiltinMcpServerNames.sequentialThinking]: 'settings.mcp.builtinServersDescriptions.sequentialthinking',
   [BuiltinMcpServerNames.braveSearch]: 'settings.mcp.builtinServersDescriptions.brave_search',
   [BuiltinMcpServerNames.fetch]: 'settings.mcp.builtinServersDescriptions.fetch',
   [BuiltinMcpServerNames.filesystem]: 'settings.mcp.builtinServersDescriptions.filesystem',

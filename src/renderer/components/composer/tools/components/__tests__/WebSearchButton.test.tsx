@@ -158,7 +158,6 @@ vi.mock('@renderer/types', () => {
     flomo: '@cherry/flomo',
     mcpAutoInstall: '@cherry/mcp-auto-install',
     memory: '@cherry/memory',
-    sequentialThinking: '@cherry/sequentialthinking',
     braveSearch: '@cherry/brave-search',
     fetch: '@cherry/fetch',
     filesystem: '@cherry/filesystem',
