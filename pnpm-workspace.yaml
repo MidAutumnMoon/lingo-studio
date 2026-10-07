@@ -287,3 +287,4 @@ minimumReleaseAgeExclude:
   - "@deepseek-ai/schemastery@3.18.4"
   - "@earendil-works/pi-ai@0.87.1"
   - "@pierre/diffs@1.5.2"
+  - electron-vite@6.0.0-beta.7
