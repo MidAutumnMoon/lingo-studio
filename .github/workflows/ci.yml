@@ -251,12 +251,9 @@ jobs:
         include:
           - os: ubuntu-latest
             shards: 3
-          # macOS/Windows run only the platform-gated files (see the test step) —
+          # macOS runs only the platform-gated files (see the test step) —
           # a small enough set that sharding it would just add runner overhead.
           - os: macos-latest
-            shard: 1
-            shards: 1
-          - os: windows-2022
             shard: 1
             shards: 1
     env:
@@ -301,9 +298,8 @@ jobs:
           TEST_INFRA_CHANGED: ${{ needs.changes.outputs.test-infra }}
         run: |
           # Non-Linux runners exist to execute the `process.platform` branches that Linux
-          # skips (symlinks, path casing, Windows command resolution). The rest of the
-          # suite hardcodes POSIX paths in its fixtures and carries no per-OS signal, so
-          # only the gated files run there.
+          # skips (symlinks, path casing). The rest of the suite hardcodes POSIX paths in
+          # its fixtures and carries no per-OS signal, so only the gated files run there.
           if [[ "$RUNNER_OS" != "Linux" ]]; then
             gated=$(grep -rl 'process\.platform' src/main src/shared --include='*.test.ts')
             if [[ -z "$gated" ]]; then

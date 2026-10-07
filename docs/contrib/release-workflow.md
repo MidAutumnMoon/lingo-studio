@@ -40,10 +40,10 @@ Use **Preview Release** when a maintainer needs installable packages from an unr
 1. Open **Actions** → **Preview Release** → **Run workflow**.
 2. Select `main` in the workflow branch selector. The workflow definition and its permissions must always come from `main`.
 3. Enter a same-repository source branch in the `branch` input.
-4. Select `all`, `windows`, `mac`, or `linux`, then run the workflow.
+4. Select `all`, `mac`, or `linux`, then run the workflow.
 5. Open the completed workflow run and use the **Preview downloads** summary table to choose a platform, edition, and architecture; each row includes the version, size, and a direct artifact download link. The files are also listed under **Artifacts**.
 
-Every selected platform builds both the global and China editions from the same resolved source commit. The package version is changed only inside the runner to `<base-version>-preview-<7-character-commit>`. Each successful platform and edition build uploads one installer per architecture as a separate, unarchived Actions artifact: Windows `setup.exe`, macOS `.dmg`, or Linux `.AppImage`. Download only the edition and architecture you need; artifact names are the original installer filenames and retention is 3 days. Portable executables, ZIP archives, DEB/RPM packages, and update metadata are not uploaded for previews. The download table includes available installers even if another build fails; if no installers were uploaded, it points to the build jobs instead. The workflow does not create GitHub Releases or tags.
+Every selected platform builds both the global and China editions from the same resolved source commit. The package version is changed only inside the runner to `<base-version>-preview-<7-character-commit>`. Each successful platform and edition build uploads one installer per architecture as a separate, unarchived Actions artifact: macOS `.dmg` or Linux `.AppImage`. Download only the edition and architecture you need; artifact names are the original installer filenames and retention is 3 days. ZIP archives, DEB/RPM packages, and update metadata are not uploaded for previews. The download table includes available installers even if another build fails; if no installers were uploaded, it points to the build jobs instead. The workflow does not create GitHub Releases or tags.
 
 Preview macOS builds use the same signing, notarization, and application environment variables as formal releases. Preview jobs use repository-level secrets and do not reference a GitHub Environment, so they start without deployment approval. Only dispatch previews for trusted same-repository source branches. Formal publishing still requires approval through the `release` Environment. Preview builds explicitly disable package publishing and do not acquire the `release-state` lock or participate in formal release preparation, hotfix backports, or Post Release.
 
@@ -116,7 +116,7 @@ The initial build and every rebuild after a release-branch change start automati
 
 1. Open **Actions** → **Release** → **Run workflow**.
 2. Select `release/v<version>` in the branch selector. Never select `main`.
-3. Select `all` to retry the complete build, or `windows`, `mac`, or `linux` to replace only that platform's artifacts for the exact commit already referenced by the draft tag.
+3. Select `all` to retry the complete build, or `mac` or `linux` to replace only that platform's artifacts for the exact commit already referenced by the draft tag.
 4. Run the workflow and wait for every selected build job to finish.
 
 Before building, the workflow verifies that:
@@ -126,7 +126,7 @@ Before building, the workflow verifies that:
 - CI succeeded for the exact branch commit.
 - A matching published release does not already exist.
 
-Each selected platform builds both the existing global edition and the China edition from the same commit. Their release asset names, package IDs, and update channels identify the edition, while their installed product name, executable, shortcut, protocol, and `userData` location stay the same. Both Windows installers also retain the existing global NSIS GUID, so installing either edition replaces the same installation instead of creating a second app. Each runner validates and stages only its own edition and platform artifacts. After every selected build succeeds, one final job downloads that complete staged set, fails on any artifact read or upload error, updates the draft by release ID, and only then creates or moves `v<version>` to the exact validated branch commit. A single-platform retry rebuilds both editions for that platform, downloads the existing draft assets, overlays the replacements, uploads the complete set, and never moves the tag. Tag movement is allowed only while the release is still a draft.
+Each selected platform builds both the existing global edition and the China edition from the same commit. Their release asset names, package IDs, and update channels identify the edition, while their installed product name, executable, shortcut, protocol, and `userData` location stay the same. Each runner validates and stages only its own edition and platform artifacts. After every selected build succeeds, one final job downloads that complete staged set, fails on any artifact read or upload error, updates the draft by release ID, and only then creates or moves `v<version>` to the exact validated branch commit. A single-platform retry rebuilds both editions for that platform, downloads the existing draft assets, overlays the replacements, uploads the complete set, and never moves the tag. Tag movement is allowed only while the release is still a draft.
 
 After the tag is exact, the workflow builds the GitHub Release body from the bilingual `electron-builder.yml` notes, a separator, and GitHub's generated `What's Changed` and contributor list. Stable release history remains generated during **Pre Release** in `resources/cherry-studio/release-history.json`; it is not maintained separately during publication.
 

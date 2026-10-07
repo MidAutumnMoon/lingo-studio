@@ -53,10 +53,6 @@ overrides:
   prosemirror-view: "1.41.9"
   prosemirror-transform: "1.12.0"
   esbuild: "^0.25.0"
-  # Load-bearing for prebuild-install@5.3.6 (registry-js, windows-system-proxy): its own
-  # node-abi range resolves a version that reports napi target=3 on modern Node, misses the
-  # published prebuild, and falls back to a source build.
-  node-abi: "4.33.0"
   openai: "npm:@cherrystudio/openai@6.15.0"
   tar-fs: "^2.1.4"
   "tar@>=7.0.0 <7.5.19": "7.5.19"
@@ -134,7 +130,6 @@ allowBuilds:
   "@deepseek-ai/dsh-subprocess-local": true
   "@google/genai": false
   "@j178/prek": true
-  "@paymoapp/electron-shutdown-handler": true
   "@sentry/cli": true
   "@swc/core": true
   better-sqlite3: false
@@ -144,9 +139,8 @@ allowBuilds:
   esbuild: true
   koffi: true
   msw: true
-  node-pty: true
+  node-pty: false
   protobufjs: true
-  registry-js: true
   sharp: true
   tesseract.js: true
   unrs-resolver: true

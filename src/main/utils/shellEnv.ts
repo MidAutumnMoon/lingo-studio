@@ -16,74 +16,15 @@ export function getPathFromEnvironment(env: Record<string, string | undefined>):
 }
 
 /**
- * Replace `%VAR%` references with values from `env` (case-insensitive lookup).
- */
-function expandWindowsEnvVars(value: string, env: Record<string, string>): string {
-  return value.replace(/%([^%]+)%/g, (original, varName: string) => {
-    const key = Object.keys(env).find((k) => k.toLowerCase() === varName.toLowerCase())
-    return key ? env[key] : original
-  })
-}
-
-/**
- * Read the **current** system + user PATH from the Windows registry and expand
- * embedded `%VAR%` references so callers get a ready-to-use PATH string.
- * Returns null when both registry reads fail.
- */
-async function readWindowsRegistryPath(env: Record<string, string>): Promise<string | null> {
-  try {
-    const { HKEY, RegistryValueType, enumerateValuesSafe } = await import('registry-js')
-    const readPathValue = (hive: (typeof HKEY)[keyof typeof HKEY], subkey: string): string | null => {
-      const pathValue = enumerateValuesSafe(hive, subkey).find(
-        (value) =>
-          value.name.toLowerCase() === 'path' &&
-          (value.type === RegistryValueType.REG_SZ || value.type === RegistryValueType.REG_EXPAND_SZ)
-      )
-      return typeof pathValue?.data === 'string' ? pathValue.data : null
-    }
-
-    const systemPath = readPathValue(
-      HKEY.HKEY_LOCAL_MACHINE,
-      'SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment'
-    )
-    const userPath = readPathValue(HKEY.HKEY_CURRENT_USER, 'Environment')
-
-    if (!systemPath && !userPath) {
-      return null
-    }
-
-    const combined = [systemPath, userPath].filter(Boolean).join(';')
-    return expandWindowsEnvVars(combined, env)
-  } catch {
-    return null
-  }
-}
-
-/**
- * Build a fresh environment on Windows by copying `process.env` and replacing
- * PATH with the current registry value. This avoids the stale PATH problem
- * where `cmd.exe /c set` only inherits the Electron parent process's env.
+ * Build a Windows environment by copying `process.env`: the login-shell capture below
+ * is Unix-oriented (`SHELL` + `-lc env`), so the current process environment is the
+ * best available source there.
  */
 async function getWindowsEnvironment(): Promise<Record<string, string>> {
   const env: Record<string, string> = {}
   for (const key in process.env) {
     env[key] = process.env[key] || ''
   }
-
-  const registryPath = await readWindowsRegistryPath(env)
-  if (registryPath) {
-    const pathKeys = Object.keys(env).filter((k) => k.toLowerCase() === 'path')
-    for (const key of pathKeys) {
-      env[key] = registryPath
-    }
-    if (pathKeys.length === 0) {
-      env.Path = registryPath
-    }
-    logger.debug('Replaced PATH with fresh registry value')
-  } else {
-    logger.warn('Could not read PATH from Windows registry, keeping process.env PATH')
-  }
-
   return env
 }
 
@@ -102,9 +43,7 @@ async function getWindowsEnvironment(): Promise<Record<string, string>> {
  */
 function getLoginShellEnvironment(signal?: AbortSignal): Promise<Record<string, string>> {
   signal?.throwIfAborted()
-  // On Windows, skip the shell spawn entirely — `cmd.exe /c set` just inherits
-  // the (potentially stale) parent process env. Instead, read the current PATH
-  // straight from the Windows registry.
+  // On Windows there is no login shell to capture — use the current process env.
   if (isWin) {
     return getWindowsEnvironment()
   }

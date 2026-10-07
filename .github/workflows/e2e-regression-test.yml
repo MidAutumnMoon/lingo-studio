@@ -94,8 +94,6 @@ jobs:
         include:
           - runner: macos-latest
             platform: macos
-          - runner: windows-2022
-            platform: windows
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 360
     permissions:
@@ -383,7 +381,6 @@ jobs:
             ${{ runner.temp }}/cherry-regression/evidence
             ${{ runner.temp }}/cherry-regression/agent-workspace
             ${{ runner.temp }}/cherry-regression/fixtures
-            !${{ runner.temp }}/cherry-regression/fixtures/windows-selection-browser-profile/**
             ${{ runner.temp }}/cherry-regression/release/installation.json
 
       - name: Validate platform result
@@ -438,7 +435,7 @@ jobs:
           TEST_RESULT: ${{ needs.test.result }}
         run: |
           mkdir -p platform-reports
-          for platform in macos windows; do
+          for platform in macos; do
             source="downloaded-reports/test-evidence-$platform"
             if [[ ! -d "$source" && "$TEST_RESULT" == "success" ]]; then
               source="downloaded-reports/test-report/evidence/$platform"
@@ -469,7 +466,6 @@ jobs:
         id: assemble-report
         run: |
           test -f platform-reports/macos/report/results.json
-          test -f platform-reports/windows/report/results.json
           cp -a merged-html/. combined-report/
           cp -a platform-reports combined-report/evidence
           mv combined-report/combined-report.md combined-report/summary.md
@@ -491,7 +487,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
-            --jq '.artifacts[] | select(.name == "test-evidence-macos" or .name == "test-evidence-windows") | .id' \
+            --jq '.artifacts[] | select(.name == "test-evidence-macos") | .id' \
             > temporary-artifact-ids.txt
           while read -r artifact_id; do
             gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id"

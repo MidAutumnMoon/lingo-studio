@@ -60,7 +60,8 @@ describe('rehypePrefixSvgReferences', () => {
             {
               type: 'element',
               tagName: 'rect',
-              properties: { values: ['url(#gradient)', '#gradient'] },
+              // The plugin rewrites array-valued SVG properties; hast 3.0.5 types `values` as string-only.
+              properties: { values: ['url(#gradient)', '#gradient'] as unknown as string },
               children: []
             }
           ]

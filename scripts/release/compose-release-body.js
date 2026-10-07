@@ -4,7 +4,6 @@ const { GLOBAL_EDITION, getReleaseDownloadGroups } = require('./edition')
 const { readBuilderReleaseNotes } = require('./hotfix-release-notes')
 
 const PLATFORMS = [
-  { id: 'windows', label: 'Windows' },
   { id: 'mac', label: 'macOS' },
   { id: 'linux', label: 'Linux' }
 ]

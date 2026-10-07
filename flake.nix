@@ -20,10 +20,10 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
-          # python3 + stdenv's C/C++ toolchain serve node-gyp for source-built native
-          # addons (registry-js's install-time build).
+          # Nothing compiles from source: native deps ship prebuilds, their build scripts
+          # are denied in pnpm-workspace.yaml, and electron-builder's rebuild is disabled.
           default = pkgs.mkShell {
-            packages = [ pkgs.python3 pkgs.electron_44 ];
+            packages = [ pkgs.electron_44 ];
 
             ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
             ELECTRON_OVERRIDE_DIST_PATH = "${pkgs.electron_44}/libexec/electron";

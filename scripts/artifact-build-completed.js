@@ -5,8 +5,7 @@ const { getReleaseProductName } = require('./release/edition')
 
 const PLATFORM_PREFIXES = {
   linux: 'linux',
-  mac: 'mac',
-  windows: 'win'
+  mac: 'mac'
 }
 
 const ARCH_ALIASES = {
@@ -32,7 +31,7 @@ function normalizeArtifactFilePath(file, productName, version, platform, release
   }
 
   let artifactSuffix = normalizedFileName.slice(productVersionPrefix.length)
-  artifactSuffix = artifactSuffix.replace(/^(?:win|windows|mac|linux)-/, '')
+  artifactSuffix = artifactSuffix.replace(/^(?:mac|linux)-/, '')
 
   const archMatch = /^(aarch64|amd64|arm64|x64|x86_64)(?=[.-])/.exec(artifactSuffix)
   if (archMatch) {

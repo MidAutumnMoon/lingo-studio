@@ -6,8 +6,7 @@ const { getExpectedReleaseArtifacts } = require('./edition')
 
 const PLATFORM_NAMES = {
   darwin: 'mac',
-  linux: 'linux',
-  win32: 'windows'
+  linux: 'linux'
 }
 
 function validateEditionArtifacts({ distDirectory, edition, platform, productName, version }) {

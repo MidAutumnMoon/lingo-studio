@@ -66,7 +66,7 @@ vi.mock('../NodeProxyController', () => ({
   NodeProxyController: nodeProxyControllerConstructorMock
 }))
 
-vi.mock('os-proxy-config', () => ({ getSystemProxy: getSystemProxyMock }))
+vi.mock('../systemProxy', () => ({ getSystemProxy: getSystemProxyMock }))
 
 vi.mock('electron', () => ({
   app: { setProxy: appSetProxyMock },

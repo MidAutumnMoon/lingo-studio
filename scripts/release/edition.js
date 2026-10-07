@@ -29,22 +29,15 @@ function getReleaseProductName(productName, edition) {
 function getReleaseDownloadGroups({ edition, platform, productName, version }) {
   assertEdition(edition)
   const artifactProductName = getReleaseProductName(productName, edition).replace(/ /g, '-')
-  const platformName = platform === 'windows' ? 'win' : platform
 
-  if (!['windows', 'mac', 'linux'].includes(platform)) {
+  if (!['mac', 'linux'].includes(platform)) {
     throw new Error(`Unsupported release platform: ${platform}`)
   }
-
   return RELEASE_ARCHITECTURES.map((architecture) => {
-    const baseName = `${artifactProductName}-${version}-${platformName}-${architecture}`
+    const baseName = `${artifactProductName}-${version}-${platform}-${architecture}`
     let artifacts
 
-    if (platform === 'windows') {
-      artifacts = [
-        { fileName: `${baseName}-setup.exe`, label: 'Installer' },
-        { fileName: `${baseName}-portable.exe`, label: 'Portable' }
-      ]
-    } else if (platform === 'mac') {
+    if (platform === 'mac') {
       artifacts = [
         { fileName: `${baseName}.dmg`, label: 'DMG' },
         { fileName: `${baseName}.zip`, label: 'ZIP' }
@@ -68,15 +61,6 @@ function getExpectedReleaseArtifacts({ edition, platform, productName, version }
     downloadGroups
       .find((group) => group.architecture === architecture)
       .artifacts.find((artifact) => artifact.label === label).fileName
-
-  if (platform === 'windows') {
-    const x64Setup = fileName('x64', 'Installer')
-    const arm64Setup = fileName('arm64', 'Installer')
-    return {
-      files: [x64Setup, arm64Setup, fileName('x64', 'Portable'), fileName('arm64', 'Portable')],
-      manifests: [{ file: `${channel}.yml`, urls: [x64Setup, arm64Setup] }]
-    }
-  }
 
   if (platform === 'mac') {
     const x64Zip = fileName('x64', 'ZIP')

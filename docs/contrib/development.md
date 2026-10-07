@@ -111,9 +111,6 @@ pnpm test
 ### Build
 
 ```bash
-# For windows
-$ pnpm build:win
-
 # For macOS
 $ pnpm build:mac
 

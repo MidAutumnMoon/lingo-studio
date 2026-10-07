@@ -1,6 +1,5 @@
 import type { ProxyConfig } from 'electron'
 import { app, session } from 'electron'
-import { getSystemProxy } from 'os-proxy-config'
 
 import { application } from '@application'
 import { loggerService } from '@logger'
@@ -10,6 +9,7 @@ import type { ProxyMode, UnifiedPreferenceKeyType } from '@shared/data/preferenc
 import { WEBVIEW_SECURITY_PARTITIONS } from '@shared/utils/webviewSecurity'
 
 import { NodeProxyController } from './NodeProxyController'
+import { getSystemProxy } from './systemProxy'
 
 const logger = loggerService.withContext('ProxyService')
 

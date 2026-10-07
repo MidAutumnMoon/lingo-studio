@@ -1,10 +1,6 @@
-import { execFile, spawn } from 'child_process'
+import { spawn } from 'child_process'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-const { enumerateValuesSafeMock } = vi.hoisted(() => ({
-  enumerateValuesSafeMock: vi.fn()
-}))
 
 // Force Windows code path regardless of the host platform.
 vi.mock('@main/core/platform', () => ({
@@ -26,55 +22,10 @@ vi.mock('@application', () => ({
 
 vi.mock('child_process')
 
-vi.mock('registry-js', () => ({
-  HKEY: {
-    HKEY_LOCAL_MACHINE: 'HKEY_LOCAL_MACHINE',
-    HKEY_CURRENT_USER: 'HKEY_CURRENT_USER'
-  },
-  RegistryValueType: {
-    REG_SZ: 'REG_SZ',
-    REG_EXPAND_SZ: 'REG_EXPAND_SZ'
-  },
-  enumerateValuesSafe: enumerateValuesSafeMock
-}))
-
 // Import AFTER mocks are registered so the module binds to mocked values.
 import { getPathFromEnvironment, getShellEnv, refreshShellEnv } from '../shellEnv'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const HKLM_HIVE = 'HKEY_LOCAL_MACHINE'
-const HKCU_HIVE = 'HKEY_CURRENT_USER'
-const HKLM_KEY = 'SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment'
-const HKCU_KEY = 'Environment'
-
-function mockRegistryPaths({
-  system,
-  user,
-  type = 'REG_EXPAND_SZ'
-}: {
-  system?: string
-  user?: string
-  type?: 'REG_SZ' | 'REG_EXPAND_SZ'
-} = {}): void {
-  enumerateValuesSafeMock.mockImplementation((hive: string, keyPath: string) => {
-    if (hive === HKLM_HIVE && keyPath === HKLM_KEY && system !== undefined) {
-      return [{ name: 'Path', type, data: system }]
-    }
-    if (hive === HKCU_HIVE && keyPath === HKCU_KEY && user !== undefined) {
-      return [{ name: 'Path', type, data: user }]
-    }
-    return []
-  })
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-describe('shellEnv – Windows registry PATH', () => {
+describe('shellEnv – Windows environment', () => {
   const savedEnv = process.env
 
   beforeEach(() => {
@@ -84,7 +35,8 @@ describe('shellEnv – Windows registry PATH', () => {
     process.env = {
       SystemRoot: 'C:\\Windows',
       USERPROFILE: 'C:\\Users\\TestUser',
-      Path: 'C:\\StaleOldPath'
+      MISE_DATA_DIR: 'C:\\Users\\TestUser\\mise-data',
+      Path: 'C:\\ParentProcessPath'
     }
   })
 
@@ -92,141 +44,26 @@ describe('shellEnv – Windows registry PATH', () => {
     process.env = savedEnv
   })
 
-  // -- registry reads -------------------------------------------------------
-
-  it('should replace stale PATH with fresh system registry value', async () => {
-    mockRegistryPaths({ system: 'C:\\Windows\\system32;C:\\Windows;C:\\NodeJS' })
-
+  it('returns the current process environment verbatim', async () => {
     const env = await refreshShellEnv()
 
-    expect(env.Path).toContain('C:\\NodeJS')
-    expect(env.Path).not.toContain('C:\\StaleOldPath')
-  })
-
-  it('should combine system and user PATH with semicolon', async () => {
-    mockRegistryPaths({ system: 'C:\\System', user: 'C:\\User' })
-
-    const env = await refreshShellEnv()
-
-    // System PATH comes first, user PATH second.
-    const pathValue = [env.Path, env.PATH].filter(Boolean).join(';')
-    expect(pathValue).toContain('C:\\System')
-    expect(pathValue).toContain('C:\\User')
-    expect(pathValue).toContain('C:\\System;C:\\User')
-  })
-
-  it('preserves Unicode registry PATH values without invoking reg.exe', async () => {
-    mockRegistryPaths({ system: 'D:\\开发工具\\nodejs' })
-
-    const env = await refreshShellEnv()
-
-    expect(env.Path).toContain('D:\\开发工具\\nodejs')
-    expect(enumerateValuesSafeMock).toHaveBeenCalledWith(HKLM_HIVE, HKLM_KEY)
-    expect(execFile).not.toHaveBeenCalled()
-  })
-
-  it('should use only user PATH when system PATH is unavailable', async () => {
-    mockRegistryPaths({ user: 'C:\\UserOnly' })
-
-    const env = await refreshShellEnv()
-
-    expect(env.Path).toContain('C:\\UserOnly')
-  })
-
-  it('should fall back to process.env PATH when both registry reads fail', async () => {
-    mockRegistryPaths()
-
-    const env = await refreshShellEnv()
-
-    expect(env.Path).toContain('C:\\StaleOldPath')
-  })
-
-  // -- %VAR% expansion ------------------------------------------------------
-
-  it('should expand %SystemRoot% in registry PATH', async () => {
-    mockRegistryPaths({ system: '%SystemRoot%\\system32' })
-
-    const env = await refreshShellEnv()
-
-    expect(env.Path).toContain('C:\\Windows\\system32')
-    expect(env.Path).not.toContain('%SystemRoot%')
-  })
-
-  it('should preserve unknown %VAR% references unexpanded', async () => {
-    mockRegistryPaths({ system: '%UNKNOWN_VAR%\\bin' })
-
-    const env = await refreshShellEnv()
-
-    expect(env.Path).toContain('%UNKNOWN_VAR%')
-  })
-
-  it('should expand variables case-insensitively', async () => {
-    mockRegistryPaths({ system: '%systemroot%\\system32' })
-
-    const env = await refreshShellEnv()
-
-    expect(env.Path).toContain('C:\\Windows\\system32')
-  })
-
-  // -- REG_SZ (no expand) ---------------------------------------------------
-
-  it('should handle REG_SZ values without %VAR% expansion needed', async () => {
-    mockRegistryPaths({ system: 'C:\\PlainPath', type: 'REG_SZ' })
-
-    const env = await refreshShellEnv()
-
-    expect(env.Path).toContain('C:\\PlainPath')
-  })
-
-  // -- Cherry Studio tool directories appended ------------------------------
-
-  it('should preserve the unmodified user environment for system tools', async () => {
-    process.env.MISE_DATA_DIR = 'C:\\Users\\TestUser\\mise-data'
-    mockRegistryPaths({ system: 'C:\\Windows;C:\\UserNode' })
-
-    await refreshShellEnv()
-    const env = await getShellEnv()
-
+    expect(env.Path).toBe('C:\\ParentProcessPath')
     expect(env.MISE_DATA_DIR).toBe('C:\\Users\\TestUser\\mise-data')
-    expect(env.Path).toBe('C:\\Windows;C:\\UserNode')
-    expect(env.Path).not.toContain('.cherrystudio')
   })
 
-  // -- does not spawn cmd.exe -----------------------------------------------
-
-  it('should not spawn cmd.exe or any shell process', async () => {
-    mockRegistryPaths({ system: 'C:\\Windows' })
-
+  it('should not spawn any shell process', async () => {
     await refreshShellEnv()
 
     expect(spawn).not.toHaveBeenCalled()
   })
 
-  // -- concurrent dedup -----------------------------------------------------
-
-  it('should collapse overlapping fetches onto a single env resolution', async () => {
-    mockRegistryPaths({ system: 'C:\\Windows' })
-
-    // getWindowsEnvironment() reads HKLM + HKCU, i.e. two registry calls
-    // per resolution. Overlapping callers must share one resolution → 2 calls.
-    await Promise.all([refreshShellEnv(), refreshShellEnv(), getShellEnv()])
-
-    expect(enumerateValuesSafeMock).toHaveBeenCalledTimes(2)
-  })
-
-  // -- cache isolation ------------------------------------------------------
-
   it('returns a copy so a caller mutating the result cannot poison the cache', async () => {
-    mockRegistryPaths({ system: 'C:\\Windows' })
-
     const first = await refreshShellEnv()
-    const pathKey = Object.keys(first).find((k) => k.toLowerCase() === 'path')
-    expect(pathKey).toBeDefined()
     // Simulate a consumer stripping vars in place (e.g. removeEnvProxy).
-    delete first[pathKey as string]
+    delete first.Path
 
     const second = await getShellEnv()
-    expect(second[pathKey as string]).toBeDefined()
+    expect(second.Path).toBe('C:\\ParentProcessPath')
   })
 })
 

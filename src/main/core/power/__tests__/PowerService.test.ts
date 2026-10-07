@@ -1,5 +1,4 @@
 import { MockMainPreferenceServiceUtils } from '@test-mocks/main/PreferenceService'
-import { BrowserWindow } from 'electron'
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 
 import { application } from '@application'
@@ -9,10 +8,9 @@ const PREF_KEY = 'app.power.prevent_sleep_when_busy'
 
 // Hoisted so the vi.mock factories below can close over them. The PowerService test
 // uses the REAL lifecycle (real Emitter/Event/BaseService) and the unified global
-// mocks for @application / @logger / PreferenceService; only electron + platform +
-// the Windows shutdown lib are mocked locally here.
+// mocks for @application / @logger / PreferenceService; only electron is mocked
+// locally here.
 const {
-  platformMock,
   powerMonitorListeners,
   powerMonitorOn,
   powerMonitorRemoveListener,
@@ -22,19 +20,11 @@ const {
   blockerState,
   psbStart,
   psbStop,
-  psbIsStarted,
-  shutdownHandlerOn,
-  setWindowHandle,
-  releaseShutdown,
-  blockShutdown,
-  windowDestroy,
-  windowIsDestroyed,
-  getNativeWindowHandle
+  psbIsStarted
 } = vi.hoisted(() => {
   const powerMonitorListeners = new Map<string, (...args: any[]) => unknown>()
   const blockerState = { started: new Set<number>(), nextId: 1 }
   return {
-    platformMock: { isMac: true, isWin: false, isLinux: false },
     powerMonitorListeners,
     powerMonitorOn: vi.fn((event: string, listener: (...a: any[]) => unknown) => {
       powerMonitorListeners.set(event, listener)
@@ -54,18 +44,9 @@ const {
     psbStop: vi.fn((id: number) => {
       blockerState.started.delete(id)
     }),
-    psbIsStarted: vi.fn((id: number) => blockerState.started.has(id)),
-    shutdownHandlerOn: vi.fn(),
-    setWindowHandle: vi.fn(),
-    releaseShutdown: vi.fn(),
-    blockShutdown: vi.fn(),
-    windowDestroy: vi.fn(),
-    windowIsDestroyed: vi.fn(() => false),
-    getNativeWindowHandle: vi.fn(() => Buffer.alloc(0))
+    psbIsStarted: vi.fn((id: number) => blockerState.started.has(id))
   }
 })
-
-vi.mock('@main/core/platform', () => platformMock)
 
 vi.mock('electron', () => ({
   app: {
@@ -83,13 +64,6 @@ vi.mock('electron', () => ({
     removeListener: vi.fn(),
     removeAllListeners: vi.fn()
   },
-  BrowserWindow: vi.fn(function BrowserWindowMock() {
-    return {
-      destroy: windowDestroy,
-      isDestroyed: windowIsDestroyed,
-      getNativeWindowHandle
-    }
-  }),
   powerMonitor: {
     on: powerMonitorOn,
     removeListener: powerMonitorRemoveListener,
@@ -100,10 +74,6 @@ vi.mock('electron', () => ({
     }
   },
   powerSaveBlocker: { start: psbStart, stop: psbStop, isStarted: psbIsStarted }
-}))
-
-vi.mock('@paymoapp/electron-shutdown-handler', () => ({
-  default: { on: shutdownHandlerOn, setWindowHandle, releaseShutdown, blockShutdown }
 }))
 
 // Imported after the mocks are declared.
@@ -132,9 +102,6 @@ describe('PowerService', () => {
     blockerState.started.clear()
     blockerState.nextId = 1
     powerMonitorState.onBatteryPower = false
-    platformMock.isMac = true
-    platformMock.isWin = false
-    platformMock.isLinux = false
   })
 
   describe('power notification events', () => {
@@ -210,7 +177,7 @@ describe('PowerService', () => {
     })
   })
 
-  describe('shutdown barrier (macOS/Linux)', () => {
+  describe('shutdown barrier', () => {
     it('registers a shutdown listener and quits after running handlers', async () => {
       const service = await createInitedService()
       const handler = vi.fn()
@@ -262,54 +229,6 @@ describe('PowerService', () => {
 
       await fire('shutdown', { preventDefault: vi.fn() })
       expect(handler).not.toHaveBeenCalled()
-      expect(quitMock()).toHaveBeenCalledTimes(1)
-    })
-  })
-
-  describe('shutdown barrier (Windows)', () => {
-    beforeEach(() => {
-      platformMock.isMac = false
-      platformMock.isWin = true
-    })
-
-    it('keeps power management available without a window when the native addon is blocked', async () => {
-      vi.doMock('@paymoapp/electron-shutdown-handler', () => {
-        throw new Error('An Application Control policy has blocked this file.')
-      })
-      try {
-        MockMainPreferenceServiceUtils.setPreferenceValue(PREF_KEY, true)
-        const service = await createInitedService()
-
-        expect(BrowserWindow).not.toHaveBeenCalled()
-        fire('suspend')
-        expect(service.getPowerPhase()).toBe('suspended')
-        const hold = service.preventSleep('job:blocked-addon')
-        expect(service.isPreventingSleep()).toBe(true)
-        hold.dispose()
-        expect(service.isPreventingSleep()).toBe(false)
-      } finally {
-        vi.doMock('@paymoapp/electron-shutdown-handler', () => ({
-          default: { on: shutdownHandlerOn, setWindowHandle, releaseShutdown, blockShutdown }
-        }))
-      }
-    })
-
-    it('blocks shutdown, then runs handlers, releases the block and quits', async () => {
-      const service = await createInitedService()
-      const handler = vi.fn()
-      service.registerShutdownHandler(handler)
-
-      expect(setWindowHandle).toHaveBeenCalled()
-      expect(shutdownHandlerOn).toHaveBeenCalledWith('shutdown', expect.any(Function))
-      // The block must actually be requested — otherwise the addon only observes the
-      // event and does not hold the OS (the v1 gap this path now closes).
-      expect(blockShutdown).toHaveBeenCalledTimes(1)
-
-      const winCallback = shutdownHandlerOn.mock.calls[0][1] as () => Promise<void>
-      await winCallback()
-
-      expect(handler).toHaveBeenCalled()
-      expect(releaseShutdown).toHaveBeenCalledTimes(1)
       expect(quitMock()).toHaveBeenCalledTimes(1)
     })
   })

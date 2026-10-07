@@ -28,11 +28,8 @@ type WorkflowStep = {
 
 type GitCodeWorkflow = {
   jobs: {
-    'build-windows-signed': {
-      strategy?: { matrix?: { edition?: string[] } }
-      steps: WorkflowStep[]
-    }
-    'sync-to-gitcode': { steps: WorkflowStep[] }
+    'sync-to-gitcode'?: { 'runs-on'?: string; steps: WorkflowStep[] }
+    [job: string]: { steps: WorkflowStep[] } | undefined
   }
 }
 
@@ -71,14 +68,12 @@ describe('edition packaging', () => {
   })
 
   it('uses the China build entry point for every China package', () => {
-    for (const scriptName of ['build:unpack:cn', 'build:win:cn', 'build:mac:cn', 'build:linux:cn']) {
+    for (const scriptName of ['build:unpack:cn', 'build:mac:cn', 'build:linux:cn']) {
       expect(packageMetadata.scripts[scriptName]).toContain('pnpm run build:cn')
     }
   })
 
   it.each([
-    ['win', 'x64'],
-    ['win', 'arm64'],
     ['mac', 'x64'],
     ['mac', 'arm64'],
     ['linux', 'x64'],
@@ -98,19 +93,15 @@ describe('edition packaging', () => {
     expect({
       appId: config.appId,
       edition: config.extraMetadata?.cherryEdition,
-      nsisGuid: config.nsis.guid,
       productName: config.productName,
       protocol: config.protocols[0].schemes[0],
-      publish: config.publish,
-      windowsArtifactName: config.win.artifactName
+      publish: config.publish
     }).toEqual({
       appId: 'com.kangfenmao.CherryStudio',
       edition: GLOBAL_EDITION,
-      nsisGuid: '41a4ccd8-bcc0-5710-9eee-0e164da68057',
       productName: 'Cherry Studio',
       protocol: 'cherrystudio',
-      publish: undefined,
-      windowsArtifactName: '${productName}-${version}-${arch}-setup.${ext}'
+      publish: undefined
     })
   })
 
@@ -195,22 +186,19 @@ describe('edition packaging', () => {
     ])
   })
 
-  it('re-signs both Windows editions before syncing the release to GitCode', () => {
+  it('mirrors the published release assets to GitCode without a rebuild', () => {
     const workflow = parse(
       readFileSync(path.join(projectRoot, '.github/workflows/sync-to-gitcode.yml'), 'utf8')
     ) as GitCodeWorkflow
-    const buildJob = workflow.jobs['build-windows-signed']
     const syncJob = workflow.jobs['sync-to-gitcode']
-    const buildStep = buildJob.steps.find((step) => step.name === 'Build Windows with code signing')
-    const preserveStep = buildJob.steps.find((step) => step.name === 'Preserve signed Windows artifacts locally')
 
-    expect(buildJob.strategy?.matrix?.edition).toEqual([GLOBAL_EDITION, CHINA_EDITION])
-    expect(buildStep?.run).toMatch(/^\s*pnpm build:win:cn\s*$/m)
-    expect(buildStep?.run).toMatch(/^\s*pnpm build:win\s*$/m)
-    expect(buildStep?.run).toContain('electron-builder.cn.config.cjs')
-    expect(preserveStep?.if).toContain('steps.build-windows.outputs.supported')
+    expect(Object.keys(workflow.jobs)).not.toContain('build-windows-signed')
+    expect(syncJob?.['runs-on']).toBe('ubuntu-latest')
+    expect(syncJob?.steps.some((step) => /gh release download/.test(step.run ?? ''))).toBe(true)
     expect(
-      [...buildJob.steps, ...syncJob.steps].some((step) => /actions\/(upload|download)-artifact@/.test(step.uses ?? ''))
+      Object.values(workflow.jobs).some((job) =>
+        job?.steps.some((step) => /actions\/(upload|download)-artifact@/.test(step.uses ?? ''))
+      )
     ).toBe(false)
   })
 })

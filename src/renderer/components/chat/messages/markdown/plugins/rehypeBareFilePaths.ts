@@ -426,7 +426,8 @@ function createMarker(path: string): Element {
 
 function isSkippedElement(node: Element): boolean {
   if (SKIPPED_ELEMENTS.has(node.tagName)) return true
-  const className = node.properties?.className
+  // hast 3.0.5 types className as array-only; hand-built trees may still carry a string.
+  const className = node.properties?.className as string | readonly string[] | undefined
   const classes = Array.isArray(className) ? className : typeof className === 'string' ? className.split(/\s+/) : []
   return classes.some((value) => typeof value === 'string' && value.startsWith('katex'))
 }

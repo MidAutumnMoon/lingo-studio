@@ -748,12 +748,9 @@ describe('release publication state', () => {
     })
 
     expect(body).toContain('## Downloads (v1.2.0)')
-    expect(body.match(/^\| (Windows|macOS|Linux) \|/gm)).toHaveLength(6)
+    expect(body.match(/^\| (macOS|Linux) \|/gm)).toHaveLength(4)
     expect(body.match(/https:\/\/github\.com\/CherryHQ\/cherry-studio\/releases\/download\/v1\.2\.0\//g)).toHaveLength(
-      14
-    )
-    expect(body).toContain(
-      '[Installer](https://github.com/CherryHQ/cherry-studio/releases/download/v1.2.0/Cherry-Studio-1.2.0-win-x64-setup.exe)'
+      10
     )
     expect(body).toContain(
       '[RPM](https://github.com/CherryHQ/cherry-studio/releases/download/v1.2.0/Cherry-Studio-1.2.0-linux-arm64.rpm)'
@@ -1077,8 +1074,8 @@ describe('release workflow gates', () => {
     expect(releaseJob.strategy.matrix.edition).toEqual(['global', 'cn'])
     expect(validationStep.run).toContain('validate-edition-artifacts.js "${{ matrix.edition }}"')
     expect(channelStep.run).toContain('getReleaseChannel')
-    expect(stagingSteps).toHaveLength(4)
-    for (const step of stagingSteps.slice(0, 3)) {
+    expect(stagingSteps).toHaveLength(3)
+    for (const step of stagingSteps.slice(0, 2)) {
       expect(step.with.name).toContain('${{ matrix.edition }}')
       expect(step.with.path).toContain('dist/${{ steps.release-channel.outputs.channel }}*.yml')
     }
@@ -1270,7 +1267,6 @@ describe('release workflow gates', () => {
       const patterns = options.path.trim().split('\n')
       for (const edition of ['global', 'cn']) {
         for (const [platform, suffix] of [
-          ['windows', '-setup.exe'],
           ['mac', '.dmg'],
           ['linux', '.AppImage']
         ]) {
@@ -1299,10 +1295,9 @@ describe('release workflow gates', () => {
     expect(job.if).toContain('always()')
     expect(job.permissions.actions).toBe('read')
     const artifacts = [
-      { id: 101, name: 'Cherry-Studio-2.0.14-preview-1234567-win-x64-setup.exe', size_in_bytes: 1048576 },
       { id: 102, name: 'Cherry-Studio-CN-2.0.14-preview-1234567-mac-arm64.dmg', size_in_bytes: 2621440 },
       { id: 103, name: 'Cherry-Studio-2.0.14-preview-1234567-linux-arm64.AppImage', size_in_bytes: 3145728 },
-      { id: 104, name: 'Cherry-Studio-2.0.14-preview-1234567-win-arm64-setup.exe', expired: true },
+      { id: 104, name: 'Cherry-Studio-2.0.14-preview-1234567-mac-x64.dmg', expired: true },
       { id: 105, name: 'unrelated.zip' }
     ]
     let output = ''
@@ -1334,10 +1329,9 @@ describe('release workflow gates', () => {
       expect(output).toContain('No preview installers are available')
       expect(output).not.toContain('[Download]')
     } else {
-      expect(output).toContain('| Windows | Global | x64 | 2.0.14-preview-1234567 | 1.0 MiB |')
       expect(output).toContain('| macOS | CN | arm64 | 2.0.14-preview-1234567 | 2.5 MiB |')
       expect(output).toContain('| Linux | Global | arm64 | 2.0.14-preview-1234567 | 3.0 MiB |')
-      for (const id of [101, 102, 103]) {
+      for (const id of [102, 103]) {
         expect(output).toContain(
           `[Download](https://github.com/CherryHQ/cherry-studio/actions/runs/42/artifacts/${id})`
         )

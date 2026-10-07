@@ -46,7 +46,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [macos-latest, windows-2022, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest]
       fail-fast: false
 
     steps:
@@ -59,11 +59,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: ".node-version"
-
-      - name: macos-latest dependencies fix
-        if: matrix.os == 'macos-latest'
-        run: |
-          brew install python-setuptools
 
       - name: Install pnpm
         uses: pnpm/action-setup@v5
@@ -119,35 +114,11 @@ jobs:
           RENDERER_VITE_AIHUBMIX_SECRET: ${{ secrets.RENDERER_VITE_AIHUBMIX_SECRET }}
           RENDERER_VITE_PPIO_APP_SECRET: ${{ secrets.RENDERER_VITE_PPIO_APP_SECRET }}
 
-      - name: Build Windows
-        if: matrix.os == 'windows-2022'
-        run: |
-          pnpm build:win
-        env:
-          ELECTRON_BUILDER_7Z_FILTER: BCJ
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: --max-old-space-size=8192
-          MAIN_VITE_CHERRYAI_CLIENT_SECRET: ${{ secrets.MAIN_VITE_CHERRYAI_CLIENT_SECRET }}
-          MAIN_VITE_MINERU_API_KEY: ${{ secrets.MAIN_VITE_MINERU_API_KEY }}
-          RENDERER_VITE_AIHUBMIX_SECRET: ${{ secrets.RENDERER_VITE_AIHUBMIX_SECRET }}
-          RENDERER_VITE_PPIO_APP_SECRET: ${{ secrets.RENDERER_VITE_PPIO_APP_SECRET }}
-
       - name: Rename artifacts with nightly format
         shell: bash
         run: |
           mkdir -p renamed-artifacts
           DATE=${{ steps.date.outputs.date }}
-
-          # Windows artifacts - based on actual file naming pattern
-          if [ "${{ matrix.os }}" == "windows-2022" ]; then
-            # Setup installer
-            find dist -name "*-win-x64-setup.exe" -exec cp {} renamed-artifacts/cherry-studio-nightly-${DATE}-win-x64-setup.exe \;
-            find dist -name "*-win-arm64-setup.exe" -exec cp {} renamed-artifacts/cherry-studio-nightly-${DATE}-win-arm64-setup.exe \;
-
-            # Portable exe
-            find dist -name "*-win-x64-portable.exe" -exec cp {} renamed-artifacts/cherry-studio-nightly-${DATE}-win-x64-portable.exe \;
-            find dist -name "*-win-arm64-portable.exe" -exec cp {} renamed-artifacts/cherry-studio-nightly-${DATE}-win-arm64-portable.exe \;
-          fi
 
           # macOS artifacts
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
@@ -164,23 +135,7 @@ jobs:
           # Copy update files
           cp dist/latest*.yml renamed-artifacts/ || true
 
-      # Generate SHA256 checksums (Windows)
-      - name: Generate SHA256 checksums (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          cd renamed-artifacts
-          echo "# SHA256 checksums for Windows - $(Get-Date -Format 'yyyy-MM-dd')" > SHA256SUMS.txt
-          Get-ChildItem -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' } | ForEach-Object {
-            $file = $_.Name
-            $hash = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLower()
-            Add-Content -Path SHA256SUMS.txt -Value "$hash  $file"
-          }
-          cat SHA256SUMS.txt
-
-      # Generate SHA256 checksums (macOS/Linux)
-      - name: Generate SHA256 checksums (macOS/Linux)
-        if: runner.os != 'Windows'
+      - name: Generate SHA256 checksums
         shell: bash
         run: |
           cd renamed-artifacts
@@ -200,8 +155,6 @@ jobs:
           echo "准备上传的文件:"
           if [ -x "$(command -v tree)" ]; then
             tree renamed-artifacts
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-            dir renamed-artifacts
           else
             ls -la renamed-artifacts
           fi
@@ -245,20 +198,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Check each platform's artifacts and show checksums if available
-
-          # Windows
-          WIN_ARTIFACT_DIR="all-artifacts/cherry-studio-nightly-${{ steps.date.outputs.date }}-windows-2022"
-          if [ -d "$WIN_ARTIFACT_DIR" ] && [ -f "$WIN_ARTIFACT_DIR/SHA256SUMS.txt" ]; then
-            echo "### Windows 安装包" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat "$WIN_ARTIFACT_DIR/SHA256SUMS.txt" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "### Windows 安装包" >> $GITHUB_STEP_SUMMARY
-            echo "❌ Windows 构建未成功完成或未生成校验和。" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
 
           # macOS
           MAC_ARTIFACT_DIR="all-artifacts/cherry-studio-nightly-${{ steps.date.outputs.date }}-macos-latest"

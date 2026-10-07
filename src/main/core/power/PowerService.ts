@@ -1,4 +1,4 @@
-import { BrowserWindow, powerMonitor, powerSaveBlocker } from 'electron'
+import { powerMonitor, powerSaveBlocker } from 'electron'
 
 import { application } from '@application'
 import { loggerService } from '@logger'
@@ -11,7 +11,6 @@ import {
   Phase,
   ServicePhase
 } from '@main/core/lifecycle'
-import { isLinux, isMac, isWin } from '@main/core/platform'
 
 const logger = loggerService.withContext('PowerService')
 
@@ -45,9 +44,9 @@ type ShutdownHandler = () => void | Promise<void>
  *  - Level-triggered queries (idle time/state, power source, phase) so a late subscriber
  *    can reconcile current state without having observed the edge.
  *
- * WhenReady phase: the app is already ready, so `powerSaveBlocker` / `BrowserWindow`
- * are usable directly (no `app.whenReady()` gymnastics). The preference gate is
- * self-read here, mirroring TrayService/ThemeService/ProxyService.
+ * WhenReady phase: the app is already ready, so `powerSaveBlocker` is usable directly
+ * (no `app.whenReady()` gymnastics). The preference gate is self-read here, mirroring
+ * TrayService/ThemeService/ProxyService.
  */
 @Injectable('PowerService')
 @ServicePhase(Phase.WhenReady)
@@ -94,7 +93,7 @@ export class PowerService extends BaseService {
 
   protected async onInit(): Promise<void> {
     this.initPowerEvents()
-    await this.initShutdownBarrier()
+    this.initShutdownBarrier()
     this.initSleepPrevention()
     logger.info('PowerService initialized', { platform: process.platform })
   }
@@ -160,14 +159,6 @@ export class PowerService extends BaseService {
   // Shutdown barrier (bounded, cross-platform)
   // ==========================================================================
 
-  private async initShutdownBarrier(): Promise<void> {
-    if (isWin) {
-      await this.initWindowsShutdownHandler()
-    } else if (isMac || isLinux) {
-      this.initElectronShutdownHandler()
-    }
-  }
-
   /**
    * Register a handler to run when the OS reports an impending shutdown.
    * Handlers run serially and are bounded by {@link SHUTDOWN_HANDLER_TIMEOUT_MS}.
@@ -212,9 +203,9 @@ export class PowerService extends BaseService {
     }
   }
 
-  private initElectronShutdownHandler(): void {
-    // On macOS/Linux the listener receives an event; preventDefault() lets us delay
-    // shutdown to run handlers cleanly, after which WE must quit the app ourselves.
+  private initShutdownBarrier(): void {
+    // The listener receives an event; preventDefault() lets us delay shutdown to run
+    // handlers cleanly, after which WE must quit the app ourselves.
     // NOTE: Electron's type for the 'shutdown' listener is `() => void` (it omits the
     // event arg), but the runtime DOES pass an event with preventDefault — see the
     // electron.d.ts doc comment on this event. We declare the arg optional so the
@@ -232,61 +223,6 @@ export class PowerService extends BaseService {
     powerMonitor.on('shutdown', shutdownListener)
     this.registerDisposable(() => powerMonitor.removeListener('shutdown', shutdownListener))
     logger.info('Electron powerMonitor shutdown listener registered')
-  }
-
-  private async initWindowsShutdownHandler(): Promise<void> {
-    try {
-      // Windows application control may reject the native addon; keep startup available.
-      const { default: ElectronShutdownHandler } = await import('@paymoapp/electron-shutdown-handler')
-
-      // The native addon hooks Windows shutdown messages (WM_QUERYENDSESSION) on a real
-      // window handle (HWND). We deliberately create our OWN hidden window rather than
-      // reuse the main window: the main window is a singleton that can be destroyed and
-      // rebuilt (yielding a new HWND), may not exist yet when this service inits, and
-      // reaching into it would couple core/power to the main-window lifecycle. A
-      // self-owned window guarantees a stable HWND for the service's whole lifetime.
-      // Minimal footprint: we only need the native HWND and never load any content.
-      // Because no content is loaded AND `paintWhenInitiallyHidden: false` keeps the renderer
-      // from activating/painting, Electron spawns NO separate renderer process for this window
-      // — that is the real lever, NOT the window size (dimensions don't affect memory, and
-      // width/height: 0 just get clamped to a platform minimum). `skipTaskbar` hides the entry.
-      // Measured marginal cost on an already-running app (window subsystem already initialized
-      // by the main window): ~0.7 MB RSS and 0 extra processes — effectively free. (The ~40 MB
-      // seen when the FIRST-ever BrowserWindow is created is one-time subsystem init the app
-      // already pays for its main window, not a per-window cost.)
-      const shutdownHookWindow = new BrowserWindow({
-        show: false,
-        paintWhenInitiallyHidden: false,
-        skipTaskbar: true
-      })
-      ElectronShutdownHandler.setWindowHandle(shutdownHookWindow.getNativeWindowHandle())
-
-      ElectronShutdownHandler.on('shutdown', async () => {
-        logger.info('System shutdown event detected (Windows)')
-        try {
-          await this.executeShutdownHandlers()
-        } finally {
-          // Release the block so Windows may proceed, then quit cleanly (mirrors the
-          // macOS/Linux preventDefault → quit path; quit keeps _isQuitting bookkeeping).
-          ElectronShutdownHandler.releaseShutdown()
-          application.quit()
-        }
-      })
-
-      // Actually delay shutdown until releaseShutdown(). Without this the addon only
-      // observes the event and does NOT hold the OS — this is what makes the Windows
-      // path a real barrier, symmetric with preventDefault() on macOS/Linux. Must be
-      // called after the listener is attached (the listener is what installs the hook).
-      ElectronShutdownHandler.blockShutdown('Cherry Studio is finishing background work')
-
-      this.registerDisposable(() => {
-        if (!shutdownHookWindow.isDestroyed()) shutdownHookWindow.destroy()
-      })
-
-      logger.info('Windows shutdown handler registered')
-    } catch (error) {
-      logger.error('Failed to initialize Windows shutdown handler', error as Error)
-    }
   }
 
   // ==========================================================================

@@ -1,6 +1,6 @@
 ---
 name: cherry-regression-test
-description: Run Cherry Studio critical-path system regression tasks through the repository-owned Playwright E2E workflow. Use for full regression, release acceptance, development-branch system validation, or a named cherry-regression-test task on GitHub-hosted macOS and Windows runners.
+description: Run Cherry Studio critical-path system regression tasks through the repository-owned Playwright E2E workflow. Use for full regression, release acceptance, development-branch system validation, or a named cherry-regression-test task on GitHub-hosted macOS runners.
 ---
 
 # Cherry Regression Test

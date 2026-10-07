@@ -9,7 +9,7 @@ touches those APIs directly.
 | Area | What it provides |
 |------|------------------|
 | **Notification events** | Typed `Emitter`→`Event` for `onSuspend` / `onResume` / `onLockScreen` / `onUnlockScreen` / `onPowerSourceChange`. suspend/resume + power-source are de-duplicated against internal state (macOS double-fires — electron/electron#24803); lock/unlock are pass-through. |
-| **Shutdown barrier** | `registerShutdownHandler(fn)` → `Disposable`. On OS shutdown, handlers run serially and are bounded by a hard timeout, then the app quits. Cross-platform: `powerMonitor` `shutdown` + `preventDefault` on macOS/Linux, `@paymoapp/electron-shutdown-handler` on Windows. |
+| **Shutdown barrier** | `registerShutdownHandler(fn)` → `Disposable`. On OS shutdown, handlers run serially and are bounded by a hard timeout, then the app quits. Cross-platform via the `powerMonitor` `shutdown` event + `preventDefault`. |
 | **Sleep prevention** | `preventSleep(reason?)` → `Disposable`. Ref-counted holds; the OS blocker (`prevent-app-suspension`) is active only while **a hold is held AND** the user opted in via `app.power.prevent_sleep_when_busy`. `isPreventingSleep()` reports the effective state. |
 | **Queries** | `getPowerPhase()` / `getPowerSource()` / `isOnBatteryPower()` / `getSystemIdleTime()` / `getSystemIdleState(thresholdSec)` — level-triggered, so a late caller reconciles current state without having seen the edge. |
 
@@ -39,8 +39,8 @@ this.registerDisposable(power.registerShutdownHandler(() => flushCriticalState()
 
 ## Notes
 
-- **WhenReady phase.** The app is already ready, so `powerSaveBlocker` / `BrowserWindow`
-  are used directly — no `app.whenReady()` gymnastics. The preference gate is self-read,
+- **WhenReady phase.** The app is already ready, so `powerSaveBlocker` is
+  used directly — no `app.whenReady()` gymnastics. The preference gate is self-read,
   mirroring `TrayService` / `ThemeService` / `ProxyService`.
 - **Sleep prevention is a generic registry.** Any worker that needs the machine awake
   registers a hold; the gate (the user preference) is orthogonal and owned here. The Job
@@ -50,9 +50,8 @@ this.registerDisposable(power.registerShutdownHandler(() => flushCriticalState()
   `Disposable`; any `powerSaveBlocker` failure is logged and swallowed inside the service.
   Consumers therefore need no defensive `try/catch` around acquisition — the graceful
   degradation lives in the provider, not at every call site.
-- **OS shutdown is routed through the app's normal quit flow.** On macOS/Linux the barrier
-  calls `event.preventDefault()` then `application.quit()` (Windows: `blockShutdown` →
-  handlers → `releaseShutdown` → `application.quit()`). Because the quit goes through
+- **OS shutdown is routed through the app's normal quit flow.** The barrier calls
+  `event.preventDefault()` then `application.quit()`. Because the quit goes through
   `before-quit`, an active `Application.preventQuit` hold (e.g. a data migration) will gate
   an OS-initiated shutdown just like a user quit — bounded by the hard shutdown-handler
   timeout, since the OS cannot be blocked indefinitely.

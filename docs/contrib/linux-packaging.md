@@ -37,5 +37,5 @@ stops packaging.
 
 The upstream linux prebuilds require **GLIBC 2.34** and **GLIBCXX 3.4.29**
 (x64 and ARM64 alike). Distributions with an older glibc cannot load the
-binary. Rolling-release Linux is the support target; macOS and Windows
-packaging is best-effort.
+binary. Rolling-release Linux is the support target; macOS packaging is
+best-effort.
