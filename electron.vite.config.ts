@@ -61,7 +61,8 @@ const rendererEdition = resolveRendererEdition(process.env.CHERRY_EDITION)
 // `devDependencies` for exactly this reason — it is pure JS and bundles cleanly. Do NOT
 // move it to `dependencies`: that would externalize it, and since devDependencies are
 // pruned from production packages, the packaged app would fail at runtime with
-// MODULE_NOT_FOUND (no test catches this). See docs/references/api-gateway/README.md.
+// MODULE_NOT_FOUND (guarded by scripts/__tests__/main-bundling.test.ts).
+// See docs/references/api-gateway/README.md.
 const mainExternalDependencies = [
   ...Object.keys(pkg.dependencies),
   // optionalDependencies too: platform-gated natives (e.g. node-mac-permissions) are real import
