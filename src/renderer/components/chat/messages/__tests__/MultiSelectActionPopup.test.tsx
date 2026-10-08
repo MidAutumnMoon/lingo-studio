@@ -31,11 +31,17 @@ vi.mock('@renderer/components/icons/DeleteIcon', () => ({
   default: () => <span data-testid="delete-icon" />
 }))
 
-vi.mock('lucide-react', () => ({
-  Save: () => <span data-testid="save-icon" />,
-  Upload: () => <span data-testid="upload-icon" />,
-  X: () => <span data-testid="close-icon" />
-}))
+vi.mock('lucide-react', async (importOriginal) => {
+  // lucide-react resolves to one instance for both renderer and ui source, so the ui barrel's
+  // icon imports hit this mock too; spread real exports and stub only the asserted icons.
+  const actual = await importOriginal<typeof import('lucide-react')>()
+  return {
+    ...actual,
+    Save: () => <span data-testid="save-icon" />,
+    Upload: () => <span data-testid="upload-icon" />,
+    X: () => <span data-testid="close-icon" />
+  }
+})
 
 // Composition boundary: the menu chrome belongs to the command suite —
 // items render as plain buttons pinning only labels and forwarded targets.

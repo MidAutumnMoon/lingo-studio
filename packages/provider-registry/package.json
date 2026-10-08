@@ -60,7 +60,7 @@
   "dependencies": {
     "class-variance-authority": "catalog:",
     "json-schema": "catalog:",
-    "lucide-react": "^0.563.0",
+    "lucide-react": "catalog:",
     "semver": "catalog:"
   },
   "devDependencies": {

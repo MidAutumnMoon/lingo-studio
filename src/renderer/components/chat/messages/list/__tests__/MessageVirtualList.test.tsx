@@ -43,8 +43,12 @@ vi.mock('@cherrystudio/ui', async (importOriginal) => {
   }
 })
 
-vi.mock('lucide-react', () => {
+vi.mock('lucide-react', async (importOriginal) => {
+  // lucide-react resolves to one instance for both renderer and ui source, so the ui barrel's
+  // icon imports hit this mock too; spread real exports and stub only the asserted icon.
+  const actual = await importOriginal<typeof import('lucide-react')>()
   return {
+    ...actual,
     ArrowDown: () => <svg data-testid="scroll-arrow-icon" />
   }
 })
