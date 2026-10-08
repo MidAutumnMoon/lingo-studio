@@ -49,9 +49,9 @@
     "@ai-sdk/provider-utils": "^4.0.48"
   },
   "devDependencies": {
-    "tsdown": "^0.22.14",
+    "tsdown": "catalog:",
     "typescript": "npm:@typescript/typescript6@6.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "catalog:"
   },
   "peerDependencies": {
     "@ai-sdk/anthropic": "^3.0.71",

@@ -77,13 +77,13 @@
     "prepublishOnly": "pnpm build"
   },
   "devDependencies": {
-    "@tiptap/core": "3.26.1",
-    "@tiptap/pm": "3.26.1",
-    "eslint": "^9.22.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-unused-imports": "^4.1.4",
-    "tsdown": "^0.22.14",
-    "typescript": "5.9.3"
+    "@tiptap/core": "catalog:",
+    "@tiptap/pm": "catalog:",
+    "eslint": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
+    "eslint-plugin-unused-imports": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
   },
   "peerDependencies": {
     "@tiptap/core": "^3.0.9",

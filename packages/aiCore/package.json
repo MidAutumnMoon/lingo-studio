@@ -76,15 +76,15 @@
     "@cherrystudio/ai-sdk-provider": "workspace:*",
     "@openrouter/ai-sdk-provider": "^2.10.0",
     "quick-lru": "^5.1.1",
-    "zod": "^4.1.5"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@cherrystudio/ai-sdk-provider": "workspace:*",
-    "@types/node": "^24.10.4",
-    "oxlint": "1.87.0",
-    "tsdown": "^0.22.14",
+    "@types/node": "catalog:",
+    "oxlint": "catalog:",
+    "tsdown": "catalog:",
     "typescript": "npm:@typescript/typescript6@6.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "catalog:"
   },
   "peerDependencies": {
     "@ai-sdk/google": "^3.0.113",

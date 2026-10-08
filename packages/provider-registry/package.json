@@ -58,20 +58,20 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "class-variance-authority": "^0.7.1",
-    "json-schema": "^0.4.0",
+    "class-variance-authority": "catalog:",
+    "json-schema": "catalog:",
     "lucide-react": "^0.563.0",
-    "semver": "^7.7.1"
+    "semver": "catalog:"
   },
   "devDependencies": {
     "@ai-sdk/provider-utils": "^4.0.40",
-    "@types/json-schema": "^7.0.15",
-    "@types/node": "^24.10.2",
+    "@types/json-schema": "catalog:",
+    "@types/node": "catalog:",
     "dotenv": "^17.2.3",
-    "tsdown": "^0.22.14",
+    "tsdown": "catalog:",
     "typescript": "npm:@typescript/typescript6@6.0.2",
-    "vitest": "^5.0.3",
-    "zod": "^4.1.12"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   },
   "peerDependencies": {},
   "packageManager": "pnpm@10.27.0"
